@@ -129,3 +129,4 @@ that the database holds the new configurations.
 - The primary bot interface is Telegram, as it is simpler to configure and deploy initially on a local Pi.
 - A single SQLite database is sufficient for V1 solo operation, easily mounted via Docker volumes for backups.
 - Day templates default automatically (Semaine on Mon-Fri, Weekend on Sat-Sun) unless overridden manually.
+- The hardware hosting environment is a Raspberry Pi 5 with 2GB of RAM, meaning the entire Docker Compose stack must be lightweight and optimized for a low memory footprint.
