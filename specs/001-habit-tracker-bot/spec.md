@@ -8,6 +8,14 @@
 
 **Input**: User description: "Système d'habitudes avec bot d'accountability et dashboard local, hébergé sur Raspberry Pi 5 avec Docker Compose."
 
+## Clarifications
+
+### Session 2026-05-31
+
+- Q: Which database technology should be selected as the single mandatory storage in V1 to ensure minimal memory footprint and simple local backups? → A: SQLite (zero baseline RAM overhead, simple single-file backups, mounted via Docker volumes).
+- Q: How should V1 handle quantitative parsing for habit logging? → A: Strict units parsing (habits specify expected unit like "min" or "km", bot validates input and displays usage guide on failure).
+- Q: How should secrets and bot configurations (Telegram token, group ID, ports) be managed? → A: Environment variables (.env) injected into Docker containers for security, standard practice, and easy startup.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Daily Habit Logging & accountability Bot (Priority: P1)
@@ -93,9 +101,8 @@ that the database holds the new configurations.
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST store and query all records in a local database (PostgreSQL or SQLite).
-- **FR-002**: The bot interface MUST support strict command parsing for Telegram: `/done [habit]`, `/log [habit] [amount]`,
-  `/skip [habit] [reason]`, `/status today`, `/set-day [template]`, and `/create-habit [metadata]`.
+- **FR-001**: The system MUST store and query all records in a local SQLite database to minimize memory usage and simplify local backups on the 2GB RAM Raspberry Pi 5.
+- **FR-002**: The bot interface MUST support strict command parsing and unit validation for Telegram: `/done [habit]`, `/log [habit] [value][unit]` (where `[unit]` matches expected habit metadata, e.g. `30min`, `5km`), `/skip [habit] [reason]`, `/status today`, `/set-day [template]`, and `/create-habit [metadata]`.
 - **FR-003**: The system MUST maintain exactly 12 customizable stats, defaulted to: Force, Endurance, Mobilité,
   Discipline, Créativité, Connaissance, Sociabilité, Santé mentale, Finance, Organisation, Spiritualité, Repos.
 - **FR-004**: Habits MUST allow linking to multiple stats with daily caps (e.g. Ukulele awards max +5 Creativity / day).
@@ -130,3 +137,4 @@ that the database holds the new configurations.
 - A single SQLite database is sufficient for V1 solo operation, easily mounted via Docker volumes for backups.
 - Day templates default automatically (Semaine on Mon-Fri, Weekend on Sat-Sun) unless overridden manually.
 - The hardware hosting environment is a Raspberry Pi 5 with 2GB of RAM, meaning the entire Docker Compose stack must be lightweight and optimized for a low memory footprint.
+- Sensitive credentials (such as Telegram API tokens and target Group IDs) are stored in a local `.env` configuration file mounted directly into the Docker containers at runtime.
