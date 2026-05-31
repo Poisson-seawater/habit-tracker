@@ -1,50 +1,74 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+SYNC IMPACT REPORT
+==================
+- Version change: Template → v1.0.0
+- List of modified principles:
+  * [PRINCIPLE_1_NAME] → I. Client-Side Local-First Architecture
+  * [PRINCIPLE_2_NAME] → II. Premium Aesthetics & Modern Design
+  * [PRINCIPLE_3_NAME] → III. Standard Tech Stack Discipline (Vanilla-First)
+  * [PRINCIPLE_4_NAME] → IV. Robust State & Local Persistence
+  * [PRINCIPLE_5_NAME] → V. Web Standards, SEO & Accessibility (a11y)
+- Added sections:
+  * Technical Constraints & Stack
+  * Development Quality Gates
+- Removed sections: None
+- Templates requiring updates:
+  * .specify/templates/plan-template.md (✅ updated)
+  * .specify/templates/spec-template.md (✅ updated - no changes needed)
+  * .specify/templates/tasks-template.md (✅ updated - no changes needed)
+- Follow-up TODOs: None
+-->
+
+# habit-tracker Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Client-Side Local-First Architecture
+The application runs entirely in the user's browser without any server-side database or processing.
+All data (habits, completion history, streaks) MUST be stored locally (e.g. in LocalStorage).
+The application must remain fully functional offline and require no network connection.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Premium Aesthetics & Modern Design
+Visual excellence is non-negotiable. The user interface must feel premium, using HSL-based dark
+theme colors by default, sleek modern typography (e.g., Outfit or Inter), smooth hover/active
+transitions, subtle gradients, and responsive layouts. Micro-animations must highlight interaction.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Standard Tech Stack Discipline (Vanilla-First)
+The tech stack must remain clean and lightweight: standard HTML5 semantic elements, modular ES6+
+JavaScript, and Vanilla CSS. Do not use framework libraries (like React/Vue) or CSS engines
+(like TailwindCSS) unless explicitly requested by the user, ensuring zero build overhead.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Robust State & Local Persistence
+State transitions must be managed deterministically and update both the DOM and LocalStorage. Data
+integrity is critical: LocalStorage schemas must be versioned, and the application must gracefully
+handle corrupted, empty, or migrated local state without crashing.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Web Standards, SEO & Accessibility (a11y)
+The project must adhere to modern web standards: exactly one H1 per page, structured HTML5 semantic
+sections, appropriate page titles and meta tags, and unique, descriptive IDs for all interactive
+components to enable seamless automated end-to-end browser testing.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Technical Constraints & Stack
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+- **Runtime**: Modern web browsers supporting ES6+ modules and LocalStorage.
+- **HTML**: Standard-compliant, structured semantic elements.
+- **CSS**: Vanilla CSS using custom properties (variables) for theme tokens. Responsive design
+  via Flexbox and CSS Grid.
+- **JavaScript**: Modular, clean ES6+ JavaScript, running in strict mode.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Development Quality Gates
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- **Syntax Verification**: Run basic syntax checks (`npm run check` or equivalent linting) before
+  commits.
+- **Visual & Interaction Check**: Verify that all components have clean hover effects, transition
+  states, and responsive layouts.
+- **Browser Testing**: Verify that all interactive paths are functional without any console errors.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+- This constitution governs all development on the habit-tracker project.
+- Any modifications to the principles or stack require an agreement and must result in a semantic
+  version bump of the constitution.
+- Refer to [PROJECT.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/PROJECT.md) for the active roadmap and feature scope.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-05-31 | **Last Amended**: 2026-05-31
