@@ -1,16 +1,14 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-- Version change: Template → v1.0.0
+- Version change: v1.0.0 → v2.0.0
 - List of modified principles:
-  * [PRINCIPLE_1_NAME] → I. Client-Side Local-First Architecture
-  * [PRINCIPLE_2_NAME] → II. Premium Aesthetics & Modern Design
-  * [PRINCIPLE_3_NAME] → III. Standard Tech Stack Discipline (Vanilla-First)
-  * [PRINCIPLE_4_NAME] → IV. Robust State & Local Persistence
-  * [PRINCIPLE_5_NAME] → V. Web Standards, SEO & Accessibility (a11y)
-- Added sections:
-  * Technical Constraints & Stack
-  * Development Quality Gates
+  * I. Client-Side Local-First Architecture → I. Dual-Interface Design (Bot-First + Dashboard)
+  * II. Premium Aesthetics & Modern Design → II. Flexible Point-Based Accountability
+  * III. Standard Tech Stack Discipline (Vanilla-First) → III. Multi-User Foundation & Privacy Gates
+  * IV. Robust State & Local Persistence → IV. Self-Hosted Raspberry Pi & Docker Architecture
+  * V. Web Standards, SEO & Accessibility (a11y) → V. Strict API Contract & Integration-Ready
+- Added sections: None
 - Removed sections: None
 - Templates requiring updates:
   * .specify/templates/plan-template.md (✅ updated)
@@ -23,52 +21,49 @@ SYNC IMPACT REPORT
 
 ## Core Principles
 
-### I. Client-Side Local-First Architecture
-The application runs entirely in the user's browser without any server-side database or processing.
-All data (habits, completion history, streaks) MUST be stored locally (e.g. in LocalStorage).
-The application must remain fully functional offline and require no network connection.
+### I. Dual-Interface Design (Bot-First + Dashboard)
+Daily operations (logging habits, skips, viewing day status) MUST happen via the Telegram/Discord
+bot in a group to minimize user friction. The localhost web dashboard acts as a visual, interactive
+analytical character sheet. Both interfaces MUST read/write from a single source of truth database.
 
-### II. Premium Aesthetics & Modern Design
-Visual excellence is non-negotiable. The user interface must feel premium, using HSL-based dark
-theme colors by default, sleek modern typography (e.g., Outfit or Inter), smooth hover/active
-transitions, subtle gradients, and responsive layouts. Micro-animations must highlight interaction.
+### II. Flexible Point-Based Accountability
+Daily validation is evaluated via points and customizable stat thresholds (Acceptable Day and
+Perfect Day) rather than rigid checkboxes. Habits reward points to customizable stats (capped
+daily), letting the user validate their streak via diverse, flexible combinations of actions.
 
-### III. Standard Tech Stack Discipline (Vanilla-First)
-The tech stack must remain clean and lightweight: standard HTML5 semantic elements, modular ES6+
-JavaScript, and Vanilla CSS. Do not use framework libraries (like React/Vue) or CSS engines
-(like TailwindCSS) unless explicitly requested by the user, ensuring zero build overhead.
+### III. Multi-User Foundation & Privacy Gates
+The database schema and API structure MUST support user isolation (with a `users` table in V1) to
+make V2 multi-user expansion seamless. Strict privacy gates must separate private habits and reasons
+from being broadcast in the public chat group recaps.
 
-### IV. Robust State & Local Persistence
-State transitions must be managed deterministically and update both the DOM and LocalStorage. Data
-integrity is critical: LocalStorage schemas must be versioned, and the application must gracefully
-handle corrupted, empty, or migrated local state without crashing.
+### IV. Self-Hosted Raspberry Pi & Docker Architecture
+The system must be fully self-hostable, containerized with Docker Compose, and optimized to run
+reliably 24/7 on a Raspberry Pi 5. Structured persistence (SQLite/PostgreSQL) and simple database
+backups are essential to protect the long-term history of habit data.
 
-### V. Web Standards, SEO & Accessibility (a11y)
-The project must adhere to modern web standards: exactly one H1 per page, structured HTML5 semantic
-sections, appropriate page titles and meta tags, and unique, descriptive IDs for all interactive
-components to enable seamless automated end-to-end browser testing.
+### V. Strict API Contract & Integration-Ready
+A robust internal REST API must decouple the data layer from both the bot daemon and the web
+dashboard. This ensures a clean separation of concerns and guarantees the system is ready to integrate
+with external calendar/todo tools (V3) and skill-tree RPG mechanics (V2).
 
 ## Technical Constraints & Stack
 
-- **Runtime**: Modern web browsers supporting ES6+ modules and LocalStorage.
-- **HTML**: Standard-compliant, structured semantic elements.
-- **CSS**: Vanilla CSS using custom properties (variables) for theme tokens. Responsive design
-  via Flexbox and CSS Grid.
-- **JavaScript**: Modular, clean ES6+ JavaScript, running in strict mode.
+- **Platform**: Raspberry Pi 5 (ARM64) hosted via Docker Compose.
+- **Database**: PostgreSQL or SQLite for local structured persistence.
+- **Backend API**: Modern, lightweight REST API (e.g. Python FastAPI or Node.js Express).
+- **Frontend Dashboard**: Localhost web dashboard combining character sheet styling with analytical tools.
+- **Chat Bot**: Telegram Bot API (or Discord Bot API) running as a group-listening bot daemon.
 
 ## Development Quality Gates
 
-- **Syntax Verification**: Run basic syntax checks (`npm run check` or equivalent linting) before
-  commits.
-- **Visual & Interaction Check**: Verify that all components have clean hover effects, transition
-  states, and responsive layouts.
-- **Browser Testing**: Verify that all interactive paths are functional without any console errors.
+- **Integration Contracts**: Every API route and bot command must have structured error handling and return deterministic JSON responses.
+- **State Isolation**: Database migrations must be managed systematically to protect local data history.
+- **Performance & Uptime**: The bot listener and cron-scheduler must run as persistent daemon containers with automatic recovery.
 
 ## Governance
 
-- This constitution governs all development on the habit-tracker project.
-- Any modifications to the principles or stack require an agreement and must result in a semantic
-  version bump of the constitution.
-- Refer to [PROJECT.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/PROJECT.md) for the active roadmap and feature scope.
+- This constitution governs the design of the habit-tracker RPG/Accountability system.
+- Any changes to core principles, stat systems, or interfaces require updating this constitution with a version bump.
+- Refer to [cahier-des-charges](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/cahier-des-charges) for full product and feature details.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-31 | **Last Amended**: 2026-05-31
+**Version**: 2.0.0 | **Ratified**: 2026-05-31 | **Last Amended**: 2026-05-31

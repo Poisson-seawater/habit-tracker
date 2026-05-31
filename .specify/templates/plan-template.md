@@ -40,11 +40,11 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- [ ] Client-Side Local-First Architecture: Ensure zero server-side or database dependencies.
-- [ ] Premium Aesthetics & Modern Design: Ensure curated dark colors, custom fonts, animations, and premium dark theme by default.
-- [ ] Vanilla-First Tech Stack: Ensure HTML5/CSS3/ES6+ only, without unnecessary frameworks or Tailwind unless requested.
-- [ ] Robust State & Persistence: Ensure state is managed cleanly and persisted in LocalStorage.
-- [ ] Web Standards & Accessibility: Ensure semantic HTML, single H1, and testable IDs.
+- [ ] Dual-Interface Design: Ensure both the Telegram/Discord bot and localhost dashboard access a single unified database.
+- [ ] Flexible Point-Based Accountability: Ensure habits award configurable stat points (capped daily) to validate daily streak thresholds.
+- [ ] Multi-User Foundation & Privacy: Ensure database schema supports user isolation and strict data-privacy gates for group recaps.
+- [ ] Self-Hosted Pi & Docker: Ensure lightweight, containerized Docker Compose setup optimized for persistent running on a Raspberry Pi 5.
+- [ ] Strict API Contract & Integration-Ready: Ensure backend exposes clean internal REST endpoints decoupling the database from bot and web UI.
 
 ## Project Structure
 
