@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aventurier Gabriel — Habit RPG Tracker</title>
+  <meta name="description" content="Localhost RPG-style habit tracker and accountability dashboard for Gabriel.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    
+    <!-- 1. Profile Card & Header -->
+    <header class="glass-card profile-card" id="profile-container">
+      <div class="avatar-container">
+        <div class="avatar-image">🧙‍♂️</div>
+        <div class="avatar-level-badge" id="char-level">LV.1</div>
+      </div>
+      <div class="profile-info">
+        <h1 id="char-name">Gabriel</h1>
+        <div class="class-title" id="char-class">Habit Paladin</div>
+        <div class="profile-badges">
+          <div class="template-select-container">
+            <select id="template-select" class="template-dropdown">
+              <option value="Semaine">Semaine ⚔️</option>
+              <option value="Weekend">Weekend 💤</option>
+              <option value="Récupération">Récupération 🩹</option>
+              <option value="Malade">Malade 🤒</option>
+            </select>
+          </div>
+          <span class="badge badge-status" id="badge-status">Journée Acceptable : En cours</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 2. Dashboard Grid -->
+    <main class="dashboard-grid">
+      
+      <!-- Left Column: 12 RPG Character Stats -->
+      <section class="glass-card stats-panel">
+        <h2 class="section-header">🛡️ <span>Feuille de Personnage</span></h2>
+        
+        <div class="stats-grid" id="stats-container">
+          <!-- Stat Row 1: Force -->
+          <div class="stat-row stat-force" id="stat-row-force">
+            <div class="stat-label-row">
+              <span class="stat-name">Force 💪</span>
+              <span class="stat-value" id="stat-val-force">0 pts</span>
+            </div>
+            <div class="stat-progress-track">
+              <div class="stat-progress-bar" id="stat-bar-force" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Stat Row 2: Endurance -->
+          <div class="stat-row stat-endurance" id="stat-row-endurance">
+            <div class="stat-label-row">
+              <span class="stat-name">Endurance 🏃‍♂️</span>
+              <span class="stat-value" id="stat-val-endurance">0 pts</span>
+            </div>
+            <div class="stat-progress-track">
+              <div class="stat-progress-bar" id="stat-bar-endurance" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Stat Row 3: Mobilité -->
+          <div class="stat-row stat-mobilite" id="stat-row-mobilite">
+            <div class="stat-label-row">
+              <span class="stat-name">Mobilité 🧘‍♂️</span>
+              <span class="stat-value" id="stat-val-mobilite">0 pts</span>
+            </div>
+            <div class="stat-progress-track">
+              <div class="stat-progress-bar" id="stat-bar-mobilite" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Stat Row 4: Discipline -->
+          <div class="stat-row stat-discipline" id="stat-row-discipline">
+            <div class="stat-label-row">
+              <span class="stat-name">Discipline ⚔️</span>
+              <span class="stat-value" id="stat-val-discipline">0 pts</span>
+            </div>
+            <div class="stat-progress-track">
+              <div class="stat-progress-bar" id="stat-bar-discipline" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Stat Row 5: Créativité -->
+          <div class="stat-row stat-creativite" id="stat-row-creativite">
+            <div class="stat-label-row">
+              <span class="stat-name">Créativité 🎨</span>
+              <span class="stat-value" id="stat-val-creativite">0 pts</span>
+            </div>
+            <div class="stat-progress-track">
+              <div class="stat-progress-bar" id="stat-bar-creativite" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Stat Row 6: Connaissance -->
+          <div class="stat-row stat-connaissance" id="stat-row-connaissance">
+            <div class="stat-label-row">
+              <span class="stat-name">Connaissance 📚</span>
+              <span class="stat-value" id="stat-val-connaissance">0 pts</span>
+            </div>
+            <div class="stat-progress-track">
+              <div class="stat-progress-bar" id="stat-bar-connaissance" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Stat Row 7: Sociabilité -->
+          <div class="stat-row stat-sociabilite" id="stat-row-sociabilite">
+            <div class="stat-label-row">
+              <span class="stat-name">Sociabilité 🤝</span>
+              <span class="stat-value" id="stat-val-sociabilite">0 pts</span>
+            </div>
+            <div class="stat-progress-track">
+              <div class="stat-progress-bar" id="stat-bar-sociabilite" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Stat Row 8: Santé mentale -->
+          <div class="stat-row stat-sante_mentale" id="stat-row-sante_mentale">
+            <div class="stat-label-row">
+              <span class="stat-name">Santé Mentale 🧠</span>
+              <span class="stat-value" id="stat-val-sante_mentale">0 pts</span>
+            </div>
+            <div class="stat-progress-track">
+              <div class="stat-progress-bar" id="stat-bar-sante_mentale" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Stat Row 9: Finance -->
+          <div class="stat-row stat-finance" id="stat-row-finance">
+            <div class="stat-label-row">
+              <span class="stat-name">Finance 💰</span>
+              <span class="stat-value" id="stat-val-finance">0 pts</span>
+            </div>
+            <div class="stat-progress-track">
+              <div class="stat-progress-bar" id="stat-bar-finance" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Stat Row 10: Organisation -->
+          <div class="stat-row stat-organisation" id="stat-row-organisation">
+            <div class="stat-label-row">
+              <span class="stat-name">Organisation 📂</span>
+              <span class="stat-value" id="stat-val-organisation">0 pts</span>
+            </div>
+            <div class="stat-progress-track">
+              <div class="stat-progress-bar" id="stat-bar-organisation" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Stat Row 11: Spiritualité -->
+          <div class="stat-row stat-spiritualite" id="stat-row-spiritualite">
+            <div class="stat-label-row">
+              <span class="stat-name">Spiritualité 🌌</span>
+              <span class="stat-value" id="stat-val-spiritualite">0 pts</span>
+            </div>
+            <div class="stat-progress-track">
+              <div class="stat-progress-bar" id="stat-bar-spiritualite" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Stat Row 12: Repos -->
+          <div class="stat-row stat-repos" id="stat-row-repos">
+            <div class="stat-label-row">
+              <span class="stat-name">Repos 💤</span>
+              <span class="stat-value" id="stat-val-repos">0 pts</span>
+            </div>
+            <div class="stat-progress-track">
+              <div class="stat-progress-bar" id="stat-bar-repos" style="width: 0%;"></div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Right Column: Streaks and Daily Quests -->
+      <div class="widgets-container">
+        
+        <!-- Streaks Widget -->
+        <section class="glass-card streaks-widget">
+          <div class="streak-card" id="streak-acc-card">
+            <div class="streak-icon-acc">🔥</div>
+            <div class="streak-number" id="streak-acc-val">0</div>
+            <div class="streak-label">Streak Indispensable</div>
+          </div>
+          <div class="streak-card" id="streak-perf-card">
+            <div class="streak-icon-perf">⭐</div>
+            <div class="streak-number" id="streak-perf-val">0</div>
+            <div class="streak-label">Streak Parfait</div>
+          </div>
+        </section>
+
+        <!-- Quests Widget -->
+        <section class="glass-card quests-panel">
+          <h2 class="section-header">
+            <span>🎯 Quêtes Actives</span>
+            <button class="floating-add-btn" id="open-add-modal-btn">+ Ajouter</button>
+          </h2>
+          <div class="quests-list" id="quests-list-container">
+            <!-- Active quests will be dynamically inserted here -->
+            <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center;">Chargement des quêtes...</p>
+          </div>
+        </section>
+
+      </div>
+
+    </main>
+
+    <!-- 3. Bottom Row: Progression Calendar & Skill Tree Preview -->
+    <section class="bottom-grid">
+      
+      <!-- Progression Calendar -->
+      <div class="glass-card calendar-panel">
+        <h2 class="section-header">📅 <span>Calendrier de Progression (30 Jours)</span></h2>
+        <div class="calendar-grid" id="calendar-grid-container">
+          <!-- 30 days dots will be inserted here -->
+        </div>
+        <div class="calendar-legend">
+          <span class="legend-item"><span class="legend-dot failed"></span> Incomplet / Échec</span>
+          <span class="legend-item"><span class="legend-dot acceptable"></span> Journée Acceptable</span>
+          <span class="legend-item"><span class="legend-dot perfect"></span> Journée Parfaite</span>
+        </div>
+      </div>
+
+      <!-- Skill Tree Preview -->
+      <div class="glass-card skilltree-panel">
+        <h2 class="section-header">
+          <span>🌲 Arbre de Talents</span>
+          <span class="badge badge-locked">🔒 Aperçu V2</span>
+        </h2>
+        <div class="skilltree-container">
+          <div class="skill-tier">
+            <div class="skill-node locked" title="[Niveau 2] Débloque +15% de bonus sur les gains Discipline">
+              <span class="skill-icon">🛡️</span>
+              <span class="skill-name">Focus Infini</span>
+            </div>
+            <div class="skill-node locked" title="[Niveau 3] Réduit les pénalités de streak de 50%">
+              <span class="skill-icon">🔮</span>
+              <span class="skill-name">Volonté d'Acier</span>
+            </div>
+          </div>
+          <div class="skill-tree-connector"></div>
+          <div class="skill-tier">
+            <div class="skill-node locked" title="[Niveau 5] Double les points de Connaissance le week-end">
+              <span class="skill-icon">📚</span>
+              <span class="skill-name">Savoir Ancestral</span>
+            </div>
+            <div class="skill-node locked" title="[Niveau 8] Double le cap des récompenses quotidiennes">
+              <span class="skill-icon">👑</span>
+              <span class="skill-name">Omniscience</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <!-- Action Toast Notifications -->
+  <div class="toast" id="toast-notification">Notification</div>
+
+  <!-- Floating Add Quest Modal -->
+  <div id="add-quest-modal" class="modal">
+    <div class="glass-card modal-content">
+      <div class="modal-header">
+        <h3>✨ Nouvelle Quête RPG</h3>
+        <span class="close-modal-btn" id="close-modal-btn">&times;</span>
+      </div>
+      <form id="add-quest-form" class="modal-form">
+        <div class="form-group">
+          <label for="new-quest-name">Nom de la Quête (identifiant bot)</label>
+          <input type="text" id="new-quest-name" required placeholder="ex: lecture_technique">
+        </div>
+        <div class="form-group">
+          <label for="new-quest-desc">Description</label>
+          <input type="text" id="new-quest-desc" placeholder="ex: Lire 30 pages de documentation">
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="new-quest-type">Type de Quête</label>
+            <select id="new-quest-type">
+              <option value="binary">Binaire (Fait/Non fait)</option>
+              <option value="quantitative">Quantitative (Valeur numérique)</option>
+            </select>
+          </div>
+          <div class="form-group" id="unit-group" style="display: none;">
+            <label for="new-quest-unit">Unité</label>
+            <input type="text" id="new-quest-unit" placeholder="ex: pages, min, km">
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="new-quest-stat">Statistique Récompensée</label>
+            <select id="new-quest-stat">
+              <option value="discipline">Discipline ⚔️</option>
+              <option value="force">Force 💪</option>
+              <option value="endurance">Endurance 🏃‍♂️</option>
+              <option value="mobilite">Mobilité 🧘‍♂️</option>
+              <option value="creativite">Créativité 🎨</option>
+              <option value="connaissance">Connaissance 📚</option>
+              <option value="sociabilite">Sociabilité 🤝</option>
+              <option value="sante_mentale">Santé Mentale 🧠</option>
+              <option value="finance">Finance 💰</option>
+              <option value="organisation">Organisation 📂</option>
+              <option value="spiritualite">Spiritualité 🌌</option>
+              <option value="repos">Repos 💤</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="new-quest-points">Points Récompensés</label>
+            <input type="number" id="new-quest-points" required min="1" max="20" value="3">
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="new-quest-cap">Cap Journalier (Optionnel)</label>
+            <input type="number" id="new-quest-cap" min="1" placeholder="ex: 10">
+          </div>
+          <div class="form-group checkbox-group">
+            <label for="new-quest-private" class="checkbox-label">
+              <input type="checkbox" id="new-quest-private">
+              <span>Rendre Privé 🔒</span>
+            </label>
+          </div>
+        </div>
+        <button type="submit" class="quest-action-btn submit-btn">Ajouter la Quête</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

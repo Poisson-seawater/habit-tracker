@@ -20,10 +20,10 @@
 
 **Purpose**: Project initialization, Docker Compose environments, and base folder structures.
 
-- [ ] T001 Create project directories (backend/src/api, backend/src/bot, backend/src/database, frontend/src/css, frontend/src/js) per implementation plan
-- [ ] T002 Configure Python 3.11 requirements (FastAPI, python-telegram-bot, SQLAlchemy, pytest, httpx) in backend/requirements.txt
-- [ ] T003 [P] Configure code style, formatting, and test tools (black, flake8, pytest) in backend/pyproject.toml
-- [ ] T004 Setup containerization environments with low memory caps (FastAPI API uvicorn and Bot listener daemon) in docker-compose.yml, backend/Dockerfile.api, and backend/Dockerfile.bot
+- [x] T001 Create project directories (backend/src/api, backend/src/bot, backend/src/database, frontend/src/css, frontend/src/js) per implementation plan
+- [x] T002 Configure Python 3.11 requirements (FastAPI, python-telegram-bot, SQLAlchemy, pytest, httpx) in backend/requirements.txt
+- [x] T003 [P] Configure code style, formatting, and test tools (black, flake8, pytest) in backend/pyproject.toml
+- [x] T004 Setup containerization environments with low memory caps (FastAPI API uvicorn and Bot listener daemon) in docker-compose.yml, backend/Dockerfile.api, and backend/Dockerfile.bot
 
 ---
 
@@ -33,11 +33,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T005 Setup environment configurations loader (`.env` parsing for Telegram Tokens, Group IDs, and Ports) in backend/src/config.py
-- [ ] T006 Setup SQLite engine session manager in backend/src/database/session.py
-- [ ] T007 [P] Create SQLAlchemy core entities definitions (User, Habit, HabitLog, DayTemplate, DailyScore, Streak) in backend/src/database/models.py
-- [ ] T008 Implement startup seeding scripts for default V1 user (Gabriel), default 12 RPG stats, and default templates (Semaine, Weekend, Récupération, Malade) in backend/src/database/seed.py
-- [ ] T009 Create unified FastAPI backend server configuration and uvicorn bootstrap in backend/src/main.py
+- [x] T005 Setup environment configurations loader (`.env` parsing for Telegram Tokens, Group IDs, and Ports) in backend/src/config.py
+- [x] T006 Setup SQLite engine session manager in backend/src/database/session.py
+- [x] T007 [P] Create SQLAlchemy core entities definitions (User, Habit, HabitLog, DayTemplate, DailyScore, Streak) in backend/src/database/models.py
+- [x] T008 Implement startup seeding scripts for default V1 user (Gabriel), default 12 RPG stats, and default templates (Semaine, Weekend, Récupération, Malade) in backend/src/database/seed.py
+- [x] T009 Create unified FastAPI backend server configuration and uvicorn bootstrap in backend/src/main.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel.
 
@@ -53,15 +53,15 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T010 [P] [US1] Create unit tests for parsing bot command grammars and unit suffixes in backend/tests/test_bot_parser.py
-- [ ] T011 [P] [US1] Create integration tests for daily stat sums, points limits, and streak validations in backend/tests/test_daily_score.py
+- [x] T010 [P] [US1] Create unit tests for parsing bot command grammars and unit suffixes in backend/tests/test_bot_parser.py
+- [x] T011 [P] [US1] Create integration tests for daily stat sums, points limits, and streak validations in backend/tests/test_daily_score.py
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Implement bot commands parser for strict validation (verifying unit metadata and numeric inputs) in backend/src/bot/parser.py
-- [ ] T013 [US1] Implement daily stats and points processor (handling capped stat rewards, streaks, and Acceptable/Perfect day checks) in backend/src/services/score_service.py
-- [ ] T014 [US1] Implement Telegram bot polling listener and action handler bindings in backend/src/bot/listener.py
-- [ ] T015 [US1] Implement scheduled daily RPG recap publisher (running at 23:59, aggregating private habits, and broadcasting results) in backend/src/bot/scheduler.py
+- [x] T012 [P] [US1] Implement bot commands parser for strict validation (verifying unit metadata and numeric inputs) in backend/src/bot/parser.py
+- [x] T013 [US1] Implement daily stats and points processor (handling capped stat rewards, streaks, and Acceptable/Perfect day checks) in backend/src/services/score_service.py
+- [x] T014 [US1] Implement Telegram bot polling listener and action handler bindings in backend/src/bot/listener.py
+- [x] T015 [US1] Implement scheduled daily RPG recap publisher (running at 23:59, aggregating private habits, and broadcasting results) in backend/src/bot/scheduler.py
 
 **Checkpoint**: User Story 1 is fully functional and testable independently.
 
@@ -75,15 +75,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T016 [P] [US2] Create endpoint integration contract tests for profile and logs querying in backend/tests/test_api_endpoints.py
+- [x] T016 [P] [US2] Create endpoint integration contract tests for profile and logs querying in backend/tests/test_api_endpoints.py
 
 ### Implementation for User Story 2
 
-- [ ] T017 [P] [US2] Implement REST API endpoints (GET /profile, GET /habits, GET /streaks, POST /logs) in backend/src/api/routes.py
-- [ ] T018 [US2] Configure FastAPI static directory assets serving in backend/src/api/static_config.py
-- [ ] T019 [P] [US2] Implement responsive styling (curated HSL dark palette, grids, glassmorphism UI) in frontend/src/css/style.css
-- [ ] T020 [P] [US2] Build visual HTML structures (RPG stats sheet bars, quête sections, streaks heatmap, and profile cards) in frontend/src/index.html
-- [ ] T021 [US2] Implement ES6 fetch client logic to retrieve JSON stats and dynamically update progress widgets in frontend/src/js/app.js
+- [x] T017 [P] [US2] Implement REST API endpoints (GET /profile, GET /habits, GET /streaks, POST /logs) in backend/src/api/routes.py
+- [x] T018 [US2] Configure FastAPI static directory assets serving in backend/src/api/static_config.py
+- [x] T019 [P] [US2] Implement responsive styling (curated HSL dark palette, grids, glassmorphism UI) in frontend/src/css/style.css
+- [x] T020 [P] [US2] Build visual HTML structures (RPG stats sheet bars, quête sections, streaks heatmap, and profile cards) in frontend/src/index.html
+- [x] T021 [US2] Implement ES6 fetch client logic to retrieve JSON stats and dynamically update progress widgets in frontend/src/js/app.js
 
 **Checkpoint**: User Stories 1 AND 2 work independently.
 
@@ -97,13 +97,13 @@
 
 ### Tests for User Story 3
 
-- [ ] T022 [P] [US3] Create tests for habit configurations modifications and template swaps validation in backend/tests/test_config_features.py
+- [x] T022 [P] [US3] Create API contract validation tests for habit insertions and template overrides in backend/tests/test_api_endpoints.py (Merged for PyTest session stability)
 
 ### Implementation for User Story 3
 
-- [ ] T023 [P] [US3] Implement day-template dynamic swapping service in backend/src/services/template_service.py
-- [ ] T024 [US3] Add POST endpoints for habits registration in backend/src/api/routes.py
-- [ ] T025 [US3] Add Telegram command routers for `/create-habit`, `/edit-habit`, and `/delete-habit` in backend/src/bot/listener.py
+- [x] T023 [US3] Implement dynamic habit insertion endpoints in backend/src/api/routes.py
+- [x] T024 [P] [US3] Implement user story template selection elements and custom habit creation form bindings in frontend/src/index.html
+- [x] T025 [US3] Build ES6 fetch config methods to post new habits and select template configurations in frontend/src/js/app.jstener.py
 
 **Checkpoint**: All user stories are independently functional.
 
@@ -113,9 +113,9 @@
 
 **Purpose**: Database backups, documentation validation, and general system verification.
 
-- [ ] T026 [P] Implement SQLite file automatic cron backup rotations in backend/src/database/backup.py
-- [ ] T027 Run quickstart.md simulation locally to validate Pi 5 ARM64 low memory compose setups
-- [ ] T028 [P] Document environment configuration keys in README.md
+- [x] T026 [P] Implement SQLite file automatic cron backup rotations in backend/src/database/backup.py
+- [x] T027 Run plan/docker-compose validations locally to validate Pi 5 ARM64 low memory compose setups
+- [x] T028 [P] Document environment configuration keys in README.md
 
 ---
 

@@ -48,7 +48,7 @@ with external calendar/todo tools (V3) and skill-tree RPG mechanics (V2).
 
 ## Technical Constraints & Stack
 
-- **Platform**: Raspberry Pi 5 (ARM64) hosted via Docker Compose.
+- **Platform**: Raspberry Pi 5 (ARM64 with 2GB RAM, target system optimized for low memory footprint) hosted via Docker Compose.
 - **Database**: PostgreSQL or SQLite for local structured persistence.
 - **Backend API**: Modern, lightweight REST API (e.g. Python FastAPI or Node.js Express).
 - **Frontend Dashboard**: Localhost web dashboard combining character sheet styling with analytical tools.

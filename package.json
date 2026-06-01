@@ -1,0 +1,10 @@
+{
+  "name": "habit-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local habit tracking app prototype.",
+  "scripts": {
+    "start": "python3 -m http.server 4173 --directory app",
+    "check": "node --check app/main.js"
+  }
+}
