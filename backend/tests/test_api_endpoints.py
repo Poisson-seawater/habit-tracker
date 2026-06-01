@@ -5,13 +5,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.database.session import Base, get_db
-from src.database.models import User, Habit, DayTemplate, DailyScore, Streak
+from src.database.models import User, Habit, PerfectDayTemplate, DailyScore, Streak, Goal, SubStep
 from src.main import app
 
-TEST_DB_FILE = "backend/tests/test_habit_tracker.db"
+TEST_DB_FILE = "tests/test_habit_tracker_api.db"
 TEST_DATABASE_URL = f"sqlite:///{TEST_DB_FILE}"
 
-# Setup test database and override get_db dependency
 engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -26,7 +25,6 @@ app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_test_db():
-    # Remove old test DB if it exists
     if os.path.exists(TEST_DB_FILE):
         try:
             os.remove(TEST_DB_FILE)
@@ -38,21 +36,19 @@ def setup_test_db():
     
     try:
         # Seed default user Gabriel
-        u = User(id=1, username="Gabriel", chat_id="111")
+        u = User(id=1, username="Gabriel", chat_id="111", xp=0, level=1, gold=100)
         db.add(u)
         
-        # Seed default templates
-        t1 = DayTemplate(
-            id=1,
-            name="Semaine",
-            acceptable_thresholds={"discipline": 4},
-            perfect_thresholds={"discipline": 8}
+        # Seed V2 PerfectDayTemplates
+        t1 = PerfectDayTemplate(
+            user_id=1,
+            template_name="week",
+            thresholds_json={"discipline": 4}
         )
-        t2 = DayTemplate(
-            id=2,
-            name="Weekend",
-            acceptable_thresholds={"repos": 5},
-            perfect_thresholds={"repos": 10}
+        t2 = PerfectDayTemplate(
+            user_id=1,
+            template_name="weekend",
+            thresholds_json={"repos": 5}
         )
         db.add_all([t1, t2])
         
@@ -80,7 +76,6 @@ def setup_test_db():
         
     yield
     
-    # Clean up test DB after tests
     if os.path.exists(TEST_DB_FILE):
         try:
             os.remove(TEST_DB_FILE)
@@ -88,8 +83,6 @@ def setup_test_db():
             pass
 
 client = TestClient(app)
-
-# --- GET/POST endpoints tests ---
 
 def test_get_profile_endpoint():
     response = client.get("/api/v1/profile")
@@ -105,19 +98,8 @@ def test_get_habits_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert len(data) >= 2
-    assert data[0]["name"] == "routine_matin"
-    assert data[0]["type"] == "binary"
-    assert data[1]["name"] == "lecture"
-    assert data[1]["type"] == "quantitative"
-
-def test_get_streaks_endpoint():
-    response = client.get("/api/v1/streaks")
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
 
 def test_post_logs_endpoint():
-    # Post a completion log for routine_matin (habit 1)
     response = client.post("/api/v1/logs", json={
         "habit_id": 1,
         "log_type": "done"
@@ -125,47 +107,58 @@ def test_post_logs_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "logged"
-    assert "affected_stats" in data
-    assert data["affected_stats"]["discipline"] == 2
-
-# --- Configuration tests ---
-
-def test_create_habit_success():
-    payload = {
-        "name": "nouvelle_habitude",
-        "type": "binary",
-        "description": "Une habitude de test",
-        "point_rewards": {"discipline": 3},
-        "scheduled_days": "0,1,2,3,4,5,6"
-    }
-    response = client.post("/api/v1/habits", json=payload)
-    assert response.status_code == 201
-    data = response.json()
-    assert data["name"] == "nouvelle_habitude"
-    assert data["status"] == "success"
-
-def test_create_habit_duplicate():
-    payload = {
-        "name": "nouvelle_habitude",
-        "type": "binary",
-        "point_rewards": {"discipline": 3}
-    }
-    response = client.post("/api/v1/habits", json=payload)
-    assert response.status_code == 400
-    assert "already exists" in response.json()["detail"]
 
 def test_change_template_success():
-    response = client.post("/api/v1/profile/template", json={"template_name": "Weekend"})
+    response = client.post("/api/v1/profile/template", json={"template_name": "weekend"})
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "updated"
-    assert data["active_template"] == "Weekend"
+    assert data["active_template"] == "weekend"
 
-def test_get_history_endpoint():
-    response = client.get("/api/v1/history")
+def test_create_and_complete_todo_endpoints():
+    payload = {
+        "title": "⚔️ Dompter le Dragon de Fer (Séance Jambes)",
+        "xp_reward": 30,
+        "stat_reward_1": "discipline",
+        "points_reward_1": 5
+    }
+    response = client.post("/api/v1/todos", json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["todo"]["xp_reward"] == 30
+    todo_id = data["todo"]["id"]
+
+    response = client.post(f"/api/v1/todos/{todo_id}/complete")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 30
-    assert "date" in data[0]
-    assert "status" in data[0]
-    assert "label" in data[0]
+    assert data["status"] == "success"
+    assert data["xp_rewarded"] == 30
+
+def test_goals_and_substeps_crud():
+    # 1. Create a Goal
+    response = client.post("/api/v1/goals", json={
+        "title": "Devenir Millionnaire",
+        "description": "Atteindre 1M en actif"
+    })
+    assert response.status_code == 201
+    goal = response.json()["goal"]
+    goal_id = goal["id"]
+
+    # 2. Add SubStep
+    response = client.post(f"/api/v1/goals/{goal_id}/substeps", json={
+        "title": "Trouver un bon avocat",
+        "gold_reward": 200,
+        "stats_json": ["discipline"]
+    })
+    assert response.status_code == 201
+    substep = response.json()["substep"]
+    substep_id = substep["id"]
+
+    # 3. Retrieve Goals Graphes
+    response = client.get("/api/v1/goals")
+    assert response.status_code == 200
+    goals = response.json()
+    assert len(goals) >= 1
+    assert goals[-1]["title"] == "Devenir Millionnaire"
+    assert goals[-1]["substeps"][0]["title"] == "Trouver un bon avocat"

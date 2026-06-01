@@ -7,11 +7,11 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
 from src.config import TELEGRAM_BOT_TOKEN, TELEGRAM_GROUP_ID
 from src.database.session import SessionLocal
-from src.database.models import User, Habit, HabitLog, DayTemplate, DailyScore, Streak
+from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo
 from src.bot.parser import parse_command, ParserError
-from src.services.score_service import calculate_daily_score, update_streaks
+from src.services.score_service import calculate_daily_score, update_streaks, DEFAULT_THRESHOLDS
 
-# Mapping HSL-tailored stats to their French display labels
+# Mapping stats to their French display labels
 STAT_LABELS = {
     "force": "Force 💪",
     "endurance": "Endurance 🏃‍♂️",
@@ -44,22 +44,35 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat_id = str(update.effective_chat.id)
     
-    # In production, strictly restrict to target group chat
+    # Strictly restrict to target group chat in production
     if TELEGRAM_GROUP_ID and chat_id != str(TELEGRAM_GROUP_ID):
         print(f"Ignored message from unauthorized chat ID: {chat_id}")
         return
 
     db = SessionLocal()
     try:
-        # Resolve Gabriel (User ID 1) and update his chat_id if necessary
-        user = db.query(User).filter_by(id=1).first()
+        # Resolve active user from the message sender
+        from_user = update.message.from_user
+        telegram_username = from_user.username or from_user.first_name
+        user_chat_id = str(from_user.id)
+
+        user = db.query(User).filter_by(username=telegram_username).first()
         if not user:
-            # Fallback seed user
-            user = User(id=1, username="Gabriel", chat_id=chat_id)
+            user = db.query(User).filter_by(chat_id=user_chat_id).first()
+
+        if not user:
+            # Create user with initial XP, level, and Gold
+            user = User(
+                username=telegram_username,
+                chat_id=user_chat_id,
+                xp=0,
+                level=1,
+                gold=0
+            )
             db.add(user)
             db.commit()
-        elif user.chat_id != chat_id:
-            user.chat_id = chat_id
+        elif user.chat_id != user_chat_id:
+            user.chat_id = user_chat_id
             db.commit()
 
         username = user.username
@@ -81,7 +94,7 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
 
             if habit.type != "binary":
-                await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" est quantitative. Utilisez: /log {habit_name} [valeur][unité]")
+                await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" est quantitative. Utilisez : /log {habit_name} [valeur][unité]")
                 return
 
             # Check if already logged today
@@ -101,7 +114,6 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(f"🎯 L'habitude \"{habit_name}\" a déjà été complétée aujourd'hui !")
                 return
 
-            # Log habit
             log = HabitLog(
                 user_id=user.id,
                 habit_id=habit.id,
@@ -110,8 +122,8 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             db.add(log)
             db.commit()
 
-            # Recalculate points and streaks
-            calculate_daily_score(db, user_id=user.id, date=today)
+            # Recalculate daily stats
+            score = calculate_daily_score(db, user_id=user.id, date=today)
             update_streaks(db, user_id=user.id, date=today)
 
             rewards_str = format_stat_rewards(habit.point_rewards)
@@ -131,14 +143,13 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
 
             if habit.type != "quantitative":
-                await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" est binaire. Utilisez: /done {habit_name}")
+                await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" est binaire. Utilisez : /done {habit_name}")
                 return
 
             if habit.unit and unit.lower() != habit.unit.lower():
-                await update.message.reply_text(f"❌ L'habitude attend l'unité \"{habit.unit}\" (ex: /log {habit_name} {val}{habit.unit})")
+                await update.message.reply_text(f"❌ L'habitude attend l'unité \"{habit.unit}\" (ex : /log {habit_name} {val}{habit.unit})")
                 return
 
-            # Log habit
             log = HabitLog(
                 user_id=user.id,
                 habit_id=habit.id,
@@ -149,16 +160,12 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             db.add(log)
             db.commit()
 
-            # Recalculate
             today = datetime.date.today()
-            calculate_daily_score(db, user_id=user.id, date=today)
+            score = calculate_daily_score(db, user_id=user.id, date=today)
             update_streaks(db, user_id=user.id, date=today)
 
             rewards_str = format_stat_rewards(habit.point_rewards)
-            # Add indication if cap applies
-            cap_info = ""
-            if habit.daily_cap:
-                cap_info = f" (Cap journalier: {habit.daily_cap}pts)"
+            cap_info = f" (Cap journalier : {habit.daily_cap}pts)" if habit.daily_cap else ""
 
             await update.message.reply_text(
                 f"📚 {username} a loggé {val}{unit} pour la quête \"{habit_name}\" !\n"
@@ -174,7 +181,6 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" n'existe pas ou n'est pas active.")
                 return
 
-            # Log skip
             log = HabitLog(
                 user_id=user.id,
                 habit_id=habit.id,
@@ -184,7 +190,6 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             db.add(log)
             db.commit()
 
-            # Recalculate
             today = datetime.date.today()
             calculate_daily_score(db, user_id=user.id, date=today)
             update_streaks(db, user_id=user.id, date=today)
@@ -198,24 +203,16 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             today = datetime.date.today()
             score = calculate_daily_score(db, user_id=user.id, date=today)
             
-            template = db.query(DayTemplate).filter_by(id=score.active_template_id).first()
-            template_name = template.name if template else "Semaine"
+            # Fetch custom thresholds or defaults
+            custom_template = db.query(PerfectDayTemplate).filter_by(user_id=user.id, template_name=score.template_used).first()
+            thresholds = custom_template.thresholds_json if custom_template else DEFAULT_THRESHOLDS.get(score.template_used, {})
 
-            # Get acceptable thresholds string
-            acc_status = "🟩 Validé" if score.status in ["Acceptable", "Perfect"] else "🟥 En cours"
-            perf_status = "🟩 Validé" if score.status == "Perfect" else "🟥 En cours"
-
-            acc_details = []
-            if template:
-                for stat, thresh in template.acceptable_thresholds.items():
-                    actual = score.actual_stats.get(stat.lower(), 0)
-                    acc_details.append(f"{STAT_LABELS.get(stat.lower(), stat)}: {actual}/{thresh}")
+            perf_status = "🟩 Validé !" if score.status == "Perfect" else "🟥 En cours..."
 
             perf_details = []
-            if template:
-                for stat, thresh in template.perfect_thresholds.items():
-                    actual = score.actual_stats.get(stat.lower(), 0)
-                    perf_details.append(f"{STAT_LABELS.get(stat.lower(), stat)}: {actual}/{thresh}")
+            for stat, thresh in thresholds.items():
+                actual = score.actual_stats.get(stat.lower(), 0)
+                perf_details.append(f"{STAT_LABELS.get(stat.lower(), stat)} : {actual}/{thresh}")
 
             # Get completed habits list
             start_dt = datetime.datetime.combine(today, datetime.time.min)
@@ -230,21 +227,29 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             skipped_lines = []
             logged_habit_ids = set()
 
-            for log in today_logs:
-                habit = db.query(Habit).filter_by(id=log.habit_id).first()
+            for log_entry in today_logs:
+                habit = db.query(Habit).filter_by(id=log_entry.habit_id).first()
                 if not habit:
                     continue
                 logged_habit_ids.add(habit.id)
-                
-                # Check privacy
                 display_name = "Chose secrète 🔒" if habit.is_private else habit.name
 
-                if log.log_type == "done":
+                if log_entry.log_type == "done":
                     completed_lines.append(f"- {display_name} (done)")
-                elif log.log_type == "log":
-                    completed_lines.append(f"- {display_name} ({log.amount}{log.unit})")
-                elif log.log_type == "skip":
-                    skipped_lines.append(f"- {display_name} (skippé, raison: {log.reason})")
+                elif log_entry.log_type == "log":
+                    completed_lines.append(f"- {display_name} ({log_entry.amount}{log_entry.unit})")
+                elif log_entry.log_type == "skip":
+                    skipped_lines.append(f"- {display_name} (skippé, raison : {log_entry.reason})")
+
+            # Get completed Todos for today
+            completed_todos = db.query(Todo).filter(
+                Todo.user_id == user.id,
+                Todo.is_completed == True,
+                Todo.completed_at >= start_dt,
+                Todo.completed_at <= end_dt
+            ).all()
+            for t in completed_todos:
+                completed_lines.append(f"- Todo : {t.title} (+{t.xp_reward} XP)")
 
             # Get remaining scheduled habits
             weekday = today.weekday()
@@ -256,26 +261,21 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 scheduled = str(model_day_idx) in [day.strip() for day in habit.scheduled_days.split(",")]
                 if not scheduled or habit.id in logged_habit_ids:
                     continue
-                
-                # Check privacy
                 display_name = "Chose secrète 🔒" if habit.is_private else habit.name
-                
                 desc = "quantitative" if habit.type == "quantitative" else "binary"
                 remaining_lines.append(f"- {display_name} ({desc})")
 
-            # Get streaks
-            acc_streak = db.query(Streak).filter_by(user_id=user.id, streak_type="Acceptable").first()
+            # Streaks
             perf_streak = db.query(Streak).filter_by(user_id=user.id, streak_type="Perfect").first()
-
-            acc_streak_val = acc_streak.current_streak if acc_streak else 0
             perf_streak_val = perf_streak.current_streak if perf_streak else 0
 
             msg = (
-                f"⚔️ *{username}* — Statut du Jour (Template : {template_name})\n\n"
-                f"Acceptable Day : {acc_status} ({', '.join(acc_details)})\n"
-                f"Perfect Day : {perf_status} ({', '.join(perf_details)})\n\n"
-                f"🔥 Streak Acceptable : {acc_streak_val} jours\n"
-                f"⭐ Streak Perfect : {perf_streak_val} jours\n\n"
+                f"⚔️ *{username}* — Statut de la journée (Template : {score.template_used.upper()})\n\n"
+                f"Perfect Day : {perf_status}\n"
+                f"🎯 Seuils à atteindre : {', '.join(perf_details) if perf_details else 'Aucun'}\n\n"
+                f"🔥 Streak Perfect Day : {perf_streak_val} jours\n"
+                f"💰 Or accumulé : {user.gold} Gold\n"
+                f"⭐ Niveau {user.level} (XP : {user.xp})\n\n"
             )
 
             if completed_lines:
@@ -291,16 +291,14 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif cmd == "set-day":
             t_name = parsed["template_name"].lower()
-            
-            # Map sick/semaine/recovery toseeded template names
             t_map = {
-                "semaine": "Semaine",
-                "weekend": "Weekend",
-                "recovery": "Récupération",
-                "sick": "Malade",
-                "malade": "Malade",
-                "récupération": "Récupération",
-                "recuperation": "Récupération"
+                "semaine": "week",
+                "week": "week",
+                "weekend": "weekend",
+                "recovery": "recup",
+                "recup": "recup",
+                "sick": "malade",
+                "malade": "malade"
             }
 
             matched_name = t_map.get(t_name)
@@ -310,19 +308,13 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 return
 
-            template = db.query(DayTemplate).filter(DayTemplate.name.collate("NOCASE") == matched_name).first()
-            if not template:
-                await update.message.reply_text(f"❌ Template \"{matched_name}\" non trouvé dans la base.")
-                return
-
-            # Apply and recalculate
             today = datetime.date.today()
-            score = calculate_daily_score(db, user_id=user.id, date=today, template_id=template.id)
+            score = calculate_daily_score(db, user_id=user.id, date=today, template_name=matched_name)
             update_streaks(db, user_id=user.id, date=today)
 
             await update.message.reply_text(
-                f"🩹 Template de journée mis à jour vers : \"{template.name}\".\n"
-                f"✨ Les seuils de points ont été allégés pour aujourd'hui !"
+                f"🩹 Template de journée mis à jour vers : \"{score.template_used.upper()}\".\n"
+                f"✨ Les seuils de points ont été réajustés pour aujourd'hui !"
             )
 
     except Exception as e:
@@ -334,24 +326,20 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def main():
     if not TELEGRAM_BOT_TOKEN:
         print("⚠️ WARNING: TELEGRAM_BOT_TOKEN environment variable is not defined.")
-        print("The Telegram Bot Listener will run in standby mode. Define the token in your .env file to enable polling.")
+        print("The Telegram Bot Listener will run in standby mode.")
         while True:
             await asyncio.sleep(3600)
 
     print(f"Starting Telegram Bot polling listener on Group ID: {TELEGRAM_GROUP_ID}...")
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # Route all messages that look like commands
     application.add_handler(MessageHandler(filters.TEXT & filters.ChatType.GROUPS, route_command))
-
-    # Support direct private testing if group is not set up
     application.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, route_command))
 
     await application.initialize()
     await application.start()
     await application.updater.start_polling()
 
-    # Run until cancelled
     try:
         while True:
             await asyncio.sleep(1)

@@ -3,41 +3,67 @@ import datetime
 import asyncio
 from telegram import Bot
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
 from src.config import TELEGRAM_BOT_TOKEN
 from src.database.session import SessionLocal
-from src.database.models import User, Habit, HabitLog, DayTemplate, DailyScore, Streak
-from src.services.score_service import calculate_daily_score, update_streaks, ALL_12_STATS, STAT_LABELS
+from src.database.models import User, Habit, HabitLog, DailyScore, Streak, Todo
+from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_12_STATS
+
+STAT_LABELS = {
+    "force": "Force 💪",
+    "endurance": "Endurance 🏃‍♂️",
+    "mobilite": "Mobilité 🧘‍♂️",
+    "discipline": "Discipline ⚔️",
+    "creativite": "Créativité 🎨",
+    "connaissance": "Connaissance 📚",
+    "sociabilite": "Sociabilité 🤝",
+    "sante_mentale": "Santé Mentale 🧠",
+    "finance": "Finance 💰",
+    "organisation": "Organisation 📂",
+    "spiritualite": "Spiritualité 🌌",
+    "repos": "Repos 💤"
+}
 
 async def publish_daily_recap():
     """
-    Triggered at 23:59 daily. Calculates the day's final score for each user, 
-    updates streaks, and broadcasts an RPG character-sheet recap to the Telegram group chat.
+    Triggered at 23:59 daily. Calculates the day's final score for all users,
+    updates streaks, awards 5 XP for Perfect Days, and broadcasts a consolidated
+    RPG guild recap to the Telegram group chat.
     """
     if not TELEGRAM_BOT_TOKEN:
         print("⚠️ Scheduler: TELEGRAM_BOT_TOKEN is missing. Recap broadcast aborted.")
         return
 
-    print("Scheduler: Starting 23:59 daily RPG recap publisher...")
+    from src.config import TELEGRAM_GROUP_ID
+
+    print("Scheduler: Starting 23:59 daily RPG guild recap publisher...")
     bot = Bot(token=TELEGRAM_BOT_TOKEN)
     db = SessionLocal()
     
     try:
         users = db.query(User).all()
-        for user in users:
-            if not user.chat_id:
-                print(f"Skipping user {user.username} (no chat_id configured).")
-                continue
+        if not users:
+            print("Scheduler: No adventurers found in database.")
+            return
 
-            today = datetime.date.today()
-            
+        today = datetime.date.today()
+        user_blocks = []
+        individual_reports = {}
+
+        for user in users:
             # 1. Finalize daily score and streaks
             score = calculate_daily_score(db, user_id=user.id, date=today)
             update_streaks(db, user_id=user.id, date=today)
 
-            template = db.query(DayTemplate).filter_by(id=score.active_template_id).first()
-            template_name = template.name if template else "Semaine"
+            # 2. Award 5 XP if Perfect Day achieved
+            xp_gained = 0
+            levels_gained = []
+            if score.status == "Perfect":
+                xp_gained = 5
+                levels_gained = add_user_xp(user, 5)
+                db.commit()
 
-            # 2. Get today's logs and split by public / private
+            # 3. Get today's logs and split by public / private
             start_dt = datetime.datetime.combine(today, datetime.time.min)
             end_dt = datetime.datetime.combine(today, datetime.time.max)
             logs = db.query(HabitLog).filter(
@@ -59,72 +85,91 @@ async def publish_daily_recap():
                         private_completed_count += 1
                     else:
                         if log.log_type == "done":
-                            public_actions.append(f"- {habit.name} (completé ✅)")
+                            public_actions.append(f"{habit.name} ✅")
                         else:
-                            public_actions.append(f"- {habit.name} ({log.amount}{log.unit} 📊)")
+                            public_actions.append(f"{habit.name} ({log.amount}{log.unit})")
                 elif log.log_type == "skip":
-                    # Skips are public, show reason
                     if habit.is_private:
-                        public_actions.append(f"- Chose secrète 🔒 (skippée ⏭️, raison: {log.reason})")
+                        public_actions.append("Chose secrète 🔒 (skippée ⏭️)")
                     else:
-                        public_actions.append(f"- {habit.name} (skippé ⏭️, raison: {log.reason})")
+                        public_actions.append(f"{habit.name} (skippé ⏭️)")
 
-            # 3. Format streaks
-            acc_streak = db.query(Streak).filter_by(user_id=user.id, streak_type="Acceptable").first()
+            # Check completed Todos today
+            completed_todos = db.query(Todo).filter(
+                Todo.user_id == user.id,
+                Todo.is_completed == True,
+                Todo.completed_at >= start_dt,
+                Todo.completed_at <= end_dt
+            ).all()
+            for t in completed_todos:
+                public_actions.append(f"Todo : {t.title} 🌟")
+
+            # 4. Format streaks
             perf_streak = db.query(Streak).filter_by(user_id=user.id, streak_type="Perfect").first()
-
-            acc_streak_val = acc_streak.current_streak if acc_streak else 0
             perf_streak_val = perf_streak.current_streak if perf_streak else 0
 
             # Determine daily status string
             if score.status == "Perfect":
-                status_emoji = "🏆 PERFECT DAY!"
-                status_desc = "Gabriel a transcendé ses limites aujourd'hui !"
-            elif score.status == "Acceptable":
-                status_emoji = "🟩 JOURNÉE ACCEPTABLE"
-                status_desc = "Gabriel a validé ses quêtes indispensables."
+                status_emoji = "🏆 PERFECT DAY (+5 XP)!"
             else:
-                status_emoji = "🟥 JOURNÉE RATÉE"
-                status_desc = "Le boss a triomphé aujourd'hui. On fera mieux demain !"
+                status_emoji = "🟥 JOURNÉE INCOMPLÈTE"
 
-            # Format stat progression lines for non-zero points earned today
-            stat_earned_lines = []
+            # Format stat progression lines
+            stat_earned_parts = []
             for stat in ALL_12_STATS:
                 val = score.actual_stats.get(stat, 0)
                 if val > 0:
                     label = STAT_LABELS.get(stat, stat.capitalize())
-                    stat_earned_lines.append(f"  • {label} : +{val} pts")
+                    label_short = label.split(" ")[0] if " " in label else label
+                    stat_earned_parts.append(f"{label_short} +{val}")
 
-            stat_progression_block = "\n".join(stat_earned_lines) if stat_earned_lines else "  • Aucune stat obtenue"
+            stat_progression_str = ", ".join(stat_earned_parts) if stat_earned_parts else "Aucune stat"
 
-            # 4. Construct beautiful public RPG message
-            msg = (
-                f"🔔 *RAPPORT RPG JOURNALIER — 23:59*\n"
-                f"👤 Aventurier : *{user.username}* | Template : *{template_name}*\n"
-                f"━━━━━━━━━━━━━━━━━━━\n\n"
-                f"🛡️ *Statut Final :* {status_emoji}\n"
-                f"💬 _\"{status_desc}\"_\n\n"
-                f"🔥 Streak Acceptable : *{acc_streak_val} jours*\n"
-                f"⭐ Streak Perfect : *{perf_streak_val} jours*\n\n"
-                f"📈 *Stats obtenues aujourd'hui :*\n"
-                f"{stat_progression_block}\n\n"
-                f"⚔️ *Quêtes Accomplies :*\n"
-            )
+            # Level up notification text
+            lvl_info = f" (LEVEL UP! Nouveau niveau: {user.level} 🎉)" if levels_gained else ""
 
-            if public_actions:
-                msg += "\n".join(public_actions) + "\n"
-            else:
-                msg += "- Aucune quête publique enregistrée.\n"
-
+            # 5. Construct user block
+            actions_str = ", ".join(public_actions) if public_actions else "Aucune action enregistrée"
             if private_completed_count > 0:
-                msg += f"\n🔒 *Actions privées complétées :* {private_completed_count}\n"
+                actions_str += f" (+{private_completed_count} privées 🔒)"
 
-            msg += "\n━━━━━━━━━━━━━━━━━━━\n"
-            msg += "💪 Demain est une nouvelle journée d'entraînement. Préparez-vous !"
+            user_block = (
+                f"👤 Aventurier : *{user.username}* (Niveau {user.level}{lvl_info})\n"
+                f"🛡️ *Statut :* {status_emoji} | Template : {score.template_used.upper()}\n"
+                f"🔥 Streak Perfect : *{perf_streak_val}j* | 💰 Or : *{user.gold} Gold*\n"
+                f"📈 *Stats du jour :* {stat_progression_str}\n"
+                f"⚔️ *Actions :* {actions_str}"
+            )
+            user_blocks.append(user_block)
+            individual_reports[user.chat_id] = user_block
 
-            # 5. Broadcast to Telegram chat
-            await bot.send_message(chat_id=user.chat_id, text=msg, parse_mode="Markdown")
-            print(f"Scheduler: Successfully broadcast daily recap for {user.username} to chat ID {user.chat_id}")
+        # 6. Construct group or individual messages
+        group_chat_id = TELEGRAM_GROUP_ID if TELEGRAM_GROUP_ID else None
+
+        if group_chat_id:
+            guild_msg = (
+                f"🔔 *BILAN DE LA GUILDE — {today.strftime('%d/%m/%Y')}* ⚔\n"
+                f"━━━━━━━━━━━━━━━━━━━\n\n"
+                + "\n\n".join(user_blocks) + "\n\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"💪 Demain est une nouvelle journée d'entraînement. Soyez prêts !"
+            )
+            await bot.send_message(chat_id=group_chat_id, text=guild_msg, parse_mode="Markdown")
+            print(f"Scheduler: Successfully broadcast daily guild recap to group chat ID {group_chat_id}")
+        else:
+            # Fallback to individual DMs
+            for chat_id, report_str in individual_reports.items():
+                if not chat_id:
+                    continue
+                dm_msg = (
+                    f"🔔 *VOTRE BILAN JOURNALIER — {today.strftime('%d/%m/%Y')}* ⚔\n"
+                    f"━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"{report_str}\n\n"
+                    f"━━━━━━━━━━━━━━━━━━━\n"
+                    f"💪 Demain est une nouvelle journée d'entraînement. Soyez prêts !"
+                )
+                await bot.send_message(chat_id=chat_id, text=dm_msg, parse_mode="Markdown")
+                print(f"Scheduler: Successfully sent daily DM recap to {chat_id}")
 
     except Exception as e:
         print(f"Scheduler: Error publishing daily recap: {e}")
@@ -133,11 +178,9 @@ async def publish_daily_recap():
 
 def start_scheduler():
     scheduler = AsyncIOScheduler()
-    # Schedule daily recap at 23:59
     scheduler.add_job(publish_daily_recap, 'cron', hour=23, minute=59)
     scheduler.start()
     print("Scheduler: Daily RPG recap scheduled at 23:59.")
 
 if __name__ == "__main__":
-    # Test script locally by running the task directly
     asyncio.run(publish_daily_recap())

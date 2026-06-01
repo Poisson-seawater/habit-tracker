@@ -1,15 +1,16 @@
-# Spécification Fonctionnelle — Multi-User & RPG Engine V2 ⚔️🧙‍♂️
+# Spécification Fonctionnelle — Multi-User & Progression Réelle (RPG V2) ⚔️🎯
 
-Ce document spécifie les exigences fonctionnelles et techniques pour la **Phase 2 (V2)** du Habit RPG Accountability Tracker. 
+Ce document spécifie les exigences fonctionnelles et techniques pour la **Phase 2 (V2)** réinventée du Habit RPG Accountability Tracker. L'objectif est de recentrer le système sur la progression réelle via des objectifs long terme et la discipline quotidienne, plutôt que sur des badges statiques.
 
 ---
 
 ## 🎯 Objectifs de la V2
 
-1. **Multi-User Scaling** : Permettre à plusieurs aventuriers de rejoindre le bot Telegram simultanément et de consulter leurs dashboards personnels sécurisés.
-2. **RPG Engine & XP** : Remplacer le système statique par un vrai gain d'XP dynamique avec formules de montée de niveau, et stockage persistant.
-3. **Arbre de Compétences Interactif (Skill Tree)** : Débloquer les 4 compétences de l'arbre grâce à des points de talent gagnés à chaque montée de niveau.
-4. **Système de Badges & Succès** : Débloquer des distinctions visuelles (ex : "Discipline d'Acier" pour un streak de 10 jours) affichées fièrement sur le profil.
+1. **Progression par Objectifs & Graphe de Sous-étapes** : Remplacer l'arbre de talents statique par un système dynamique d'objectifs long terme découpés en sous-étapes interdépendantes (graphe orienté acyclique ou DAG).
+2. **Économie de l'Or (Gold)** : Gagner de l'or personnalisé en accomplissant des sous-étapes et objectifs pour de futures récompenses.
+3. **Statistiques Éphémères & Visualisation Quotidienne** : Les statistiques de la feuille de personnage retombent à 0 tous les matins pour refléter uniquement la discipline du jour.
+4. **Calculateurs de "Perfect Day" Réalistes** : Visualiser la somme potentielle des statistiques par jour de la semaine pour paramétrer intelligemment les 4 templates de journées.
+5. **Intégration Telegram Bot Enrichie** : Enregistrer les habitudes, changer de template et recevoir le bilan de fin de journée directement depuis le chat.
 
 ---
 
@@ -18,92 +19,100 @@ Ce document spécifie les exigences fonctionnelles et techniques pour la **Phase
 ### Spécification de la Base de Données
 - Le bot Telegram intercepte le `username` et le `chat_id` de chaque personne écrivant un message.
 - Si le `username` n'existe pas en base de données, le bot crée automatiquement un nouvel `User` dans la table SQLite.
-- Les tables `HabitLog`, `DailyScore` et `Streak` sont partitionnées par `user_id`.
+- Les tables `HabitLog`, `DailyScore`, `Goal`, `SubStep`, et `Todo` sont partitionnées par `user_id`.
 
 ### Dashboard Sécurisé
 - L'URL `/` sert de portail de sélection ou d'authentification par code/identifiant Telegram.
-- Une fois authentifié, l'utilisateur accède à sa feuille de personnage privée.
+- Une fois authentifié, l'utilisateur accède à son tableau de bord privé (3 écrans).
 
 ---
 
-## 🧙‍♂️ 2. RPG Engine & XP Formula
+## ⚔️ 2. Graphe d'Objectifs & Sous-étapes (Vision Long Terme)
 
-### Formule d'XP
-- Chaque point de statistique RPG (Force, Discipline, etc.) gagné lors de la complétion d'une quête accorde également de l'**XP**.
-- **Formule de montée de niveau** :
-  $$XP\_requis = \lfloor (Niveau)^{1.8} \times 100 \rfloor$$
-- **Niveau 1** : 0 à 100 XP
-- **Niveau 2** : 100 à 282 XP (Besoin de 182 XP supplémentaires)
-- **Niveau 3** : 282 à 520 XP (Besoin de 238 XP supplémentaires)
+Au lieu de badges ou compétences passives pré-calculés, l'utilisateur gère sa progression réelle :
 
-### Progression en direct
-- L'XP actuel et la barre de progression vers le prochain niveau sont renvoyés par `GET /profile` et dessinés avec des animations HSL dorées sous l'avatar.
+### Structure en Graphe (DAG)
+- **Objectifs (Goals)** : Buts majeurs à long terme (ex: *"Devenir millionnaire"*, *"Faire le tour du monde"*).
+- **Sous-étapes (Sub-steps)** : Jalons intermédiaires nécessaires pour atteindre un objectif.
+- **Multiniveau** : Une sous-étape peut elle-même posséder des sous-étapes enfants (ex: *Avoir de l'argent* ➔ sous-étape de *Avoir 500k* ➔ sous-étape de *Devenir millionnaire*).
+- **Liaisons partagées** : Si une sous-étape est présente dans plusieurs objectifs (ex: *"Avoir une entrée d'argent stable"* lié à *Devenir millionnaire* et *Avoir des enfants*), **sa complétion est globale** (la cocher la valide instantanément partout).
+- **Liaison aux Statistiques** : Chaque objectif et chaque sous-étape est lié à 1 ou plusieurs statistiques RPG (jusqu'à 12 maximum, ex: Force, Finance, Organisation, Connaissance) à des fins de catégorisation.
 
----
+### Dépendances de Blocage (Option A - Strict)
+- Une sous-étape peut déclarer une ou plusieurs autres sous-étapes comme "bloquantes" (dépendances requises).
+- **Règle stricte** : Une sous-étape bloquée est affichée comme cadenassée dans l'interface et **ne peut pas être cochée/validée** par l'utilisateur tant que toutes ses étapes bloquantes ne sont pas validées.
 
-## 🌲 3. Arbre de Compétences Interactif (Skill Tree)
-
-À chaque montée de niveau, l'utilisateur gagne **1 Point de Talent**. 
-Il peut cliquer sur les compétences de l'arbre du dashboard pour les débloquer :
-
-1. **Focus Infini** 🛡️ (Requiert Niveau 2, Coûte 1 Point) : Accorde un bonus passif de +15% sur tous les gains de points de la statistique *Discipline*.
-2. **Volonté d'Acier** 🔮 (Requiert Niveau 3, Coûte 1 Point) : Si l'utilisateur skip une habitude autorisée, la pénalité de streak est réduite de 50%.
-3. **Savoir Ancestral** 📚 (Requiert Niveau 5, Coûte 2 Points) : Double les gains de points de *Connaissance* lors des lectures effectuées le week-end.
-4. **Omniscience** 👑 (Requiert Niveau 8, Coûte 3 Points, requiert Focus Infini) : Double le cap journalier (`daily_cap`) de toutes les habitudes.
+### Validation Manuelle & Or (Gold)
+- La validation des sous-étapes et objectifs est **exclusivement manuelle** par le user (pas de calcul automatique à partir des statistiques quotidiennes).
+- Chaque sous-étape rapporte un montant d'**Or (Gold) personnalisé** défini par l'utilisateur lors de sa création. Cet or est accumulé de manière permanente sur le profil du joueur.
 
 ---
 
-## 🎖️ 4. Système de Badges & Succès
+## 🧙‍♂️ 3. RPG Engine & Statistiques Éphémères
 
-Les badges sont débloqués automatiquement à minuit lors du calcul des scores ou en direct lors des logs :
+### Statistiques Éphémères (Daily Reset)
+- Les statistiques quotidiennes accumulées via les habitudes et Todos **retombent strictement à 0 le lendemain matin** !
+- Elles servent de tableau de bord d'efforts ("reps in") pour la journée en cours.
+- Seul le calendrier de progression historique des 30 derniers jours conserve la trace de la qualité de la journée (Perfect Day, etc.). Le niveau global et l'XP de l'utilisateur sont également permanents.
 
-- **Discipline d'Acier** 🛡️ : Avoir complété la quête `routine_matin` pendant 10 jours consécutifs.
-- **Rat de Bibliothèque** 📖 : Avoir accumulé un total historique de 500 minutes de lecture.
-- **Zen Master** 🧘‍♂️ : Avoir complété l'habitude `meditation` 15 fois dans le mois.
-- **Survivant** 🩹 : Avoir validé une journée en template "Malade" ou "Récupération".
-
----
-
-## 🧪 Scénarios d'Acceptation (UAT)
-
-### Scénario 1 : Découverte & Création de Compte Bot
-- **Étant donné** un nouvel utilisateur Telegram "@Jeanne" écrivant `/status` pour la première fois.
-- **Quand** le listener intercepte le message.
-- **Alors** Jeanne est enregistrée automatiquement comme aventurière de Niveau 1, et reçoit un message de bienvenue avec son profil vierge.
-
-### Scénario 2 : Montée de Niveau & Attribution de XP
-- **Étant donné** Gabriel ayant 95 XP de Niveau 1.
-- **Quand** il logue une habitude rapportant 10 XP.
-- **Alors** son total d'XP passe à 105, son niveau passe instantanément à **Level 2**, il reçoit une alerte animée sur le dashboard, et son compteur de points de talent passe à **1**.
-
-### Scénario 3 : Achat d'une Compétence
-- **Étant donné** Gabriel ayant 1 Point de Talent de niveau 2.
-- **Quand** il clique sur "Focus Infini 🛡️" dans l'arbre de talents et valide.
-- **Alors** le serveur API déduit son point de talent, enregistre la compétence débloquée, et les quêtes futures de Discipline appliquent le multiplicateur de +15% en base de données.
+### Formule d'XP Exponentielle
+- **Perfect Day** : Réaliser un Perfect Day rapporte **5 XP** permanents.
+- **Todos (Primes)** : Compléter un Todo rapporte des points de statistiques quotidiennes (max 2 statistiques différentes) et de l'**XP personnalisée** (définie à la création, max 40 XP par Todo).
+- **Niveaux** : La progression vers le niveau suivant est exponentielle ($N+1 = 2N$). L'XP requise pour monter du niveau $L$ au niveau $L+1$ double à chaque niveau :
+  $$XP_{requis}(L \rightarrow L+1) = 10 \times 2^{L-1}$$
+  *(Niveau 1 ➔ 2 : 10 XP | Niveau 2 ➔ 3 : 20 XP | Niveau 3 ➔ 4 : 40 XP, etc.)*
 
 ---
 
-## 📅 5. Planification Hebdomadaire des Quêtes (Dailies Scheduling)
+## 📅 4. Le Grimoire du Jour Parfait (Active Templates & Paramétrages)
 
-Pour s'assurer que les quêtes s'adaptent au rythme réel de l'utilisateur :
-- Lors de la création d'une quête (via le dashboard ou le bot), l'utilisateur peut choisir d'activer la quête soit **"Tous les jours"**, soit pour des **"Jours spécifiques"** de la semaine.
-- **Jours spécifiques** : L'utilisateur coche les jours souhaités (L, M, M, J, V, S, D).
-- Le backend stocke cette planification dans le champ `scheduled_days` (représenté par des index de jours `0` à `6` séparés par des virgules).
-- Si un jour donné n'est pas planifié pour une quête, celle-ci n'apparaît pas dans la liste des tâches actives du jour, n'affecte pas le calcul du score quotidien, et ne brise pas le streak de l'utilisateur.
+### Les 4 Templates de Journée
+L'utilisateur définit ses objectifs en points de statistiques à atteindre pour valider un "Perfect Day" selon 4 templates :
+1. **Semaine (Weekday)** : Calculé dynamiquement par défaut du lundi au vendredi.
+2. **Weekend** : Calculé dynamiquement pour le samedi et le dimanche. Plus exigeant que la Semaine par défaut.
+3. **Récupération (Recovery)** : Choisie manuellement par l'utilisateur en fin de journée (ex: targets de stats très basiques).
+4. **Malade (Sick)** : Choisie manuellement en fin de journée (targets presque nulles).
+
+### Paramétrage Intelligent des Templates
+Dans l'écran de paramétrage :
+- L'utilisateur voit toutes ses **Quêtes Actives (habitudes)** triées et regroupées par jour de la semaine.
+- L'interface calcule dynamiquement la **somme totale des statistiques théoriques** réalisables chaque jour (ex: *Lundi : Force = 16pts, Mental = 3pts, etc.*).
+- Grâce à cette somme, l'utilisateur peut paramétrer ses objectifs de Perfect Day (ex: fixer le seuil de Force à 16pts pour la semaine) de façon totalement réaliste et alignée.
 
 ---
 
-## 📜 6. Le Tableau des Primes (Todos) & Le Grimoire du Jour Parfait
+## 🖥️ 5. Spécification des 3 Écrans de l'Interface
 
-### Le Tableau des Primes (Todos)
-- Les Todos sont des quêtes uniques (non récurrentes) destinées à accomplir des tâches ponctuelles importantes.
-- **Zéro pénalité** : Les Todos n'ont pas de pénalité en cas d'inactivité, restant purement positifs et gratifiants.
-- **Leveling & XP** : Compléter un Todo rapporte immédiatement de l'XP substantiel et des points pour une statistique RPG choisie, aidant directement l'utilisateur à monter de niveau.
-- **Synergie Jour Parfait** : Les points de statistiques gagnés en complétant un Todo s'ajoutent aux statistiques accumulées de la journée. Ils comptent donc pour valider les seuils requis du jour !
+L'interface web se divise en 3 vues d'une clarté absolue :
 
-### Le Grimoire du Jour Parfait (Active Templates Pathfinder)
-Le **Grimoire du Jour Parfait** est un widget central qui affiche en clair les exigences du jour basées sur le template actif :
-- **Adaptabilité** : Il traduit dynamiquement le template actuel (Semaine, Weekend, Récupération, Malade) en objectifs clairs (ex: *"Repos : 2 / 5 points requis pour une journée parfaite"*).
-- **Visuel interactif** : Des indicateurs lumineux et des barres d'objectifs spécifiques guident l'aventurier tout au long de la journée.
-- **Calendrier Synchrone** : Dès que les objectifs du Grimoire du jour sont validés (Acceptable ou Parfait), le statut de la journée est mis à jour et se répercute instantanément dans le **Calendrier de Progression 30 Jours** sous forme de sphère allumée (Vert/Or pour Parfait, Cyan pour Acceptable).
+### Écran 1 : Dashboard Principal (Main Screen)
+- **Feuille de Personnage** : Niveau, jauge d'XP exponentielle dorée, solde d'Or (Gold) et les 12 barres de statistiques quotidiennes qui se réinitialisent tous les matins.
+- **Quêtes Actives (Habitudes)** : Liste des quêtes à valider aujourd'hui.
+- **Tableau des Primes (Todos)** : Liste des tâches ponctuelles avec récompenses en stats et XP personnalisés (max 40 XP).
+- **Visualiseur du Grimoire** : Progression dynamique vers le Perfect Day du template actuel.
+- **Calendrier de Progression** : Constellation des 30 derniers jours (Vert/Or pour Parfait, Rouge pour Manqué, etc.).
+- **Bouton de Fin de Journée** : Permet de clore la journée et de sélectionner le template final (Récupération, Malade, ou laisser le calcul par défaut de la Semaine/Weekend).
 
+### Écran 2 : Gestion des Objectifs (Goal Screen)
+- **Créateur de Graphe** : Ajouter des objectifs majeurs et créer des sous-étapes multiniveaux avec :
+  - Liens vers 1 ou plusieurs statistiques.
+  - Dépendances de blocage (déclarer quelles sous-étapes bloquent cette étape).
+  - Montant d'Or (Gold) personnalisé accordé à la complétion.
+- **Visualisateur Graphique** : Rendu visuel clair de l'arbre et des connexions sous forme de nœuds (les nœuds bloqués affichent un cadenas 🔒).
+- **Validation manuelle** : Cliquer pour cocher une étape accomplie et recevoir son Or. Les sous-étapes partagées se cochent automatiquement partout.
+
+### Écran 3 : Paramètres des Perfect Days (Settings Screen)
+- **Sommaire des Habitudes par Jour** : Tableau récapitulatif montrant la somme des points de statistiques potentiels par jour de la semaine en fonction des habitudes actives.
+- **Configurateur de Templates** : Champs pour fixer les seuils statistiques exigés pour chacun des 4 templates (Semaine, Weekend, Récupération, Malade).
+- **Gestionnaire d'Habitudes** : Ajouter, modifier ou supprimer des habitudes récurrentes et les jours de la semaine où elles sont programmées.
+
+---
+
+## 🤖 6. Commandes & Logique du Bot Telegram
+
+Le bot Telegram est le compagnon quotidien fluide de l'utilisateur :
+
+- `/log <habit_key> <valeur>` : Enregistre la complétion d'une habitude aujourd'hui (augmente les stats de la journée).
+- `/template <nom>` : Permet de forcer manuellement le template de la journée courante (`recup` ou `malade`).
+- `/status` : Affiche l'état actuel de la journée (les stats cumulées aujourd'hui par rapport aux exigences du template actif).
+- **Bilan de fin de journée (Cron à 23h59 ou action manuelle)** : Le bot calcule si la journée est un "Perfect Day" selon le template final, attribue l'XP permanente (5 XP si parfait), réinitialise les stats de la feuille de personnage à 0 pour le lendemain, et envoie un récapitulatif détaillé et motivant du résultat dans le chat Telegram !

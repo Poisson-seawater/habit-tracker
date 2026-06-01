@@ -64,13 +64,11 @@ def parse_command(text: str) -> dict:
         return {"command": "skip", "habit_name": habit_name, "reason": reason}
         
     elif cmd == "/status":
-        if args_str != "today":
-            raise ParserError("Usage : /status today")
         return {"command": "status", "target": "today"}
         
-    elif cmd == "/set-day":
+    elif cmd in ["/set-day", "/template"]:
         if not args_str:
-            raise ParserError("Usage : /set-day [nom_template]\nExemple : /set-day sick")
+            raise ParserError("Usage : /template [nom_template]\nExemple : /template sick")
         return {"command": "set-day", "template_name": args_str}
         
     else:

@@ -15,7 +15,8 @@ Self-hosted RPG-style habit tracker and accountability system running on a **Ras
 
 ## 🔑 Environment Configuration
 
-Create a `.env` file at the root level of your workspace with the following keys:
+Copy `.env.example` to `.env` at the root level of your workspace, then fill in
+the Telegram values:
 
 ```ini
 # --- Telegram Configurations ---
@@ -23,10 +24,11 @@ TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 TELEGRAM_GROUP_ID=your_telegram_group_id_here
 
 # --- Server Configurations ---
-PORT=5000
+API_PORT=5000
+ENV=production
 
 # --- SQLite Persistent Parameters (Host Override) ---
-SQLITE_DB_PATH=/data/habit_tracker.db
+DATABASE_URL=sqlite:////data/habit_tracker.db
 ```
 
 ---
@@ -65,6 +67,14 @@ Run the entire suite inside ultra-light virtual environments utilizing resource 
 ```bash
 # Build and run containers in background polling loops
 docker compose up -d --build
+```
+
+On the Raspberry Pi, update an existing deployment with:
+
+```bash
+git pull --ff-only
+docker compose up -d --build
+docker compose ps
 ```
 
 ---

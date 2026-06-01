@@ -148,5 +148,6 @@ Thumbs.db
 # Environment configurations & local data
 .env
 .env*
+!.env.example
 data/
 backend/data/

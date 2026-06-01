@@ -9,11 +9,18 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, nullable=False, unique=True)
     chat_id = Column(String, nullable=True, unique=True, index=True)
+    xp = Column(Integer, default=0)
+    level = Column(Integer, default=1)
+    gold = Column(Integer, default=0)  # Total accumulated gold
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     logs = relationship("HabitLog", back_populates="user", cascade="all, delete-orphan")
     scores = relationship("DailyScore", back_populates="user", cascade="all, delete-orphan")
     streaks = relationship("Streak", back_populates="user", cascade="all, delete-orphan")
+    todos = relationship("Todo", back_populates="user", cascade="all, delete-orphan")
+    goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")
+    substeps = relationship("SubStep", back_populates="user", cascade="all, delete-orphan")
+    perfect_day_templates = relationship("PerfectDayTemplate", back_populates="user", cascade="all, delete-orphan")
 
 
 class Habit(Base):
@@ -53,15 +60,15 @@ class HabitLog(Base):
     habit = relationship("Habit", back_populates="logs")
 
 
-class DayTemplate(Base):
-    __tablename__ = "day_templates"
+class PerfectDayTemplate(Base):
+    __tablename__ = "perfect_day_templates"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False, unique=True, index=True)  # e.g., "Semaine", "Weekend", "Récupération", "Malade"
-    acceptable_thresholds = Column(JSON, nullable=False)  # e.g., {"discipline": 5, "force": 10}
-    perfect_thresholds = Column(JSON, nullable=False)  # e.g., {"discipline": 8, "force": 20}
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    template_name = Column(String, nullable=False)  # "week", "weekend", "recup", "malade"
+    thresholds_json = Column(JSON, nullable=False)  # dict mapping stats e.g. {"force": 16, "mobilité": 4}
 
-    scores = relationship("DailyScore", back_populates="active_template")
+    user = relationship("User", back_populates="perfect_day_templates")
 
 
 class DailyScore(Base):
@@ -71,11 +78,10 @@ class DailyScore(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     date = Column(Date, nullable=False, index=True)
     status = Column(String, default="Failed")  # "Failed", "Acceptable", "Perfect"
-    active_template_id = Column(Integer, ForeignKey("day_templates.id"), nullable=False)
+    template_used = Column(String, nullable=False)  # "week", "weekend", "recup", "malade"
     actual_stats = Column(JSON, nullable=False)  # e.g., {"discipline": 6, "force": 12}
 
     user = relationship("User", back_populates="scores")
-    active_template = relationship("DayTemplate", back_populates="scores")
 
 
 class Streak(Base):
@@ -89,3 +95,89 @@ class Streak(Base):
     last_incremented = Column(Date, nullable=True)
 
     user = relationship("User", back_populates="streaks")
+
+
+class Todo(Base):
+    __tablename__ = "todos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False)
+    stat_reward_1 = Column(String, nullable=True)
+    points_reward_1 = Column(Integer, default=0)
+    stat_reward_2 = Column(String, nullable=True)
+    points_reward_2 = Column(Integer, default=0)
+    xp_reward = Column(Integer, default=10)  # Custom up to 40 XP
+    is_completed = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", back_populates="todos")
+
+
+class Goal(Base):
+    __tablename__ = "goals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    completed = Column(Boolean, default=False)
+    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User", back_populates="goals")
+    substep_links = relationship("GoalSubStepLink", back_populates="goal", cascade="all, delete-orphan")
+
+
+class SubStep(Base):
+    __tablename__ = "substeps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False)
+    gold_reward = Column(Integer, default=0)
+    completed = Column(Boolean, default=False)
+    completed_at = Column(DateTime, nullable=True)
+    stats_json = Column(JSON, nullable=True)  # List of related stats e.g. ["force", "finance"]
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User", back_populates="substeps")
+    goal_links = relationship("GoalSubStepLink", back_populates="substep", cascade="all, delete-orphan")
+    
+    # Dependencies where this substep is blocked by others
+    dependencies_blocked = relationship(
+        "SubStepDependency",
+        foreign_keys="[SubStepDependency.substep_id]",
+        back_populates="substep",
+        cascade="all, delete-orphan"
+    )
+    # Dependencies where this substep blocks others
+    dependencies_blockers = relationship(
+        "SubStepDependency",
+        foreign_keys="[SubStepDependency.blocked_by_id]",
+        back_populates="blocked_by",
+        cascade="all, delete-orphan"
+    )
+
+
+class GoalSubStepLink(Base):
+    __tablename__ = "goal_substep_links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    goal_id = Column(Integer, ForeignKey("goals.id", ondelete="CASCADE"), nullable=False)
+    substep_id = Column(Integer, ForeignKey("substeps.id", ondelete="CASCADE"), nullable=False)
+
+    goal = relationship("Goal", back_populates="substep_links")
+    substep = relationship("SubStep", back_populates="goal_links")
+
+
+class SubStepDependency(Base):
+    __tablename__ = "substep_dependencies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    substep_id = Column(Integer, ForeignKey("substeps.id", ondelete="CASCADE"), nullable=False)
+    blocked_by_id = Column(Integer, ForeignKey("substeps.id", ondelete="CASCADE"), nullable=False)
+
+    substep = relationship("SubStep", foreign_keys=[substep_id], back_populates="dependencies_blocked")
+    blocked_by = relationship("SubStep", foreign_keys=[blocked_by_id], back_populates="dependencies_blockers")

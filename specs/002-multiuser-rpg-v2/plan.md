@@ -1,21 +1,26 @@
-# Plan d'Architecture & Migration — RPG Multi-User V2 🛠️📐
+# Plan d'Architecture & Migration — Progression Réelle & RPG V2 📐🛠️
 
-Ce document fournit le plan technique et architectural pour implémenter les fonctionnalités de la **V2** sans casser l'existant (rétrocompatibilité de la V1).
+Ce document décrit la structure technique de la base de données, des API et des flux de travail pour l'implémentation de la V2.
 
 ---
 
-## 💾 1. Migrations & Schéma SQLite
+## 💾 1. Modèles & Schéma SQLite (Graph & Ephemeral)
 
-Pour supporter le multi-utilisateur et l'arbre de compétences, nous devons enrichir notre schéma relationnel avec les champs suivants :
+Pour supporter le graphe multiniveau d'objectifs, l'économie de l'or, les statistiques éphémères et les 4 templates, le schéma relationnel SQLite est conçu comme suit :
 
 ```mermaid
 erDiagram
-    User ||--o{ Habit : "configure"
-    User ||--o{ HabitLog : "enregistre"
-    User ||--o{ DailyScore : "possède"
-    User ||--o{ Streak : "suit"
-    User ||--o{ UnlockedSkill : "possède"
-    User ||--o{ UnlockedBadge : "possède"
+    User ||--o{ Goal : "configure"
+    User ||--o{ SubStep : "possède"
+    User ||--o{ Todo : "complète"
+    User ||--o{ DailyScore : "historise"
+    User ||--o{ PerfectDayTemplate : "configure"
+
+    Goal ||--o{ GoalSubStepLink : "contient"
+    SubStep ||--o{ GoalSubStepLink : "lié_à"
+    
+    SubStep ||--o{ SubStepDependency : "bloqué_par"
+    SubStep ||--o{ SubStepDependency : "bloque"
 
     User {
         int id PK
@@ -23,159 +28,186 @@ erDiagram
         string chat_id
         int xp "Default: 0"
         int level "Default: 1"
-        int talent_points "Default: 0"
+        int gold "Default: 0 (Or accumulé)"
     }
 
-    UnlockedSkill {
+    Goal {
         int id PK
         int user_id FK
-        string skill_key "e.g. focus_infini"
-        datetime unlocked_at
+        string title
+        string description
+        boolean completed "Default: false"
+        datetime completed_at
+        datetime created_at
     }
 
-    UnlockedBadge {
+    SubStep {
         int id PK
         int user_id FK
-        string badge_key "e.g. discipline_acier"
-        datetime unlocked_at
+        string title
+        int gold_reward "Montant d'or personnalisé"
+        boolean completed "Default: false (Globalement partagé)"
+        datetime completed_at
+        string stats_json "Liste des stats liées (ex: ['force', 'finance'])"
+        datetime created_at
+    }
+
+    GoalSubStepLink {
+        int id PK
+        int goal_id FK
+        int substep_id FK
+    }
+
+    SubStepDependency {
+        int id PK
+        int substep_id FK "Sous-étape bloquée"
+        int blocked_by_id FK "Sous-étape bloquante"
+    }
+
+    Todo {
+        int id PK
+        int user_id FK
+        string title
+        string stat_reward_1 "Optionnel"
+        int points_reward_1 "Default: 0"
+        string stat_reward_2 "Optionnel"
+        int points_reward_2 "Default: 0"
+        int xp_reward "Custom de 0 à 40 XP"
+        boolean completed "Default: false"
+        datetime completed_at
+        datetime created_at
+    }
+
+    DailyScore {
+        int id PK
+        int user_id FK
+        date date
+        string stats_json "Score final figé de la journée (ex: {'force': 16})"
+        string template_used "week | weekend | recup | malade"
+        string status "perfect | acceptable | failed"
+    }
+
+    PerfectDayTemplate {
+        int id PK
+        int user_id FK
+        string template_name "week | weekend | recup | malade"
+        string thresholds_json "Seuils requis par stat (ex: {'force': 16})"
     }
 ```
 
-### Script de Migration SQL
-Un script `backend/src/database/migrations/v2_migration.sql` ajoutera les colonnes et créera les tables associées :
+### Script de Migration SQL (`backend/src/database/migrations/v2_rebuilt.sql`)
+Ce script initialisera les nouvelles tables et migrera les structures de la V1 :
 ```sql
--- Ajout des colonnes de progression RPG à la table existante
+-- Création des tables de progression par objectifs & graphes
+CREATE TABLE goals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    completed BOOLEAN DEFAULT 0,
+    completed_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+CREATE TABLE substeps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    gold_reward INTEGER DEFAULT 0,
+    completed BOOLEAN DEFAULT 0,
+    completed_at DATETIME,
+    stats_json TEXT, -- JSON array of strings
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+CREATE TABLE goal_substep_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    goal_id INTEGER NOT NULL,
+    substep_id INTEGER NOT NULL,
+    FOREIGN KEY(goal_id) REFERENCES goals(id) ON DELETE CASCADE,
+    FOREIGN KEY(substep_id) REFERENCES substeps(id) ON DELETE CASCADE
+);
+
+CREATE TABLE substep_dependencies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    substep_id INTEGER NOT NULL,
+    blocked_by_id INTEGER NOT NULL,
+    FOREIGN KEY(substep_id) REFERENCES substeps(id) ON DELETE CASCADE,
+    FOREIGN KEY(blocked_by_id) REFERENCES substeps(id) ON DELETE CASCADE
+);
+
+-- Table des Templates de Perfect Day
+CREATE TABLE perfect_day_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    template_name TEXT NOT NULL, -- 'week', 'weekend', 'recup', 'malade'
+    thresholds_json TEXT NOT NULL, -- JSON object, e.g. {"force": 16, "mobilité": 4}
+    FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+-- Mise à jour de la table User pour stocker l'XP, les niveaux et l'or accumulé
 ALTER TABLE users ADD COLUMN xp INTEGER DEFAULT 0;
 ALTER TABLE users ADD COLUMN level INTEGER DEFAULT 1;
-ALTER TABLE users ADD COLUMN talent_points INTEGER DEFAULT 0;
-
--- Table de liaison pour les compétences débloquées
-CREATE TABLE user_unlocked_skills (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    skill_key TEXT NOT NULL,
-    unlocked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(user_id) REFERENCES users(id)
-);
-
--- Table de liaison pour les badges décernés
-CREATE TABLE user_unlocked_badges (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    badge_key TEXT NOT NULL,
-    unlocked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(user_id) REFERENCES users(id)
-);
+ALTER TABLE users ADD COLUMN gold INTEGER DEFAULT 0;
 ```
 
 ---
 
-## 👥 2. Routage Multi-User & Authentification Bot
+## 🚀 2. Endpoints de l'API REST (FastAPI)
 
-### Identification automatique sur Telegram
-Le listener intercepte l'expéditeur de chaque commande :
-```python
-user_username = update.message.from_user.username or update.message.from_user.first_name
-chat_id = str(update.message.chat_id)
+Les endpoints REST seront partitionnés par utilisateur via `?user_id=X` :
 
-# Résolution en base de données
-user = db.query(User).filter_by(username=user_username).first()
-if not user:
-    user = User(username=user_username, chat_id=chat_id, xp=0, level=1, talent_points=0)
-    db.add(user)
-    db.commit()
-```
+### Gestion des Objectifs (Graphes)
+- `GET /api/v1/goals` : Renvoie la liste de tous les objectifs de l'utilisateur avec leurs sous-étapes associées.
+- `POST /api/v1/goals` : Crée un nouvel objectif majeur.
+- `POST /api/v1/goals/{goal_id}/substeps` : Crée une nouvelle sous-étape et l'associe à l'objectif.
+- `POST /api/v1/substeps/link` : Lie une sous-étape existante à un autre objectif (liaison partagée).
+- `POST /api/v1/substeps/{substep_id}/dependency` : Déclare une relation de dépendance bloquante entre deux sous-étapes.
+- `POST /api/v1/substeps/{substep_id}/complete` : Coche manuellement une sous-étape.
+  - **Règle** : Renvoie une erreur `400 Bad Request` si une sous-étape bloquante n'est pas encore validée.
+  - **Effet** : Marque la sous-étape comme validée partout, attribue l'Or personnalisé à l'utilisateur.
 
-### API Dashboard sécurisée
-Pour éviter qu'un utilisateur ne modifie les quêtes d'un autre :
-1. **Endpoint `GET /api/v1/users`** : Renvoie les profils actifs.
-2. **Session Header / Query Parameter `?user_id=X`** : Le dashboard transmet l'identifiant de l'utilisateur actif à chaque requête, et les endpoints REST filtrent les résultats en conséquence (`user_id = int(request.query_params.get("user_id", 1))`).
+### Gestion du Grimoire & Perfect Day Settings
+- `GET /api/v1/templates` : Renvoie la configuration des 4 templates.
+- `POST /api/v1/templates` : Enregistre les seuils de statistiques pour un template.
+- `GET /api/v1/quests/daily-stats-potentials` : Calcule et renvoie la somme théorique des statistiques par jour de la semaine en fonction des habitudes programmées, triées du lundi au dimanche.
 
 ---
 
-## 🧪 3. Implémentation du Moteur RPG (XP & Talent Multipliers)
+## 🤖 3. Commandes & Logique Telegram Bot
 
-Dans `backend/src/services/score_service.py`, la fonction de logging intègre le calcul passif des multiplicateurs :
+Le bot Telegram (`backend/src/bot/`) exécutera les flux suivants :
 
-```python
-def process_habit_log(db: Session, user_id: int, habit_id: int, ...):
-    # 1. Vérifier si l'utilisateur possède la compétence "Focus Infini"
-    has_focus = db.query(UnlockedSkill).filter_by(user_id=user_id, skill_key="focus_infini").first()
-    
-    # 2. Appliquer les gains de points
-    multiplier = 1.15 if (has_focus and stat == "discipline") else 1.0
-    adjusted_points = raw_points * multiplier
-    
-    # 3. Attribuer l'XP (1 XP par point accordé)
-    user = db.query(User).filter_by(id=user_id).first()
-    user.xp += int(adjusted_points)
-    
-    # 4. Vérifier la montée de niveau
-    next_level_xp = int((user.level) ** 1.8 * 100)
-    if user.xp >= next_level_xp:
-        user.level += 1
-        user.talent_points += 1
-        # Déclencher une notification
-```
+1. **Log d'Habitudes** (`/log <habit_key> <value>`) :
+   - Ajoute la valeur aux statistiques quotidiennes de l'utilisateur dans l'état éphémère en base de données.
+2. **Choix du Template** (`/template <recup|malade|week|weekend>`) :
+   - Modifie le template de la journée en cours.
+3. **Statut Courant** (`/status`) :
+   - Calcule l'état éphémère du jour et le compare au template actif pour afficher la progression sous forme de barre de points.
+4. **Calcul de Minuit (Cron de fin de journée)** :
+   - Détermine dynamiquement si c'est Semaine (Lun-Ven) ou Weekend (Sam-Dim) si aucun template manuel n'est appliqué.
+   - Compare les scores de la journée aux objectifs du template choisi.
+   - Si les objectifs sont atteints ➔ **Perfect Day !** ➔ Attribue **5 XP** permanents.
+   - Gère le passage de niveau exponentiel :
+     $$\text{XP Requis}(L) = 10 \times 2^{L-1}$$
+   - Fige la journée dans `DailyScore` pour le calendrier historique de 30 jours.
+   - **Mise à 0** de toutes les statistiques quotidiennes éphémères de la feuille de personnage pour le lendemain.
+   - Envoie le bulletin de victoire/défaite par Telegram.
 
 ---
 
-## 📋 4. Plan de Tests & Vérifications
+## 🧪 4. Plan de Tests & Vérifications
 
-### Tests Unitaires
-- `tests/test_rpg_engine.py` : Valide la formule mathématique d'XP, la montée de niveau automatique, et l'accumulation des points de talents.
-- `tests/test_skills.py` : Valide l'application stricte des multiplicateurs de compétences (Focus Infini, Savoir Ancestral) lors des check-ins.
+### Tests Automatisés
+- `tests/test_goals_graph.py` :
+  - Valide la création de sous-étapes multiniveaux et de liaisons de graphes.
+  - Teste la complétion partagée (cocher dans un objectif coche dans l'autre).
+  - Teste l'interdiction stricte de cocher une sous-étape bloquée (dépendance non résolue).
+- `tests/test_ephemeral_stats.py` :
+  - Valide que les statistiques cumulées des habitudes et Todos reviennent bien à 0 après le calcul de fin de journée.
+  - Valide l'attribution de 5 XP par Perfect Day et la formule de montée de niveau exponentielle.
 
-### Tests d'Intégration Multi-User
-- `tests/test_multiuser_concurrency.py` : Valide que Jeanne et Gabriel peuvent logguer des habitudes différentes en parallèle sur le même SQLite sans interférences de scores ni de verrous SQL.
-
----
-
-## 📝 5. Table des Todos (Bounties) & Logique Grimoire
-
-### Modèle SQLAlchemy `Todo`
-```python
-class Todo(Base):
-    __tablename__ = "todos"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    title = Column(String, nullable=False)
-    description = Column(String, nullable=True)
-    stat_reward = Column(String, nullable=False) # e.g., "discipline", "organisation"
-    points_reward = Column(Integer, default=3)
-    xp_reward = Column(Integer, default=50)
-    completed = Column(Boolean, default=False)
-    completed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-```
-
-### Logique du Grimoire du Jour Parfait
-Le Grimoire compare en direct les points cumulés de la journée (habitudes + todos complétés) avec les seuils requis par le template actif :
-```python
-def check_grimoire_targets(db: Session, user_id: int, date: datetime.date):
-    # 1. Récupérer le score journalier (contient le template actif)
-    score = db.query(DailyScore).filter_by(user_id=user_id, date=date).first()
-    if not score:
-        return []
-    
-    # 2. Récupérer les seuils requis pour ce template
-    thresholds = score.template.thresholds
-    
-    # 3. Récupérer les points cumulés aujourd'hui (habitudes + todos)
-    earned_points = get_today_earned_stats(db, user_id, date)
-    
-    # 4. Comparer et renvoyer la liste de progression
-    targets = []
-    for t in thresholds:
-        current = earned_points.get(t.stat_name.lower(), 0.0)
-        targets.append({
-            "stat": t.stat_name,
-            "current": current,
-            "acceptable": t.acceptable_threshold,
-            "perfect": t.perfect_threshold,
-            "satisfied": current >= t.perfect_threshold
-        })
-    return targets
-```
-
+### Vérification Visuelle
+- Utilisation de scripts de validation pour générer des objectifs et des sous-étapes complexes et tester leur rendu sur les 3 écrans du localhost dashboard.

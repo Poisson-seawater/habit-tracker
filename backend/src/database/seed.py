@@ -1,73 +1,76 @@
 import os
+import datetime
 from src.database.session import SessionLocal, engine, Base
-from src.database.models import User, Habit, DayTemplate
+from src.database.models import User, Habit, PerfectDayTemplate, Todo, Goal, SubStep, GoalSubStepLink, SubStepDependency
 from src.config import TELEGRAM_GROUP_ID
 
 def seed_db():
-    # Make sure all tables are created
+    # Drop all tables first to get a clean, updated schema for V2
+    Base.metadata.drop_all(bind=engine)
+    # Re-create all tables
     Base.metadata.create_all(bind=engine)
     
     db = SessionLocal()
     try:
-        # 1. Seed Default User (Gabriel)
-        # Check if user already exists
-        user = db.query(User).filter_by(id=1).first()
-        if not user:
-            # Fallback chat ID if env is empty
-            chat_id = TELEGRAM_GROUP_ID if TELEGRAM_GROUP_ID else "12345678"
-            user = User(
-                id=1,
-                username="Gabriel",
-                chat_id=str(chat_id)
-            )
-            db.add(user)
-            print("Seeded default user: Gabriel")
-        else:
-            # Update chat ID if it changed in env
-            if TELEGRAM_GROUP_ID and user.chat_id != str(TELEGRAM_GROUP_ID):
-                user.chat_id = str(TELEGRAM_GROUP_ID)
-                print(f"Updated user Gabriel chat_id to: {TELEGRAM_GROUP_ID}")
-        
-        # 2. Seed Default Templates
-        templates_data = [
+        # 1. Seed Users
+        users_data = [
             {
                 "id": 1,
-                "name": "Semaine",
-                "acceptable_thresholds": {"discipline": 4, "organisation": 1},
-                "perfect_thresholds": {"discipline": 8, "organisation": 3, "creativite": 3, "connaissance": 3}
+                "username": "Gabriel",
+                "chat_id": TELEGRAM_GROUP_ID if TELEGRAM_GROUP_ID else "12345678",
+                "xp": 0,
+                "level": 1,
+                "gold": 0
             },
             {
                 "id": 2,
-                "name": "Weekend",
-                "acceptable_thresholds": {"repos": 4, "sociabilite": 1},
-                "perfect_thresholds": {"repos": 8, "sociabilite": 4, "creativite": 3}
-            },
-            {
-                "id": 3,
-                "name": "Récupération",
-                "acceptable_thresholds": {"repos": 5, "sante_mentale": 2},
-                "perfect_thresholds": {"repos": 8, "sante_mentale": 5, "spiritualite": 3}
-            },
-            {
-                "id": 4,
-                "name": "Malade",
-                "acceptable_thresholds": {"repos": 3},
-                "perfect_thresholds": {"repos": 6, "sante_mentale": 3}
+                "username": "Jeanne",
+                "chat_id": "22222222",
+                "xp": 0,
+                "level": 1,
+                "gold": 0
             }
         ]
-        
-        for t_info in templates_data:
-            existing = db.query(DayTemplate).filter_by(id=t_info["id"]).first()
-            if not existing:
-                template = DayTemplate(
-                    id=t_info["id"],
-                    name=t_info["name"],
-                    acceptable_thresholds=t_info["acceptable_thresholds"],
-                    perfect_thresholds=t_info["perfect_thresholds"]
+        for u_info in users_data:
+            user = User(
+                id=u_info["id"],
+                username=u_info["username"],
+                chat_id=str(u_info["chat_id"]),
+                xp=u_info["xp"],
+                level=u_info["level"],
+                gold=u_info["gold"]
+            )
+            db.add(user)
+        db.flush()  # Make sure users are created to get foreign keys
+
+        # 2. Seed Default Templates per User
+        for user_id in [1, 2]:
+            templates_data = [
+                {
+                    "template_name": "week",
+                    "thresholds_json": {"discipline": 8, "organisation": 3, "creativite": 3, "connaissance": 3}
+                },
+                {
+                    "template_name": "weekend",
+                    "thresholds_json": {"repos": 8, "sociabilite": 4, "creativite": 3}
+                },
+                {
+                    "template_name": "recup",
+                    "thresholds_json": {"repos": 5, "sante_mentale": 3}
+                },
+                {
+                    "template_name": "malade",
+                    "thresholds_json": {"repos": 3}
+                }
+            ]
+            for t_info in templates_data:
+                template = PerfectDayTemplate(
+                    user_id=user_id,
+                    template_name=t_info["template_name"],
+                    thresholds_json=t_info["thresholds_json"]
                 )
                 db.add(template)
-                print(f"Seeded template: {t_info['name']}")
-        
+
         # 3. Seed Default Habits
         habits_data = [
             {
@@ -98,7 +101,7 @@ def seed_db():
                 "is_reportable": True,
                 "is_mandatory": False,
                 "point_rewards": {"creativite": 5, "discipline": 2, "connaissance": 3},
-                "daily_cap": 8,  # Cap points per day
+                "daily_cap": 8,
                 "unit": "min",
                 "is_active": True
             },
@@ -151,34 +154,142 @@ def seed_db():
                 "is_active": True
             }
         ]
-        
         for h_info in habits_data:
-            existing = db.query(Habit).filter_by(id=h_info["id"]).first()
-            if not existing:
-                habit = Habit(
-                    id=h_info["id"],
-                    name=h_info["name"],
-                    description=h_info["description"],
-                    type=h_info["type"],
-                    frequency=h_info["frequency"],
-                    scheduled_days=h_info["scheduled_days"],
-                    reminder_time=h_info["reminder_time"],
-                    is_private=h_info["is_private"],
-                    is_reportable=h_info["is_reportable"],
-                    is_mandatory=h_info["is_mandatory"],
-                    point_rewards=h_info["point_rewards"],
-                    daily_cap=h_info["daily_cap"],
-                    unit=h_info["unit"],
-                    is_active=h_info["is_active"]
-                )
-                db.add(habit)
-                print(f"Seeded habit: {h_info['name']}")
+            habit = Habit(
+                id=h_info["id"],
+                name=h_info["name"],
+                description=h_info["description"],
+                type=h_info["type"],
+                frequency=h_info["frequency"],
+                scheduled_days=h_info["scheduled_days"],
+                reminder_time=h_info["reminder_time"],
+                is_private=h_info["is_private"],
+                is_reportable=h_info["is_reportable"],
+                is_mandatory=h_info["is_mandatory"],
+                point_rewards=h_info["point_rewards"],
+                daily_cap=h_info["daily_cap"],
+                unit=h_info["unit"],
+                is_active=h_info["is_active"]
+            )
+            db.add(habit)
+
+        # 4. Seed Goals (Objectifs Long Terme) for Gabriel (User 1)
+        goals_data = [
+            {"id": 1, "user_id": 1, "title": "Devenir Millionnaire", "description": "Atteindre la liberté financière absolue"},
+            {"id": 2, "user_id": 1, "title": "Faire le tour du monde", "description": "Explorer toutes les merveilles de la Terre"},
+            {"id": 3, "user_id": 1, "title": "Avoir des enfants", "description": "Fonder une famille aimante et stable"}
+        ]
+        for g_info in goals_data:
+            goal = Goal(
+                id=g_info["id"],
+                user_id=g_info["user_id"],
+                title=g_info["title"],
+                description=g_info["description"]
+            )
+            db.add(goal)
+        db.flush()
+
+        # 5. Seed SubSteps for Gabriel (User 1)
+        substeps_data = [
+            {"id": 1, "user_id": 1, "title": "Avoir 500k en actif", "gold_reward": 500, "stats_json": ["finance"]},
+            {"id": 2, "user_id": 1, "title": "Acheter un immeuble locatif", "gold_reward": 300, "stats_json": ["finance", "organisation"]},
+            {"id": 3, "user_id": 1, "title": "Trouver un bon avocat", "gold_reward": 100, "stats_json": ["discipline", "organisation"]},
+            {"id": 4, "user_id": 1, "title": "Avoir de l'argent", "gold_reward": 150, "stats_json": ["finance"]},
+            {"id": 5, "user_id": 1, "title": "Avoir un passeport", "gold_reward": 50, "stats_json": ["organisation"]},
+            {"id": 6, "user_id": 1, "title": "Créer une feuille de budget", "gold_reward": 75, "stats_json": ["finance", "organisation"]},
+            {"id": 7, "user_id": 1, "title": "Achat assurance vie", "gold_reward": 100, "stats_json": ["finance"]},
+            {"id": 8, "user_id": 1, "title": "Avoir une entrée d'argent stable", "gold_reward": 200, "stats_json": ["finance"]},
+            {"id": 9, "user_id": 1, "title": "Trouver une femme", "gold_reward": 150, "stats_json": ["sociabilite"]},
+            {"id": 10, "user_id": 1, "title": "La marier", "gold_reward": 250, "stats_json": ["sociabilite", "spiritualite"]}
+        ]
+        for s_info in substeps_data:
+            substep = SubStep(
+                id=s_info["id"],
+                user_id=s_info["user_id"],
+                title=s_info["title"],
+                gold_reward=s_info["gold_reward"],
+                stats_json=s_info["stats_json"]
+            )
+            db.add(substep)
+        db.flush()
+
+        # 6. Seed Goal-SubStep Links
+        links_data = [
+            # Devenir Millionnaire -> 500k, Immeuble, Avocat
+            {"goal_id": 1, "substep_id": 1},
+            {"goal_id": 1, "substep_id": 2},
+            {"goal_id": 1, "substep_id": 3},
+            # Faire le tour du monde -> Avoir de l'argent, Passeport, Budget, Assurance vie
+            {"goal_id": 2, "substep_id": 4},
+            {"goal_id": 2, "substep_id": 5},
+            {"goal_id": 2, "substep_id": 6},
+            {"goal_id": 2, "substep_id": 7},
+            # Avoir des enfants -> Argent stable, Trouver femme, Marier
+            {"goal_id": 3, "substep_id": 8},
+            {"goal_id": 3, "substep_id": 9},
+            {"goal_id": 3, "substep_id": 10}
+        ]
+        for l_info in links_data:
+            link = GoalSubStepLink(
+                goal_id=l_info["goal_id"],
+                substep_id=l_info["substep_id"]
+            )
+            db.add(link)
+
+        # 7. Seed SubStep Dependencies (Blockers)
+        dependencies_data = [
+            # Avoir de l'argent et Avoir une entrée d'argent stable bloquent Avoir 500k en actif
+            {"substep_id": 1, "blocked_by_id": 4},
+            {"substep_id": 1, "blocked_by_id": 8},
+            # Trouver une femme bloque La marier
+            {"substep_id": 10, "blocked_by_id": 9}
+        ]
+        for d_info in dependencies_data:
+            dep = SubStepDependency(
+                substep_id=d_info["substep_id"],
+                blocked_by_id=d_info["blocked_by_id"]
+            )
+            db.add(dep)
+
+        # 8. Seed Todos (Primes)
+        todos_data = [
+            {
+                "user_id": 1,
+                "title": "⚔️ Dompter le Dragon de Fer (Séance Jambes)",
+                "stat_reward_1": "force",
+                "points_reward_1": 16,
+                "xp_reward": 20
+            },
+            {
+                "user_id": 1,
+                "title": "📚 Décoder les Runes (Lire 20 pages de doc)",
+                "stat_reward_1": "connaissance",
+                "points_reward_1": 3,
+                "xp_reward": 10
+            },
+            {
+                "user_id": 2,
+                "title": "🧘 Servir la Paix Intérieure (15 min de calme)",
+                "stat_reward_1": "sante_mentale",
+                "points_reward_1": 3,
+                "xp_reward": 5
+            }
+        ]
+        for t_info in todos_data:
+            todo = Todo(
+                user_id=t_info["user_id"],
+                title=t_info["title"],
+                stat_reward_1=t_info["stat_reward_1"],
+                points_reward_1=t_info["points_reward_1"],
+                xp_reward=t_info["xp_reward"]
+            )
+            db.add(todo)
                 
         db.commit()
-        print("Database seeding completed successfully.")
+        print("Database V2 seeding completed successfully.")
     except Exception as e:
         db.rollback()
-        print(f"Error seeding database: {e}")
+        print(f"Error seeding database V2: {e}")
         raise e
     finally:
         db.close()
