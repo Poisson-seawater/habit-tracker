@@ -212,6 +212,28 @@ def delete_goal(goal_id: int, db: Session = Depends(get_db), user_id: int = Depe
     db.commit()
     return {"status": "success", "message": "Goal deleted successfully"}
 
+@router.put("/goals/{goal_id}")
+def update_goal(goal_id: int, payload: GoalCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Update a goal's title and description.
+    """
+    goal = db.query(Goal).filter_by(id=goal_id, user_id=user_id).first()
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+        
+    goal.title = payload.title
+    goal.description = payload.description
+    db.commit()
+    db.refresh(goal)
+    return {
+        "status": "success",
+        "goal": {
+            "id": goal.id,
+            "title": goal.title,
+            "description": goal.description
+        }
+    }
+
 @router.post("/goals/{goal_id}/substeps", status_code=201)
 def create_substep(goal_id: int, payload: SubStepCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     """

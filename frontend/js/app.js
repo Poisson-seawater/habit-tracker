@@ -443,19 +443,106 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==============================================
   // SCREEN 2: GOALS & SUBSTEPS DAG GRAPH           //
   // ==============================================
+  let activeGoalId = null;
+
+  // Drawer Toggle Helpers
+  function openDrawer(mode = "add", goalData = null) {
+    const drawer = document.getElementById("creators-drawer");
+    const overlay = document.getElementById("drawer-overlay");
+    if (!drawer || !overlay) return;
+
+    drawer.classList.add("open");
+    overlay.classList.add("open");
+
+    const drawerTitle = document.getElementById("drawer-title");
+    const goalSubmitBtn = document.getElementById("goal-submit-btn");
+    const editIdInput = document.getElementById("edit-goal-id-input");
+    const titleInput = document.getElementById("goal-title-input");
+    const descInput = document.getElementById("goal-desc-input");
+
+    if (mode === "edit" && goalData) {
+      drawerTitle.textContent = "✏️ Modifier l'Objectif";
+      goalSubmitBtn.textContent = "Enregistrer les modifications";
+      editIdInput.value = goalData.id;
+      titleInput.value = goalData.title;
+      descInput.value = goalData.description || "";
+    } else {
+      drawerTitle.textContent = "✨ Forge d'Objectif";
+      goalSubmitBtn.textContent = "Forger l'Objectif";
+      editIdInput.value = "";
+      titleInput.value = "";
+      descInput.value = "";
+    }
+  }
+
+  function closeDrawer() {
+    const drawer = document.getElementById("creators-drawer");
+    const overlay = document.getElementById("drawer-overlay");
+    if (drawer) drawer.classList.remove("open");
+    if (overlay) overlay.classList.remove("open");
+  }
+
+  // Bind Drawer Event Listeners
+  document.getElementById("open-creators-drawer-btn").addEventListener("click", () => openDrawer("add"));
+  document.getElementById("sidebar-add-goal-btn").addEventListener("click", () => openDrawer("add"));
+  document.getElementById("close-creators-drawer-btn").addEventListener("click", closeDrawer);
+  document.getElementById("drawer-overlay").addEventListener("click", closeDrawer);
+
+  function computeSubstepDepths(substeps) {
+    const depths = {};
+    const substepsById = {};
+    substeps.forEach(s => {
+      substepsById[s.id] = s;
+    });
+
+    function getDepth(s) {
+      if (depths[s.id] !== undefined) {
+        return depths[s.id];
+      }
+      const activeBlockers = s.blocked_by_ids.filter(bid => bid in substepsById);
+      if (activeBlockers.length === 0) {
+        depths[s.id] = 0;
+        return 0;
+      }
+      let maxBlockerDepth = 0;
+      activeBlockers.forEach(bid => {
+        const blocker = substepsById[bid];
+        maxBlockerDepth = Math.max(maxBlockerDepth, getDepth(blocker));
+      });
+      depths[s.id] = maxBlockerDepth + 1;
+      return depths[s.id];
+    }
+
+    substeps.forEach(s => {
+      getDepth(s);
+    });
+
+    return depths;
+  }
+
+  // ==============================================
+  // SCREEN 2: GOALS & SUBSTEPS DAG GRAPH           //
+  // ==============================================
   async function fetchGoals() {
     try {
       const response = await fetch(`${API_BASE}/goals`);
       if (!response.ok) throw new Error("Erreur fetch goals");
       const goals = await response.json();
 
-      const listContainer = document.getElementById("goals-list-container");
-      if (!listContainer) return;
+      const selectorList = document.getElementById("goals-selector-list");
+      if (!selectorList) return;
 
-      listContainer.innerHTML = "";
+      selectorList.innerHTML = "";
       if (goals.length === 0) {
-        listContainer.innerHTML = `<p style="color: var(--text-secondary); text-align: center; padding: 2rem 0;">Aucun objectif principal forgié. Créez-en un à droite ! 🏆</p>`;
+        selectorList.innerHTML = `<p style="color: var(--text-secondary); text-align: center; padding: 2rem 0; font-size: 0.85rem;">Aucun objectif principal. Créez-en un en cliquant sur + ! 🏆</p>`;
+        renderGoalTree(null);
         return;
+      }
+
+      // Auto-select first goal if none or invalid activeGoalId
+      const goalIds = goals.map(g => g.id);
+      if (activeGoalId === null || !goalIds.includes(activeGoalId)) {
+        activeGoalId = goals[0].id;
       }
 
       // Cache elements to update Goal/Substep creators dropdowns
@@ -476,69 +563,49 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const substepsMap = new Map(); // Keep track of unique substeps
 
+      let activeGoal = null;
+
       goals.forEach(goal => {
+        if (goal.id === activeGoalId) {
+          activeGoal = goal;
+        }
+
         // Dropdown additions
         if (substepGoalSelect) substepGoalSelect.innerHTML += `<option value="${goal.id}">${goal.title}</option>`;
         if (linkGoalSelect) linkGoalSelect.innerHTML += `<option value="${goal.id}">${goal.title}</option>`;
 
-        const card = document.createElement("div");
-        card.className = "glass-card goal-card";
-
+        // Render sidebar goal item
+        const item = document.createElement("div");
+        item.className = `goal-selector-item ${goal.id === activeGoalId ? 'active' : ''}`;
+        
         // Calculate progress percentage
         const totalSteps = goal.substeps.length;
         const completedSteps = goal.substeps.filter(s => s.completed).length;
         const percent = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
-        let substepsHTML = "";
-        if (totalSteps === 0) {
-          substepsHTML = `<p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 10px;">Aucune sous-étape. Liez des étapes pour commencer !</p>`;
-        } else {
-          goal.substeps.forEach(s => {
-            substepsMap.set(s.id, s.title);
-            
-            const isCompleted = s.completed;
-            const isBlocked = s.is_blocked;
-            const lockIcon = isBlocked ? "🔒 " : "";
-            
-            let btnHTML = "";
-            if (isCompleted) {
-              btnHTML = `<button class="substep-btn-check completed" disabled>Validée</button>`;
-            } else if (isBlocked) {
-              btnHTML = `<button class="substep-btn-check" disabled style="background: rgba(255,255,255,0.05); color: var(--text-muted); cursor: not-allowed; box-shadow: none;">Bloquée</button>`;
-            } else {
-              btnHTML = `<button class="substep-btn-check action-complete-substep" data-id="${s.id}">Valider (+${s.gold_reward}g)</button>`;
-            }
-
-            const statsTags = s.stats.map(st => `<span class="substep-tag">${STAT_LABELS[st.toLowerCase()] || st}</span>`).join(" ");
-
-            substepsHTML += `
-              <div class="substep-node ${isCompleted ? 'completed-step' : ''} ${isBlocked ? 'blocked-step' : ''}">
-                <div class="substep-left">
-                  <span>${lockIcon}<strong>${s.title}</strong></span>
-                  ${statsTags}
-                </div>
-                <div>
-                  ${btnHTML}
-                </div>
-              </div>
-            `;
-          });
-        }
-
-        card.innerHTML = `
-          <div class="goal-header-row">
-            <span class="goal-title">${goal.title} ${goal.completed ? "🎉" : ""}</span>
-            <span class="substep-tag" style="background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan);">${percent}% complété</span>
+        item.innerHTML = `
+          <div class="goal-selector-title">
+            <span>${goal.title} ${goal.completed ? "🎉" : ""}</span>
+            <span style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">${percent}%</span>
           </div>
-          <div class="goal-description">${goal.description || 'Arbre de quêtes long terme.'}</div>
-          <div class="goal-progress-bar-container">
-            <div class="goal-progress-bar-fill" style="width: ${percent}%;"></div>
-          </div>
-          <div class="substeps-tree">
-            ${substepsHTML}
+          <span class="goal-selector-meta">${totalSteps} sous-étape${totalSteps > 1 ? 's' : ''}</span>
+          <div class="goal-selector-progress-track">
+            <div class="goal-selector-progress-fill" style="width: ${percent}%;"></div>
           </div>
         `;
-        listContainer.appendChild(card);
+
+        item.addEventListener("click", () => {
+          activeGoalId = goal.id;
+          document.querySelectorAll(".goal-selector-item").forEach(el => el.classList.remove("active"));
+          item.classList.add("active");
+          renderGoalTree(goal);
+        });
+
+        selectorList.appendChild(item);
+
+        goal.substeps.forEach(s => {
+          substepsMap.set(s.id, s.title);
+        });
       });
 
       // Populate unique substeps dropdown selectors
@@ -550,53 +617,189 @@ document.addEventListener("DOMContentLoaded", () => {
         if (sourceSelect) sourceSelect.innerHTML += optionHTML;
       });
 
-      // Bind Complete button handlers
-      document.querySelectorAll(".action-complete-substep").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          const subId = btn.getAttribute("data-id");
-          try {
-            const resp = await fetch(`${API_BASE}/substeps/${subId}/complete`, { method: "POST" });
-            if (!resp.ok) {
-              const err = await resp.json();
-              throw new Error(err.detail || "Validation bloquée");
-            }
-            const data = await resp.json();
-            showToast(`Félicitations ! Étape complétée : +${data.gold_awarded} Gold reçus ! 💰`);
-            if (data.completed_goals.length > 0) {
-              showToast(`OBJECTIF ACCOMPLI ! Arbre entièrement validé : ${data.completed_goals.join(", ")} ! 🏆`);
-            }
-            refreshAll();
-            fetchGoals();
-          } catch (e) {
-            console.error(e);
-            showToast(e.message || "Erreur de validation", true);
-          }
-        });
-      });
+      // Render Active Tree
+      renderGoalTree(activeGoal);
 
     } catch (e) {
       console.error(e);
     }
   }
 
+  function renderGoalTree(goal) {
+    const viewer = document.getElementById("skill-tree-viewer");
+    if (!viewer) return;
+
+    if (!goal) {
+      viewer.innerHTML = `<p style="color: var(--text-muted); text-align: center; margin: auto;">Sélectionnez un objectif à gauche pour visualiser son arbre.</p>`;
+      return;
+    }
+
+    const totalSteps = goal.substeps.length;
+    const completedSteps = goal.substeps.filter(s => s.completed).length;
+    const percent = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+
+    // Header with actions
+    let headerHTML = `
+      <div class="skill-tree-header">
+        <div>
+          <span class="skill-tree-title">${goal.title} ${goal.completed ? "🎉" : ""}</span>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.2rem;">${goal.description || 'Arbre de quêtes long terme.'} • ${percent}% complété</p>
+        </div>
+        <div class="skill-tree-actions">
+          <button class="tree-icon-btn edit" id="btn-edit-active-goal" title="Modifier l'objectif">✏️</button>
+          <button class="tree-icon-btn delete" id="btn-delete-active-goal" title="Supprimer l'objectif">🗑️</button>
+        </div>
+      </div>
+    `;
+
+    // Compute depths
+    const depths = computeSubstepDepths(goal.substeps);
+    const maxDepth = goal.substeps.length > 0 ? Math.max(...Object.values(depths)) : -1;
+
+    // Organize substeps by columns
+    const columns = [];
+    for (let i = 0; i <= maxDepth; i++) {
+      columns.push([]);
+    }
+    goal.substeps.forEach(s => {
+      const d = depths[s.id];
+      columns[d].push(s);
+    });
+
+    // Render tree scroll container
+    let columnsHTML = "";
+
+    // Column 0: Root Goal itself!
+    const goalIsCompleted = goal.completed;
+    columnsHTML += `
+      <div class="tree-column">
+        <div class="tree-node ${goalIsCompleted ? 'completed-node' : 'unlocked-node'}" style="min-height: 120px;">
+          <span class="substep-tag" style="background: rgba(234, 179, 8, 0.15); color: var(--accent-gold); font-size: 0.65rem;">OBJECTIF CENTRAL</span>
+          <span class="tree-node-title" style="font-size: 1.1rem; color: var(--accent-green); margin-top: 0.3rem;">${goal.title}</span>
+          <span class="tree-node-desc" style="font-size: 0.78rem;">${percent}% complété</span>
+        </div>
+      </div>
+    `;
+
+    // Remaining columns
+    columns.forEach((colSubsteps, colIdx) => {
+      let nodesHTML = "";
+      colSubsteps.forEach(s => {
+        const isCompleted = s.completed;
+        const isBlocked = s.is_blocked;
+        const lockIcon = isBlocked ? "🔒 " : "";
+        
+        let stateClass = "unlocked-node";
+        if (isCompleted) stateClass = "completed-node";
+        else if (isBlocked) stateClass = "locked-node";
+
+        let btnHTML = "";
+        if (isCompleted) {
+          btnHTML = `<span style="color: var(--accent-green); font-size: 0.75rem; font-weight: 700; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.2rem;">✓ Complétée</span>`;
+        } else if (isBlocked) {
+          btnHTML = `<span style="color: var(--text-muted); font-size: 0.72rem; margin-top: 0.4rem; display: block;">Bloquée</span>`;
+        } else {
+          btnHTML = `<button class="tree-node-btn action-complete-substep" data-id="${s.id}">Valider</button>`;
+        }
+
+        const statsTags = s.stats.map(st => `<span class="substep-tag">${STAT_LABELS[st.toLowerCase()] || st}</span>`).join(" ");
+
+        nodesHTML += `
+          <div class="tree-node ${stateClass}">
+            <span class="tree-node-title">${lockIcon}${s.title}</span>
+            <span class="tree-node-gold">💰 +${s.gold_reward}g</span>
+            <div class="tree-node-stats">${statsTags}</div>
+            ${btnHTML}
+          </div>
+        `;
+      });
+
+      columnsHTML += `
+        <div class="tree-column">
+          ${nodesHTML}
+        </div>
+      `;
+    });
+
+    viewer.innerHTML = `
+      ${headerHTML}
+      <div class="skill-tree-scroll-container">
+        ${columnsHTML}
+      </div>
+    `;
+
+    // Bind edit/delete handlers
+    document.getElementById("btn-edit-active-goal").addEventListener("click", () => openDrawer("edit", goal));
+    document.getElementById("btn-delete-active-goal").addEventListener("click", () => deleteGoal(goal.id));
+
+    // Bind Complete button handlers inside the tree
+    viewer.querySelectorAll(".action-complete-substep").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const subId = btn.getAttribute("data-id");
+        try {
+          const resp = await fetch(`${API_BASE}/substeps/${subId}/complete`, { method: "POST" });
+          if (!resp.ok) {
+            const err = await resp.json();
+            throw new Error(err.detail || "Validation bloquée");
+          }
+          const data = await resp.json();
+          showToast(`Félicitations ! Étape complétée : +${data.gold_awarded} Gold reçus ! 💰`);
+          if (data.completed_goals.length > 0) {
+            showToast(`OBJECTIF ACCOMPLI ! Arbre entièrement validé : ${data.completed_goals.join(", ")} ! 🏆`);
+          }
+          refreshAll();
+          fetchGoals();
+        } catch (e) {
+          console.error(e);
+          showToast(e.message || "Erreur de validation", true);
+        }
+      });
+    });
+  }
+
+  async function deleteGoal(goalId) {
+    if (!confirm("Voulez-vous vraiment détruire cet arbre d'objectifs et toutes ses liaisons ?")) return;
+    try {
+      const resp = await fetch(`${API_BASE}/goals/${goalId}`, { method: "DELETE" });
+      if (!resp.ok) throw new Error();
+      showToast("Arbre d'objectifs détruit avec succès ! 🗑️");
+      activeGoalId = null;
+      fetchGoals();
+    } catch {
+      showToast("Erreur lors de la suppression de l'objectif", true);
+    }
+  }
+
   // Bind Screen 2 Form Submissions
   document.getElementById("create-goal-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+    const editId = document.getElementById("edit-goal-id-input").value;
     const title = document.getElementById("goal-title-input").value.trim();
     const desc = document.getElementById("goal-desc-input").value.trim();
 
     try {
-      const resp = await fetch(`${API_BASE}/goals`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description: desc })
-      });
+      let resp;
+      if (editId) {
+        resp = await fetch(`${API_BASE}/goals/${editId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, description: desc })
+        });
+      } else {
+        resp = await fetch(`${API_BASE}/goals`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, description: desc })
+        });
+      }
+
       if (!resp.ok) throw new Error();
-      showToast("Arbre d'Objectif principal forgé avec succès ! 🏆");
+      showToast(editId ? "Objectif modifié avec succès ! ✏️" : "Arbre d'Objectif principal forgé avec succès ! 🏆");
       document.getElementById("create-goal-form").reset();
+      closeDrawer();
       fetchGoals();
     } catch {
-      showToast("Erreur lors de la création de l'objectif", true);
+      showToast(editId ? "Erreur lors de la modification de l'objectif" : "Erreur lors de la création de l'objectif", true);
     }
   });
 
@@ -627,6 +830,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!resp.ok) throw new Error();
       showToast("Sous-étape ajoutée et verrous forgés ! ⛓️");
       document.getElementById("create-substep-form").reset();
+      closeDrawer();
       fetchGoals();
     } catch {
       showToast("Erreur lors de la création de la sous-étape", true);
@@ -646,6 +850,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       if (!resp.ok) throw new Error();
       showToast("Sous-étape liée à l'arbre cible avec succès ! 🔗");
+      closeDrawer();
       fetchGoals();
     } catch {
       showToast("Erreur lors du partage de la sous-étape", true);
@@ -665,6 +870,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       if (!resp.ok) throw new Error();
       showToast("Verrou de blocage DAG forgé ! 🔒");
+      closeDrawer();
       fetchGoals();
     } catch {
       showToast("Erreur lors de la création du blocage", true);

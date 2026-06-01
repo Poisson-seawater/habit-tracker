@@ -162,3 +162,17 @@ def test_goals_and_substeps_crud():
     assert len(goals) >= 1
     assert goals[-1]["title"] == "Devenir Millionnaire"
     assert goals[-1]["substeps"][0]["title"] == "Trouver un bon avocat"
+
+    # 4. Update Goal
+    response = client.put(f"/api/v1/goals/{goal_id}", json={
+        "title": "Devenir Milliardaire",
+        "description": "Atteindre 1B en actif"
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["goal"]["title"] == "Devenir Milliardaire"
+
+    # 5. Delete Goal
+    response = client.delete(f"/api/v1/goals/{goal_id}")
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
