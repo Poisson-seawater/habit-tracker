@@ -5,7 +5,7 @@ from typing import Optional, List, Dict
 from pydantic import BaseModel, Field
 
 from src.database.session import get_db
-from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, Goal, SubStep, GoalSubStepLink, SubStepDependency
+from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, Goal, SubStep, GoalSubStepLink
 from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_12_STATS, DEFAULT_THRESHOLDS
 
 router = APIRouter()
@@ -53,16 +53,22 @@ class GoalCreate(BaseModel):
 
 class SubStepCreate(BaseModel):
     title: str
+    description: Optional[str] = None
     gold_reward: Optional[int] = 50
     stats_json: List[str] = []
-    blocked_by_ids: Optional[List[int]] = []
+    execution_order: int = 1
+
+class SubStepUpdate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    gold_reward: Optional[int] = 50
+    stats_json: List[str] = []
+    execution_order: int = 1
 
 class SubStepLinkRequest(BaseModel):
     goal_id: int
     substep_id: int
 
-class DependencyRequest(BaseModel):
-    blocked_by_id: int
 
 # --- Multi-User Dependency ---
 
@@ -143,27 +149,15 @@ def get_goals(db: Session = Depends(get_db), user_id: int = Depends(get_current_
         substeps_list = []
         for link in g.substep_links:
             s = link.substep
-            # Find dependencies
-            dependencies = db.query(SubStepDependency).filter_by(substep_id=s.id).all()
-            blocked_by_ids = [dep.blocked_by_id for dep in dependencies]
-            
-            # Check if strictly blocked (at least one dependency is not completed)
-            is_blocked = False
-            for blocker_id in blocked_by_ids:
-                blocker = db.query(SubStep).filter_by(id=blocker_id).first()
-                if blocker and not blocker.completed:
-                    is_blocked = True
-                    break
-                    
             substeps_list.append({
                 "id": s.id,
                 "title": s.title,
+                "description": s.description or "",
                 "gold_reward": s.gold_reward,
                 "completed": s.completed,
                 "completed_at": s.completed_at.isoformat() if s.completed_at else None,
                 "stats": s.stats_json or [],
-                "blocked_by_ids": blocked_by_ids,
-                "is_blocked": is_blocked
+                "execution_order": s.execution_order
             })
             
         result.append({
@@ -246,8 +240,10 @@ def create_substep(goal_id: int, payload: SubStepCreate, db: Session = Depends(g
     substep = SubStep(
         user_id=user_id,
         title=payload.title,
+        description=payload.description,
         gold_reward=payload.gold_reward,
-        stats_json=payload.stats_json
+        stats_json=payload.stats_json,
+        execution_order=payload.execution_order
     )
     db.add(substep)
     db.flush()  # Generate substep ID
@@ -256,13 +252,7 @@ def create_substep(goal_id: int, payload: SubStepCreate, db: Session = Depends(g
     link = GoalSubStepLink(goal_id=goal_id, substep_id=substep.id)
     db.add(link)
 
-    # Add Dependencies
-    if payload.blocked_by_ids:
-        for blocker_id in payload.blocked_by_ids:
-            blocker = db.query(SubStep).filter_by(id=blocker_id, user_id=user_id).first()
-            if blocker:
-                dep = SubStepDependency(substep_id=substep.id, blocked_by_id=blocker.id)
-                db.add(dep)
+
 
     db.commit()
     db.refresh(substep)
@@ -272,8 +262,10 @@ def create_substep(goal_id: int, payload: SubStepCreate, db: Session = Depends(g
         "substep": {
             "id": substep.id,
             "title": substep.title,
+            "description": substep.description or "",
             "gold_reward": substep.gold_reward,
-            "stats": substep.stats_json
+            "stats": substep.stats_json,
+            "execution_order": substep.execution_order
         }
     }
 
@@ -297,25 +289,52 @@ def link_substep_to_goal(payload: SubStepLinkRequest, db: Session = Depends(get_
     db.commit()
     return {"status": "success"}
 
-@router.post("/substeps/{substep_id}/dependency")
-def add_dependency(substep_id: int, payload: DependencyRequest, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+
+
+@router.put("/substeps/{substep_id}")
+def update_substep(substep_id: int, payload: SubStepUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     """
-    Add a blocking dependency relation between two substeps.
+    Update a substep's title, description, gold reward, target stats, and blocker dependencies.
     """
     substep = db.query(SubStep).filter_by(id=substep_id, user_id=user_id).first()
-    blocker = db.query(SubStep).filter_by(id=payload.blocked_by_id, user_id=user_id).first()
-    
-    if not substep or not blocker:
+    if not substep:
         raise HTTPException(status_code=404, detail="Substep not found")
         
-    existing = db.query(SubStepDependency).filter_by(substep_id=substep.id, blocked_by_id=blocker.id).first()
-    if existing:
-        return {"status": "already_exists"}
-        
-    dep = SubStepDependency(substep_id=substep.id, blocked_by_id=blocker.id)
-    db.add(dep)
+    substep.title = payload.title
+    substep.description = payload.description
+    substep.gold_reward = payload.gold_reward
+    substep.stats_json = payload.stats_json
+    substep.execution_order = payload.execution_order
+    
+
+                
     db.commit()
-    return {"status": "success"}
+    db.refresh(substep)
+    
+    return {
+        "status": "success",
+        "substep": {
+            "id": substep.id,
+            "title": substep.title,
+            "description": substep.description or "",
+            "gold_reward": substep.gold_reward,
+            "stats": substep.stats_json,
+            "execution_order": substep.execution_order
+        }
+    }
+
+@router.delete("/substeps/{substep_id}")
+def delete_substep(substep_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Delete a substep manually. Associated links/dependencies will cascade.
+    """
+    substep = db.query(SubStep).filter_by(id=substep_id, user_id=user_id).first()
+    if not substep:
+        raise HTTPException(status_code=404, detail="Substep not found")
+        
+    db.delete(substep)
+    db.commit()
+    return {"status": "success", "message": "Substep deleted successfully"}
 
 @router.post("/substeps/{substep_id}/complete")
 def complete_substep(substep_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
@@ -330,15 +349,7 @@ def complete_substep(substep_id: int, db: Session = Depends(get_db), user_id: in
     if substep.completed:
         return {"status": "already_completed", "gold": substep.user.gold}
 
-    # Strict Block Check
-    dependencies = db.query(SubStepDependency).filter_by(substep_id=substep.id).all()
-    for dep in dependencies:
-        blocker = db.query(SubStep).filter_by(id=dep.blocked_by_id).first()
-        if blocker and not blocker.completed:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cette sous-étape est bloquée par : '{blocker.title}'."
-            )
+
 
     # Complete substep
     substep.completed = True
@@ -669,8 +680,10 @@ def create_habit(payload: HabitCreate, db: Session = Depends(get_db)):
 
 @router.get("/history")
 def get_history(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    import calendar
     today = datetime.date.today()
-    start_date = today - datetime.timedelta(days=29)
+    _, num_days = calendar.monthrange(today.year, today.month)
+    start_date = today.replace(day=1)
     
     scores = db.query(DailyScore).filter(
         DailyScore.user_id == user_id,
@@ -681,19 +694,22 @@ def get_history(db: Session = Depends(get_db), user_id: int = Depends(get_curren
     score_map = {score.date.isoformat(): score.status for score in scores}
     
     history = []
-    for i in range(30):
+    for i in range(num_days):
         d = start_date + datetime.timedelta(days=i)
         d_str = d.isoformat()
-        status = score_map.get(d_str, "Incomplet")
         
-        ui_status = "failed"
-        if status == "Perfect":
-            ui_status = "perfect"
-            
+        ui_status = "future"
+        if d <= today:
+            status = score_map.get(d_str, "Incomplet")
+            ui_status = "failed"
+            if status == "Perfect":
+                ui_status = "perfect"
+                
         history.append({
             "date": d_str,
             "status": ui_status,
-            "label": d.strftime("%d/%m")
+            "label": d.strftime("%d"),
+            "weekday": d.weekday()
         })
         
     return history

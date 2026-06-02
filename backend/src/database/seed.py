@@ -1,7 +1,7 @@
 import os
 import datetime
 from src.database.session import SessionLocal, engine, Base
-from src.database.models import User, Habit, PerfectDayTemplate, Todo, Goal, SubStep, GoalSubStepLink, SubStepDependency
+from src.database.models import User, Habit, PerfectDayTemplate, Todo, Goal, SubStep, GoalSubStepLink
 from src.config import TELEGRAM_GROUP_ID
 
 def seed_db():
@@ -191,22 +191,23 @@ def seed_db():
 
         # 5. Seed SubSteps for Gabriel (User 1)
         substeps_data = [
-            {"id": 1, "user_id": 1, "title": "Avoir 500k en actif", "gold_reward": 500, "stats_json": ["finance"]},
-            {"id": 2, "user_id": 1, "title": "Acheter un immeuble locatif", "gold_reward": 300, "stats_json": ["finance", "organisation"]},
-            {"id": 3, "user_id": 1, "title": "Trouver un bon avocat", "gold_reward": 100, "stats_json": ["discipline", "organisation"]},
-            {"id": 4, "user_id": 1, "title": "Avoir de l'argent", "gold_reward": 150, "stats_json": ["finance"]},
-            {"id": 5, "user_id": 1, "title": "Avoir un passeport", "gold_reward": 50, "stats_json": ["organisation"]},
-            {"id": 6, "user_id": 1, "title": "Créer une feuille de budget", "gold_reward": 75, "stats_json": ["finance", "organisation"]},
-            {"id": 7, "user_id": 1, "title": "Achat assurance vie", "gold_reward": 100, "stats_json": ["finance"]},
-            {"id": 8, "user_id": 1, "title": "Avoir une entrée d'argent stable", "gold_reward": 200, "stats_json": ["finance"]},
-            {"id": 9, "user_id": 1, "title": "Trouver une femme", "gold_reward": 150, "stats_json": ["sociabilite"]},
-            {"id": 10, "user_id": 1, "title": "La marier", "gold_reward": 250, "stats_json": ["sociabilite", "spiritualite"]}
+            {"id": 1, "user_id": 1, "title": "Avoir 500k en actif", "gold_reward": 500, "stats_json": ["finance"], "description": "Accumuler 500k d'actifs nets"},
+            {"id": 2, "user_id": 1, "title": "Acheter un immeuble locatif", "gold_reward": 300, "stats_json": ["finance", "organisation"], "description": "Trouver et acquérir un premier bien de rendement"},
+            {"id": 3, "user_id": 1, "title": "Trouver un bon avocat", "gold_reward": 100, "stats_json": ["discipline", "organisation"], "description": "Réseauter pour s'entourer d'un expert juridique"},
+            {"id": 4, "user_id": 1, "title": "Avoir de l'argent", "gold_reward": 150, "stats_json": ["finance"], "description": "Constituer une épargne de voyage"},
+            {"id": 5, "user_id": 1, "title": "Avoir un passeport", "gold_reward": 50, "stats_json": ["organisation"], "description": "Faire les démarches à la mairie"},
+            {"id": 6, "user_id": 1, "title": "Créer une feuille de budget", "gold_reward": 75, "stats_json": ["finance", "organisation"], "description": "Suivre ses dépenses mensuelles"},
+            {"id": 7, "user_id": 1, "title": "Achat assurance vie", "gold_reward": 100, "stats_json": ["finance"], "description": "Sécuriser un contrat d'assurance vie"},
+            {"id": 8, "user_id": 1, "title": "Avoir une entrée d'argent stable", "gold_reward": 200, "stats_json": ["finance"], "description": "Garantir un flux financier mensuel régulier"},
+            {"id": 9, "user_id": 1, "title": "Trouver une femme", "gold_reward": 150, "stats_json": ["sociabilite"], "description": "Rencontrer sa partenaire de vie idéale"},
+            {"id": 10, "user_id": 1, "title": "La marier", "gold_reward": 250, "stats_json": ["sociabilite", "spiritualite"], "description": "Célébrer notre union"}
         ]
         for s_info in substeps_data:
             substep = SubStep(
                 id=s_info["id"],
                 user_id=s_info["user_id"],
                 title=s_info["title"],
+                description=s_info["description"],
                 gold_reward=s_info["gold_reward"],
                 stats_json=s_info["stats_json"]
             )
@@ -235,21 +236,6 @@ def seed_db():
                 substep_id=l_info["substep_id"]
             )
             db.add(link)
-
-        # 7. Seed SubStep Dependencies (Blockers)
-        dependencies_data = [
-            # Avoir de l'argent et Avoir une entrée d'argent stable bloquent Avoir 500k en actif
-            {"substep_id": 1, "blocked_by_id": 4},
-            {"substep_id": 1, "blocked_by_id": 8},
-            # Trouver une femme bloque La marier
-            {"substep_id": 10, "blocked_by_id": 9}
-        ]
-        for d_info in dependencies_data:
-            dep = SubStepDependency(
-                substep_id=d_info["substep_id"],
-                blocked_by_id=d_info["blocked_by_id"]
-            )
-            db.add(dep)
 
         # 8. Seed Todos (Primes)
         todos_data = [

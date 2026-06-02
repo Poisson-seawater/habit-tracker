@@ -599,46 +599,78 @@ body {
 /* Calendar panel styles */
 .calendar-panel {
   padding: 1.8rem;
+  max-width: 450px;
+  margin: 0 auto;
 }
 
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  gap: 0.8rem;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
   margin: 1.5rem 0;
 }
 
-.calendar-day-dot {
-  width: 100%;
+.calendar-day-header {
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-glass);
+  margin-bottom: 0.5rem;
+}
+
+.calendar-day-empty {
+  background: transparent;
+}
+
+.calendar-day-box {
   aspect-ratio: 1;
-  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-glass);
-  position: relative;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
   cursor: pointer;
   transition: var(--transition-smooth);
 }
 
-.calendar-day-dot:hover {
-  transform: scale(1.15);
+.calendar-day-box:hover {
+  transform: scale(1.05);
 }
 
-.calendar-day-dot.perfect {
+.calendar-day-box.perfect {
   background: rgba(34, 197, 94, 0.2);
   border-color: var(--accent-green);
   box-shadow: 0 0 10px var(--accent-green-glow);
+  color: var(--accent-green);
 }
 
-.calendar-day-dot.acceptable {
+.calendar-day-box.acceptable {
   background: rgba(6, 182, 212, 0.2);
   border-color: var(--accent-cyan);
   box-shadow: 0 0 10px var(--accent-cyan-glow);
 }
 
-.calendar-day-dot.failed {
+.calendar-day-box.failed {
   background: rgba(239, 68, 68, 0.15);
   border-color: var(--accent-red);
   box-shadow: 0 0 8px var(--accent-red-glow);
+  color: var(--accent-red);
+}
+
+.calendar-day-box.future {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.calendar-day-box.future:hover {
+  transform: none;
 }
 
 .calendar-legend {

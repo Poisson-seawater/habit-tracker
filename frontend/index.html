@@ -228,6 +228,10 @@
       color: var(--accent-red);
       filter: drop-shadow(0 0 5px var(--accent-red));
     }
+    .tree-icon-btn.add-step:hover {
+      color: var(--accent-gold);
+      filter: drop-shadow(0 0 5px var(--accent-gold));
+    }
 
     .skill-tree-scroll-container {
       display: flex;
@@ -358,27 +362,35 @@
       border-color: var(--text-muted);
     }
 
-    /* Creators Overlay Drawer */
+    /* Creators Overlay Modal (Popup instead of Right Sidebar) */
     .creators-drawer {
       position: fixed;
-      top: 0;
-      right: -420px;
-      width: 400px;
-      height: 100vh;
-      background: rgba(18, 20, 26, 0.95);
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) scale(0.95);
+      width: 95%;
+      max-width: 550px;
+      height: auto;
+      max-height: 90vh;
+      background: rgba(18, 20, 26, 0.97);
       backdrop-filter: blur(25px);
-      border-left: 1px solid var(--border-glass);
+      border-radius: 16px;
+      border: 1px solid var(--border-glass);
       z-index: 1000;
-      box-shadow: -10px 0 35px rgba(0,0,0,0.6);
-      transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-      padding: 2rem;
+      opacity: 0;
+      pointer-events: none;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+      padding: 1.5rem 1.2rem;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 1.5rem;
+      gap: 1.2rem;
     }
     .creators-drawer.open {
-      right: 0;
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+      pointer-events: auto;
     }
     .drawer-overlay {
       position: fixed;
@@ -530,7 +542,7 @@
     
     <!-- 1. Top Premium Navigation Tab Bar -->
     <nav class="glass-card main-nav">
-      <div class="logo">🌌 RPG Progress V2</div>
+      <div class="logo"></div>
       <div class="nav-links">
         <button class="nav-tab active" data-tab="dashboard-tab">⚔️ Dashboard</button>
         <button class="nav-tab" data-tab="goals-tab">🏆 Objectifs & Graphes</button>
@@ -685,7 +697,7 @@
       <!-- Bottom Row: 30-Day calendar -->
       <section class="bottom-grid" style="grid-template-columns: 1fr; margin-top: 2rem;">
         <div class="glass-card calendar-panel">
-          <h2 class="section-header">📅 <span>Bilan Historique (30 Jours)</span></h2>
+          <h2 class="section-header">📅 <span>Bilan Historique (Mois en cours)</span></h2>
           <div class="calendar-grid" id="calendar-grid-container">
             <!-- 30 days dots populated dynamically -->
           </div>
@@ -722,10 +734,7 @@
             <p style="color: var(--text-muted); text-align: center; margin: auto;">Sélectionnez un objectif à gauche pour visualiser son arbre.</p>
           </div>
           
-          <!-- Bottom trigger bar: Add SubStep or Link -->
-          <button id="open-creators-drawer-btn" class="bottom-drawer-trigger-btn">
-            ⚔️ Forger & Gérer (Étapes, Blocs, Verrous)
-          </button>
+
         </main>
 
       </div>
@@ -739,8 +748,7 @@
         </div>
 
         <!-- Goal Editor/Creator form -->
-        <section class="glass-card" style="padding: 1.2rem; background: rgba(255,255,255,0.01);">
-          <h4 style="color: var(--accent-gold); margin-bottom: 0.8rem; font-size: 0.95rem;">🏆 Nouvel / Éditer Objectif</h4>
+        <section id="edit-goal-section" class="glass-card" style="padding: 1.2rem; background: rgba(255,255,255,0.01);">
           <form id="create-goal-form" class="modal-form">
             <input type="hidden" id="edit-goal-id-input">
             <div class="form-group">
@@ -756,8 +764,7 @@
         </section>
 
         <!-- SubStep Creator -->
-        <section class="glass-card" style="padding: 1.2rem; background: rgba(255,255,255,0.01);">
-          <h4 style="color: var(--accent-cyan); margin-bottom: 0.8rem; font-size: 0.95rem;">⛓️ Nouvelle Sous-étape</h4>
+        <section id="create-substep-section" class="glass-card" style="padding: 1.2rem; background: rgba(255,255,255,0.01);">
           <form id="create-substep-form" class="modal-form">
             <div class="form-group">
               <label for="substep-goal-select">Associer à l'Objectif</label>
@@ -773,23 +780,78 @@
                 <input type="number" id="substep-gold-input" value="150" min="0" required style="padding: 6px;">
               </div>
               <div class="form-group">
-                <label>Stats cibles</label>
-                <input type="text" id="substep-stats-input" placeholder="finance, discipline" style="font-size: 0.8rem; padding: 6px;">
+                <label for="substep-order-input">Ordre d'exécution</label>
+                <input type="number" id="substep-order-input" value="1" min="1" required style="padding: 6px;">
               </div>
             </div>
-            <div class="form-group">
-              <label for="substep-blocker-select">Bloqué par l'étape (Optionnel)</label>
-              <select id="substep-blocker-select">
-                <option value="">-- Aucune (déverrouillé d'office) --</option>
-              </select>
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem;">
+              <div class="form-group">
+                <label>Stat cible 1</label>
+                <select id="substep-stat-1" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
+                  <option value="">Aucune</option>
+                  <!-- Populated by JS -->
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Stat cible 2</label>
+                <select id="substep-stat-2" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
+                  <option value="">Aucune</option>
+                  <!-- Populated by JS -->
+                </select>
+              </div>
             </div>
             <button type="submit" class="quest-action-btn submit-btn" style="margin-top: 0.5rem; width: 100%;">Ajouter Étape</button>
           </form>
         </section>
 
+        <!-- SubStep Editor -->
+        <section id="edit-substep-section" class="glass-card" style="padding: 1.2rem; background: rgba(255,255,255,0.01); display: none;">
+          <form id="edit-substep-form" class="modal-form">
+            <input type="hidden" id="edit-substep-id-input">
+            <div class="form-group">
+              <label for="edit-substep-title-input">Titre de la Sous-étape</label>
+              <input type="text" id="edit-substep-title-input" placeholder="ex: Avoir 500k en actif" required>
+            </div>
+            <div class="form-group">
+              <label for="edit-substep-desc-input">Description</label>
+              <input type="text" id="edit-substep-desc-input" placeholder="ex: Accumuler des actifs nets">
+            </div>
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
+              <div class="form-group">
+                <label for="edit-substep-gold-input">Or (Gold)</label>
+                <input type="number" id="edit-substep-gold-input" value="150" min="0" required style="padding: 6px;">
+              </div>
+              <div class="form-group">
+                <label for="edit-substep-order-input">Ordre d'exécution</label>
+                <input type="number" id="edit-substep-order-input" value="1" min="1" required style="padding: 6px;">
+              </div>
+            </div>
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem;">
+              <div class="form-group">
+                <label>Stat cible 1</label>
+                <select id="edit-substep-stat-1" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
+                  <option value="">Aucune</option>
+                  <!-- Populated by JS -->
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Stat cible 2</label>
+                <select id="edit-substep-stat-2" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
+                  <option value="">Aucune</option>
+                  <!-- Populated by JS -->
+                </select>
+              </div>
+            </div>
+            <div style="display: flex; gap: 0.8rem; margin-top: 0.8rem;">
+              <button type="submit" class="quest-action-btn submit-btn" style="flex-grow: 1;">Enregistrer</button>
+              <button type="button" id="delete-substep-btn" class="quest-action-btn" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgb(239, 68, 68); color: rgb(239, 68, 68); width: auto; padding: 0 14px;">Supprimer</button>
+            </div>
+          </form>
+        </section>
+
         <!-- Links and Blocker dependencies -->
-        <section class="glass-card" style="padding: 1.2rem; background: rgba(255,255,255,0.01);">
-          <h4 style="color: var(--accent-purple); margin-bottom: 0.8rem; font-size: 0.95rem;">🔗 Liaisons & Blocs</h4>
+        <section id="links-blockers-section" class="glass-card" style="padding: 1.2rem; background: rgba(255,255,255,0.01);">
+          <h4 style="color: var(--accent-purple); margin-bottom: 0.8rem; font-size: 0.95rem;">🔗 Liaisons Multi-Objectifs</h4>
           <div style="display: flex; flex-direction: column; gap: 1rem;">
             
             <form id="link-substep-form" class="modal-form">
@@ -801,20 +863,12 @@
               <button type="submit" class="quest-action-btn" style="padding: 4px; font-size: 0.72rem; width: 100%;">Lier Étape</button>
             </form>
             
-            <hr style="border-color: rgba(255,255,255,0.05); margin: 0.2rem 0;">
-            
-            <form id="add-blocker-form" class="modal-form">
-              <h5 style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.4rem;">Créer un verrou (X bloque Y)</h5>
-              <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.4rem;">
-                <select id="block-target-select" required title="L'étape bloquée"></select>
-                <select id="block-source-select" required title="L'étape qui bloque"></select>
-              </div>
-              <button type="submit" class="quest-action-btn" style="padding: 4px; font-size: 0.72rem; width: 100%;">Ajouter Verrou</button>
-            </form>
+
 
           </div>
         </section>
       </div>
+    </div>
 
     <!-- ============================================== -->
     <!-- SCREEN 3: SETTINGS TAB                         -->
@@ -858,8 +912,14 @@
               <table class="potentials-table" id="potentials-table-element">
                 <thead>
                   <tr>
-                    <th>Jour</th>
-                    <th>Stats Potentielles</th>
+                    <th>Stat</th>
+                    <th>Lun ⚔️</th>
+                    <th>Mar ⚔️</th>
+                    <th>Mer ⚔️</th>
+                    <th>Jeu ⚔️</th>
+                    <th>Ven ⚔️</th>
+                    <th>Sam 💤</th>
+                    <th>Dim 💤</th>
                   </tr>
                 </thead>
                 <tbody id="potentials-table-body">
