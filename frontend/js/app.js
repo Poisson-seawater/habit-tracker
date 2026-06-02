@@ -71,6 +71,19 @@ document.addEventListener("DOMContentLoaded", () => {
       .join(", ");
   }
 
+  const substepStatsDropdowns = ["substep-stat-1", "substep-stat-2", "edit-substep-stat-1", "edit-substep-stat-2"];
+  substepStatsDropdowns.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      Object.keys(STAT_LABELS).forEach(stat => {
+        const option = document.createElement("option");
+        option.value = stat;
+        option.textContent = STAT_LABELS[stat];
+        el.appendChild(option);
+      });
+    }
+  });
+
   // ==============================================
   // FETCH PROFILE & DAILY DASHBOARD               //
   // ==============================================
@@ -286,15 +299,34 @@ document.addEventListener("DOMContentLoaded", () => {
       const calendarContainer = document.getElementById("calendar-grid-container");
       if (calendarContainer) {
         calendarContainer.innerHTML = "";
+        
+        const days = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+        days.forEach(day => {
+          const header = document.createElement("div");
+          header.className = "calendar-day-header";
+          header.textContent = day;
+          calendarContainer.appendChild(header);
+        });
+        
+        if (history.length > 0) {
+            const firstDayOffset = history[0].weekday;
+            for (let i = 0; i < firstDayOffset; i++) {
+              const emptySlot = document.createElement("div");
+              emptySlot.className = "calendar-day-empty";
+              calendarContainer.appendChild(emptySlot);
+            }
+        }
+
         history.forEach(day => {
-          const dot = document.createElement("div");
-          dot.className = `calendar-day-dot ${day.status}`;
+          const box = document.createElement("div");
+          box.className = `calendar-day-box ${day.status}`;
           
-          let statusText = "Failed / Incomplet ❌";
+          let statusText = day.status === "future" ? "À venir" : "Failed / Incomplet ❌";
           if (day.status === "perfect") statusText = "Perfect Day ! (+5 XP) 🏆";
           
-          dot.title = `${day.label} : ${statusText}`;
-          calendarContainer.appendChild(dot);
+          box.title = `${day.date} : ${statusText}`;
+          box.textContent = day.label;
+          calendarContainer.appendChild(box);
         });
       }
     } catch (error) {
@@ -446,13 +478,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeGoalId = null;
 
   // Drawer Toggle Helpers
-  function openDrawer(mode = "add", goalData = null) {
+  function openDrawer(mode = "add", goalData = null, substepData = null, otherSubstepsInGoal = []) {
     const drawer = document.getElementById("creators-drawer");
     const overlay = document.getElementById("drawer-overlay");
     if (!drawer || !overlay) return;
-
-    drawer.classList.add("open");
-    overlay.classList.add("open");
 
     const drawerTitle = document.getElementById("drawer-title");
     const goalSubmitBtn = document.getElementById("goal-submit-btn");
@@ -460,14 +489,73 @@ document.addEventListener("DOMContentLoaded", () => {
     const titleInput = document.getElementById("goal-title-input");
     const descInput = document.getElementById("goal-desc-input");
 
-    if (mode === "edit" && goalData) {
+    drawer.classList.add("open");
+    overlay.classList.add("open");
+
+    if (mode === "edit-substep" && substepData) {
+      drawerTitle.textContent = "✏️ Éditer Sous-étape";
+      
+      document.getElementById("edit-substep-section").style.display = "block";
+      document.getElementById("edit-goal-section").style.display = "none";
+      document.getElementById("create-substep-section").style.display = "none";
+      document.getElementById("links-blockers-section").style.display = "none";
+
+      document.getElementById("edit-substep-id-input").value = substepData.id;
+      document.getElementById("edit-substep-title-input").value = substepData.title;
+      document.getElementById("edit-substep-desc-input").value = substepData.description || "";
+      document.getElementById("edit-substep-gold-input").value = substepData.gold_reward;
+      document.getElementById("edit-substep-order-input").value = substepData.execution_order || 1;
+      const stats = substepData.stats || [];
+      document.getElementById("edit-substep-stat-1").value = stats.length > 0 ? stats[0] : "";
+      document.getElementById("edit-substep-stat-2").value = stats.length > 1 ? stats[1] : "";
+
+
+    } else if (mode === "edit" && goalData) {
       drawerTitle.textContent = "✏️ Modifier l'Objectif";
+      
+      document.getElementById("edit-goal-section").style.display = "block";
+      document.getElementById("edit-substep-section").style.display = "none";
+      document.getElementById("create-substep-section").style.display = "none";
+      document.getElementById("links-blockers-section").style.display = "none";
+
       goalSubmitBtn.textContent = "Enregistrer les modifications";
       editIdInput.value = goalData.id;
       titleInput.value = goalData.title;
       descInput.value = goalData.description || "";
+    } else if (mode === "add-goal") {
+      drawerTitle.textContent = "🏆 Nouvel Objectif";
+      
+      document.getElementById("edit-goal-section").style.display = "block";
+      document.getElementById("edit-substep-section").style.display = "none";
+      document.getElementById("create-substep-section").style.display = "none";
+      document.getElementById("links-blockers-section").style.display = "none";
+
+      goalSubmitBtn.textContent = "Forger l'Objectif";
+      editIdInput.value = "";
+      titleInput.value = "";
+      descInput.value = "";
+    } else if (mode === "add-substep") {
+      drawerTitle.textContent = "⛓️ Nouvelle Sous-étape";
+      
+      document.getElementById("edit-goal-section").style.display = "none";
+      document.getElementById("create-substep-section").style.display = "block";
+      document.getElementById("links-blockers-section").style.display = "none";
+      document.getElementById("edit-substep-section").style.display = "none";
+    } else if (mode === "links") {
+      drawerTitle.textContent = "🔗 Liaisons & Blocs Avancés";
+      
+      document.getElementById("edit-goal-section").style.display = "none";
+      document.getElementById("create-substep-section").style.display = "none";
+      document.getElementById("links-blockers-section").style.display = "block";
+      document.getElementById("edit-substep-section").style.display = "none";
     } else {
       drawerTitle.textContent = "✨ Forge d'Objectif";
+      
+      document.getElementById("edit-goal-section").style.display = "block";
+      document.getElementById("create-substep-section").style.display = "block";
+      document.getElementById("links-blockers-section").style.display = "block";
+      document.getElementById("edit-substep-section").style.display = "none";
+
       goalSubmitBtn.textContent = "Forger l'Objectif";
       editIdInput.value = "";
       titleInput.value = "";
@@ -478,47 +566,18 @@ document.addEventListener("DOMContentLoaded", () => {
   function closeDrawer() {
     const drawer = document.getElementById("creators-drawer");
     const overlay = document.getElementById("drawer-overlay");
-    if (drawer) drawer.classList.remove("open");
+    if (drawer) {
+      drawer.classList.remove("open");
+    }
     if (overlay) overlay.classList.remove("open");
   }
 
   // Bind Drawer Event Listeners
-  document.getElementById("open-creators-drawer-btn").addEventListener("click", () => openDrawer("add"));
-  document.getElementById("sidebar-add-goal-btn").addEventListener("click", () => openDrawer("add"));
+  document.getElementById("sidebar-add-goal-btn").addEventListener("click", () => openDrawer("add-goal"));
   document.getElementById("close-creators-drawer-btn").addEventListener("click", closeDrawer);
   document.getElementById("drawer-overlay").addEventListener("click", closeDrawer);
 
-  function computeSubstepDepths(substeps) {
-    const depths = {};
-    const substepsById = {};
-    substeps.forEach(s => {
-      substepsById[s.id] = s;
-    });
 
-    function getDepth(s) {
-      if (depths[s.id] !== undefined) {
-        return depths[s.id];
-      }
-      const activeBlockers = s.blocked_by_ids.filter(bid => bid in substepsById);
-      if (activeBlockers.length === 0) {
-        depths[s.id] = 0;
-        return 0;
-      }
-      let maxBlockerDepth = 0;
-      activeBlockers.forEach(bid => {
-        const blocker = substepsById[bid];
-        maxBlockerDepth = Math.max(maxBlockerDepth, getDepth(blocker));
-      });
-      depths[s.id] = maxBlockerDepth + 1;
-      return depths[s.id];
-    }
-
-    substeps.forEach(s => {
-      getDepth(s);
-    });
-
-    return depths;
-  }
 
   // ==============================================
   // SCREEN 2: GOALS & SUBSTEPS DAG GRAPH           //
@@ -548,18 +607,12 @@ document.addEventListener("DOMContentLoaded", () => {
       // Cache elements to update Goal/Substep creators dropdowns
       const substepGoalSelect = document.getElementById("substep-goal-select");
       const linkGoalSelect = document.getElementById("link-goal-select");
-      const blockerSelect = document.getElementById("substep-blocker-select");
       const linkSubstepSelect = document.getElementById("link-substep-select");
-      const targetSelect = document.getElementById("block-target-select");
-      const sourceSelect = document.getElementById("block-source-select");
 
       // Dynamic Dropdowns Sync
       if (substepGoalSelect) substepGoalSelect.innerHTML = "";
       if (linkGoalSelect) linkGoalSelect.innerHTML = "";
-      if (blockerSelect) blockerSelect.innerHTML = `<option value="">-- Aucune (déverrouillé d'office) --</option>`;
       if (linkSubstepSelect) linkSubstepSelect.innerHTML = "";
-      if (targetSelect) targetSelect.innerHTML = "";
-      if (sourceSelect) sourceSelect.innerHTML = "";
 
       const substepsMap = new Map(); // Keep track of unique substeps
 
@@ -611,10 +664,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Populate unique substeps dropdown selectors
       substepsMap.forEach((title, id) => {
         const optionHTML = `<option value="${id}">${title}</option>`;
-        if (blockerSelect) blockerSelect.innerHTML += optionHTML;
         if (linkSubstepSelect) linkSubstepSelect.innerHTML += optionHTML;
-        if (targetSelect) targetSelect.innerHTML += optionHTML;
-        if (sourceSelect) sourceSelect.innerHTML += optionHTML;
       });
 
       // Render Active Tree
@@ -646,58 +696,43 @@ document.addEventListener("DOMContentLoaded", () => {
           <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.2rem;">${goal.description || 'Arbre de quêtes long terme.'} • ${percent}% complété</p>
         </div>
         <div class="skill-tree-actions">
+          <button class="tree-icon-btn add-step" id="btn-add-substep" title="Nouvelle Sous-étape" style="font-size: 1.1rem; color: var(--accent-cyan);">➕</button>
+          <button class="tree-icon-btn link" id="btn-link-substep" title="Liaisons & Verrous avancés" style="font-size: 1.1rem; color: var(--accent-purple);">🔗</button>
           <button class="tree-icon-btn edit" id="btn-edit-active-goal" title="Modifier l'objectif">✏️</button>
           <button class="tree-icon-btn delete" id="btn-delete-active-goal" title="Supprimer l'objectif">🗑️</button>
         </div>
       </div>
     `;
 
-    // Compute depths
-    const depths = computeSubstepDepths(goal.substeps);
-    const maxDepth = goal.substeps.length > 0 ? Math.max(...Object.values(depths)) : -1;
-
-    // Organize substeps by columns
-    const columns = [];
-    for (let i = 0; i <= maxDepth; i++) {
-      columns.push([]);
-    }
+    // Organize substeps by columns based strictly on execution_order
+    const columnsMap = new Map();
     goal.substeps.forEach(s => {
-      const d = depths[s.id];
-      columns[d].push(s);
+      const order = s.execution_order || 1;
+      if (!columnsMap.has(order)) {
+        columnsMap.set(order, []);
+      }
+      columnsMap.get(order).push(s);
     });
+
+    // Sort the execution orders ascending to create left-to-right visual progression
+    const sortedOrders = Array.from(columnsMap.keys()).sort((a, b) => a - b);
 
     // Render tree scroll container
     let columnsHTML = "";
 
-    // Column 0: Root Goal itself!
-    const goalIsCompleted = goal.completed;
-    columnsHTML += `
-      <div class="tree-column">
-        <div class="tree-node ${goalIsCompleted ? 'completed-node' : 'unlocked-node'}" style="min-height: 120px;">
-          <span class="substep-tag" style="background: rgba(234, 179, 8, 0.15); color: var(--accent-gold); font-size: 0.65rem;">OBJECTIF CENTRAL</span>
-          <span class="tree-node-title" style="font-size: 1.1rem; color: var(--accent-green); margin-top: 0.3rem;">${goal.title}</span>
-          <span class="tree-node-desc" style="font-size: 0.78rem;">${percent}% complété</span>
-        </div>
-      </div>
-    `;
-
-    // Remaining columns
-    columns.forEach((colSubsteps, colIdx) => {
+    // 1. Substep columns (ordered by execution_order)
+    sortedOrders.forEach(order => {
+      const colSubsteps = columnsMap.get(order);
       let nodesHTML = "";
       colSubsteps.forEach(s => {
         const isCompleted = s.completed;
-        const isBlocked = s.is_blocked;
-        const lockIcon = isBlocked ? "🔒 " : "";
         
         let stateClass = "unlocked-node";
         if (isCompleted) stateClass = "completed-node";
-        else if (isBlocked) stateClass = "locked-node";
 
         let btnHTML = "";
         if (isCompleted) {
           btnHTML = `<span style="color: var(--accent-green); font-size: 0.75rem; font-weight: 700; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.2rem;">✓ Complétée</span>`;
-        } else if (isBlocked) {
-          btnHTML = `<span style="color: var(--text-muted); font-size: 0.72rem; margin-top: 0.4rem; display: block;">Bloquée</span>`;
         } else {
           btnHTML = `<button class="tree-node-btn action-complete-substep" data-id="${s.id}">Valider</button>`;
         }
@@ -705,9 +740,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const statsTags = s.stats.map(st => `<span class="substep-tag">${STAT_LABELS[st.toLowerCase()] || st}</span>`).join(" ");
 
         nodesHTML += `
-          <div class="tree-node ${stateClass}">
-            <span class="tree-node-title">${lockIcon}${s.title}</span>
-            <span class="tree-node-gold">💰 +${s.gold_reward}g</span>
+          <div class="tree-node ${stateClass}" style="position: relative; padding-top: 1.6rem;">
+            <div class="tree-node-actions" style="position: absolute; top: 8px; right: 8px; display: flex; gap: 0.4rem;">
+              <span class="action-edit-substep-icon" data-id="${s.id}" style="cursor: pointer; font-size: 0.75rem; opacity: 0.6; hover: opacity: 1; transition: opacity 0.2s;" title="Modifier la sous-étape">✏️</span>
+            </div>
+            <span class="tree-node-title" style="margin-top: 0.2rem;"><span style="color: var(--text-muted); font-size: 0.75em; margin-right: 0.2em;">[Étape ${s.execution_order || 1}]</span> ${s.title}</span>
+            ${s.description ? `<span class="tree-node-desc" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.2rem; line-height: 1.2;">${s.description}</span>` : ""}
+            <span class="tree-node-gold" style="margin-top: 0.3rem; display: block;">💰 +${s.gold_reward}g</span>
             <div class="tree-node-stats">${statsTags}</div>
             ${btnHTML}
           </div>
@@ -721,6 +760,18 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
     });
 
+    // 2. Column Last: Root Goal itself!
+    const goalIsCompleted = goal.completed;
+    columnsHTML += `
+      <div class="tree-column">
+        <div class="tree-node ${goalIsCompleted ? 'completed-node' : 'unlocked-node'}" style="min-height: 120px;">
+          <span class="substep-tag" style="background: rgba(234, 179, 8, 0.15); color: var(--accent-gold); font-size: 0.65rem;">OBJECTIF CENTRAL</span>
+          <span class="tree-node-title" style="font-size: 1.1rem; color: var(--accent-green); margin-top: 0.3rem;">${goal.title}</span>
+          <span class="tree-node-desc" style="font-size: 0.78rem;">${percent}% complété</span>
+        </div>
+      </div>
+    `;
+
     viewer.innerHTML = `
       ${headerHTML}
       <div class="skill-tree-scroll-container">
@@ -728,9 +779,23 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     `;
 
-    // Bind edit/delete handlers
+    // Bind edit/delete/add handlers
+    document.getElementById("btn-add-substep").addEventListener("click", () => openDrawer("add-substep"));
+    document.getElementById("btn-link-substep").addEventListener("click", () => openDrawer("links"));
     document.getElementById("btn-edit-active-goal").addEventListener("click", () => openDrawer("edit", goal));
     document.getElementById("btn-delete-active-goal").addEventListener("click", () => deleteGoal(goal.id));
+
+    // Bind edit substep handlers inside the tree
+    viewer.querySelectorAll(".action-edit-substep-icon").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const subId = parseInt(btn.getAttribute("data-id"));
+        const substepData = goal.substeps.find(sub => sub.id === subId);
+        if (substepData) {
+          openDrawer("edit-substep", null, substepData, goal.substeps);
+        }
+      });
+    });
 
     // Bind Complete button handlers inside the tree
     viewer.querySelectorAll(".action-complete-substep").forEach(btn => {
@@ -808,13 +873,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const goalId = document.getElementById("substep-goal-select").value;
     const title = document.getElementById("substep-title-input").value.trim();
     const gold = parseInt(document.getElementById("substep-gold-input").value) || 0;
+    const order = parseInt(document.getElementById("substep-order-input").value) || 1;
     
     // Parse stats
-    const statsInput = document.getElementById("substep-stats-input").value;
-    const stats = statsInput.split(",").map(s => s.trim().toLowerCase()).filter(s => s in STAT_LABELS);
-    
-    const blockerId = document.getElementById("substep-blocker-select").value;
-    const blockers = blockerId ? [parseInt(blockerId)] : [];
+    const stat1 = document.getElementById("substep-stat-1").value;
+    const stat2 = document.getElementById("substep-stat-2").value;
+    const stats = [stat1, stat2].filter(s => s !== "");
 
     try {
       const resp = await fetch(`${API_BASE}/goals/${goalId}/substeps`, {
@@ -824,7 +888,7 @@ document.addEventListener("DOMContentLoaded", () => {
           title: title,
           gold_reward: gold,
           stats_json: stats,
-          blocked_by_ids: blockers
+          execution_order: order
         })
       });
       if (!resp.ok) throw new Error();
@@ -834,6 +898,61 @@ document.addEventListener("DOMContentLoaded", () => {
       fetchGoals();
     } catch {
       showToast("Erreur lors de la création de la sous-étape", true);
+    }
+  });
+
+  document.getElementById("edit-substep-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const subId = document.getElementById("edit-substep-id-input").value;
+    const title = document.getElementById("edit-substep-title-input").value.trim();
+    const desc = document.getElementById("edit-substep-desc-input").value.trim();
+    const gold = parseInt(document.getElementById("edit-substep-gold-input").value) || 0;
+    const order = parseInt(document.getElementById("edit-substep-order-input").value) || 1;
+    
+    // Parse stats
+    const stat1 = document.getElementById("edit-substep-stat-1").value;
+    const stat2 = document.getElementById("edit-substep-stat-2").value;
+    const stats = [stat1, stat2].filter(s => s !== "");
+
+    try {
+      const resp = await fetch(`${API_BASE}/substeps/${subId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title,
+          description: desc,
+          gold_reward: gold,
+          stats_json: stats,
+          execution_order: order
+        })
+      });
+      if (!resp.ok) throw new Error();
+      showToast("Sous-étape modifiée avec succès ! ✏️");
+      closeDrawer();
+      fetchGoals();
+    } catch {
+      showToast("Erreur lors de la modification de la sous-étape", true);
+    }
+  });
+
+  document.getElementById("delete-substep-btn").addEventListener("click", async () => {
+    const subId = document.getElementById("edit-substep-id-input").value;
+    if (!subId) return;
+
+    if (!confirm("Voulez-vous vraiment supprimer cette sous-étape définitivement ?")) {
+      return;
+    }
+
+    try {
+      const resp = await fetch(`${API_BASE}/substeps/${subId}`, {
+        method: "DELETE"
+      });
+      if (!resp.ok) throw new Error();
+      showToast("Sous-étape supprimée de l'aventure ! 🗑️");
+      closeDrawer();
+      fetchGoals();
+    } catch {
+      showToast("Erreur lors de la suppression de la sous-étape", true);
     }
   });
 
@@ -857,25 +976,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  document.getElementById("add-blocker-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const targetId = parseInt(document.getElementById("block-target-select").value);
-    const sourceId = parseInt(document.getElementById("block-source-select").value);
-
-    try {
-      const resp = await fetch(`${API_BASE}/substeps/${targetId}/dependency`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blocked_by_id: sourceId })
-      });
-      if (!resp.ok) throw new Error();
-      showToast("Verrou de blocage DAG forgé ! 🔒");
-      closeDrawer();
-      fetchGoals();
-    } catch {
-      showToast("Erreur lors de la création du blocage", true);
-    }
-  });
 
   // ==============================================
   // SCREEN 3: SETTINGS & POTENTIALS               //
@@ -950,24 +1050,33 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!tbody) return;
 
       tbody.innerHTML = "";
-      // Loop over 7 days in order
       const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-      const frDays = ["Lundi ⚔️", "Mardi ⚔️", "Mercredi ⚔️", "Jeudi ⚔️", "Vendredi ⚔️", "Samedi 💤", "Dimanche 💤"];
 
-      days.forEach((day, idx) => {
-        const statsObj = potentials[day] || {};
-        const statsStr = Object.entries(statsObj)
-          .filter(([_, val]) => val > 0)
-          .map(([stat, val]) => `${STAT_LABELS[stat.toLowerCase()] || stat}: +${val}`)
-          .join(", ");
-
-        tbody.innerHTML += `
-          <tr>
-            <td><strong>${frDays[idx]}</strong></td>
-            <td>${statsStr || '<span style="color: var(--text-muted);">Aucune stat planifiée</span>'}</td>
-          </tr>
-        `;
+      Object.keys(STAT_LABELS).forEach(stat => {
+        let hasAnyPoints = false;
+        let rowHtml = `<tr><td><strong>${STAT_LABELS[stat]}</strong></td>`;
+        
+        days.forEach(day => {
+          const statsObj = potentials[day] || {};
+          const val = statsObj[stat.toLowerCase()] || 0;
+          if (val > 0) {
+            hasAnyPoints = true;
+            rowHtml += `<td style="color: var(--accent-green); font-weight: bold; text-align: center;">+${val}</td>`;
+          } else {
+            rowHtml += `<td style="color: var(--text-muted); text-align: center;">-</td>`;
+          }
+        });
+        
+        rowHtml += `</tr>`;
+        
+        if (hasAnyPoints) {
+          tbody.innerHTML += rowHtml;
+        }
       });
+      
+      if (tbody.innerHTML === "") {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 1rem;">Aucune stat planifiée cette semaine</td></tr>`;
+      }
     } catch {
       console.error("Erreur de récupération des potentiels");
     }

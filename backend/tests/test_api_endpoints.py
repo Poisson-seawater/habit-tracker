@@ -148,12 +148,14 @@ def test_goals_and_substeps_crud():
     # 2. Add SubStep
     response = client.post(f"/api/v1/goals/{goal_id}/substeps", json={
         "title": "Trouver un bon avocat",
+        "description": "Réseauter pour trouver un expert",
         "gold_reward": 200,
         "stats_json": ["discipline"]
     })
     assert response.status_code == 201
     substep = response.json()["substep"]
     substep_id = substep["id"]
+    assert substep["description"] == "Réseauter pour trouver un expert"
 
     # 3. Retrieve Goals Graphes
     response = client.get("/api/v1/goals")
@@ -162,8 +164,28 @@ def test_goals_and_substeps_crud():
     assert len(goals) >= 1
     assert goals[-1]["title"] == "Devenir Millionnaire"
     assert goals[-1]["substeps"][0]["title"] == "Trouver un bon avocat"
+    assert goals[-1]["substeps"][0]["description"] == "Réseauter pour trouver un expert"
 
-    # 4. Update Goal
+    # 4. Update SubStep
+    response = client.put(f"/api/v1/substeps/{substep_id}", json={
+        "title": "Trouver un SUPER avocat",
+        "description": "Engager le meilleur avocat de la ville",
+        "gold_reward": 300,
+        "stats_json": ["discipline", "organisation"],
+        "blocked_by_ids": []
+    })
+    assert response.status_code == 200
+    substep_updated = response.json()["substep"]
+    assert substep_updated["title"] == "Trouver un SUPER avocat"
+    assert substep_updated["description"] == "Engager le meilleur avocat de la ville"
+    assert substep_updated["gold_reward"] == 300
+
+    # 5. Delete SubStep
+    response = client.delete(f"/api/v1/substeps/{substep_id}")
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+
+    # 6. Update Goal
     response = client.put(f"/api/v1/goals/{goal_id}", json={
         "title": "Devenir Milliardaire",
         "description": "Atteindre 1B en actif"
@@ -172,7 +194,7 @@ def test_goals_and_substeps_crud():
     data = response.json()
     assert data["goal"]["title"] == "Devenir Milliardaire"
 
-    # 5. Delete Goal
+    # 7. Delete Goal
     response = client.delete(f"/api/v1/goals/{goal_id}")
     assert response.status_code == 200
     assert response.json()["status"] == "success"

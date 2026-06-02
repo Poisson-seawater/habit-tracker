@@ -139,27 +139,13 @@ class SubStep(Base):
     gold_reward = Column(Integer, default=0)
     completed = Column(Boolean, default=False)
     completed_at = Column(DateTime, nullable=True)
+    description = Column(Text, nullable=True)
     stats_json = Column(JSON, nullable=True)  # List of related stats e.g. ["force", "finance"]
+    execution_order = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     user = relationship("User", back_populates="substeps")
     goal_links = relationship("GoalSubStepLink", back_populates="substep", cascade="all, delete-orphan")
-    
-    # Dependencies where this substep is blocked by others
-    dependencies_blocked = relationship(
-        "SubStepDependency",
-        foreign_keys="[SubStepDependency.substep_id]",
-        back_populates="substep",
-        cascade="all, delete-orphan"
-    )
-    # Dependencies where this substep blocks others
-    dependencies_blockers = relationship(
-        "SubStepDependency",
-        foreign_keys="[SubStepDependency.blocked_by_id]",
-        back_populates="blocked_by",
-        cascade="all, delete-orphan"
-    )
-
 
 class GoalSubStepLink(Base):
     __tablename__ = "goal_substep_links"
@@ -171,13 +157,3 @@ class GoalSubStepLink(Base):
     goal = relationship("Goal", back_populates="substep_links")
     substep = relationship("SubStep", back_populates="goal_links")
 
-
-class SubStepDependency(Base):
-    __tablename__ = "substep_dependencies"
-
-    id = Column(Integer, primary_key=True, index=True)
-    substep_id = Column(Integer, ForeignKey("substeps.id", ondelete="CASCADE"), nullable=False)
-    blocked_by_id = Column(Integer, ForeignKey("substeps.id", ondelete="CASCADE"), nullable=False)
-
-    substep = relationship("SubStep", foreign_keys=[substep_id], back_populates="dependencies_blocked")
-    blocked_by = relationship("SubStep", foreign_keys=[blocked_by_id], back_populates="dependencies_blockers")
