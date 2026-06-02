@@ -425,12 +425,12 @@ def save_template(payload: TemplateSave, db: Session = Depends(get_db), user_id:
     return {"status": "success", "template_name": payload.template_name}
 
 @router.get("/quests/daily-stats-potentials")
-def get_daily_stats_potentials(db: Session = Depends(get_db)):
+def get_daily_stats_potentials(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     """
     Calculate potential statistic totals group by day of the week.
     Scheduled days represented by 0 (Sunday) to 6 (Saturday).
     """
-    habits = db.query(Habit).filter_by(is_active=True).all()
+    habits = db.query(Habit).filter_by(user_id=user_id, is_active=True).all()
     day_names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     potentials = {day: {stat: 0 for stat in ALL_12_STATS} for day in day_names}
     
@@ -455,7 +455,7 @@ def create_log(payload: LogCreate, db: Session = Depends(get_db), user_id: int =
     """
     Submit an ephemeral habit log.
     """
-    habit = db.query(Habit).filter_by(id=payload.habit_id, is_active=True).first()
+    habit = db.query(Habit).filter_by(id=payload.habit_id, user_id=user_id, is_active=True).first()
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found or inactive")
 
@@ -630,8 +630,8 @@ def complete_todo(todo_id: int, db: Session = Depends(get_db), user_id: int = De
 # --- History & Habits Listing ---
 
 @router.get("/habits")
-def get_habits(db: Session = Depends(get_db)):
-    habits = db.query(Habit).filter_by(is_active=True).all()
+def get_habits(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    habits = db.query(Habit).filter_by(user_id=user_id, is_active=True).all()
     result = []
     for h in habits:
         result.append({
@@ -653,12 +653,13 @@ def get_habits(db: Session = Depends(get_db)):
     return result
 
 @router.post("/habits", status_code=201)
-def create_habit(payload: HabitCreate, db: Session = Depends(get_db)):
-    existing = db.query(Habit).filter_by(name=payload.name).first()
+def create_habit(payload: HabitCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    existing = db.query(Habit).filter_by(user_id=user_id, name=payload.name).first()
     if existing:
         raise HTTPException(status_code=400, detail=f"Habit with name '{payload.name}' already exists.")
 
     habit = Habit(
+        user_id=user_id,
         name=payload.name,
         type=payload.type,
         description=payload.description,

@@ -57,7 +57,7 @@ def calculate_daily_score(db: Session, user_id: int, date: datetime.date, templa
             logs_by_habit.setdefault(log.habit_id, []).append(log)
 
     for habit_id, habit_logs in logs_by_habit.items():
-        habit = db.query(Habit).filter_by(id=habit_id).first()
+        habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
         if not habit or not habit.is_active:
             continue
             
@@ -165,7 +165,7 @@ def update_streaks(db: Session, user_id: int, date: datetime.date):
     weekday = date.weekday()
     model_day_idx = (weekday + 1) % 7
     
-    habits = db.query(Habit).filter_by(is_active=True).all()
+    habits = db.query(Habit).filter_by(user_id=user_id, is_active=True).all()
     for habit in habits:
         scheduled = str(model_day_idx) in [day.strip() for day in habit.scheduled_days.split(",")]
         if not scheduled:

@@ -157,6 +157,7 @@ def seed_db():
         for h_info in habits_data:
             habit = Habit(
                 id=h_info["id"],
+                user_id=1,
                 name=h_info["name"],
                 description=h_info["description"],
                 type=h_info["type"],

@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Date, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Date, ForeignKey, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from src.database.session import Base
 
@@ -21,13 +21,16 @@ class User(Base):
     goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")
     substeps = relationship("SubStep", back_populates="user", cascade="all, delete-orphan")
     perfect_day_templates = relationship("PerfectDayTemplate", back_populates="user", cascade="all, delete-orphan")
+    habits = relationship("Habit", back_populates="user", cascade="all, delete-orphan")
 
 
 class Habit(Base):
     __tablename__ = "habits"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uix_user_habit_name"),)
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False, unique=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
     type = Column(String, nullable=False)  # "binary" or "quantitative"
     frequency = Column(String, default="daily")  # "daily", "weekly", "custom"
@@ -41,6 +44,7 @@ class Habit(Base):
     unit = Column(String, nullable=True)  # Unit e.g. "min", "km"
     is_active = Column(Boolean, default=True)
 
+    user = relationship("User", back_populates="habits")
     logs = relationship("HabitLog", back_populates="habit", cascade="all, delete-orphan")
 
 
