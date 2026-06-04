@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Objectifs — Habit Tracker RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <header class="masthead" id="top">
+    <div class="masthead__inner">
+      <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
+      <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidenav" aria-label="Navigation de la documentation">
+      <ul>
+        <li><a href="index.html">Accueil</a></li>
+        <li><a href="regles-et-variables.html">Règles &amp; variables</a></li>
+      </ul>
+      <p class="sidenav__heading">Concepts</p>
+      <ul>
+        <li><a href="perfect-day.html">Perfect Day</a></li>
+        <li><a href="habitudes.html">Habitudes (Quêtes)</a></li>
+        <li><a href="objectifs.html" aria-current="page">Objectifs</a></li>
+        <li><a href="primes-todo.html">Primes (Todos)</a></li>
+        <li><a href="no-todo.html">No-Todo</a></li>
+        <li><a href="templates-de-jour.html">Templates de jour</a></li>
+        <li><a href="stats-xp-niveau-or.html">Stats, XP, niveau &amp; or</a></li>
+      </ul>
+    </nav>
+
+    <main class="content">
+      <article class="prose">
+        <h1>Objectifs (Vision long terme)</h1>
+        <p class="intro">Tes grands buts de vie, découpés en sous-étapes interconnectées ; les valider à la main rapporte de l'Or permanent.</p>
+
+        <h2 id="graphe">Le graphe d'objectifs</h2>
+        <ul>
+          <li>Un objectif (ex. « Tour du monde ») se découpe en <strong>sous-étapes</strong>.</li>
+          <li>Les sous-étapes portent des <strong>dépendances</strong> : certaines sont cadenassées (🔒) tant qu'une étape bloquante n'est pas validée.</li>
+          <li>Une sous-étape peut être <strong>partagée</strong> entre plusieurs objectifs : la valider quelque part la valide partout.</li>
+        </ul>
+
+        <h2 id="recompense">Récompense</h2>
+        <p>Valider manuellement une sous-étape résolue → <strong>Or (Gold)</strong> personnalisé et permanent (voir <a href="stats-xp-niveau-or.html">or</a>). L'Or ne vient pas du quotidien mais de l'avancement réel de tes projets.</p>
+
+        <h2 id="separation">Séparés du quotidien</h2>
+        <p>Les objectifs vivent sur leur propre écran et ne dépendent pas du <a href="perfect-day.html">Perfect Day</a>. Ce sont tes <a href="habitudes.html">habitudes</a> qui, par leur régularité, rendent ces étapes atteignables.</p>
+      </article>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <span>Documentation Habit Tracker RPG · état au 2026-06-04.</span>
+      <a href="#top">↑ Haut de page</a>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accueil — Habit Tracker RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <header class="masthead" id="top">
+    <div class="masthead__inner">
+      <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
+      <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidenav" aria-label="Navigation de la documentation">
+      <ul>
+        <li><a href="index.html" aria-current="page">Accueil</a></li>
+        <li><a href="regles-et-variables.html">Règles &amp; variables</a></li>
+      </ul>
+      <p class="sidenav__heading">Concepts</p>
+      <ul>
+        <li><a href="perfect-day.html">Perfect Day</a></li>
+        <li><a href="habitudes.html">Habitudes (Quêtes)</a></li>
+        <li><a href="objectifs.html">Objectifs</a></li>
+        <li><a href="primes-todo.html">Primes (Todos)</a></li>
+        <li><a href="no-todo.html">No-Todo</a></li>
+        <li><a href="templates-de-jour.html">Templates de jour</a></li>
+        <li><a href="stats-xp-niveau-or.html">Stats, XP, niveau &amp; or</a></li>
+      </ul>
+    </nav>
+
+    <main class="content">
+      <article class="prose">
+        <h1>Habit Tracker RPG</h1>
+        <p class="intro">Suivi d'habitudes gamifié (RPG), auto-hébergé : on logge ses actions via un bot Telegram, le système calcule un « Perfect Day » quotidien et fait progresser des objectifs long terme — pour tenir ses habitudes dans la durée en rendant la progression visible.</p>
+
+        <h2 id="vue-d-ensemble">Vue d'ensemble</h2>
+        <div class="mindmap-wrap">
+          <div class="markmap">
+            <script type="text/template">
+---
+markmap:
+  colorFreezeLevel: 2
+  initialExpandLevel: 3
+---
+
+# Habit Tracker RPG
+
+## [Accueil](index.html)
+- Pourquoi le projet + 3 workflows
+## [Règles & variables](regles-et-variables.html)
+- Commandes, variables, interactions
+## Concepts
+### [Perfect Day](perfect-day.html)
+- Tous les seuils atteints → +5 XP et streak
+### [Habitudes (Quêtes)](habitudes.html)
+- Actions récurrentes qui nourrissent les stats
+### [Objectifs](objectifs.html)
+- Sous-étapes → Or permanent
+### [Primes (Todos)](primes-todo.html)
+- Tâches du jour : stats + XP direct
+### [No-Todo](no-todo.html)
+- Règles à ne pas enfreindre (/fail)
+### [Templates de jour](templates-de-jour.html)
+- semaine / weekend / recovery / sick → seuils
+### [Stats, XP, niveau & or](stats-xp-niveau-or.html)
+- 12 stats éphémères, XP/niveau, Or
+            </script>
+          </div>
+        </div>
+        <p class="mindmap-hint">Carte interactive — clique un nœud pour ouvrir la page, molette pour zoomer.</p>
+
+        <h2 id="usage-normal">Usage normal</h2>
+        <p>La journée d'un joueur établi :</p>
+        <ol>
+          <li>Au fil de la journée, tu valides tes quêtes : <code>/done &lt;habitude&gt;</code> (binaire) ou <code>/log &lt;habitude&gt; &lt;valeur&gt;</code> (quantitative), et tu coches tes <a href="primes-todo.html">primes</a> du jour.</li>
+          <li>Chaque validation remplit tes 12 <a href="stats-xp-niveau-or.html">stats</a> du jour.</li>
+          <li><code>/status</code> te dit ce qu'il reste pour atteindre les seuils de ton <a href="templates-de-jour.html">template</a>.</li>
+          <li>Si tous les seuils tombent → <a href="perfect-day.html">Perfect Day</a> → +5 XP et streak.</li>
+          <li>À 23h59, la journée se fige, le bot publie le bilan de la guilde, et les stats repartent à 0 le lendemain.</li>
+        </ol>
+        <p>En parallèle, tu fais avancer tes <a href="objectifs.html">objectifs</a> long terme en validant leurs sous-étapes (qui rapportent de l'Or).</p>
+
+        <h2 id="nouvel-usager">Nouvel usager</h2>
+        <p>Première mise en route :</p>
+        <ol>
+          <li>Tu rejoins le groupe Telegram : ton profil est créé à ton premier message (niveau 1, 0 XP, 0 Or).</li>
+          <li>Tu crées tes premières <a href="habitudes.html">habitudes</a> (<code>/add_habit binary Lecture</code>, ou via le dashboard) et tu planifies leurs jours.</li>
+          <li>Tu règles les seuils de tes <a href="templates-de-jour.html">templates</a> dans l'écran Paramètres (le dashboard somme tes points potentiels pour t'aider à fixer des seuils réalistes).</li>
+          <li>Tu poses tes <a href="objectifs.html">objectifs</a> long terme sur l'écran Objectifs, découpés en sous-étapes.</li>
+          <li>Tu commences à logger : <code>/status</code> t'accompagne jour après jour.</li>
+        </ol>
+
+        <h2 id="cas-particuliers">Cas particuliers</h2>
+        <ul>
+          <li><strong>Jour malade / récupération.</strong> Bascule de <a href="templates-de-jour.html">template</a> (<code>/template sick</code> ou <code>/template recup</code>) pour baisser les seuils : un jour off reste « réussissable » sans casser ta dynamique.</li>
+          <li><strong>Skip justifié.</strong> <code>/skip &lt;habitude&gt; raison: &lt;texte&gt;</code> excuse une habitude pour aujourd'hui <strong>sans casser le streak</strong>. La raison est obligatoire.</li>
+          <li><strong>Habitudes privées.</strong> Une habitude <code>is_private</code> compte dans ton <a href="perfect-day.html">Perfect Day</a> mais reste masquée du recap public du groupe (agrégée en simple compte).</li>
+          <li><strong>Bot en privé.</strong> Tu peux écrire au bot en message privé (dès que tu as posté une fois dans le groupe) pour ne pas polluer le chat collectif, ou pour logger une habitude discrète.</li>
+        </ul>
+
+        <h2 id="trois-publics">Trois publics</h2>
+        <ul>
+          <li><strong>Utilisateur</strong> : commence par <a href="#usage-normal">Usage normal</a> puis <a href="#nouvel-usager">Nouvel usager</a>.</li>
+          <li><strong>Vendeur</strong> : l'objectif ci-dessus + la boucle décrite dans <a href="regles-et-variables.html">Règles &amp; variables</a>.</li>
+          <li><strong>Dev (sans lire le code)</strong> : <a href="regles-et-variables.html">Règles &amp; variables</a> donne tout le modèle mental du système.</li>
+        </ul>
+      </article>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <span>Documentation Habit Tracker RPG · état au 2026-06-04.</span>
+      <a href="#top">↑ Haut de page</a>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/markmap-autoloader@0.18"></script>
+</body>
+</html>

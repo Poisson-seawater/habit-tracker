@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Habitudes (Quêtes) — Habit Tracker RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <header class="masthead" id="top">
+    <div class="masthead__inner">
+      <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
+      <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidenav" aria-label="Navigation de la documentation">
+      <ul>
+        <li><a href="index.html">Accueil</a></li>
+        <li><a href="regles-et-variables.html">Règles &amp; variables</a></li>
+      </ul>
+      <p class="sidenav__heading">Concepts</p>
+      <ul>
+        <li><a href="perfect-day.html">Perfect Day</a></li>
+        <li><a href="habitudes.html" aria-current="page">Habitudes (Quêtes)</a></li>
+        <li><a href="objectifs.html">Objectifs</a></li>
+        <li><a href="primes-todo.html">Primes (Todos)</a></li>
+        <li><a href="no-todo.html">No-Todo</a></li>
+        <li><a href="templates-de-jour.html">Templates de jour</a></li>
+        <li><a href="stats-xp-niveau-or.html">Stats, XP, niveau &amp; or</a></li>
+      </ul>
+    </nav>
+
+    <main class="content">
+      <article class="prose">
+        <h1>Habitudes (Quêtes)</h1>
+        <p class="intro">Les actions récurrentes que tu répètes selon un planning ; elles nourrissent tes stats du jour et te font avancer, à ton rythme, vers tes <a href="objectifs.html">objectifs</a>.</p>
+
+        <h2 id="types">Deux types</h2>
+        <table>
+          <thead><tr><th>Type</th><th>Validation</th><th>Commande</th></tr></thead>
+          <tbody>
+            <tr><td>Binaire</td><td>faite / pas faite (une fois par jour)</td><td><code>/done &lt;habitude&gt;</code></td></tr>
+            <tr><td>Quantitative</td><td>une mesure (ex. 30min, 5km)</td><td><code>/log &lt;habitude&gt; &lt;valeur&gt;&lt;unité&gt;</code></td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="planning">Planning</h2>
+        <p>Une habitude n'est due que certains jours (tous les jours, ou par ex. lundi + mercredi). Elle n'apparaît dans les quêtes du jour que les jours prévus.</p>
+
+        <h2 id="recompense">Récompense</h2>
+        <p>Chaque habitude attribue des points à une ou plusieurs <a href="stats-xp-niveau-or.html">stats</a>. Une habitude quantitative peut avoir un <strong>plafond de points par jour</strong> (daily cap). Les habitudes alimentent le <a href="perfect-day.html">Perfect Day</a> mais ne donnent <strong>pas</strong> d'XP direct — contrairement aux <a href="primes-todo.html">primes</a>.</p>
+
+        <h2 id="separation">Séparées des objectifs</h2>
+        <p>Les habitudes et les <a href="objectifs.html">objectifs</a> sont <strong>séparés</strong> : faire des habitudes ne valide pas tout seul une sous-étape d'objectif. Le lien est d'<strong>intention</strong> — la régularité construite par les habitudes rend les objectifs atteignables.</p>
+      </article>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <span>Documentation Habit Tracker RPG · état au 2026-06-04.</span>
+      <a href="#top">↑ Haut de page</a>
+    </div>
+  </footer>
+</body>
+</html>

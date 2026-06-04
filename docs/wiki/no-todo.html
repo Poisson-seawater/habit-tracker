@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>No-Todo — Habit Tracker RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <header class="masthead" id="top">
+    <div class="masthead__inner">
+      <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
+      <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidenav" aria-label="Navigation de la documentation">
+      <ul>
+        <li><a href="index.html">Accueil</a></li>
+        <li><a href="regles-et-variables.html">Règles &amp; variables</a></li>
+      </ul>
+      <p class="sidenav__heading">Concepts</p>
+      <ul>
+        <li><a href="perfect-day.html">Perfect Day</a></li>
+        <li><a href="habitudes.html">Habitudes (Quêtes)</a></li>
+        <li><a href="objectifs.html">Objectifs</a></li>
+        <li><a href="primes-todo.html">Primes (Todos)</a></li>
+        <li><a href="no-todo.html" aria-current="page">No-Todo</a></li>
+        <li><a href="templates-de-jour.html">Templates de jour</a></li>
+        <li><a href="stats-xp-niveau-or.html">Stats, XP, niveau &amp; or</a></li>
+      </ul>
+    </nav>
+
+    <main class="content">
+      <article class="prose">
+        <h1>No-Todo (Règles à ne pas enfreindre)</h1>
+        <p class="intro">L'inverse d'une <a href="primes-todo.html">prime</a> : des règles que tu t'engages à NE PAS transgresser aujourd'hui (ex. « pas de snooze »).</p>
+
+        <h2 id="fonctionnement">Fonctionnement</h2>
+        <ul>
+          <li><code>/liste notodo</code> — voir les règles actives.</li>
+          <li><code>/add notodo &lt;titre&gt;</code> — ajouter une règle.</li>
+          <li><code>/fail &lt;nom&gt;</code> — déclarer que tu l'as enfreinte aujourd'hui (accepte un morceau du nom).</li>
+        </ul>
+        <p>Les No-Todos échoués apparaissent dans <code>/status</code>. Ils tracent les dérapages du jour, à côté du <a href="perfect-day.html">Perfect Day</a>.</p>
+      </article>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <span>Documentation Habit Tracker RPG · état au 2026-06-04.</span>
+      <a href="#top">↑ Haut de page</a>
+    </div>
+  </footer>
+</body>
+</html>

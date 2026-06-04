@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Règles &amp; variables — Habit Tracker RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <header class="masthead" id="top">
+    <div class="masthead__inner">
+      <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
+      <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidenav" aria-label="Navigation de la documentation">
+      <ul>
+        <li><a href="index.html">Accueil</a></li>
+        <li><a href="regles-et-variables.html" aria-current="page">Règles &amp; variables</a></li>
+      </ul>
+      <p class="sidenav__heading">Concepts</p>
+      <ul>
+        <li><a href="perfect-day.html">Perfect Day</a></li>
+        <li><a href="habitudes.html">Habitudes (Quêtes)</a></li>
+        <li><a href="objectifs.html">Objectifs</a></li>
+        <li><a href="primes-todo.html">Primes (Todos)</a></li>
+        <li><a href="no-todo.html">No-Todo</a></li>
+        <li><a href="templates-de-jour.html">Templates de jour</a></li>
+        <li><a href="stats-xp-niveau-or.html">Stats, XP, niveau &amp; or</a></li>
+      </ul>
+    </nav>
+
+    <main class="content">
+      <article class="prose">
+        <h1>Règles &amp; variables</h1>
+        <p class="intro">Les pièces du jeu, les commandes, les options — et surtout comment tout s'imbrique. À lire pour avoir le système entier en tête, sans ouvrir le code.</p>
+
+        <h2 id="la-boucle">La boucle en une phrase</h2>
+        <p>Tu logges des <a href="habitudes.html">habitudes</a> et coches des <a href="primes-todo.html">primes</a> → ça remplit tes 12 <a href="stats-xp-niveau-or.html">stats</a> du jour → comparées aux seuils du <a href="templates-de-jour.html">template</a> actif → si tout est atteint, c'est un <a href="perfect-day.html">Perfect Day</a> (+5 XP). À 23h59 la journée se fige et les stats repartent à 0.</p>
+
+        <h2 id="commandes">Commandes du bot Telegram</h2>
+        <table>
+          <thead><tr><th>Commande</th><th>Arguments</th><th>Effet</th></tr></thead>
+          <tbody>
+            <tr><td><code>/done</code></td><td><code>&lt;habitude&gt;</code></td><td>Valide une habitude binaire (refuse si déjà faite, ou si quantitative)</td></tr>
+            <tr><td><code>/log</code></td><td><code>&lt;habitude&gt; &lt;valeur&gt;&lt;unité&gt;</code></td><td>Enregistre une habitude quantitative (vérifie l'unité)</td></tr>
+            <tr><td><code>/skip</code></td><td><code>&lt;habitude&gt; raison: &lt;texte&gt;</code></td><td>Saute une habitude sans casser le streak (raison obligatoire)</td></tr>
+            <tr><td><code>/status</code></td><td><em>(aucun)</em></td><td>Perfect Day, seuils, streak, or, niveau/XP, quêtes faites/skippées/restantes, No-Todos échoués</td></tr>
+            <tr><td><code>/set-day</code> <em>(alias <code>/template</code>)</em></td><td><code>&lt;template&gt;</code></td><td>Change le type de journée : <code>semaine</code>, <code>weekend</code>, <code>recovery</code>, <code>sick</code></td></tr>
+            <tr><td><code>/liste</code></td><td><code>todo</code> | <code>habit</code> | <code>notodo</code></td><td>Liste ce qui reste (todo/habit) ou les règles à tenir (notodo)</td></tr>
+            <tr><td><code>/add</code></td><td><code>todo</code> | <code>notodo</code> | <code>habit</code> <code>&lt;titre&gt;</code></td><td>Ajoute une tâche, une règle, ou guide la création d'une habitude</td></tr>
+            <tr><td><code>/add_habit</code></td><td><code>binary</code> | <code>quant</code> <code>&lt;titre&gt; [unité]</code></td><td>Crée une habitude avec des valeurs par défaut</td></tr>
+            <tr><td><code>/fail</code></td><td><code>&lt;notodo&gt;</code></td><td>Marque une règle No-Todo comme enfreinte aujourd'hui</td></tr>
+            <tr><td><code>/aide</code> <em>(alias <code>/help</code>)</em></td><td><em>(aucun)</em></td><td>Menu d'aide (documentation + liste des commandes)</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="variables">Variables &amp; options clés</h2>
+        <table>
+          <thead><tr><th>Élément</th><th>Valeurs</th><th>Rôle</th></tr></thead>
+          <tbody>
+            <tr><td>Type d'habitude</td><td>binaire / quantitative</td><td>binaire = <code>/done</code> ; quantitative = <code>/log</code> avec unité</td></tr>
+            <tr><td>Fréquence d'habitude</td><td>jours de la semaine</td><td>l'habitude n'est due que les jours planifiés</td></tr>
+            <tr><td>Plafond journalier (cap)</td><td>points max / jour</td><td>borne l'apport d'une habitude quantitative</td></tr>
+            <tr><td>Récompense d'habitude</td><td>points par stat</td><td>combien chaque stat monte quand l'habitude est faite</td></tr>
+            <tr><td>Template de jour</td><td>semaine / weekend / recovery / sick</td><td>fixe les seuils du Perfect Day du jour</td></tr>
+            <tr><td>Seuils du template</td><td>points par stat</td><td>la barre à atteindre ce jour-là</td></tr>
+            <tr><td>XP de prime</td><td>1 à 40</td><td>XP direct gagné en cochant la prime</td></tr>
+            <tr><td><code>is_private</code> (habitude)</td><td>oui / non</td><td>comptée pour toi, masquée du recap public</td></tr>
+            <tr><td><code>is_reportable</code></td><td>oui / non</td><td>apparaît ou non dans le bilan du groupe</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="interactions">Comment ça interagit (le modèle mental)</h2>
+        <ul>
+          <li><strong>Deux horizons séparés.</strong> Le <a href="perfect-day.html">Perfect Day</a> (quotidien, éphémère) et les <a href="objectifs.html">objectifs</a> (long terme, permanents via l'Or) ne se calculent pas l'un l'autre. Le lien est d'<strong>intention</strong> : les <a href="habitudes.html">habitudes</a> construisent la régularité qui rend les objectifs atteignables, à ton rythme.</li>
+          <li><strong>Le Perfect Day vient de deux sources.</strong> Stats des <a href="habitudes.html">habitudes</a> + stats des <a href="primes-todo.html">primes</a>, comparées aux seuils du <a href="templates-de-jour.html">template</a> du jour. Aucune des deux seule ne suffit.</li>
+          <li><strong>XP ≠ Or.</strong> L'XP (et le niveau) mesure la <strong>régularité</strong> (Perfect Days + primes). L'Or mesure l'<strong>avancement réel</strong> des projets (sous-étapes d'objectifs). Deux monnaies, deux significations.</li>
+          <li><strong>Le template protège les jours off.</strong> Basculer en <code>recovery</code> / <code>sick</code> abaisse les seuils : un jour de repos reste « réussissable ».</li>
+          <li><strong>Le streak récompense la constance.</strong> Un <code>/skip</code> justifié préserve le streak ; un seuil raté le casse.</li>
+          <li><strong>Données partagées bot ↔ site.</strong> Le bot et le dashboard lisent/écrivent la même base : un <code>/log</code> Telegram apparaît aussitôt sur le site.</li>
+        </ul>
+
+        <h2 id="multi-utilisateur">Multi-utilisateur &amp; confidentialité</h2>
+        <p>Chaque membre du groupe est un joueur, créé automatiquement à son premier message (niveau 1, 0 XP, 0 Or). Une habitude <code>is_private</code> compte pour ton Perfect Day mais reste hors du recap public du groupe. Le bot accepte les messages privés (DM) d'un membre dès qu'il a posté au moins une fois dans le groupe autorisé.</p>
+      </article>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <span>Documentation Habit Tracker RPG · état au 2026-06-04.</span>
+      <a href="#top">↑ Haut de page</a>
+    </div>
+  </footer>
+</body>
+</html>

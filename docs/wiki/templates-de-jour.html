@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Templates de jour — Habit Tracker RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <header class="masthead" id="top">
+    <div class="masthead__inner">
+      <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
+      <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidenav" aria-label="Navigation de la documentation">
+      <ul>
+        <li><a href="index.html">Accueil</a></li>
+        <li><a href="regles-et-variables.html">Règles &amp; variables</a></li>
+      </ul>
+      <p class="sidenav__heading">Concepts</p>
+      <ul>
+        <li><a href="perfect-day.html">Perfect Day</a></li>
+        <li><a href="habitudes.html">Habitudes (Quêtes)</a></li>
+        <li><a href="objectifs.html">Objectifs</a></li>
+        <li><a href="primes-todo.html">Primes (Todos)</a></li>
+        <li><a href="no-todo.html">No-Todo</a></li>
+        <li><a href="templates-de-jour.html" aria-current="page">Templates de jour</a></li>
+        <li><a href="stats-xp-niveau-or.html">Stats, XP, niveau &amp; or</a></li>
+      </ul>
+    </nav>
+
+    <main class="content">
+      <article class="prose">
+        <h1>Templates de jour</h1>
+        <p class="intro">Le « type de journée » qui fixe les seuils de stats à atteindre pour décrocher un <a href="perfect-day.html">Perfect Day</a>.</p>
+
+        <h2 id="templates">Les 4 templates</h2>
+        <table>
+          <thead><tr><th>Template</th><th>Clé(s)</th><th>Pour quoi</th></tr></thead>
+          <tbody>
+            <tr><td>Semaine</td><td><code>semaine</code></td><td>Lundi → vendredi, exigences pleines</td></tr>
+            <tr><td>Weekend</td><td><code>weekend</code></td><td>Samedi → dimanche</td></tr>
+            <tr><td>Récupération</td><td><code>recovery</code> (alias <code>recup</code>)</td><td>Journée calme, seuils réduits</td></tr>
+            <tr><td>Malade</td><td><code>sick</code> (alias <code>malade</code>)</td><td>Repos total, seuils minimaux</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="bascule">Bascule</h2>
+        <p><code>/set-day &lt;template&gt;</code> (alias <code>/template</code>) change le type de journée et réajuste <strong>instantanément</strong> les seuils. Le bon template évite de « rater » une journée off : un jour malade ne se juge pas avec les exigences d'un jour de semaine.</p>
+        <p>Chaque template a ses propres seuils par <a href="stats-xp-niveau-or.html">stat</a>, configurables dans l'écran Paramètres du dashboard.</p>
+      </article>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <span>Documentation Habit Tracker RPG · état au 2026-06-04.</span>
+      <a href="#top">↑ Haut de page</a>
+    </div>
+  </footer>
+</body>
+</html>

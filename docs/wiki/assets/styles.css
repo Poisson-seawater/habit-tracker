@@ -1,0 +1,217 @@
+/* Habit Tracker — documentation site
+   Style inspiré de l'USWDS « documentation page » (thème clair). */
+
+:root {
+  --primary: #005ea2;
+  --primary-dark: #1a4480;
+  --ink: #1b1b1b;
+  --muted: #565c65;
+  --border: #dfe1e2;
+  --soft: #f0f0f0;
+  --soft-2: #f9f9f9;
+  --white: #ffffff;
+  --measure: 68ch;
+  --max: 1100px;
+  --sidebar: 248px;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--white);
+  line-height: 1.55;
+  font-size: 17px;
+}
+
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible { outline: 3px solid #2491ff; outline-offset: 2px; }
+
+/* ---------- Masthead ---------- */
+.masthead {
+  border-top: 4px solid var(--primary);
+  border-bottom: 1px solid var(--border);
+  background: var(--white);
+}
+.masthead__inner {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 1.1rem 1.5rem;
+}
+.masthead__title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.masthead__title a { color: var(--ink); }
+.masthead__subtitle {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+/* ---------- Layout ---------- */
+.layout {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+  display: grid;
+  grid-template-columns: var(--sidebar) 1fr;
+  gap: 2.5rem;
+}
+
+/* ---------- Sidebar nav ---------- */
+.sidenav {
+  align-self: start;
+  position: sticky;
+  top: 1.5rem;
+}
+.sidenav__heading {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 1.25rem 0 0.4rem;
+  padding-left: 0.85rem;
+}
+.sidenav ul { list-style: none; margin: 0; padding: 0; }
+.sidenav li { margin: 0; }
+.sidenav a {
+  display: block;
+  padding: 0.45rem 0.85rem;
+  color: var(--ink);
+  border-left: 4px solid transparent;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.97rem;
+}
+.sidenav a:hover { background: var(--soft); text-decoration: none; }
+.sidenav a[aria-current="page"] {
+  border-left-color: var(--primary);
+  background: var(--soft);
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+
+/* ---------- Content ---------- */
+.content { min-width: 0; }
+.prose { max-width: var(--measure); }
+.prose > *:first-child { margin-top: 0; }
+
+h1 {
+  font-size: 2.1rem;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.75rem;
+}
+h2 {
+  font-size: 1.4rem;
+  margin: 2.2rem 0 0.6rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border);
+  scroll-margin-top: 1.5rem;
+}
+h3 { font-size: 1.12rem; margin: 1.5rem 0 0.4rem; scroll-margin-top: 1.5rem; }
+
+p, ul, ol { margin: 0.7rem 0; }
+li { margin: 0.25rem 0; }
+
+.intro {
+  font-size: 1.22rem;
+  line-height: 1.5;
+  color: var(--ink);
+  margin: 0 0 1.25rem;
+}
+
+code {
+  font-family: "SFMono-Regular", "Consolas", "Roboto Mono", monospace;
+  font-size: 0.88em;
+  background: var(--soft);
+  padding: 0.12em 0.4em;
+  border-radius: 4px;
+  color: #1a1a1a;
+}
+
+/* ---------- Tables (style USWDS) ---------- */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  font-size: 0.95rem;
+}
+caption { text-align: left; color: var(--muted); font-size: 0.9rem; padding-bottom: 0.4rem; }
+th, td {
+  border: 1px solid #a9aeb1;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+thead th { background: var(--soft); font-weight: 700; }
+tbody tr:nth-child(even) { background: var(--soft-2); }
+
+/* ---------- Callout / note ---------- */
+.note {
+  border-left: 4px solid var(--primary);
+  background: #e7f6f8;
+  padding: 0.75rem 1rem;
+  margin: 1.25rem 0;
+  border-radius: 0 6px 6px 0;
+}
+.note p { margin: 0.25rem 0; }
+
+/* ---------- Mindmap ---------- */
+.mindmap-wrap {
+  height: 480px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--soft-2);
+  overflow: hidden;
+  margin: 1.25rem 0 0.5rem;
+}
+.mindmap-wrap .markmap { width: 100%; height: 100%; display: block; }
+/* Lisibilité forcée : texte foncé sur fond clair */
+svg.markmap text { fill: var(--ink); font: 600 15px "Public Sans", system-ui, sans-serif; }
+svg.markmap a, svg.markmap a text { fill: var(--primary); }
+.mindmap-hint { color: var(--muted); font-size: 0.85rem; margin: 0.3rem 0 1.5rem; }
+
+/* ---------- Footer ---------- */
+.site-footer {
+  border-top: 1px solid var(--border);
+  background: var(--soft-2);
+  margin-top: 2rem;
+}
+.site-footer__inner {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 768px) {
+  body { font-size: 16px; }
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    padding: 1.25rem 1rem 2rem;
+  }
+  .sidenav {
+    position: static;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem 0.25rem 0.75rem;
+    background: var(--soft-2);
+  }
+  h1 { font-size: 1.7rem; }
+}

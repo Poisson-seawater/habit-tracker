@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Perfect Day — Habit Tracker RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <header class="masthead" id="top">
+    <div class="masthead__inner">
+      <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
+      <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidenav" aria-label="Navigation de la documentation">
+      <ul>
+        <li><a href="index.html">Accueil</a></li>
+        <li><a href="regles-et-variables.html">Règles &amp; variables</a></li>
+      </ul>
+      <p class="sidenav__heading">Concepts</p>
+      <ul>
+        <li><a href="perfect-day.html" aria-current="page">Perfect Day</a></li>
+        <li><a href="habitudes.html">Habitudes (Quêtes)</a></li>
+        <li><a href="objectifs.html">Objectifs</a></li>
+        <li><a href="primes-todo.html">Primes (Todos)</a></li>
+        <li><a href="no-todo.html">No-Todo</a></li>
+        <li><a href="templates-de-jour.html">Templates de jour</a></li>
+        <li><a href="stats-xp-niveau-or.html">Stats, XP, niveau &amp; or</a></li>
+      </ul>
+    </nav>
+
+    <main class="content">
+      <article class="prose">
+        <h1>Perfect Day</h1>
+        <p class="intro">La condition de victoire du jour : si toutes les stats cibles atteignent le seuil du template actif, la journée est « parfaite » et rapporte 5 XP.</p>
+
+        <h2 id="calcul">Comment il se calcule</h2>
+        <ol>
+          <li>Chaque matin, les 12 <a href="stats-xp-niveau-or.html">stats</a> repartent de 0 — la journée est une page blanche.</li>
+          <li>Au fil de la journée, tes <a href="habitudes.html">habitudes</a> validées et tes <a href="primes-todo.html">primes</a> cochées ajoutent des points à ces stats.</li>
+          <li>Le score du jour est comparé aux seuils du <a href="templates-de-jour.html">template</a> de jour actif.</li>
+          <li>Si <strong>toutes</strong> les stats cibles atteignent leur seuil → Perfect Day.</li>
+        </ol>
+        <div class="note"><p>Le Perfect Day vient de <strong>deux sources</strong> : les habitudes ET les primes. Une seule stat sous son seuil suffit à rater la journée.</p></div>
+
+        <h2 id="recompense">Récompense et clôture</h2>
+        <ul>
+          <li>Perfect Day décroché → <strong>+5 XP</strong> permanents (voir <a href="stats-xp-niveau-or.html">niveau &amp; XP</a>).</li>
+          <li>La journée se fige à <strong>23h59</strong> (clôture automatique) ou via le bouton « Terminer la journée ». Le bot publie alors le bilan de la guilde dans le groupe.</li>
+        </ul>
+
+        <h2 id="streak">Streak</h2>
+        <p>Le streak compte les Perfect Days consécutifs. Un <a href="regles-et-variables.html">skip</a> justifié ne l'interrompt pas ; rater un seuil, si.</p>
+      </article>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <span>Documentation Habit Tracker RPG · état au 2026-06-04.</span>
+      <a href="#top">↑ Haut de page</a>
+    </div>
+  </footer>
+</body>
+</html>
