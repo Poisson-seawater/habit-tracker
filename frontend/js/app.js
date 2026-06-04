@@ -82,7 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .join(", ");
   }
 
-  const substepStatsDropdowns = ["substep-stat-1", "substep-stat-2", "edit-substep-stat-1", "edit-substep-stat-2"];
+  const substepStatsDropdowns = ["substep-stat-1", "substep-stat-2", "edit-substep-stat-1", "edit-substep-stat-2", "new-quest-stat-1"];
   substepStatsDropdowns.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -399,6 +399,72 @@ document.addEventListener("DOMContentLoaded", () => {
 
     } catch (error) {
       console.error(error);
+    }
+  }
+
+  async function fetchNoTodos() {
+    try {
+      const response = await fetch(`${API_BASE}/notodos`);
+      if (!response.ok) throw new Error("Erreur NoTodos API");
+      const notodos = await response.json();
+
+      const container = document.getElementById("notodos-list-container");
+      if (!container) return;
+
+      container.innerHTML = "";
+      if (notodos.length === 0) {
+        container.innerHTML = `<p style="color: var(--text-secondary); font-size: 0.85rem; text-align: center; padding: 1.5rem 0;">Aucune règle stricte configurée.</p>`;
+        return;
+      }
+
+      notodos.forEach(n => {
+        const item = document.createElement("li");
+        item.className = "bounty-card";
+        
+        if (n.failed_today) {
+          item.style.borderColor = "rgba(239, 68, 68, 0.6)";
+          item.style.background = "rgba(239, 68, 68, 0.15)";
+        } else {
+          item.style.borderColor = "rgba(239, 68, 68, 0.3)";
+          item.style.background = "rgba(239, 68, 68, 0.05)";
+        }
+
+        item.innerHTML = `
+          <div class="bounty-info">
+            <span class="bounty-title" style="color: #ef4444; font-size: 1.05rem;">❌ ${n.title}</span>
+            <span class="goal-selector-meta" style="color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-top: 4px;">
+              ${n.failed_today ? "Échoué aujourd'hui ⚠️" : "Respecté aujourd'hui 🛡️"}
+            </span>
+          </div>
+          <button class="substep-btn-check ${n.failed_today ? "completed" : ""}" data-id="${n.id}" ${n.failed_today ? "disabled" : ""} style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgb(239, 68, 68); color: rgb(239, 68, 68);">
+            ${n.failed_today ? "Échoué" : "Déclarer Échec"}
+          </button>
+        `;
+
+        if (!n.failed_today) {
+          const btn = item.querySelector(".substep-btn-check");
+          btn.addEventListener("click", () => failNoTodo(n.id));
+        }
+
+        container.appendChild(item);
+      });
+
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function failNoTodo(id) {
+    if (!confirm("Avez-vous vraiment échoué cette règle aujourd'hui ?")) return;
+    try {
+      const response = await fetch(`${API_BASE}/notodos/${id}/fail`, { method: "POST" });
+      if (!response.ok) throw new Error("Erreur fail notodo");
+      
+      showToast(`Échec de la règle enregistré. Attention à demain ! ⚠️`, true);
+      refreshAll();
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur lors de la déclaration d'échec", true);
     }
   }
 
@@ -1103,6 +1169,7 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchQuests();
     fetchHistory();
     fetchBounties();
+    fetchNoTodos();
   }
 
   // Multi-user Login & Initialization
@@ -1143,8 +1210,136 @@ document.addEventListener("DOMContentLoaded", () => {
   function initializeApp() {
     refreshAll();
     setupBountiesEvents();
+    setupQuestsEvents();
+    setupNoTodosEvents();
     // Auto-sync dashboard every 12 seconds
     setInterval(refreshAll, 12000);
+  }
+
+  // ==============================================
+  // QUESTS (HABITS) & NO-TODOS FORMS
+  // ==============================================
+  function setupQuestsEvents() {
+    const openQuestBtn = document.getElementById("open-quest-inline-btn");
+    const questForm = document.getElementById("quest-inline-form");
+    const submitQuestBtn = document.getElementById("submit-quest-btn");
+
+    if (openQuestBtn && questForm) {
+      openQuestBtn.addEventListener("click", () => {
+        if (questForm.style.display === "none") {
+          questForm.style.display = "flex";
+          openQuestBtn.textContent = "Fermer Formulaire";
+        } else {
+          questForm.style.display = "none";
+          openQuestBtn.textContent = "+ Quête";
+        }
+      });
+    }
+
+    if (submitQuestBtn) {
+      submitQuestBtn.addEventListener("click", async () => {
+        const title = document.getElementById("new-quest-name").value.trim();
+        const desc = document.getElementById("new-quest-desc").value.trim();
+        const type = document.getElementById("new-quest-type").value;
+        const unit = document.getElementById("new-quest-unit").value.trim();
+        const stat1 = document.getElementById("new-quest-stat-1").value || null;
+        const pts1 = parseInt(document.getElementById("new-quest-points-1").value) || 0;
+
+        if (!title) {
+          showToast("Veuillez donner un titre à la quête !", true);
+          return;
+        }
+
+        const point_rewards = {};
+        if (stat1 && pts1 > 0) {
+          point_rewards[stat1] = pts1;
+        }
+
+        try {
+          const response = await fetch(`${API_BASE}/habits`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: title,
+              description: desc,
+              type: type,
+              unit: type === "quantitative" ? unit : null,
+              point_rewards: point_rewards
+            })
+          });
+
+          if (!response.ok) {
+            const errBody = await response.json();
+            throw new Error(errBody.detail || "Erreur de création");
+          }
+          showToast("Nouvelle quête forgée ! 🎯");
+          
+          document.getElementById("new-quest-name").value = "";
+          document.getElementById("new-quest-desc").value = "";
+          document.getElementById("new-quest-stat-1").value = "";
+          document.getElementById("new-quest-points-1").value = "5";
+          document.getElementById("new-quest-unit").value = "";
+          
+          questForm.style.display = "none";
+          openQuestBtn.textContent = "+ Quête";
+          refreshAll();
+        } catch (error) {
+          console.error(error);
+          showToast("Erreur: " + error.message, true);
+        }
+      });
+    }
+  }
+
+  function setupNoTodosEvents() {
+    const openNoTodoBtn = document.getElementById("open-notodo-inline-btn");
+    const noTodoForm = document.getElementById("notodo-inline-form");
+    const submitNoTodoBtn = document.getElementById("submit-notodo-btn");
+
+    if (openNoTodoBtn && noTodoForm) {
+      openNoTodoBtn.addEventListener("click", () => {
+        if (noTodoForm.style.display === "none") {
+          noTodoForm.style.display = "flex";
+          openNoTodoBtn.textContent = "Fermer";
+        } else {
+          noTodoForm.style.display = "none";
+          openNoTodoBtn.textContent = "+ Règle";
+        }
+      });
+    }
+
+    if (submitNoTodoBtn) {
+      submitNoTodoBtn.addEventListener("click", async () => {
+        const title = document.getElementById("new-notodo-title").value.trim();
+
+        if (!title) {
+          showToast("Veuillez donner un titre à la règle !", true);
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_BASE}/notodos`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: title
+            })
+          });
+
+          if (!response.ok) throw new Error("Erreur de création");
+          showToast("Nouvelle règle ajoutée ! 🚫");
+          
+          document.getElementById("new-notodo-title").value = "";
+          
+          noTodoForm.style.display = "none";
+          openNoTodoBtn.textContent = "+ Règle";
+          refreshAll();
+        } catch (error) {
+          console.error(error);
+          showToast("Erreur lors de l'ajout de la règle", true);
+        }
+      });
+    }
   }
 
   // Logout Logic
