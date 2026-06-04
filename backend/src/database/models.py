@@ -22,6 +22,7 @@ class User(Base):
     substeps = relationship("SubStep", back_populates="user", cascade="all, delete-orphan")
     perfect_day_templates = relationship("PerfectDayTemplate", back_populates="user", cascade="all, delete-orphan")
     habits = relationship("Habit", back_populates="user", cascade="all, delete-orphan")
+    notodos = relationship("NoTodo", back_populates="user", cascade="all, delete-orphan")
 
 
 class Habit(Base):
@@ -117,6 +118,18 @@ class Todo(Base):
     completed_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="todos")
+
+
+class NoTodo(Base):
+    __tablename__ = "notodos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    failed_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", back_populates="notodos")
 
 
 class Goal(Base):

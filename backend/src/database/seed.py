@@ -1,7 +1,7 @@
 import os
 import datetime
 from src.database.session import SessionLocal, engine, Base
-from src.database.models import User, Habit, PerfectDayTemplate, Todo, Goal, SubStep, GoalSubStepLink
+from src.database.models import User, Habit, PerfectDayTemplate, Todo, Goal, SubStep, GoalSubStepLink, NoTodo
 from src.config import TELEGRAM_GROUP_ID
 
 def seed_db():
@@ -271,6 +271,30 @@ def seed_db():
                 xp_reward=t_info["xp_reward"]
             )
             db.add(todo)
+            
+        # 9. Seed NoTodos
+        gabriel_notodos = [
+            "Scroller sur les réseaux sociaux le matin",
+            "Repousser le réveil (Snooze)",
+            "Manger de la junk food en semaine",
+            "Se plaindre sans chercher de solution",
+            "Boire de l'alcool en semaine",
+            "Regarder la TV avant de dormir"
+        ]
+        
+        notodos_data = []
+        for t in gabriel_notodos:
+            notodos_data.append({"user_id": 1, "title": t})
+            notodos_data.append({"user_id": 3, "title": t}) # PandaCoffey
+            
+        for t in gabriel_notodos[:4]:
+            notodos_data.append({"user_id": 2, "title": t}) # Benji (no TV, no alcohol)
+        for n_info in notodos_data:
+            notodo = NoTodo(
+                user_id=n_info["user_id"],
+                title=n_info["title"]
+            )
+            db.add(notodo)
                 
         db.commit()
         print("Database V2 seeding completed successfully.")

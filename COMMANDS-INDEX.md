@@ -15,8 +15,14 @@ Ce document centralise toutes les commandes disponibles pour le bot Telegram.
 | `/done` | `[nom_habitude]` | Valide une habitude **binaire** (faite / pas faite). Refuse si déjà faite aujourd'hui ou si l'habitude est quantitative. | `/done routine_matin` |
 | `/log` | `[nom_habitude] [valeur][unité]` | Enregistre une habitude **quantitative** avec une mesure. Vérifie que l'unité correspond. | `/log lecture 30min` |
 | `/skip` | `[nom_habitude] raison: [texte]` | Saute une habitude pour aujourd'hui **sans casser le streak**. La raison est obligatoire. | `/skip nage raison: fatigue extreme` |
-| `/status` | *(aucun)* | Affiche le statut du jour : Perfect Day ou non, seuils, streak, or, niveau/XP, quêtes faites / skippées / restantes. | `/status` |
-| `/set-day` *(alias `/template`)* | `[nom_template]` | Change le « type de journée » et réajuste les seuils. Templates : `semaine`, `weekend`, `recovery`, `sick`. | `/template sick` |
+| `/status` | *(aucun)* | Affiche le statut du jour : Perfect Day ou non, seuils, streak, or, niveau/XP, quêtes faites / skippées / restantes, et No-Todos échoués. | `/status` |
+| `/set-day` *(alias `/template`)* | `[nom_template]` *(optionnel)* | Change le « type de journée » et réajuste les seuils. Templates : `semaine`, `weekend`, `recovery`, `sick`. **Sans argument : affiche 4 boutons de choix.** | `/set-day` ou `/template sick` |
+| `/aide` | *(aucun)* | Affiche le menu d'aide avec des boutons pour la documentation et la liste des commandes. | `/aide` |
+| `/liste` | `[todo\|habit\|notodo]` *(optionnel)* | Liste les éléments restants à accomplir (todo/habit) ou les règles à ne pas enfreindre (notodo). **Sans argument : affiche 3 boutons (Todos / Habitudes / No-Todos).** | `/liste` ou `/liste todo` |
+| `/add` | `[todo\|notodo\|habit] [titre]` *(optionnel)* | Ajoute une nouvelle tâche ou règle. **Sans argument : boutons [Todo] [No-Todo] [Habitude] ; pour Habitude un 2ᵉ choix binaire/quantitatif ; puis le bot demande le titre à taper.** | `/add` ou `/add todo Courses` |
+| `/add_habit` | `[binary\|quant] [titre] [unité]` | Crée une habitude avec des paramètres par défaut. L'unité est optionnelle pour les habitudes quantitatives. | `/add_habit binary Lecture` |
+| `/fail` | `[nom_notodo]` | Marque une règle No-Todo comme ayant été transgressée pour aujourd'hui. Accepte des morceaux du nom. | `/fail snooze` |
+| `/motivation` | *(aucun)* | Liste tes objectifs à long terme pour garder le cap. | `/motivation` |
 
 ---
 

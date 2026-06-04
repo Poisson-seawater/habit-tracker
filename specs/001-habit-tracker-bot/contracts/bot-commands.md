@@ -82,12 +82,60 @@ Returns the current day's progress and stats summary.
 ### 5. `/set-day` Command
 Manually overrides the active day template.
 
-- **Syntax**: `/set-day [template_name]`
-- **Example**: `/set-day sick`
+- **Syntax**: `/set-day [template_name]` — `[template_name]` is **optional**.
+- **Example**: `/set-day sick` or `/set-day` (no argument).
 - **Validation**:
   - `[template_name]` must match one of the defined templates: `semaine`, `weekend`, `recovery`, `sick`.
+- **No-argument behaviour**: replies with 4 inline buttons (Semaine / Weekend / Recovery / Sick);
+  clicking one applies that template (callback_data `setday:week|weekend|recup|malade`).
 - **Expected Response (Success)**:
   ```txt
   🩹 Template de journée mis à jour vers : "sick".
   ✨ Les seuils de points ont été allégés pour aujourd'hui !
   ```
+
+---
+
+### 6. `/aide` Command
+Displays the help menu with interactive buttons.
+
+- **Syntax**: `/aide` or `/help`
+- **Validation**: None
+- **Expected Response (Success)**:
+  ```txt
+  Besoin d'aide ? Choisissez une option :
+  [Aide Documentation] [Liste des commandes]
+  ```
+  Clicking "Aide Documentation" returns:
+  ```txt
+  📖 Pour ouvrir le tableau de bord, va sur http://localhost:5000
+  ```
+  Clicking "Liste des commandes" returns (HTML-formatted) the full command list
+  (`/done`, `/log`, `/skip`, `/status`, `/set-day`, `/liste`, `/add`, `/add_habit`,
+  `/fail`, `/motivation`, `/aide`).
+
+---
+
+### 7. `/liste` Command
+Lists the user's items.
+
+- **Syntax**: `/liste [todo|habit|notodo]` — the type is **optional**.
+- **Example**: `/liste todo` or `/liste` (no argument).
+- **No-argument behaviour**: replies with 3 inline buttons (Todos / Habitudes / No-Todos);
+  clicking one renders that list (callback_data `liste:todo|habit|notodo`).
+
+---
+
+### 8. `/add` Command
+Adds a Todo, a No-Todo, or a Habit.
+
+- **Syntax**: `/add [todo|notodo|habit] [titre]` — arguments are **optional**.
+- **Example**: `/add todo Courses` or `/add` (no argument).
+- **No-argument behaviour (button flow)**:
+  1. Replies with 3 buttons [Todo] [No-Todo] [Habitude] (`add:todo|notodo|habit`).
+  2. For **Habitude**, a 2nd choice: [Oui/Non (binaire)] [Quantitatif (log)] (`addhabit:binary|quant`).
+  3. The bot then asks for the **title**, which the user types in the next message.
+     For a quantitative habit the message is `nom unité` (unit optional, e.g. `lecture min`).
+  - Pending state is kept per-user in `context.user_data["pending_add"]`; sending a new
+    `/command` instead of a title aborts the flow.
+

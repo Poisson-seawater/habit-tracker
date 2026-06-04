@@ -5,7 +5,7 @@ from typing import Optional, List, Dict
 from pydantic import BaseModel, Field
 
 from src.database.session import get_db
-from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, Goal, SubStep, GoalSubStepLink
+from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, Goal, SubStep, GoalSubStepLink, NoTodo
 from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_12_STATS, DEFAULT_THRESHOLDS
 
 router = APIRouter()
@@ -46,6 +46,9 @@ class TodoCreate(BaseModel):
     stat_reward_2: Optional[str] = None
     points_reward_2: Optional[int] = 0
     xp_reward: Optional[int] = Field(10, ge=0, le=40)  # Max 40 XP
+
+class NoTodoCreate(BaseModel):
+    title: str
 
 class GoalCreate(BaseModel):
     title: str
@@ -632,6 +635,64 @@ def complete_todo(todo_id: int, db: Session = Depends(get_db), user_id: int = De
         "levels_gained": levels_gained,
         "new_level": user.level,
         "new_xp": user.xp
+    }
+
+
+# --- No-Todos ---
+
+@router.get("/notodos")
+def get_notodos(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    List all No-Todos for the calling user.
+    """
+    notodos = db.query(NoTodo).filter_by(user_id=user_id).order_by(NoTodo.created_at.desc()).all()
+    today = datetime.date.today()
+    return [
+        {
+            "id": n.id,
+            "title": n.title,
+            "failed_today": n.failed_at is not None and n.failed_at.date() == today,
+            "created_at": n.created_at.isoformat() if n.created_at else None,
+            "failed_at": n.failed_at.isoformat() if n.failed_at else None
+        }
+        for n in notodos
+    ]
+
+@router.post("/notodos", status_code=201)
+def create_notodo(payload: NoTodoCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Create a No-Todo rule.
+    """
+    notodo = NoTodo(
+        user_id=user_id,
+        title=payload.title
+    )
+    db.add(notodo)
+    db.commit()
+    return {
+        "status": "success",
+        "notodo": {
+            "id": notodo.id,
+            "title": notodo.title,
+            "failed_today": False
+        }
+    }
+
+@router.post("/notodos/{notodo_id}/fail")
+def fail_notodo(notodo_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Mark a No-Todo as failed for today.
+    """
+    notodo = db.query(NoTodo).filter_by(id=notodo_id, user_id=user_id).first()
+    if not notodo:
+        raise HTTPException(status_code=404, detail="No-Todo not found")
+
+    notodo.failed_at = datetime.datetime.utcnow()
+    db.commit()
+
+    return {
+        "status": "success",
+        "message": "No-Todo marked as failed for today."
     }
 
 

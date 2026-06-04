@@ -63,13 +63,65 @@ def parse_command(text: str) -> dict:
             
         return {"command": "skip", "habit_name": habit_name, "reason": reason}
         
+    elif cmd == "/fail":
+        if not args_str:
+            raise ParserError("Usage : /fail [nom_notodo]\nExemple : /fail Snooze")
+        return {"command": "fail", "notodo_name": args_str}
+        
     elif cmd == "/status":
         return {"command": "status", "target": "today"}
         
     elif cmd in ["/set-day", "/template"]:
+        # No argument → listener shows template choice buttons.
         if not args_str:
-            raise ParserError("Usage : /template [nom_template]\nExemple : /template sick")
+            return {"command": "set-day", "template_name": None}
         return {"command": "set-day", "template_name": args_str}
+        
+    elif cmd in ["/aide", "/help"]:
+        return {"command": "aide"}
+        
+    elif cmd == "/motivation":
+        return {"command": "motivation"}
+        
+    elif cmd == "/liste":
+        # No argument → listener shows the 3 list-choice buttons.
+        if not args_str:
+            return {"command": "liste", "type": None}
+        if args_str.lower() not in ["todo", "habit", "notodo"]:
+            raise ParserError("Usage : /liste [todo|habit|notodo]\nExemple : /liste todo")
+        return {"command": "liste", "type": args_str.lower()}
+
+    elif cmd == "/add":
+        # No argument → listener shows the 3 type-choice buttons.
+        if not args_str:
+            return {"command": "add", "type": None, "title": None}
+        add_parts = args_str.split(maxsplit=1)
+        if len(add_parts) < 2 and add_parts[0].lower() != "habit":
+             # habit doesn't need title in /add since it just returns help, but let's be strict
+             raise ParserError("Usage : /add [todo|habit|notodo] [titre]\nExemple : /add todo Faire les courses")
+             
+        add_type = add_parts[0].lower()
+        if add_type not in ["todo", "habit", "notodo"]:
+            raise ParserError("Type inconnu. Usage : /add [todo|habit|notodo] [titre]")
+            
+        title = add_parts[1].strip() if len(add_parts) > 1 else ""
+        return {"command": "add", "type": add_type, "title": title}
+        
+    elif cmd == "/add_habit":
+        if not args_str:
+            raise ParserError("Usage : /add_habit [binary|quant] [titre] [unité optionnelle]")
+        habit_parts = args_str.split(maxsplit=2)
+        if len(habit_parts) < 2:
+            raise ParserError("Usage : /add_habit [binary|quant] [titre]")
+            
+        h_type = habit_parts[0].lower()
+        if h_type not in ["binary", "quant"]:
+            raise ParserError("Type doit être 'binary' ou 'quant'.")
+            
+        h_title = habit_parts[1]
+        h_unit = habit_parts[2] if len(habit_parts) > 2 else ""
+        
+        return {"command": "add_habit", "habit_type": h_type, "title": h_title, "unit": h_unit}
         
     else:
         raise ParserError(f"Commande inconnue : {cmd}")
