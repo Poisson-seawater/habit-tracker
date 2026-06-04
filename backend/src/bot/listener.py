@@ -1,5 +1,6 @@
 import os
 import re
+import html
 import asyncio
 import datetime
 from telegram import Update
@@ -42,23 +43,33 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not text.startswith("/"):
         return
 
-    chat_id = str(update.effective_chat.id)
-    
-    # Strictly restrict to target group chat in production
-    if TELEGRAM_GROUP_ID and chat_id != str(TELEGRAM_GROUP_ID):
-        print(f"Ignored message from unauthorized chat ID: {chat_id}")
-        return
+    chat = update.effective_chat
+    chat_id = str(chat.id)
 
     db = SessionLocal()
     try:
+        # Restrict to the target group, plus known users in private chats.
+        # The users table IS the whitelist: an account is created (with the real
+        # Telegram user ID) the first time someone posts in the group, which also
+        # grants them access to DM the bot. Strangers who never posted have no
+        # account, so they cannot self-register or interact via private chat.
+        is_target_group = chat_id == str(TELEGRAM_GROUP_ID)
+        is_known_private = (
+            chat.type == "private"
+            and db.query(User).filter_by(chat_id=chat_id).first() is not None
+        )
+        if TELEGRAM_GROUP_ID and not (is_target_group or is_known_private):
+            print(f"Ignored message from unauthorized chat ID: {chat_id}")
+            return
+
         # Resolve active user from the message sender
         from_user = update.message.from_user
         telegram_username = from_user.username or from_user.first_name
         user_chat_id = str(from_user.id)
 
-        user = db.query(User).filter_by(username=telegram_username).first()
+        user = db.query(User).filter_by(chat_id=user_chat_id).first()
         if not user:
-            user = db.query(User).filter_by(chat_id=user_chat_id).first()
+            user = db.query(User).filter_by(username=telegram_username).first()
 
         if not user:
             # Create user with initial XP, level, and Gold
@@ -88,7 +99,7 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if cmd == "done":
             habit_name = parsed["habit_name"]
-            habit = db.query(Habit).filter_by(name=habit_name, is_active=True).first()
+            habit = db.query(Habit).filter_by(name=habit_name, user_id=user.id, is_active=True).first()
             if not habit:
                 await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" n'existe pas ou n'est pas active.")
                 return
@@ -137,7 +148,7 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             val = parsed["value"]
             unit = parsed["unit"]
 
-            habit = db.query(Habit).filter_by(name=habit_name, is_active=True).first()
+            habit = db.query(Habit).filter_by(name=habit_name, user_id=user.id, is_active=True).first()
             if not habit:
                 await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" n'existe pas ou n'est pas active.")
                 return
@@ -176,7 +187,7 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             habit_name = parsed["habit_name"]
             reason = parsed["reason"]
 
-            habit = db.query(Habit).filter_by(name=habit_name, is_active=True).first()
+            habit = db.query(Habit).filter_by(name=habit_name, user_id=user.id, is_active=True).first()
             if not habit:
                 await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" n'existe pas ou n'est pas active.")
                 return
@@ -228,18 +239,18 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logged_habit_ids = set()
 
             for log_entry in today_logs:
-                habit = db.query(Habit).filter_by(id=log_entry.habit_id).first()
+                habit = db.query(Habit).filter_by(id=log_entry.habit_id, user_id=user.id).first()
                 if not habit:
                     continue
                 logged_habit_ids.add(habit.id)
-                display_name = "Chose secrète 🔒" if habit.is_private else habit.name
+                display_name = "Chose secrète 🔒" if habit.is_private else html.escape(habit.name)
 
                 if log_entry.log_type == "done":
                     completed_lines.append(f"- {display_name} (done)")
                 elif log_entry.log_type == "log":
                     completed_lines.append(f"- {display_name} ({log_entry.amount}{log_entry.unit})")
                 elif log_entry.log_type == "skip":
-                    skipped_lines.append(f"- {display_name} (skippé, raison : {log_entry.reason})")
+                    skipped_lines.append(f"- {display_name} (skippé, raison : {html.escape(log_entry.reason or '')})")
 
             # Get completed Todos for today
             completed_todos = db.query(Todo).filter(
@@ -249,19 +260,19 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 Todo.completed_at <= end_dt
             ).all()
             for t in completed_todos:
-                completed_lines.append(f"- Todo : {t.title} (+{t.xp_reward} XP)")
+                completed_lines.append(f"- Todo : {html.escape(t.title)} (+{t.xp_reward} XP)")
 
             # Get remaining scheduled habits
             weekday = today.weekday()
             model_day_idx = (weekday + 1) % 7
-            all_habits = db.query(Habit).filter_by(is_active=True).all()
+            all_habits = db.query(Habit).filter_by(user_id=user.id, is_active=True).all()
             
             remaining_lines = []
             for habit in all_habits:
                 scheduled = str(model_day_idx) in [day.strip() for day in habit.scheduled_days.split(",")]
                 if not scheduled or habit.id in logged_habit_ids:
                     continue
-                display_name = "Chose secrète 🔒" if habit.is_private else habit.name
+                display_name = "Chose secrète 🔒" if habit.is_private else html.escape(habit.name)
                 desc = "quantitative" if habit.type == "quantitative" else "binary"
                 remaining_lines.append(f"- {display_name} ({desc})")
 
@@ -270,7 +281,7 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             perf_streak_val = perf_streak.current_streak if perf_streak else 0
 
             msg = (
-                f"⚔️ *{username}* — Statut de la journée (Template : {score.template_used.upper()})\n\n"
+                f"⚔️ <b>{html.escape(username)}</b> — Statut de la journée (Template : {score.template_used.upper()})\n\n"
                 f"Perfect Day : {perf_status}\n"
                 f"🎯 Seuils à atteindre : {', '.join(perf_details) if perf_details else 'Aucun'}\n\n"
                 f"🔥 Streak Perfect Day : {perf_streak_val} jours\n"
@@ -279,15 +290,15 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             if completed_lines:
-                msg += "*Quêtes accomplies :*\n" + "\n".join(completed_lines) + "\n\n"
+                msg += "<b>Quêtes accomplies :</b>\n" + "\n".join(completed_lines) + "\n\n"
             if skipped_lines:
-                msg += "*Quêtes skippées :*\n" + "\n".join(skipped_lines) + "\n\n"
+                msg += "<b>Quêtes skippées :</b>\n" + "\n".join(skipped_lines) + "\n\n"
             if remaining_lines:
-                msg += "*Quêtes restantes :*\n" + "\n".join(remaining_lines) + "\n"
+                msg += "<b>Quêtes restantes :</b>\n" + "\n".join(remaining_lines) + "\n"
             else:
                 msg += "🎉 Toutes les quêtes d'aujourd'hui sont terminées !"
 
-            await update.message.reply_text(msg, parse_mode="Markdown")
+            await update.message.reply_text(msg, parse_mode="HTML")
 
         elif cmd == "set-day":
             t_name = parsed["template_name"].lower()

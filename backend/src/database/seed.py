@@ -24,7 +24,7 @@ def seed_db():
             },
             {
                 "id": 2,
-                "username": "Jeanne",
+                "username": "Benji",
                 "chat_id": "22222222",
                 "xp": 0,
                 "level": 1,
@@ -280,6 +280,28 @@ def seed_db():
         raise e
     finally:
         db.close()
+
+def init_db():
+    """
+    Idempotent startup initializer. Creates any missing tables and seeds the
+    default data ONLY when the database is empty. Never drops existing data,
+    so user accounts, logs, points and streaks survive container restarts.
+    Use seed_db() directly (manually) for a full destructive reset.
+    """
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        already_seeded = db.query(User).first() is not None
+    finally:
+        db.close()
+
+    if already_seeded:
+        print("Database already initialized — skipping seed (data preserved).")
+        return
+
+    print("Empty database detected — seeding default data...")
+    seed_db()
+
 
 if __name__ == "__main__":
     seed_db()

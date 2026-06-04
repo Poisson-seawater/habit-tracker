@@ -86,7 +86,15 @@ def get_current_user_id(user_id: Optional[int] = None, x_user_id: Optional[str] 
     return 1
 
 
-# --- Profile Route ---
+# --- Users & Profile Route ---
+
+@router.get("/users")
+def get_users(db: Session = Depends(get_db)):
+    """
+    Fetch all users for the login/profile selection screen.
+    """
+    users = db.query(User).all()
+    return [{"id": u.id, "username": u.username} for u in users]
 
 @router.get("/profile")
 def get_profile(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):

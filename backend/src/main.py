@@ -4,14 +4,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from src.database.seed import seed_db
+from src.database.seed import init_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup phase
     print("Initializing SQLite tables and seeding default data...")
     try:
-        seed_db()
+        init_db()
         print("Startup database check complete.")
     except Exception as e:
         print(f"Error initializing database on startup: {e}")

@@ -1,4 +1,5 @@
 import os
+import html
 import datetime
 import asyncio
 from telegram import Bot
@@ -26,7 +27,7 @@ STAT_LABELS = {
 
 async def publish_daily_recap():
     """
-    Triggered at 23:59 daily. Calculates the day's final score for all users,
+    Triggered at 21:30 daily. Calculates the day's final score for all users,
     updates streaks, awards 5 XP for Perfect Days, and broadcasts a consolidated
     RPG guild recap to the Telegram group chat.
     """
@@ -36,7 +37,7 @@ async def publish_daily_recap():
 
     from src.config import TELEGRAM_GROUP_ID
 
-    print("Scheduler: Starting 23:59 daily RPG guild recap publisher...")
+    print("Scheduler: Starting 21:30 daily RPG guild recap publisher...")
     bot = Bot(token=TELEGRAM_BOT_TOKEN)
     db = SessionLocal()
     
@@ -76,7 +77,7 @@ async def publish_daily_recap():
             private_completed_count = 0
 
             for log in logs:
-                habit = db.query(Habit).filter_by(id=log.habit_id).first()
+                habit = db.query(Habit).filter_by(id=log.habit_id, user_id=user.id).first()
                 if not habit:
                     continue
                 
@@ -85,14 +86,14 @@ async def publish_daily_recap():
                         private_completed_count += 1
                     else:
                         if log.log_type == "done":
-                            public_actions.append(f"{habit.name} ✅")
+                            public_actions.append(f"{html.escape(habit.name)} ✅")
                         else:
-                            public_actions.append(f"{habit.name} ({log.amount}{log.unit})")
+                            public_actions.append(f"{html.escape(habit.name)} ({log.amount}{html.escape(log.unit or '')})")
                 elif log.log_type == "skip":
                     if habit.is_private:
                         public_actions.append("Chose secrète 🔒 (skippée ⏭️)")
                     else:
-                        public_actions.append(f"{habit.name} (skippé ⏭️)")
+                        public_actions.append(f"{html.escape(habit.name)} (skippé ⏭️)")
 
             # Check completed Todos today
             completed_todos = db.query(Todo).filter(
@@ -102,7 +103,7 @@ async def publish_daily_recap():
                 Todo.completed_at <= end_dt
             ).all()
             for t in completed_todos:
-                public_actions.append(f"Todo : {t.title} 🌟")
+                public_actions.append(f"Todo : {html.escape(t.title)} 🌟")
 
             # 4. Format streaks
             perf_streak = db.query(Streak).filter_by(user_id=user.id, streak_type="Perfect").first()
@@ -134,11 +135,11 @@ async def publish_daily_recap():
                 actions_str += f" (+{private_completed_count} privées 🔒)"
 
             user_block = (
-                f"👤 Aventurier : *{user.username}* (Niveau {user.level}{lvl_info})\n"
-                f"🛡️ *Statut :* {status_emoji} | Template : {score.template_used.upper()}\n"
-                f"🔥 Streak Perfect : *{perf_streak_val}j* | 💰 Or : *{user.gold} Gold*\n"
-                f"📈 *Stats du jour :* {stat_progression_str}\n"
-                f"⚔️ *Actions :* {actions_str}"
+                f"👤 Aventurier : <b>{html.escape(user.username)}</b> (Niveau {user.level}{lvl_info})\n"
+                f"🛡️ <b>Statut :</b> {status_emoji} | Template : {score.template_used.upper()}\n"
+                f"🔥 Streak Perfect : <b>{perf_streak_val}j</b> | 💰 Or : <b>{user.gold} Gold</b>\n"
+                f"📈 <b>Stats du jour :</b> {stat_progression_str}\n"
+                f"⚔️ <b>Actions :</b> {actions_str}"
             )
             user_blocks.append(user_block)
             individual_reports[user.chat_id] = user_block
@@ -148,13 +149,13 @@ async def publish_daily_recap():
 
         if group_chat_id:
             guild_msg = (
-                f"🔔 *BILAN DE LA GUILDE — {today.strftime('%d/%m/%Y')}* ⚔\n"
+                f"🔔 <b>BILAN DE LA GUILDE — {today.strftime('%d/%m/%Y')}</b> ⚔\n"
                 f"━━━━━━━━━━━━━━━━━━━\n\n"
                 + "\n\n".join(user_blocks) + "\n\n"
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"💪 Demain est une nouvelle journée d'entraînement. Soyez prêts !"
             )
-            await bot.send_message(chat_id=group_chat_id, text=guild_msg, parse_mode="Markdown")
+            await bot.send_message(chat_id=group_chat_id, text=guild_msg, parse_mode="HTML")
             print(f"Scheduler: Successfully broadcast daily guild recap to group chat ID {group_chat_id}")
         else:
             # Fallback to individual DMs
@@ -162,13 +163,13 @@ async def publish_daily_recap():
                 if not chat_id:
                     continue
                 dm_msg = (
-                    f"🔔 *VOTRE BILAN JOURNALIER — {today.strftime('%d/%m/%Y')}* ⚔\n"
+                    f"🔔 <b>VOTRE BILAN JOURNALIER — {today.strftime('%d/%m/%Y')}</b> ⚔\n"
                     f"━━━━━━━━━━━━━━━━━━━\n\n"
                     f"{report_str}\n\n"
                     f"━━━━━━━━━━━━━━━━━━━\n"
                     f"💪 Demain est une nouvelle journée d'entraînement. Soyez prêts !"
                 )
-                await bot.send_message(chat_id=chat_id, text=dm_msg, parse_mode="Markdown")
+                await bot.send_message(chat_id=chat_id, text=dm_msg, parse_mode="HTML")
                 print(f"Scheduler: Successfully sent daily DM recap to {chat_id}")
 
     except Exception as e:
@@ -178,9 +179,9 @@ async def publish_daily_recap():
 
 def start_scheduler():
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(publish_daily_recap, 'cron', hour=23, minute=59)
+    scheduler.add_job(publish_daily_recap, 'cron', hour=21, minute=30)
     scheduler.start()
-    print("Scheduler: Daily RPG recap scheduled at 23:59.")
+    print("Scheduler: Daily RPG recap scheduled at 21:30.")
 
 if __name__ == "__main__":
     asyncio.run(publish_daily_recap())

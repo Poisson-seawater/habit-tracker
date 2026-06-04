@@ -25,9 +25,10 @@ def db_session(monkeypatch):
         )
         session.add(semaine)
 
-        # Seed routine_matin habit
+        # Seed Gabriel's routine_matin habit (habits are per-user since user isolation)
         h = Habit(
             id=1,
+            user_id=1,
             name="routine_matin",
             type="binary",
             frequency="daily",
@@ -105,6 +106,20 @@ async def test_bot_command_user_isolation(db_session):
     # Ensure Jeanne exists
     jeanne = User(id=2, username="Jeanne", chat_id="222", xp=0, level=1, gold=50)
     db_session.add(jeanne)
+    db_session.commit()
+
+    # Jeanne owns her own routine_matin (habits are per-user since user isolation)
+    jeanne_habit = Habit(
+        id=2,
+        user_id=2,
+        name="routine_matin",
+        type="binary",
+        frequency="daily",
+        scheduled_days="0,1,2,3,4,5,6",
+        point_rewards={"discipline": 2},
+        is_active=True
+    )
+    db_session.add(jeanne_habit)
     db_session.commit()
 
     # Jeanne logs routine_matin

@@ -2,6 +2,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // Config
   const API_BASE = "/api/v1";
 
+  // Override fetch to always include X-User-ID header if logged in
+  const originalFetch = window.fetch;
+  window.fetch = async function(url, options = {}) {
+    const userId = localStorage.getItem('user_id');
+    if (userId) {
+      options.headers = options.headers || {};
+      options.headers['X-User-ID'] = userId;
+    }
+    return originalFetch(url, options);
+  };
+
   // Navigation Tabs
   const navTabs = document.querySelectorAll(".nav-tab");
   const tabContents = document.querySelectorAll(".tab-content");
@@ -94,6 +105,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await response.json();
 
       // Update RPG Level & XP Bar dynamically
+      const charName = document.getElementById("char-name");
+      if (charName && data.username) {
+        charName.textContent = data.username;
+      }
       charLevel.textContent = `LV.${data.level}`;
       const xpFill = document.getElementById("char-xp-fill");
       const xpText = document.getElementById("char-xp-text");
@@ -1090,10 +1105,54 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchBounties();
   }
 
-  // Initial loads
-  refreshAll();
-  setupBountiesEvents();
+  // Multi-user Login & Initialization
+  const currentUserId = localStorage.getItem('user_id');
+  if (!currentUserId) {
+    showLoginScreen();
+  } else {
+    initializeApp();
+  }
 
-  // Auto-sync dashboard every 12 seconds
-  setInterval(refreshAll, 12000);
+  async function showLoginScreen() {
+    const overlay = document.getElementById("login-overlay");
+    const usersContainer = document.getElementById("login-users-container");
+    if (overlay) overlay.style.display = "flex";
+    
+    try {
+      const resp = await fetch(`${API_BASE}/users`);
+      const users = await resp.json();
+      if (usersContainer) {
+        usersContainer.innerHTML = "";
+        users.forEach(u => {
+          const btn = document.createElement("button");
+          btn.className = "login-user-btn";
+          btn.innerHTML = `<span class="login-user-name">${u.username}</span>`;
+          btn.onclick = () => {
+            localStorage.setItem('user_id', u.id);
+            if (overlay) overlay.style.display = "none";
+            initializeApp();
+          };
+          usersContainer.appendChild(btn);
+        });
+      }
+    } catch (e) {
+      if (usersContainer) usersContainer.innerHTML = "<p style='color: var(--accent-red);'>Erreur de chargement des profils.</p>";
+    }
+  }
+
+  function initializeApp() {
+    refreshAll();
+    setupBountiesEvents();
+    // Auto-sync dashboard every 12 seconds
+    setInterval(refreshAll, 12000);
+  }
+
+  // Logout Logic
+  const switchProfileBtn = document.getElementById("switch-profile-btn");
+  if (switchProfileBtn) {
+    switchProfileBtn.addEventListener("click", () => {
+      localStorage.removeItem('user_id');
+      window.location.reload();
+    });
+  }
 });
