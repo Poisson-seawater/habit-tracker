@@ -17,12 +17,13 @@ Ce document centralise toutes les commandes disponibles pour le bot Telegram.
 | `/skip` | `[nom_habitude] raison: [texte]` | Saute une habitude pour aujourd'hui **sans casser le streak**. La raison est obligatoire. | `/skip nage raison: fatigue extreme` |
 | `/status` | *(aucun)* | Affiche le statut du jour : Perfect Day ou non, seuils, streak, or, niveau/XP, quêtes faites / skippées / restantes, et No-Todos échoués. | `/status` |
 | `/set-day` *(alias `/template`)* | `[nom_template]` *(optionnel)* | Change le « type de journée » et réajuste les seuils. Templates : `semaine`, `weekend`, `recovery`, `sick`. **Sans argument : affiche 4 boutons de choix.** | `/set-day` ou `/template sick` |
-| `/aide` | *(aucun)* | Affiche le menu d'aide avec des boutons pour la documentation et la liste des commandes. | `/aide` |
+| `/aide` *(alias `/help`)* | *(aucun)* | Affiche le menu d'aide avec des boutons pour la documentation et la liste des commandes. | `/aide` ou `/help` |
 | `/liste` | `[todo\|habit\|notodo]` *(optionnel)* | Liste les éléments restants à accomplir (todo/habit) ou les règles à ne pas enfreindre (notodo). **Sans argument : affiche 3 boutons (Todos / Habitudes / No-Todos).** | `/liste` ou `/liste todo` |
 | `/add` | `[todo\|notodo\|habit] [titre]` *(optionnel)* | Ajoute une nouvelle tâche ou règle. **Sans argument : boutons [Todo] [No-Todo] [Habitude] ; pour Habitude un 2ᵉ choix binaire/quantitatif ; puis le bot demande le titre à taper.** | `/add` ou `/add todo Courses` |
 | `/add_habit` | `[binary\|quant] [titre] [unité]` | Crée une habitude avec des paramètres par défaut. L'unité est optionnelle pour les habitudes quantitatives. | `/add_habit binary Lecture` |
 | `/fail` | `[nom_notodo]` | Marque une règle No-Todo comme ayant été transgressée pour aujourd'hui. Accepte des morceaux du nom. | `/fail snooze` |
 | `/motivation` | *(aucun)* | Liste tes objectifs à long terme pour garder le cap. | `/motivation` |
+| `/app` | *(aucun)* | Affiche un bouton pour ouvrir le dashboard en Mini App Telegram. Requiert `TELEGRAM_WEB_APP_URL` configuré avec une URL HTTPS publique vers `/mini-app/`. | `/app` |
 
 ---
 
@@ -32,3 +33,4 @@ Ce document centralise toutes les commandes disponibles pour le bot Telegram.
 * **Base de données partagée** : Il n'y a pas de communication directe bot ↔ site. Les deux écrivent et lisent la même base SQLite (`./data/`). Tout ce que le bot enregistre apparaît sur le site web instantanément.
 * **Récapitulatif automatique** : À 23h59, le scheduler calcule le score final de chaque joueur, attribue de l'XP et publie le bilan de la guilde dans le groupe.
 * **Sécurité & DM** : En production, le bot ignore tout message venant d'un chat non autorisé. Les messages privés (DM) sont autorisés automatiquement dès qu'un membre a posté au moins 1 fois dans le groupe public.
+* **Mini App Telegram** : La route `/mini-app/` sert une copie mobile du dashboard. Pour un test rapide, elle associe le profil via les données utilisateur Telegram côté client, sans validation cryptographique serveur de `initData`.

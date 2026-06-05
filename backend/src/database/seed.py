@@ -2,7 +2,6 @@ import os
 import datetime
 from src.database.session import SessionLocal, engine, Base
 from src.database.models import User, Habit, PerfectDayTemplate, Todo, Goal, SubStep, GoalSubStepLink, NoTodo
-from src.config import TELEGRAM_GROUP_ID
 
 def seed_db():
     # Drop all tables first to get a clean, updated schema for V2
@@ -17,15 +16,7 @@ def seed_db():
             {
                 "id": 1,
                 "username": "Gabriel",
-                "chat_id": TELEGRAM_GROUP_ID if TELEGRAM_GROUP_ID else "12345678",
-                "xp": 0,
-                "level": 1,
-                "gold": 0
-            },
-            {
-                "id": 2,
-                "username": "Benji",
-                "chat_id": "22222222",
+                "chat_id": os.getenv("TELEGRAM_DEFAULT_USER_ID"),
                 "xp": 0,
                 "level": 1,
                 "gold": 0
@@ -35,7 +26,7 @@ def seed_db():
             user = User(
                 id=u_info["id"],
                 username=u_info["username"],
-                chat_id=str(u_info["chat_id"]),
+                chat_id=str(u_info["chat_id"]) if u_info["chat_id"] else None,
                 xp=u_info["xp"],
                 level=u_info["level"],
                 gold=u_info["gold"]
@@ -44,7 +35,7 @@ def seed_db():
         db.flush()  # Make sure users are created to get foreign keys
 
         # 2. Seed Default Templates per User
-        for user_id in [1, 2]:
+        for user_id in [1]:
             templates_data = [
                 {
                     "template_name": "week",
@@ -254,13 +245,6 @@ def seed_db():
                 "points_reward_1": 3,
                 "xp_reward": 10
             },
-            {
-                "user_id": 2,
-                "title": "🧘 Servir la Paix Intérieure (15 min de calme)",
-                "stat_reward_1": "sante_mentale",
-                "points_reward_1": 3,
-                "xp_reward": 5
-            }
         ]
         for t_info in todos_data:
             todo = Todo(
@@ -285,10 +269,6 @@ def seed_db():
         notodos_data = []
         for t in gabriel_notodos:
             notodos_data.append({"user_id": 1, "title": t})
-            notodos_data.append({"user_id": 3, "title": t}) # PandaCoffey
-            
-        for t in gabriel_notodos[:4]:
-            notodos_data.append({"user_id": 2, "title": t}) # Benji (no TV, no alcohol)
         for n_info in notodos_data:
             notodo = NoTodo(
                 user_id=n_info["user_id"],

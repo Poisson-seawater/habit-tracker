@@ -3,10 +3,10 @@ import re
 import html
 import asyncio
 import datetime
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 
-from src.config import TELEGRAM_BOT_TOKEN, TELEGRAM_GROUP_ID
+from src.config import TELEGRAM_BOT_TOKEN, TELEGRAM_GROUP_ID, TELEGRAM_WEB_APP_URL
 from src.database.session import SessionLocal
 from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, NoTodo
 from src.bot.parser import parse_command, ParserError
@@ -46,6 +46,29 @@ TEMPLATE_WORD_MAP = {
     "sick": "malade",
     "malade": "malade",
 }
+
+def _mini_app_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            "Ouvrir la Mini App",
+            web_app=WebAppInfo(url=TELEGRAM_WEB_APP_URL),
+        )
+    ]])
+
+def _mini_app_unavailable_message() -> str:
+    return (
+        "Mini App non configurée. Ajoute TELEGRAM_WEB_APP_URL avec une URL HTTPS "
+        "publique vers /mini-app/."
+    )
+
+async def _reply_with_mini_app(message) -> None:
+    if not TELEGRAM_WEB_APP_URL:
+        await message.reply_text(_mini_app_unavailable_message())
+        return
+    await message.reply_text(
+        "Ouvre ton tableau de bord en Mini App Telegram :",
+        reply_markup=_mini_app_keyboard(),
+    )
 
 def _resolve_user(db, from_user) -> User:
     """Look up (or create) the User row for a Telegram sender. Shared by the
@@ -464,6 +487,9 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 msg = f"🔥 <b>Objectifs de {html.escape(username)}</b> 🔥\nNe perds pas le cap :\n\n" + "\n".join(lines)
                 await update.message.reply_text(msg, parse_mode="HTML")
 
+        elif cmd == "app":
+            await _reply_with_mini_app(update.message)
+
         elif cmd == "add":
             a_type = parsed["type"]
             title = parsed["title"]
@@ -522,6 +548,7 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif cmd == "aide":
             keyboard = [
+                [InlineKeyboardButton("Ouvrir Mini App", callback_data="help_app")],
                 [InlineKeyboardButton("Aide Documentation", callback_data="help_doc")],
                 [InlineKeyboardButton("Liste des commandes", callback_data="help_cmds")]
             ]
@@ -545,6 +572,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📖 Pour ouvrir le tableau de bord, va sur http://localhost:5000"
         )
         return
+    if data == "help_app":
+        await _reply_with_mini_app(query.message)
+        return
     if data == "help_cmds":
         cmds_text = (
             "📋 <b>Liste des commandes</b>\n\n"
@@ -558,7 +588,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "<b>/add_habit</b> [binary|quant] [titre] [unité] — Crée une habitude\n"
             "<b>/fail</b> [nom_notodo] — Marque une règle No-Todo comme transgressée\n"
             "<b>/motivation</b> — Liste tes objectifs à long terme\n"
-            "<b>/aide</b> — Affiche ce menu d'aide"
+            "<b>/app</b> — Ouvre le dashboard en Mini App Telegram\n"
+            "<b>/aide</b> (alias <b>/help</b>) — Affiche ce menu d'aide"
         )
         await query.message.reply_text(cmds_text, parse_mode="HTML")
         return

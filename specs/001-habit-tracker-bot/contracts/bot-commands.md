@@ -112,7 +112,7 @@ Displays the help menu with interactive buttons.
   ```
   Clicking "Liste des commandes" returns (HTML-formatted) the full command list
   (`/done`, `/log`, `/skip`, `/status`, `/set-day`, `/liste`, `/add`, `/add_habit`,
-  `/fail`, `/motivation`, `/aide`).
+  `/fail`, `/motivation`, `/app`, `/aide`, `/help`).
 
 ---
 
@@ -138,4 +138,3 @@ Adds a Todo, a No-Todo, or a Habit.
      For a quantitative habit the message is `nom unité` (unit optional, e.g. `lecture min`).
   - Pending state is kept per-user in `context.user_data["pending_add"]`; sending a new
     `/command` instead of a title aborts the flow.
-

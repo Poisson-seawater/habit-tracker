@@ -22,6 +22,7 @@ the Telegram values:
 # --- Telegram Configurations ---
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 TELEGRAM_GROUP_ID=your_telegram_group_id_here
+TELEGRAM_WEB_APP_URL=https://your-public-domain.example/mini-app/
 
 # --- Server Configurations ---
 API_PORT=5000
@@ -58,6 +59,10 @@ DATABASE_URL=sqlite:////data/habit_tracker.db
    PYTHONPATH=backend python3 backend/src/bot/listener.py
    ```
 
+5. **Test the Telegram Mini App**:
+   Expose the API server over HTTPS, set `TELEGRAM_WEB_APP_URL` to the public
+   `/mini-app/` URL, then send `/app` to the bot.
+
 ---
 
 ## 🐳 Docker Orchestration (Pi 5 Production-grade Compose)
@@ -76,6 +81,19 @@ git pull --ff-only
 docker compose up -d --build
 docker compose ps
 ```
+
+If the committed SQLite snapshot must replace the Pi data, restore it explicitly
+after pulling and before restarting the stack:
+
+```bash
+docker compose down
+python3 ops/db/habit_tracker_db_admin.py restore-snapshot
+docker compose up -d --build
+docker compose ps
+```
+
+The restore command creates a timestamped backup under `data/backups/` before
+replacing `data/habit_tracker.db`.
 
 ---
 

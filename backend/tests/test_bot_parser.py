@@ -51,6 +51,14 @@ def test_parse_set_day_success():
     assert result["command"] == "set-day"
     assert result["template_name"] == "sick"
 
+def test_parse_app_success():
+    result = parse_command("/app")
+    assert result["command"] == "app"
+
+def test_parse_help_aliases_aide():
+    assert parse_command("/aide") == {"command": "aide"}
+    assert parse_command("/help") == {"command": "aide"}
+
 def test_parse_unknown_command():
     with pytest.raises(ParserError) as exc_info:
         parse_command("/unknown")
