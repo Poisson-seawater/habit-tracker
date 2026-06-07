@@ -764,6 +764,38 @@ def get_habits(db: Session = Depends(get_db), user_id: int = Depends(get_current
         })
     return result
 
+class HabitUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    type: Optional[str] = None
+    frequency: Optional[str] = None
+    scheduled_days: Optional[str] = None
+    unit: Optional[str] = None
+    point_rewards: Optional[Dict[str, int]] = None
+    daily_cap: Optional[int] = None
+    is_mandatory: Optional[bool] = None
+    is_private: Optional[bool] = None
+    is_reportable: Optional[bool] = None
+
+@router.put("/habits/{habit_id}")
+def update_habit(habit_id: int, payload: HabitUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found.")
+    for field, value in payload.model_dump(exclude_none=True).items():
+        setattr(habit, field, value)
+    db.commit()
+    return {"status": "updated"}
+
+@router.delete("/habits/{habit_id}")
+def delete_habit(habit_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found.")
+    habit.is_active = False
+    db.commit()
+    return {"status": "deleted"}
+
 @router.post("/habits", status_code=201)
 def create_habit(payload: HabitCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     existing = db.query(Habit).filter_by(user_id=user_id, name=payload.name).first()

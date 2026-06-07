@@ -239,11 +239,19 @@ document.addEventListener("DOMContentLoaded", () => {
             <span class="quest-desc">${habit.description || ''}</span>
             <span class="quest-reward-tag">Récompense : ${rewards}</span>
           </div>
-          <div class="quest-action">
+          <div class="quest-action" style="display:flex;gap:6px;align-items:center;">
             ${buttonHTML}
+            <button class="quest-edit-btn" data-habit='${JSON.stringify(habit)}' style="background:rgba(255,255,255,0.05);border:1px solid var(--border-glass);border-radius:8px;padding:6px 10px;color:var(--text-muted);cursor:pointer;font-size:0.8rem;">✏️</button>
           </div>
         `;
         questsListContainer.appendChild(questItem);
+      });
+
+      document.querySelectorAll(".quest-edit-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const habit = JSON.parse(btn.getAttribute("data-habit"));
+          openEditQuestModal(habit);
+        });
       });
 
       // Bind check-ins
@@ -1178,6 +1186,91 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Erreur de récupération des potentiels");
     }
   }
+
+  // ==============================================
+  // EDIT / DELETE QUEST MODAL
+  // ==============================================
+  const editQuestOverlay = document.getElementById("edit-quest-overlay");
+  const editQuestDrawer  = document.getElementById("edit-quest-drawer");
+  const editFreqSelect   = document.getElementById("edit-quest-frequency");
+  const editDaysGroup    = document.getElementById("edit-scheduled-days-group");
+
+  function openEditQuestModal(habit) {
+    document.getElementById("edit-quest-id").value        = habit.id;
+    document.getElementById("edit-quest-name").value      = habit.name;
+    document.getElementById("edit-quest-desc").value      = habit.description || "";
+    document.getElementById("edit-quest-unit").value      = habit.unit || "";
+    editFreqSelect.value = habit.frequency || "daily";
+
+    // Show/hide day checkboxes
+    const isSpecific = habit.frequency === "specific_days";
+    editDaysGroup.style.display = isSpecific ? "block" : "none";
+    const activeDays = (habit.scheduled_days || "").split(",").map(s => s.trim());
+    editDaysGroup.querySelectorAll("input").forEach(cb => {
+      cb.checked = activeDays.includes(cb.value);
+    });
+
+    editQuestOverlay.classList.add("open");
+    editQuestDrawer.classList.add("open");
+  }
+
+  function closeEditQuestModal() {
+    editQuestOverlay.classList.remove("open");
+    editQuestDrawer.classList.remove("open");
+  }
+
+  if (editFreqSelect) {
+    editFreqSelect.addEventListener("change", () => {
+      editDaysGroup.style.display = editFreqSelect.value === "specific_days" ? "block" : "none";
+    });
+  }
+
+  document.getElementById("close-edit-quest-btn")?.addEventListener("click", closeEditQuestModal);
+  editQuestOverlay?.addEventListener("click", closeEditQuestModal);
+
+  document.getElementById("save-edit-quest-btn")?.addEventListener("click", async () => {
+    const id        = document.getElementById("edit-quest-id").value;
+    const frequency = editFreqSelect.value;
+    let scheduled_days = "0,1,2,3,4,5,6";
+    if (frequency === "specific_days") {
+      const checked = Array.from(editDaysGroup.querySelectorAll("input:checked")).map(cb => cb.value);
+      scheduled_days = checked.length > 0 ? checked.join(",") : "0,1,2,3,4,5,6";
+    }
+    const body = {
+      name:           document.getElementById("edit-quest-name").value.trim(),
+      description:    document.getElementById("edit-quest-desc").value.trim(),
+      unit:           document.getElementById("edit-quest-unit").value.trim() || null,
+      frequency,
+      scheduled_days,
+    };
+    try {
+      const r = await fetch(`${API_BASE}/habits/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error((await r.json()).detail || "Erreur");
+      showToast("Quête mise à jour !");
+      closeEditQuestModal();
+      fetchQuests();
+    } catch (e) {
+      showToast(e.message, true);
+    }
+  });
+
+  document.getElementById("delete-quest-btn")?.addEventListener("click", async () => {
+    const id = document.getElementById("edit-quest-id").value;
+    if (!confirm("Supprimer cette quête définitivement ?")) return;
+    try {
+      const r = await fetch(`${API_BASE}/habits/${id}`, { method: "DELETE" });
+      if (!r.ok) throw new Error((await r.json()).detail || "Erreur");
+      showToast("Quête supprimée.");
+      closeEditQuestModal();
+      fetchQuests();
+    } catch (e) {
+      showToast(e.message, true);
+    }
+  });
 
   // Refresh helper
   function refreshAll() {
