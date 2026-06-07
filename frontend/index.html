@@ -647,6 +647,30 @@
 
               <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
                 <div class="form-group">
+                  <label>Fréquence</label>
+                  <select id="new-quest-frequency" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
+                    <option value="daily">Quotidien</option>
+                    <option value="specific_days">Jours spécifiques</option>
+                    <option value="weekly">Hebdomadaire</option>
+                    <option value="monthly">Mensuel</option>
+                  </select>
+                </div>
+                <div class="form-group" id="scheduled-days-group" style="display: none;">
+                  <label>Jours</label>
+                  <div id="new-quest-days" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="0"> Lun</label>
+                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="1"> Mar</label>
+                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="2"> Mer</label>
+                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="3"> Jeu</label>
+                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="4"> Ven</label>
+                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="5"> Sam</label>
+                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="6"> Dim</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
+                <div class="form-group">
                   <label>Stat liée 1</label>
                   <select id="new-quest-stat-1" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
                     <option value="">Aucune</option>

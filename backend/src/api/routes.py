@@ -731,8 +731,20 @@ def fail_notodo(notodo_id: int, db: Session = Depends(get_db), user_id: int = De
 @router.get("/habits")
 def get_habits(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     habits = db.query(Habit).filter_by(user_id=user_id, is_active=True).all()
+    today = datetime.date.today()
+    week_start = datetime.datetime.combine(today - datetime.timedelta(days=today.weekday()), datetime.time.min)
+    month_start = datetime.datetime.combine(today.replace(day=1), datetime.time.min)
     result = []
     for h in habits:
+        completed_this_period = False
+        if h.frequency in ("weekly", "monthly"):
+            cutoff = week_start if h.frequency == "weekly" else month_start
+            completed_this_period = db.query(HabitLog).filter(
+                HabitLog.habit_id == h.id,
+                HabitLog.user_id == user_id,
+                HabitLog.log_type.in_(["done", "log"]),
+                HabitLog.timestamp >= cutoff,
+            ).first() is not None
         result.append({
             "id": h.id,
             "name": h.name,
@@ -747,7 +759,8 @@ def get_habits(db: Session = Depends(get_db), user_id: int = Depends(get_current
             "point_rewards": h.point_rewards,
             "daily_cap": h.daily_cap,
             "unit": h.unit,
-            "is_active": h.is_active
+            "is_active": h.is_active,
+            "completed_this_period": completed_this_period,
         })
     return result
 

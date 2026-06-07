@@ -193,19 +193,35 @@ document.addEventListener("DOMContentLoaded", () => {
       const completedIds = profileData.completed_habit_ids || [];
       questsListContainer.innerHTML = "";
 
-      if (habits.length === 0) {
-        questsListContainer.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem; text-align: center;">Aucune habitude active configurée.</p>`;
+      // Today in Python weekday convention (0=Mon … 6=Sun)
+      const jsDay = new Date().getDay();
+      const pythonDay = (jsDay + 6) % 7;
+
+      const visibleHabits = habits.filter(habit => {
+        if (habit.frequency === "specific_days") {
+          const days = (habit.scheduled_days || "").split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+          return days.includes(pythonDay);
+        }
+        return true; // daily, weekly, monthly always visible
+      });
+
+      if (visibleHabits.length === 0) {
+        questsListContainer.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem; text-align: center;">Aucune quête prévue aujourd'hui.</p>`;
         return;
       }
 
-      habits.forEach(habit => {
+      const freqLabels = { daily: "", specific_days: "", weekly: "Hebdo", monthly: "Mensuel" };
+
+      visibleHabits.forEach(habit => {
         const questItem = document.createElement("div");
         questItem.className = "quest-item";
 
-        const isCompleted = completedIds.includes(habit.id);
+        const isPeriodic = habit.frequency === "weekly" || habit.frequency === "monthly";
+        const isCompleted = isPeriodic ? (habit.completed_this_period || false) : completedIds.includes(habit.id);
         const privateLock = habit.is_private ? " 🔒" : "";
         const rewards = formatPointRewards(habit.point_rewards);
-        
+        const freqBadge = freqLabels[habit.frequency] ? `<span style="font-size:0.7rem;padding:2px 6px;border-radius:8px;background:rgba(255,255,255,0.08);color:var(--text-muted);margin-left:6px;">${freqLabels[habit.frequency]}</span>` : "";
+
         let buttonHTML = "";
         if (isCompleted) {
           buttonHTML = `<button class="quest-action-btn completed" disabled>Validé</button>`;
@@ -219,8 +235,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         questItem.innerHTML = `
           <div class="quest-details">
-            <span class="quest-name">${habit.name}${privateLock}</span>
-            <span class="quest-desc">${habit.description || 'Quête journalière'}</span>
+            <span class="quest-name">${habit.name}${privateLock}${freqBadge}</span>
+            <span class="quest-desc">${habit.description || ''}</span>
             <span class="quest-reward-tag">Récompense : ${rewards}</span>
           </div>
           <div class="quest-action">
@@ -1236,6 +1252,15 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // Show/hide day checkboxes based on frequency selection
+    const freqSelect = document.getElementById("new-quest-frequency");
+    const daysGroup = document.getElementById("scheduled-days-group");
+    if (freqSelect && daysGroup) {
+      freqSelect.addEventListener("change", () => {
+        daysGroup.style.display = freqSelect.value === "specific_days" ? "block" : "none";
+      });
+    }
+
     if (submitQuestBtn) {
       submitQuestBtn.addEventListener("click", async () => {
         const title = document.getElementById("new-quest-name").value.trim();
@@ -1244,6 +1269,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const unit = document.getElementById("new-quest-unit").value.trim();
         const stat1 = document.getElementById("new-quest-stat-1").value || null;
         const pts1 = parseInt(document.getElementById("new-quest-points-1").value) || 0;
+        const frequency = freqSelect ? freqSelect.value : "daily";
+
+        let scheduled_days = "0,1,2,3,4,5,6";
+        if (frequency === "specific_days") {
+          const checked = Array.from(document.querySelectorAll("#new-quest-days input:checked")).map(cb => cb.value);
+          scheduled_days = checked.length > 0 ? checked.join(",") : "0,1,2,3,4,5,6";
+        }
 
         if (!title) {
           showToast("Veuillez donner un titre à la quête !", true);
@@ -1264,7 +1296,9 @@ document.addEventListener("DOMContentLoaded", () => {
               description: desc,
               type: type,
               unit: type === "quantitative" ? unit : null,
-              point_rewards: point_rewards
+              point_rewards: point_rewards,
+              frequency: frequency,
+              scheduled_days: scheduled_days,
             })
           });
 
@@ -1279,6 +1313,8 @@ document.addEventListener("DOMContentLoaded", () => {
           document.getElementById("new-quest-stat-1").value = "";
           document.getElementById("new-quest-points-1").value = "5";
           document.getElementById("new-quest-unit").value = "";
+          if (freqSelect) freqSelect.value = "daily";
+          if (daysGroup) { daysGroup.style.display = "none"; daysGroup.querySelectorAll("input").forEach(cb => cb.checked = false); }
           
           questForm.style.display = "none";
           openQuestBtn.textContent = "+ Quête";
