@@ -101,7 +101,14 @@ document.addEventListener("DOMContentLoaded", () => {
   async function fetchProfile() {
     try {
       const response = await fetch(`${API_BASE}/profile`);
-      if (!response.ok) throw new Error("Erreur profile API");
+      if (!response.ok) {
+        if (response.status === 404) {
+          localStorage.removeItem('user_id');
+          showLoginScreen();
+          return;
+        }
+        throw new Error("Erreur profile API");
+      }
       const data = await response.json();
 
       // Update RPG Level & XP Bar dynamically
