@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('pwdoc-theme');if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>Carte mentale — Habit Tracker RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body class="mindmap-page">
+  <header class="mm-topbar">
+    <a class="mm-back" href="index.html">← Retour à la doc</a>
+    <span class="mm-title">Carte mentale — Habit Tracker RPG</span>
+    <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false" aria-label="Basculer entre thème clair et sombre">
+      <span class="theme-toggle__icon" aria-hidden="true">🌙</span>
+      <span class="theme-toggle__label">Sombre</span>
+    </button>
+  </header>
+
+  <div class="mindmap-full">
+    <div class="markmap">
+      <script type="text/template">
+---
+markmap:
+  colorFreezeLevel: 2
+  initialExpandLevel: 3
+---
+
+# Habit Tracker RPG
+
+## [Accueil](index.html)
+- Pourquoi le projet + 3 workflows
+## [Démarrer](onboarding.html)
+- Mise en route guidée, pas à pas
+## [Règles & variables](regles-et-variables.html)
+- Commandes, variables, interactions
+## Concepts
+### [Perfect Day](perfect-day.html)
+- Tous les seuils atteints → +5 XP et streak
+### [Habitudes (Quêtes)](habitudes.html)
+- Actions récurrentes qui nourrissent les stats
+### [Objectifs](objectifs.html)
+- Sous-étapes → Or permanent
+### [Primes (Todos)](primes-todo.html)
+- Tâches du jour : stats + XP direct
+### [No-Todo](no-todo.html)
+- Règles à ne pas enfreindre (/fail)
+### [Templates de jour](templates-de-jour.html)
+- semaine / weekend / recovery / sick → seuils
+### [Stats, XP, niveau & or](stats-xp-niveau-or.html)
+- 12 stats éphémères, XP/niveau, Or
+      </script>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/markmap-autoloader@0.18"></script>
+  <script src="assets/theme.js"></script>
+</body>
+</html>

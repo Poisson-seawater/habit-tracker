@@ -47,13 +47,13 @@ def db_session(monkeypatch):
         monkeypatch.setattr("src.bot.listener.SessionLocal", lambda: session)
         monkeypatch.setattr("src.bot.listener.TELEGRAM_GROUP_ID", "")
         
-        # Mock datetime module in listener.py to return standard UTC date from date.today()
+        # Mock datetime module in listener.py to return the local "today" — the day boundary
+        # follows system local time, consistent with how event timestamps are now stored.
         import datetime as real_datetime
         class MockDateClass:
             @staticmethod
             def today():
-                utc_date = real_datetime.datetime.utcnow().date()
-                return real_datetime.date(utc_date.year, utc_date.month, utc_date.day)
+                return real_datetime.date.today()
                 
         class MockDatetimeModule:
             date = MockDateClass

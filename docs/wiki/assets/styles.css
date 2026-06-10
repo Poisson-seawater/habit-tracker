@@ -1,5 +1,6 @@
-/* Habit Tracker — documentation site
-   Style inspiré de l'USWDS « documentation page » (thème clair). */
+/* documentation — documentation site (template réutilisable).
+   Style inspiré de l'USWDS « documentation page ». Thèmes clair + sombre.
+   Générique : à copier tel quel dans <output_dir>/assets/. Ne pas éditer par projet. */
 
 :root {
   --primary: #005ea2;
@@ -10,9 +11,26 @@
   --soft: #f0f0f0;
   --soft-2: #f9f9f9;
   --white: #ffffff;
+  --note-bg: #e7f6f8;
+  --focus: #2491ff;
   --measure: 68ch;
   --max: 1100px;
   --sidebar: 248px;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --primary: #7cb4ed;
+  --primary-dark: #a9cdf2;
+  --ink: #e6e8eb;
+  --muted: #9aa0a6;
+  --border: #343941;
+  --soft: #262a30;
+  --soft-2: #1d2024;
+  --white: #15171b;
+  --note-bg: #14313a;
+  --focus: #4aa3ff;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -28,9 +46,13 @@ body {
   font-size: 17px;
 }
 
+body, .masthead, .sidenav, .site-footer, .mm-topbar, .theme-toggle, .mindmap-wrap {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
 a { color: var(--primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
-a:focus-visible { outline: 3px solid #2491ff; outline-offset: 2px; }
+a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
 /* ---------- Masthead ---------- */
 .masthead {
@@ -42,7 +64,12 @@ a:focus-visible { outline: 3px solid #2491ff; outline-offset: 2px; }
   max-width: var(--max);
   margin: 0 auto;
   padding: 1.1rem 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
 }
+.masthead__brand { min-width: 0; }
 .masthead__title {
   margin: 0;
   font-size: 1.35rem;
@@ -55,6 +82,27 @@ a:focus-visible { outline: 3px solid #2491ff; outline-offset: 2px; }
   color: var(--muted);
   font-size: 0.95rem;
 }
+
+/* ---------- Theme toggle ---------- */
+.theme-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1;
+  color: var(--ink);
+  background: var(--soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.theme-toggle:hover { border-color: var(--primary); }
+.theme-toggle:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.theme-toggle__icon { font-size: 1rem; }
 
 /* ---------- Layout ---------- */
 .layout {
@@ -135,7 +183,7 @@ code {
   background: var(--soft);
   padding: 0.12em 0.4em;
   border-radius: 4px;
-  color: #1a1a1a;
+  color: var(--ink);
 }
 
 /* ---------- Tables (style USWDS) ---------- */
@@ -147,7 +195,7 @@ table {
 }
 caption { text-align: left; color: var(--muted); font-size: 0.9rem; padding-bottom: 0.4rem; }
 th, td {
-  border: 1px solid #a9aeb1;
+  border: 1px solid var(--border);
   padding: 0.5rem 0.75rem;
   text-align: left;
   vertical-align: top;
@@ -158,14 +206,14 @@ tbody tr:nth-child(even) { background: var(--soft-2); }
 /* ---------- Callout / note ---------- */
 .note {
   border-left: 4px solid var(--primary);
-  background: #e7f6f8;
+  background: var(--note-bg);
   padding: 0.75rem 1rem;
   margin: 1.25rem 0;
   border-radius: 0 6px 6px 0;
 }
 .note p { margin: 0.25rem 0; }
 
-/* ---------- Mindmap ---------- */
+/* ---------- Mindmap (intégré) ---------- */
 .mindmap-wrap {
   height: 480px;
   border: 1px solid var(--border);
@@ -175,10 +223,51 @@ tbody tr:nth-child(even) { background: var(--soft-2); }
   margin: 1.25rem 0 0.5rem;
 }
 .mindmap-wrap .markmap { width: 100%; height: 100%; display: block; }
-/* Lisibilité forcée : texte foncé sur fond clair */
+
+/* ---------- Diagrammes Mermaid ---------- */
+.diagram {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--soft-2);
+  overflow-x: auto;
+}
+.diagram .mermaid { display: flex; justify-content: center; margin: 0; }
+.diagram .mermaid svg { max-width: 100%; height: auto; }
+
+/* Lisibilité : on suit le thème via les variables de markmap-view. */
+.markmap, svg.markmap {
+  --markmap-text-color: var(--ink);
+  --markmap-a-color: var(--primary);
+  --markmap-a-hover-color: var(--primary-dark);
+  --markmap-code-bg: var(--soft);
+  --markmap-code-color: var(--ink);
+  --markmap-circle-open-bg: var(--white);
+}
 svg.markmap text { fill: var(--ink); font: 600 15px "Public Sans", system-ui, sans-serif; }
 svg.markmap a, svg.markmap a text { fill: var(--primary); }
+
 .mindmap-hint { color: var(--muted); font-size: 0.85rem; margin: 0.3rem 0 1.5rem; }
+.mindmap-hint a { white-space: nowrap; }
+
+/* ---------- Page mindmap plein écran ---------- */
+.mindmap-page { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+.mm-topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 1.1rem;
+  border-top: 4px solid var(--primary);
+  border-bottom: 1px solid var(--border);
+  background: var(--white);
+}
+.mm-back { font-weight: 600; }
+.mm-title { font-weight: 700; color: var(--ink); }
+.mm-topbar .theme-toggle { margin-left: auto; }
+.mindmap-full { flex: 1 1 auto; min-height: 0; background: var(--soft-2); }
+.mindmap-full .markmap { width: 100%; height: 100%; display: block; }
 
 /* ---------- Footer ---------- */
 .site-footer {
@@ -214,4 +303,5 @@ svg.markmap a, svg.markmap a text { fill: var(--primary); }
     background: var(--soft-2);
   }
   h1 { font-size: 1.7rem; }
+  .mm-title { display: none; }
 }

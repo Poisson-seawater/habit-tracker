@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.database.session import Base, get_db
-from src.database.models import User, Habit, PerfectDayTemplate, DailyScore, Streak, Goal, SubStep
+from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Goal, SubStep
 from src.main import app
 
 TEST_DB_FILE = "backend/tests/.test_habit_tracker_api.db"
@@ -231,4 +231,101 @@ def test_goals_and_substeps_crud():
     # 7. Delete Goal
     response = client.delete(f"/api/v1/goals/{goal_id}")
     assert response.status_code == 200
+    assert response.json()["status"] == "success"
+
+
+# --- B1: GET /status (streak + skip reasons) ---
+
+def test_get_status_endpoint():
+    # Insert logs directly with a deterministic noon-today timestamp so the test does not
+    # depend on the runner's UTC/local offset (the /status window is built from date.today()).
+    import datetime
+    noon_today = datetime.datetime.combine(datetime.date.today(), datetime.time(12, 0))
+    db = TestingSessionLocal()
+    try:
+        db.add(HabitLog(user_id=1, habit_id=1, log_type="done", timestamp=noon_today))
+        db.add(HabitLog(user_id=1, habit_id=2, log_type="skip",
+                        reason="Pas le temps aujourd'hui", timestamp=noon_today))
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get("/api/v1/status")
+    assert response.status_code == 200
+    data = response.json()
+
+    # Perfect Day block + streak are exposed (impossible via other endpoints)
+    assert data["perfect_day"]["status"] in ["Perfect", "Failed"]
+    assert "thresholds" in data["perfect_day"]
+    assert "current" in data["streak"]
+    assert "max" in data["streak"]
+
+    # The skip is reported with its reason
+    skipped = [s for s in data["skipped"] if s["habit_id"] == 2]
+    assert len(skipped) == 1
+    assert skipped[0]["reason"] == "Pas le temps aujourd'hui"
+
+    # The done habit is reported as completed and is no longer remaining
+    completed_ids = [c["habit_id"] for c in data["completed"]]
+    assert 1 in completed_ids
+    remaining_ids = [r["habit_id"] for r in data["remaining"]]
+    assert 1 not in remaining_ids
+    assert 2 not in remaining_ids
+
+
+# --- B3: server-side validation rejects bad data with 400 ---
+
+def test_create_todo_rejects_bad_stat():
+    response = client.post("/api/v1/todos", json={
+        "title": "Todo avec stat fautive",
+        "stat_reward_1": "forcee",  # typo of "force"
+        "points_reward_1": 3
+    })
+    assert response.status_code == 400
+    assert "forcee" in response.json()["detail"]
+
+def test_create_habit_rejects_bad_type():
+    response = client.post("/api/v1/habits", json={
+        "name": "habit_bad_type",
+        "type": "boolean",  # invalid
+        "point_rewards": {"discipline": 2}
+    })
+    assert response.status_code == 400
+
+def test_create_habit_rejects_empty_point_rewards():
+    response = client.post("/api/v1/habits", json={
+        "name": "habit_empty_pr",
+        "type": "binary",
+        "point_rewards": {}
+    })
+    assert response.status_code == 400
+    assert "point_rewards" in response.json()["detail"]
+
+def test_create_habit_rejects_bad_stat_key():
+    response = client.post("/api/v1/habits", json={
+        "name": "habit_bad_stat",
+        "type": "binary",
+        "point_rewards": {"forcee": 2}
+    })
+    assert response.status_code == 400
+    assert "forcee" in response.json()["detail"]
+
+def test_create_habit_quantitative_requires_unit():
+    response = client.post("/api/v1/habits", json={
+        "name": "habit_no_unit",
+        "type": "quantitative",
+        "point_rewards": {"force": 2}
+    })
+    assert response.status_code == 400
+    assert "unit" in response.json()["detail"]
+
+def test_create_habit_valid_still_passes():
+    response = client.post("/api/v1/habits", json={
+        "name": "pompes",
+        "type": "quantitative",
+        "unit": "rep",
+        "daily_cap": 100,
+        "point_rewards": {"force": 3}
+    })
+    assert response.status_code == 201
     assert response.json()["status"] == "success"

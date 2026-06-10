@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('pwdoc-theme');if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
   <title>Objectifs — Habit Tracker RPG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,8 +13,14 @@
 <body>
   <header class="masthead" id="top">
     <div class="masthead__inner">
-      <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
-      <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+      <div class="masthead__brand">
+        <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
+        <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+      </div>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false" aria-label="Basculer entre thème clair et sombre">
+        <span class="theme-toggle__icon" aria-hidden="true">🌙</span>
+        <span class="theme-toggle__label">Sombre</span>
+      </button>
     </div>
   </header>
 
@@ -21,7 +28,9 @@
     <nav class="sidenav" aria-label="Navigation de la documentation">
       <ul>
         <li><a href="index.html">Accueil</a></li>
+        <li><a href="onboarding.html">Démarrer</a></li>
         <li><a href="regles-et-variables.html">Règles &amp; variables</a></li>
+        <li><a href="mindmap.html" target="_blank" rel="noopener">Carte mentale ↗</a></li>
       </ul>
       <p class="sidenav__heading">Concepts</p>
       <ul>
@@ -38,7 +47,7 @@
     <main class="content">
       <article class="prose">
         <h1>Objectifs (Vision long terme)</h1>
-        <p class="intro">Tes grands buts de vie, découpés en sous-étapes interconnectées ; les valider à la main rapporte de l'Or permanent.</p>
+        <p class="intro">Ce sont tes grands buts de vie : un tour du monde, un gros projet. Tu les découpes en sous-étapes reliées entre elles. Valider une sous-étape à la main te rapporte de l'Or permanent.</p>
 
         <h2 id="graphe">Le graphe d'objectifs</h2>
         <ul>
@@ -48,7 +57,7 @@
         </ul>
 
         <h2 id="recompense">Récompense</h2>
-        <p>Valider manuellement une sous-étape résolue → <strong>Or (Gold)</strong> personnalisé et permanent (voir <a href="stats-xp-niveau-or.html">or</a>). L'Or ne vient pas du quotidien mais de l'avancement réel de tes projets.</p>
+        <p>Valider manuellement une sous-étape résolue te donne de l'<strong>Or (Gold)</strong>, personnalisé et permanent (voir <a href="stats-xp-niveau-or.html">or</a>). L'Or ne vient donc pas du quotidien, mais de l'avancement réel de tes projets.</p>
 
         <h2 id="separation">Séparés du quotidien</h2>
         <p>Les objectifs vivent sur leur propre écran et ne dépendent pas du <a href="perfect-day.html">Perfect Day</a>. Ce sont tes <a href="habitudes.html">habitudes</a> qui, par leur régularité, rendent ces étapes atteignables.</p>
@@ -62,5 +71,6 @@
       <a href="#top">↑ Haut de page</a>
     </div>
   </footer>
+  <script src="assets/theme.js"></script>
 </body>
 </html>

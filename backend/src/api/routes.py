@@ -94,6 +94,49 @@ def get_current_user_id(user_id: Optional[int] = None, x_user_id: Optional[str] 
     return 1
 
 
+# --- Server-side validation helpers ---
+
+VALID_HABIT_TYPES = {"binary", "quantitative"}
+VALID_FREQUENCIES = {"daily", "weekly", "custom"}
+
+
+def _validate_stat_name(stat_name: Optional[str]):
+    """Reject a stat name that is not one of the 12 canonical stats. None is allowed."""
+    if stat_name and stat_name not in ALL_12_STATS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown stat '{stat_name}'. Valid stats: {', '.join(ALL_12_STATS)}"
+        )
+
+
+def validate_todo_payload(payload: "TodoCreate"):
+    _validate_stat_name(payload.stat_reward_1)
+    _validate_stat_name(payload.stat_reward_2)
+
+
+def validate_habit_payload(payload: "HabitCreate"):
+    if payload.type not in VALID_HABIT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid habit type '{payload.type}'. Valid types: {', '.join(sorted(VALID_HABIT_TYPES))}"
+        )
+    if payload.frequency is not None and payload.frequency not in VALID_FREQUENCIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid frequency '{payload.frequency}'. Valid: {', '.join(sorted(VALID_FREQUENCIES))}"
+        )
+    if not payload.point_rewards:
+        raise HTTPException(status_code=400, detail="point_rewards must not be empty.")
+    for stat in payload.point_rewards.keys():
+        if stat not in ALL_12_STATS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown stat '{stat}' in point_rewards. Valid stats: {', '.join(ALL_12_STATS)}"
+            )
+    if payload.type == "quantitative" and not payload.unit:
+        raise HTTPException(status_code=400, detail="A quantitative habit requires a 'unit'.")
+
+
 # --- Users & Profile Route ---
 
 @router.get("/users")
@@ -173,6 +216,102 @@ def get_profile(db: Session = Depends(get_db), user_id: int = Depends(get_curren
         "xp": user.xp,
         "level": user.level,
         "gold": user.gold
+    }
+
+
+@router.get("/status")
+def get_status(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Full day status in a single call — the JSON equivalent of the bot's /status command.
+    Exposes the Perfect Day streak and skip reasons, which no other endpoint provides.
+    """
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    today = datetime.date.today()
+    score = calculate_daily_score(db, user_id=user.id, date=today)
+
+    custom_template = db.query(PerfectDayTemplate).filter_by(user_id=user.id, template_name=score.template_used).first()
+    thresholds = custom_template.thresholds_json if custom_template else DEFAULT_THRESHOLDS.get(score.template_used, {})
+
+    # Today's logs, grouped by type
+    start_dt = datetime.datetime.combine(today, datetime.time.min)
+    end_dt = datetime.datetime.combine(today, datetime.time.max)
+    today_logs = db.query(HabitLog).filter(
+        HabitLog.user_id == user.id,
+        HabitLog.timestamp >= start_dt,
+        HabitLog.timestamp <= end_dt
+    ).all()
+
+    completed = []
+    skipped = []
+    logged_habit_ids = set()
+    for log_entry in today_logs:
+        habit = db.query(Habit).filter_by(id=log_entry.habit_id, user_id=user.id).first()
+        if not habit:
+            continue
+        logged_habit_ids.add(habit.id)
+        if log_entry.log_type == "done":
+            completed.append({"habit_id": habit.id, "name": habit.name, "type": "done", "amount": None, "unit": None})
+        elif log_entry.log_type == "log":
+            completed.append({"habit_id": habit.id, "name": habit.name, "type": "log", "amount": log_entry.amount, "unit": log_entry.unit})
+        elif log_entry.log_type == "skip":
+            skipped.append({"habit_id": habit.id, "name": habit.name, "reason": log_entry.reason})
+
+    # Todos completed today
+    completed_todos = db.query(Todo).filter(
+        Todo.user_id == user.id,
+        Todo.is_completed == True,
+        Todo.completed_at >= start_dt,
+        Todo.completed_at <= end_dt
+    ).all()
+    completed_todos_out = [{"id": t.id, "title": t.title, "xp_reward": t.xp_reward} for t in completed_todos]
+
+    # Remaining scheduled habits (not yet logged)
+    weekday = today.weekday()
+    model_day_idx = (weekday + 1) % 7
+    all_habits = db.query(Habit).filter_by(user_id=user.id, is_active=True).all()
+    remaining = []
+    for habit in all_habits:
+        scheduled = str(model_day_idx) in [day.strip() for day in habit.scheduled_days.split(",")]
+        if not scheduled or habit.id in logged_habit_ids:
+            continue
+        remaining.append({"habit_id": habit.id, "name": habit.name, "type": habit.type})
+
+    # Perfect Day streak
+    perf_streak = db.query(Streak).filter_by(user_id=user.id, streak_type="Perfect").first()
+
+    # No-Todos failed today
+    failed_notodos = db.query(NoTodo).filter(
+        NoTodo.user_id == user.id,
+        NoTodo.failed_at >= start_dt,
+        NoTodo.failed_at <= end_dt
+    ).all()
+    failed_notodos_out = [{"id": n.id, "title": n.title} for n in failed_notodos]
+
+    return {
+        "username": user.username,
+        "template": score.template_used,
+        "perfect_day": {
+            "status": score.status,
+            "validated": score.status == "Perfect",
+            "thresholds": thresholds,
+            "actual": {stat: score.actual_stats.get(stat.lower(), 0) for stat in thresholds},
+        },
+        "streak": {
+            "current": perf_streak.current_streak if perf_streak else 0,
+            "max": perf_streak.max_streak if perf_streak else 0,
+        },
+        "xp": user.xp,
+        "level": user.level,
+        "gold": user.gold,
+        "stats": score.actual_stats,
+        "completed": completed,
+        "skipped": skipped,
+        "remaining": remaining,
+        "completed_todos": completed_todos_out,
+        "failed_notodos": failed_notodos_out,
     }
 
 
@@ -394,7 +533,7 @@ def complete_substep(substep_id: int, db: Session = Depends(get_db), user_id: in
 
     # Complete substep
     substep.completed = True
-    substep.completed_at = datetime.datetime.utcnow()
+    substep.completed_at = datetime.datetime.now()
     
     # Award customizable gold reward
     user = db.query(User).filter_by(id=user_id).first()
@@ -414,7 +553,7 @@ def complete_substep(substep_id: int, db: Session = Depends(get_db), user_id: in
                 break
         if all_linked_complete:
             g.completed = True
-            g.completed_at = datetime.datetime.utcnow()
+            g.completed_at = datetime.datetime.now()
             completed_goals.append(g.title)
 
     db.commit()
@@ -608,6 +747,7 @@ def create_todo(payload: TodoCreate, db: Session = Depends(get_db), user_id: int
     """
     Create a custom todo (bounty). Max XP is 40.
     """
+    validate_todo_payload(payload)
     todo = Todo(
         user_id=user_id,
         title=payload.title,
@@ -647,7 +787,7 @@ def complete_todo(todo_id: int, db: Session = Depends(get_db), user_id: int = De
         raise HTTPException(status_code=404, detail="User not found")
 
     todo.is_completed = True
-    todo.completed_at = datetime.datetime.utcnow()
+    todo.completed_at = datetime.datetime.now()
     
     # Award permanent XP
     levels_gained = add_user_xp(user, todo.xp_reward)
@@ -717,7 +857,7 @@ def fail_notodo(notodo_id: int, db: Session = Depends(get_db), user_id: int = De
     if not notodo:
         raise HTTPException(status_code=404, detail="No-Todo not found")
 
-    notodo.failed_at = datetime.datetime.utcnow()
+    notodo.failed_at = datetime.datetime.now()
     db.commit()
 
     return {
@@ -798,6 +938,7 @@ def delete_habit(habit_id: int, db: Session = Depends(get_db), user_id: int = De
 
 @router.post("/habits", status_code=201)
 def create_habit(payload: HabitCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    validate_habit_payload(payload)
     existing = db.query(Habit).filter_by(user_id=user_id, name=payload.name).first()
     if existing:
         raise HTTPException(status_code=400, detail=f"Habit with name '{payload.name}' already exists.")

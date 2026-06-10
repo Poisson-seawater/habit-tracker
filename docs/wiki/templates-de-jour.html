@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('pwdoc-theme');if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
   <title>Templates de jour — Habit Tracker RPG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,8 +13,14 @@
 <body>
   <header class="masthead" id="top">
     <div class="masthead__inner">
-      <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
-      <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+      <div class="masthead__brand">
+        <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
+        <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+      </div>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false" aria-label="Basculer entre thème clair et sombre">
+        <span class="theme-toggle__icon" aria-hidden="true">🌙</span>
+        <span class="theme-toggle__label">Sombre</span>
+      </button>
     </div>
   </header>
 
@@ -21,7 +28,9 @@
     <nav class="sidenav" aria-label="Navigation de la documentation">
       <ul>
         <li><a href="index.html">Accueil</a></li>
+        <li><a href="onboarding.html">Démarrer</a></li>
         <li><a href="regles-et-variables.html">Règles &amp; variables</a></li>
+        <li><a href="mindmap.html" target="_blank" rel="noopener">Carte mentale ↗</a></li>
       </ul>
       <p class="sidenav__heading">Concepts</p>
       <ul>
@@ -38,7 +47,7 @@
     <main class="content">
       <article class="prose">
         <h1>Templates de jour</h1>
-        <p class="intro">Le « type de journée » qui fixe les seuils de stats à atteindre pour décrocher un <a href="perfect-day.html">Perfect Day</a>.</p>
+        <p class="intro">Selon les jours, tu peux en faire plus ou moins. Le template, c'est le « type de journée » que tu choisis. Il fixe les seuils de stats à atteindre pour décrocher un <a href="perfect-day.html">Perfect Day</a>.</p>
 
         <h2 id="templates">Les 4 templates</h2>
         <table>
@@ -53,7 +62,7 @@
 
         <h2 id="bascule">Bascule</h2>
         <p><code>/set-day &lt;template&gt;</code> (alias <code>/template</code>) change le type de journée et réajuste <strong>instantanément</strong> les seuils. Le bon template évite de « rater » une journée off : un jour malade ne se juge pas avec les exigences d'un jour de semaine.</p>
-        <p>Chaque template a ses propres seuils par <a href="stats-xp-niveau-or.html">stat</a>, configurables dans l'écran Paramètres du dashboard.</p>
+        <p>Chaque template a ses propres seuils par <a href="stats-xp-niveau-or.html">stat</a>, configurables dans l'écran Paramètres du site.</p>
       </article>
     </main>
   </div>
@@ -64,5 +73,6 @@
       <a href="#top">↑ Haut de page</a>
     </div>
   </footer>
+  <script src="assets/theme.js"></script>
 </body>
 </html>

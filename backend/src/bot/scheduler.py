@@ -47,7 +47,10 @@ async def publish_daily_recap():
             print("Scheduler: No adventurers found in database.")
             return
 
-        today = datetime.date.today()
+        import zoneinfo
+        from src.config import TIMEZONE
+        tz = zoneinfo.ZoneInfo(TIMEZONE)
+        today = datetime.datetime.now(tz).date()
         user_blocks = []
         individual_reports = {}
 
@@ -178,10 +181,13 @@ async def publish_daily_recap():
         db.close()
 
 def start_scheduler():
-    scheduler = AsyncIOScheduler()
+    import zoneinfo
+    from src.config import TIMEZONE
+    tz = zoneinfo.ZoneInfo(TIMEZONE)
+    scheduler = AsyncIOScheduler(timezone=tz)
     scheduler.add_job(publish_daily_recap, 'cron', hour=21, minute=30)
     scheduler.start()
-    print("Scheduler: Daily RPG recap scheduled at 21:30.")
+    print(f"Scheduler: Daily RPG recap scheduled at 21:30 in timezone {TIMEZONE}.")
 
 if __name__ == "__main__":
     asyncio.run(publish_daily_recap())

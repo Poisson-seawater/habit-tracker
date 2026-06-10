@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('pwdoc-theme');if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
   <title>Accueil — Habit Tracker RPG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,8 +13,14 @@
 <body>
   <header class="masthead" id="top">
     <div class="masthead__inner">
-      <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
-      <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+      <div class="masthead__brand">
+        <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
+        <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+      </div>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false" aria-label="Basculer entre thème clair et sombre">
+        <span class="theme-toggle__icon" aria-hidden="true">🌙</span>
+        <span class="theme-toggle__label">Sombre</span>
+      </button>
     </div>
   </header>
 
@@ -21,7 +28,9 @@
     <nav class="sidenav" aria-label="Navigation de la documentation">
       <ul>
         <li><a href="index.html" aria-current="page">Accueil</a></li>
+        <li><a href="onboarding.html">Démarrer</a></li>
         <li><a href="regles-et-variables.html">Règles &amp; variables</a></li>
+        <li><a href="mindmap.html" target="_blank" rel="noopener">Carte mentale ↗</a></li>
       </ul>
       <p class="sidenav__heading">Concepts</p>
       <ul>
@@ -38,7 +47,7 @@
     <main class="content">
       <article class="prose">
         <h1>Habit Tracker RPG</h1>
-        <p class="intro">Suivi d'habitudes gamifié (RPG), auto-hébergé : on logge ses actions via un bot Telegram, le système calcule un « Perfect Day » quotidien et fait progresser des objectifs long terme — pour tenir ses habitudes dans la durée en rendant la progression visible.</p>
+        <p class="intro">Un système gamifié de suivi d'habitudes, inspiré des RPG et auto-hébergé. On logge ses actions via un bot Telegram, un prompt ou le site web. Le but : tenir des objectifs long terme en restant assidu chaque jour.</p>
 
         <h2 id="vue-d-ensemble">Vue d'ensemble</h2>
         <div class="mindmap-wrap">
@@ -54,6 +63,8 @@ markmap:
 
 ## [Accueil](index.html)
 - Pourquoi le projet + 3 workflows
+## [Démarrer](onboarding.html)
+- Mise en route guidée, pas à pas
 ## [Règles & variables](regles-et-variables.html)
 - Commandes, variables, interactions
 ## Concepts
@@ -74,41 +85,29 @@ markmap:
             </script>
           </div>
         </div>
-        <p class="mindmap-hint">Carte interactive — clique un nœud pour ouvrir la page, molette pour zoomer.</p>
+        <p class="mindmap-hint">Carte interactive — clique un nœud pour ouvrir la page, molette pour zoomer. <a href="mindmap.html" target="_blank" rel="noopener">Ouvrir en plein écran ↗</a></p>
 
         <h2 id="usage-normal">Usage normal</h2>
-        <p>La journée d'un joueur établi :</p>
-        <ol>
-          <li>Au fil de la journée, tu valides tes quêtes : <code>/done &lt;habitude&gt;</code> (binaire) ou <code>/log &lt;habitude&gt; &lt;valeur&gt;</code> (quantitative), et tu coches tes <a href="primes-todo.html">primes</a> du jour.</li>
-          <li>Chaque validation remplit tes 12 <a href="stats-xp-niveau-or.html">stats</a> du jour.</li>
-          <li><code>/status</code> te dit ce qu'il reste pour atteindre les seuils de ton <a href="templates-de-jour.html">template</a>.</li>
-          <li>Si tous les seuils tombent → <a href="perfect-day.html">Perfect Day</a> → +5 XP et streak.</li>
-          <li>À 23h59, la journée se fige, le bot publie le bilan de la guilde, et les stats repartent à 0 le lendemain.</li>
-        </ol>
-        <p>En parallèle, tu fais avancer tes <a href="objectifs.html">objectifs</a> long terme en validant leurs sous-étapes (qui rapportent de l'Or).</p>
-
-        <h2 id="nouvel-usager">Nouvel usager</h2>
-        <p>Première mise en route :</p>
-        <ol>
-          <li>Tu rejoins le groupe Telegram : ton profil est créé à ton premier message (niveau 1, 0 XP, 0 Or).</li>
-          <li>Tu crées tes premières <a href="habitudes.html">habitudes</a> (<code>/add_habit binary Lecture</code>, ou via le dashboard) et tu planifies leurs jours.</li>
-          <li>Tu règles les seuils de tes <a href="templates-de-jour.html">templates</a> dans l'écran Paramètres (le dashboard somme tes points potentiels pour t'aider à fixer des seuils réalistes).</li>
-          <li>Tu poses tes <a href="objectifs.html">objectifs</a> long terme sur l'écran Objectifs, découpés en sous-étapes.</li>
-          <li>Tu commences à logger : <code>/status</code> t'accompagne jour après jour.</li>
-        </ol>
+        <p><em>« Une app de suivi d'habitudes, d'accord. Mais concrètement, qu'est-ce que je fais de ma journée ? »</em></p>
+        <p>Une petite boucle, toujours la même. Au fil de la journée, tu valides tes <a href="habitudes.html">habitudes</a> au moment où tu les fais. Si elle est binaire : <code>/done &lt;habitude&gt;</code>. Si elle se mesure (30&nbsp;min, 5&nbsp;km) : <code>/log &lt;habitude&gt; &lt;valeur&gt;</code>. Tu coches aussi tes <a href="primes-todo.html">primes</a>, les tâches prévues pour aujourd'hui.</p>
+        <p>À l'inverse, tu as peut-être des <a href="no-todo.html">No-Todo</a> : des règles que tu t'engages à ne pas enfreindre. Si tu craques, tu le déclares avec <code>/fail</code>, et ça se voit dans ton bilan.</p>
+        <p>Chaque validation fait monter tes 12 <a href="stats-xp-niveau-or.html">stats</a> du jour. Donc oui, ça te donne des points. Et <code>/status</code> te dit à tout moment ce qu'il te reste pour atteindre les seuils de ton <a href="templates-de-jour.html">template</a> du jour.</p>
+        <p>Quand toutes les stats cibles passent leur seuil, c'est un <a href="perfect-day.html">Perfect Day</a>. À la clé : +5&nbsp;XP, et ta série continue. C'est la récompense de la journée.</p>
+        <p>Puis, à 23h59, la journée se fige. Le bot publie le bilan de la guilde dans le groupe. Le lendemain, tes stats repartent de zéro — page blanche.</p>
+        <p>Tes grands projets, eux, avancent en parallèle, sur leur propre écran. Chaque sous-étape d'<a href="objectifs.html">objectif</a> que tu coches te rapporte de l'Or. Le quotidien entretient la régularité ; les objectifs marquent la vraie progression.</p>
 
         <h2 id="cas-particuliers">Cas particuliers</h2>
-        <ul>
-          <li><strong>Jour malade / récupération.</strong> Bascule de <a href="templates-de-jour.html">template</a> (<code>/template sick</code> ou <code>/template recup</code>) pour baisser les seuils : un jour off reste « réussissable » sans casser ta dynamique.</li>
-          <li><strong>Skip justifié.</strong> <code>/skip &lt;habitude&gt; raison: &lt;texte&gt;</code> excuse une habitude pour aujourd'hui <strong>sans casser le streak</strong>. La raison est obligatoire.</li>
-          <li><strong>Habitudes privées.</strong> Une habitude <code>is_private</code> compte dans ton <a href="perfect-day.html">Perfect Day</a> mais reste masquée du recap public du groupe (agrégée en simple compte).</li>
-          <li><strong>Bot en privé.</strong> Tu peux écrire au bot en message privé (dès que tu as posté une fois dans le groupe) pour ne pas polluer le chat collectif, ou pour logger une habitude discrète.</li>
-        </ul>
+        <p>Deux inquiétudes reviennent toujours, et elles sont légitimes.</p>
+        <p><strong>« Mes amis vont voir tout ce que je note ? »</strong> Tu n'as pas forcément envie que le groupe sache que ta to-do du jour, c'est « acheter un cadeau à ma blonde ». Ni que tu entraînes ton chinois en secret. Pas de souci : une <a href="habitudes.html">habitude</a> marquée privée (<code>is_private</code>) compte pour ton <a href="perfect-day.html">Perfect Day</a>, mais reste masquée du recap public — juste comptée dans un total. Et dès que tu as posté une fois dans le groupe, tu peux parler au bot en message privé. Du coup, tu logges ce que tu veux sans rien étaler.</p>
+        <p><strong>« Et un jour où c'est la catastrophe parce que je suis malade ? »</strong> Tu ne vas pas casser ta série juste parce que ton corps a lâché. C'est à ça que servent les <a href="templates-de-jour.html">templates de jour</a>. Bascule en <code>sick</code> ou <code>recovery</code> : les seuils baissent, donc une journée au ralenti reste réussissable. Et si c'est juste une habitude précise qui saute, <code>/skip &lt;habitude&gt; raison: &lt;texte&gt;</code> l'excuse pour aujourd'hui sans casser ton streak. La raison est obligatoire — c'est un garde-fou honnête.</p>
+
+        <h2 id="nouvel-usager">Nouvel usager</h2>
+        <p>Convaincu ? Reste à configurer ton compte. Une page dédiée te prend par la main, étape par étape, avec un exemple concret du début à la fin. <a href="onboarding.html">Démarrer la mise en route guidée</a>.</p>
 
         <h2 id="trois-publics">Trois publics</h2>
         <ul>
-          <li><strong>Utilisateur</strong> : commence par <a href="#usage-normal">Usage normal</a> puis <a href="#nouvel-usager">Nouvel usager</a>.</li>
-          <li><strong>Vendeur</strong> : l'objectif ci-dessus + la boucle décrite dans <a href="regles-et-variables.html">Règles &amp; variables</a>.</li>
+          <li><strong>Utilisateur</strong> : lis <a href="#usage-normal">Usage normal</a>, puis <a href="#nouvel-usager">Nouvel usager</a> pour te lancer.</li>
+          <li><strong>Vendeur</strong> : l'objectif en haut de page, plus la boucle détaillée dans <a href="regles-et-variables.html">Règles &amp; variables</a>.</li>
           <li><strong>Dev (sans lire le code)</strong> : <a href="regles-et-variables.html">Règles &amp; variables</a> donne tout le modèle mental du système.</li>
         </ul>
       </article>
@@ -123,5 +122,6 @@ markmap:
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/markmap-autoloader@0.18"></script>
+  <script src="assets/theme.js"></script>
 </body>
 </html>

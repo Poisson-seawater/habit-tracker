@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('pwdoc-theme');if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
   <title>Perfect Day — Habit Tracker RPG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,8 +13,14 @@
 <body>
   <header class="masthead" id="top">
     <div class="masthead__inner">
-      <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
-      <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+      <div class="masthead__brand">
+        <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
+        <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+      </div>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false" aria-label="Basculer entre thème clair et sombre">
+        <span class="theme-toggle__icon" aria-hidden="true">🌙</span>
+        <span class="theme-toggle__label">Sombre</span>
+      </button>
     </div>
   </header>
 
@@ -21,7 +28,9 @@
     <nav class="sidenav" aria-label="Navigation de la documentation">
       <ul>
         <li><a href="index.html">Accueil</a></li>
+        <li><a href="onboarding.html">Démarrer</a></li>
         <li><a href="regles-et-variables.html">Règles &amp; variables</a></li>
+        <li><a href="mindmap.html" target="_blank" rel="noopener">Carte mentale ↗</a></li>
       </ul>
       <p class="sidenav__heading">Concepts</p>
       <ul>
@@ -38,20 +47,20 @@
     <main class="content">
       <article class="prose">
         <h1>Perfect Day</h1>
-        <p class="intro">La condition de victoire du jour : si toutes les stats cibles atteignent le seuil du template actif, la journée est « parfaite » et rapporte 5 XP.</p>
+        <p class="intro">Tu sais ce que c'est, une journée où tu as tout fait. Ici, ça porte un nom : le Perfect Day. C'est le jour où chacune de tes stats cibles atteint son seuil, et il rapporte 5 XP.</p>
 
         <h2 id="calcul">Comment il se calcule</h2>
         <ol>
           <li>Chaque matin, les 12 <a href="stats-xp-niveau-or.html">stats</a> repartent de 0 — la journée est une page blanche.</li>
           <li>Au fil de la journée, tes <a href="habitudes.html">habitudes</a> validées et tes <a href="primes-todo.html">primes</a> cochées ajoutent des points à ces stats.</li>
           <li>Le score du jour est comparé aux seuils du <a href="templates-de-jour.html">template</a> de jour actif.</li>
-          <li>Si <strong>toutes</strong> les stats cibles atteignent leur seuil → Perfect Day.</li>
+          <li>Si <strong>toutes</strong> les stats cibles atteignent leur seuil, c'est un Perfect Day.</li>
         </ol>
         <div class="note"><p>Le Perfect Day vient de <strong>deux sources</strong> : les habitudes ET les primes. Une seule stat sous son seuil suffit à rater la journée.</p></div>
 
         <h2 id="recompense">Récompense et clôture</h2>
         <ul>
-          <li>Perfect Day décroché → <strong>+5 XP</strong> permanents (voir <a href="stats-xp-niveau-or.html">niveau &amp; XP</a>).</li>
+          <li>Un Perfect Day décroché te donne <strong>+5 XP</strong> permanents (voir <a href="stats-xp-niveau-or.html">niveau &amp; XP</a>).</li>
           <li>La journée se fige à <strong>23h59</strong> (clôture automatique) ou via le bouton « Terminer la journée ». Le bot publie alors le bilan de la guilde dans le groupe.</li>
         </ul>
 
@@ -67,5 +76,6 @@
       <a href="#top">↑ Haut de page</a>
     </div>
   </footer>
+  <script src="assets/theme.js"></script>
 </body>
 </html>

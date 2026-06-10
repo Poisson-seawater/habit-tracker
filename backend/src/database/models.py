@@ -12,7 +12,7 @@ class User(Base):
     xp = Column(Integer, default=0)
     level = Column(Integer, default=1)
     gold = Column(Integer, default=0)  # Total accumulated gold
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.now)
 
     logs = relationship("HabitLog", back_populates="user", cascade="all, delete-orphan")
     scores = relationship("DailyScore", back_populates="user", cascade="all, delete-orphan")
@@ -55,7 +55,7 @@ class HabitLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     habit_id = Column(Integer, ForeignKey("habits.id", ondelete="CASCADE"), nullable=False)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=datetime.datetime.now)
     log_type = Column(String, nullable=False)  # "done", "skip", "log"
     amount = Column(Integer, nullable=True)  # For quantitative logs
     unit = Column(String, nullable=True)  # For quantitative logs e.g. "min", "km"
@@ -114,7 +114,7 @@ class Todo(Base):
     points_reward_2 = Column(Integer, default=0)
     xp_reward = Column(Integer, default=10)  # Custom up to 40 XP
     is_completed = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.now)
     completed_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="todos")
@@ -126,7 +126,7 @@ class NoTodo(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     title = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.now)
     failed_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="notodos")
@@ -141,7 +141,7 @@ class Goal(Base):
     description = Column(Text, nullable=True)
     completed = Column(Boolean, default=False)
     completed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.now)
 
     user = relationship("User", back_populates="goals")
     substep_links = relationship("GoalSubStepLink", back_populates="goal", cascade="all, delete-orphan")
@@ -159,7 +159,7 @@ class SubStep(Base):
     description = Column(Text, nullable=True)
     stats_json = Column(JSON, nullable=True)  # List of related stats e.g. ["force", "finance"]
     execution_order = Column(Integer, default=1)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.now)
 
     user = relationship("User", back_populates="substeps")
     goal_links = relationship("GoalSubStepLink", back_populates="substep", cascade="all, delete-orphan")

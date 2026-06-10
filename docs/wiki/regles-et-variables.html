@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('pwdoc-theme');if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
   <title>Règles &amp; variables — Habit Tracker RPG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,8 +13,14 @@
 <body>
   <header class="masthead" id="top">
     <div class="masthead__inner">
-      <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
-      <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+      <div class="masthead__brand">
+        <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
+        <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+      </div>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false" aria-label="Basculer entre thème clair et sombre">
+        <span class="theme-toggle__icon" aria-hidden="true">🌙</span>
+        <span class="theme-toggle__label">Sombre</span>
+      </button>
     </div>
   </header>
 
@@ -21,7 +28,9 @@
     <nav class="sidenav" aria-label="Navigation de la documentation">
       <ul>
         <li><a href="index.html">Accueil</a></li>
+        <li><a href="onboarding.html">Démarrer</a></li>
         <li><a href="regles-et-variables.html" aria-current="page">Règles &amp; variables</a></li>
+        <li><a href="mindmap.html" target="_blank" rel="noopener">Carte mentale ↗</a></li>
       </ul>
       <p class="sidenav__heading">Concepts</p>
       <ul>
@@ -38,10 +47,10 @@
     <main class="content">
       <article class="prose">
         <h1>Règles &amp; variables</h1>
-        <p class="intro">Les pièces du jeu, les commandes, les options — et surtout comment tout s'imbrique. À lire pour avoir le système entier en tête, sans ouvrir le code.</p>
+        <p class="intro">Cette page liste les pièces du jeu : les commandes, les options, et surtout comment elles s'imbriquent. Lis-la pour avoir le système entier en tête, sans ouvrir le code.</p>
 
-        <h2 id="la-boucle">La boucle en une phrase</h2>
-        <p>Tu logges des <a href="habitudes.html">habitudes</a> et coches des <a href="primes-todo.html">primes</a> → ça remplit tes 12 <a href="stats-xp-niveau-or.html">stats</a> du jour → comparées aux seuils du <a href="templates-de-jour.html">template</a> actif → si tout est atteint, c'est un <a href="perfect-day.html">Perfect Day</a> (+5 XP). À 23h59 la journée se fige et les stats repartent à 0.</p>
+        <h2 id="la-boucle">La boucle, en bref</h2>
+        <p>Tu logges des <a href="habitudes.html">habitudes</a> et tu coches des <a href="primes-todo.html">primes</a>. Ça remplit tes 12 <a href="stats-xp-niveau-or.html">stats</a> du jour, qu'on compare ensuite aux seuils du <a href="templates-de-jour.html">template</a> actif. Si tous les seuils sont atteints, c'est un <a href="perfect-day.html">Perfect Day</a> (+5 XP). Puis, à 23h59, la journée se fige et les stats repartent à zéro.</p>
 
         <h2 id="commandes">Commandes du bot Telegram</h2>
         <table>
@@ -83,11 +92,11 @@
           <li><strong>XP ≠ Or.</strong> L'XP (et le niveau) mesure la <strong>régularité</strong> (Perfect Days + primes). L'Or mesure l'<strong>avancement réel</strong> des projets (sous-étapes d'objectifs). Deux monnaies, deux significations.</li>
           <li><strong>Le template protège les jours off.</strong> Basculer en <code>recovery</code> / <code>sick</code> abaisse les seuils : un jour de repos reste « réussissable ».</li>
           <li><strong>Le streak récompense la constance.</strong> Un <code>/skip</code> justifié préserve le streak ; un seuil raté le casse.</li>
-          <li><strong>Données partagées bot ↔ site.</strong> Le bot et le dashboard lisent/écrivent la même base : un <code>/log</code> Telegram apparaît aussitôt sur le site.</li>
+          <li><strong>Données partagées bot ↔ site.</strong> Le bot et le site lisent et écrivent dans la même base. Du coup, un <code>/log</code> Telegram apparaît aussitôt sur le site.</li>
         </ul>
 
         <h2 id="multi-utilisateur">Multi-utilisateur &amp; confidentialité</h2>
-        <p>Chaque membre du groupe est un joueur, créé automatiquement à son premier message (niveau 1, 0 XP, 0 Or). Une habitude <code>is_private</code> compte pour ton Perfect Day mais reste hors du recap public du groupe. Le bot accepte les messages privés (DM) d'un membre dès qu'il a posté au moins une fois dans le groupe autorisé.</p>
+        <p>Chaque membre du groupe est un joueur. Son profil se crée tout seul à son premier message (niveau 1, 0 XP, 0 Or). Une habitude <code>is_private</code> compte pour son Perfect Day, mais reste hors du recap public. Et le bot accepte les messages privés (DM) dès qu'un membre a posté au moins une fois dans le groupe autorisé.</p>
       </article>
     </main>
   </div>
@@ -98,5 +107,6 @@
       <a href="#top">↑ Haut de page</a>
     </div>
   </footer>
+  <script src="assets/theme.js"></script>
 </body>
 </html>

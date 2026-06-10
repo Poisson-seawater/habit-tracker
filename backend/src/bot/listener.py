@@ -11,6 +11,7 @@ from src.database.session import SessionLocal
 from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, NoTodo
 from src.bot.parser import parse_command, ParserError
 from src.services.score_service import calculate_daily_score, update_streaks, DEFAULT_THRESHOLDS
+from src.bot.scheduler import start_scheduler
 
 # Mapping stats to their French display labels
 STAT_LABELS = {
@@ -325,7 +326,7 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(f"❌ La règle No-Todo \"{notodo_name}\" n'existe pas. Utilisez /liste notodo pour vérifier vos règles.")
                 return
                 
-            notodo.failed_at = datetime.datetime.utcnow()
+            notodo.failed_at = datetime.datetime.now()
             db.commit()
             
             await update.message.reply_text(f"⚠️ Aïe ! {username} a transgressé la règle No-Todo : \"{notodo.title}\".\nC'est noté pour aujourd'hui. Reprenez-vous !")
@@ -652,6 +653,10 @@ async def main():
 
     await application.initialize()
     await application.start()
+
+    # Start the daily recap scheduler
+    start_scheduler()
+
     # allowed_updates=ALL_TYPES is required so Telegram delivers callback_query
     # (inline button clicks). A previous restricted getUpdates call persists its
     # allowed_updates server-side, so we must override it explicitly here.

@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('pwdoc-theme');if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
   <title>Primes (Todos) — Habit Tracker RPG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,8 +13,14 @@
 <body>
   <header class="masthead" id="top">
     <div class="masthead__inner">
-      <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
-      <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+      <div class="masthead__brand">
+        <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
+        <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+      </div>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false" aria-label="Basculer entre thème clair et sombre">
+        <span class="theme-toggle__icon" aria-hidden="true">🌙</span>
+        <span class="theme-toggle__label">Sombre</span>
+      </button>
     </div>
   </header>
 
@@ -21,7 +28,9 @@
     <nav class="sidenav" aria-label="Navigation de la documentation">
       <ul>
         <li><a href="index.html">Accueil</a></li>
+        <li><a href="onboarding.html">Démarrer</a></li>
         <li><a href="regles-et-variables.html">Règles &amp; variables</a></li>
+        <li><a href="mindmap.html" target="_blank" rel="noopener">Carte mentale ↗</a></li>
       </ul>
       <p class="sidenav__heading">Concepts</p>
       <ul>
@@ -38,12 +47,12 @@
     <main class="content">
       <article class="prose">
         <h1>Primes (Todos)</h1>
-        <p class="intro">Les tâches uniques du jour : les cocher rapporte des stats <strong>et</strong> de l'XP direct.</p>
+        <p class="intro">Une prime, c'est une tâche pour aujourd'hui seulement. Quand tu la coches, elle te rapporte deux choses : des stats <strong>et</strong> de l'XP direct.</p>
 
         <h2 id="difference">Différence avec les habitudes</h2>
         <p>Une <a href="habitudes.html">habitude</a> est récurrente et n'affecte que les stats. Une prime est <strong>ponctuelle</strong> (aujourd'hui seulement) et rapporte deux choses :</p>
         <ul>
-          <li>des points de <a href="stats-xp-niveau-or.html">stats</a> (jusqu'à 2 stats par prime) → comptent pour le <a href="perfect-day.html">Perfect Day</a> ;</li>
+          <li>des points de <a href="stats-xp-niveau-or.html">stats</a> (jusqu'à 2 stats par prime), qui comptent pour le <a href="perfect-day.html">Perfect Day</a> ;</li>
           <li>de l'<strong>XP direct</strong> personnalisé (jusqu'à 40 XP par prime).</li>
         </ul>
 
@@ -52,7 +61,7 @@
           <li><code>/liste todo</code> — voir les primes restantes du jour.</li>
           <li><code>/add todo &lt;titre&gt;</code> — ajouter une prime.</li>
         </ul>
-        <p>Voir aussi l'inverse : les règles à ne pas enfreindre, <a href="no-todo.html">No-Todo</a>.</p>
+        <p>L'inverse existe aussi : des règles à ne pas enfreindre. C'est le concept <a href="no-todo.html">No-Todo</a>.</p>
       </article>
     </main>
   </div>
@@ -63,5 +72,6 @@
       <a href="#top">↑ Haut de page</a>
     </div>
   </footer>
+  <script src="assets/theme.js"></script>
 </body>
 </html>
