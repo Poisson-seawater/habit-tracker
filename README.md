@@ -1,80 +1,90 @@
-# Aventurier Gabriel — Habit RPG Tracker 🧙‍♂️⚔️
+# Habit RPG Tracker
 
-Self-hosted RPG-style habit tracker and accountability system running on a **Raspberry Pi 5**. Both a Telegram bot listener and an analytical web dashboard share a fast, local **SQLite** persistent schema.
-
----
-
-## 🛠️ Tech Stack & Architecture
-
-- **Backend**: FastAPI (Python), SQLAlchemy ORM, Uvicorn, Python-Telegram-Bot, APScheduler, PyTest.
-- **Frontend**: Responsive Vanilla HTML5 & CSS3 with HSL dark-palette colors, modern glassmorphism tokens, and interactive ES6 Fetch logic.
-- **Hardware Constraints**: Restricts maximum hardware boundaries to **40MB** RAM (API) and **35MB** RAM (Telegram daemon) via Docker Compose configurations.
-- **Persistence**: Singular local SQLite database mounted at `/data/habit_tracker.db` with standard concurrency locks.
+Habit tracker auto-hébergé façon RPG + système de responsabilité, tournant sur un
+**Raspberry Pi 5**. Un bot Telegram et un dashboard web analytique partagent une même base
+**SQLite** locale et rapide.
 
 ---
 
-## 🔑 Environment Configuration
+## 👥 Collaboration & développement
 
-Copy `.env.example` to `.env` at the root level of your workspace, then fill in
-the Telegram values:
+Projet perso à deux frères. Avant de contribuer, lire :
 
-```ini
-# --- Telegram Configurations ---
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-TELEGRAM_GROUP_ID=your_telegram_group_id_here
-TELEGRAM_WEB_APP_URL=https://your-public-domain.example/mini-app/
+- 🎯 **[VISION.md](./VISION.md)** — pourquoi ce projet existe, ce qu'il n'est pas, la stack.
+- 🤖 **[CLAUDE.md](./CLAUDE.md)** — conventions et règles pour Claude Code / agents (symlink vers `AGENTS.md`).
+- 🌿 **[CONTRIBUTING.md](./CONTRIBUTING.md)** — branches, PRs, format des commits.
+- 🗺️ **[ROADMAP.md](./ROADMAP.md)** — ce qui reste à faire.
 
-# --- Server Configurations ---
-API_PORT=5000
-ENV=production
-
-# --- SQLite Persistent Parameters (Host Override) ---
-DATABASE_URL=sqlite:////data/habit_tracker.db
-```
+On travaille par branches `feat/...` → PR vers `dev` → PR vers `main`, 1 review minimum.
 
 ---
 
-## 🚀 Localhost Execution (with `uv` & virtual envs)
+## 🛠️ Stack (résumé)
 
-1. **Setup environment & download dependencies**:
-   ```bash
-   uv venv
-   source .venv/bin/activate
-   uv pip install -r backend/requirements.txt
-   ```
+- **Backend** : FastAPI + SQLAlchemy 2.0 + Uvicorn, `python-telegram-bot`, APScheduler, PyTest.
+- **Frontend** : Vanilla HTML5 / CSS3 / JS ES6, sans framework ni build, servi en statique.
+- **Données & déploiement** : SQLite unique ; Docker Compose (`api` + `bot`) sur Pi 5, limites RAM 40 / 35 Mo.
 
-2. **Run PyTest unit & integration suites**:
-   ```bash
-   PYTHONPATH=backend .venv/bin/pytest backend/tests
-   ```
-
-3. **Launch the FastAPI Server locally**:
-   ```bash
-   PYTHONPATH=backend python3 backend/src/main.py
-   ```
-   *The server automatically initializes tables, runs startup seeders, mounts frontend static folders, and starts serving the dashboard at [http://localhost:5000](http://localhost:5000).*
-
-4. **Launch the Telegram daemon locally**:
-   ```bash
-   PYTHONPATH=backend python3 backend/src/bot/listener.py
-   ```
-
-5. **Test the Telegram Mini App**:
-   Expose the API server over HTTPS, set `TELEGRAM_WEB_APP_URL` to the public
-   `/mini-app/` URL, then send `/app` to the bot.
+Détails et choix d'architecture → [VISION.md](./VISION.md) et [CLAUDE.md](./CLAUDE.md).
 
 ---
 
-## 🐳 Docker Orchestration (Pi 5 Production-grade Compose)
-
-Run the entire suite inside ultra-light virtual environments utilizing resource limits:
+## 🚀 Setup local (≤ 5 commandes)
 
 ```bash
-# Build and run containers in background polling loops
-docker compose up -d --build
+git clone <url-du-repo> habit-tracker
+cd habit-tracker
+cp .env.example .env          # puis remplir les valeurs Telegram
+uv venv && source .venv/bin/activate && uv pip install -r backend/requirements.txt
+PYTHONPATH=backend python3 backend/src/main.py   # dashboard → http://localhost:5000
 ```
 
-On the Raspberry Pi, update an existing deployment with:
+Le serveur initialise les tables, lance les seeders de démarrage, monte le frontend statique
+et sert le dashboard sur [http://localhost:5000](http://localhost:5000).
+
+Le bot Telegram (optionnel en local) se lance à part :
+
+```bash
+PYTHONPATH=backend python3 backend/src/bot/listener.py
+```
+
+Les tests :
+
+```bash
+PYTHONPATH=backend .venv/bin/pytest backend/tests
+```
+
+Mini App Telegram : exposer l'API en HTTPS, mettre l'URL publique `/mini-app/` dans
+`TELEGRAM_WEB_APP_URL`, puis envoyer `/app` au bot.
+
+---
+
+## 🔑 Variables d'environnement
+
+À mettre dans `.env` à la racine (copier depuis `.env.example`) :
+
+| Variable | Exemple | Rôle |
+|----------|---------|------|
+| `TELEGRAM_BOT_TOKEN` | `123456:ABC-DEF...` | Token du bot (BotFather). |
+| `TELEGRAM_GROUP_ID` | `-1003912636269` | ID du groupe Telegram autorisé. |
+| `TELEGRAM_WEB_APP_URL` | `https://mon-domaine.example/mini-app/` | URL HTTPS publique de la Mini App. |
+| `API_PORT` | `5000` | Port d'écoute de l'API / dashboard. |
+| `ENV` | `development` | `development` en local, `production` sur le Pi. |
+| `TIMEZONE` | `America/Toronto` | Fuseau pour les scores du jour et les rappels. |
+| `DATABASE_URL` | `sqlite:////data/habit_tracker.db` | Chemin SQLite. À laisser vide en local : fallback auto vers `backend/data/`. |
+
+> En local, tu peux ne renseigner que les variables Telegram : le reste a des valeurs par défaut.
+
+---
+
+## 🐳 Docker (production Pi 5)
+
+```bash
+docker compose up -d --build      # build + run en arrière-plan
+docker compose ps
+```
+
+Mettre à jour un déploiement existant sur le Pi :
 
 ```bash
 git pull --ff-only
@@ -82,8 +92,8 @@ docker compose up -d --build
 docker compose ps
 ```
 
-If the committed SQLite snapshot must replace the Pi data, restore it explicitly
-after pulling and before restarting the stack:
+Pour remplacer les données du Pi par le snapshot SQLite committé, restaurer **après** le pull
+et **avant** de redémarrer la stack :
 
 ```bash
 docker compose down
@@ -92,11 +102,13 @@ docker compose up -d --build
 docker compose ps
 ```
 
-The restore command creates a timestamped backup under `data/backups/` before
-replacing `data/habit_tracker.db`.
+La commande de restore crée d'abord une sauvegarde horodatée sous `data/backups/` avant de
+remplacer `data/habit_tracker.db`.
 
 ---
 
-## 📦 Automated Backups & Rotations
+## 📦 Sauvegardes automatiques
 
-The system executes daily SQLite rotations via `/app/backend/src/database/backup.py` and copies timestamped records under `/data/backups/`. It automatically purges older historical database archives to ensure only the latest **5 copies** reside on disk to protect Raspberry Pi storage bounds.
+Rotation SQLite quotidienne via `backend/src/database/backup.py` : copies horodatées sous
+`/data/backups/`, avec purge automatique pour ne garder que les **5 dernières** (préserve le
+stockage du Pi).

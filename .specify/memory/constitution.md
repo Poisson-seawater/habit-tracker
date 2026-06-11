@@ -64,6 +64,6 @@ with external calendar/todo tools (V3) and skill-tree RPG mechanics (V2).
 
 - This constitution governs the design of the habit-tracker RPG/Accountability system.
 - Any changes to core principles, stat systems, or interfaces require updating this constitution with a version bump.
-- Refer to [cahier-des-charges](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/cahier-des-charges) for full product and feature details.
+- Refer to [VISION.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/VISION.md) for product vision and non-goals, and to the Spec Kit specifications under `specs/` (`001-habit-tracker-bot`, `002-multiuser-rpg-v2`) for full feature details.
 
 **Version**: 2.0.0 | **Ratified**: 2026-05-31 | **Last Amended**: 2026-05-31
