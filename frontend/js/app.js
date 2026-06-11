@@ -1498,7 +1498,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let softskillsData = null; // cached response
   let activeSoftskillId = null;
   let activeBranchHighlight = null;
-  let activeBranchKey = null;
+  let activeBranchKey = "global";
 
   async function fetchSoftskills() {
     try {
@@ -1507,8 +1507,8 @@ document.addEventListener("DOMContentLoaded", () => {
       softskillsData = await response.json();
 
       const branchKeys = Object.keys(softskillsData.branches || {});
-      if (activeBranchKey === null || !branchKeys.includes(activeBranchKey)) {
-        activeBranchKey = branchKeys[0] || null;
+      if (activeBranchKey === null || (!branchKeys.includes(activeBranchKey) && activeBranchKey !== "global")) {
+        activeBranchKey = "global";
       }
 
       renderSoftskillTree(softskillsData);
@@ -1606,7 +1606,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const svgEl = document.getElementById("softskills-svg-lines");
     if (!container || !svgEl) return;
 
-    container.innerHTML = "";
+    // Clear only dynamically created nodes, leaving the SVG element intact
+    container.querySelectorAll(".softskill-node, .tree-node, .tree-column, p").forEach(el => el.remove());
     if (svgEl) {
       svgEl.style.display = "none";
       svgEl.innerHTML = "";
@@ -1624,6 +1625,37 @@ document.addEventListener("DOMContentLoaded", () => {
     const selectorList = document.getElementById("softskills-selector-list");
     if (selectorList) {
       selectorList.innerHTML = "";
+
+      // 1. Add "Vue Globale" item at the very top of selectorList
+      const totalAllSkills = skills.length;
+      const completedAllSkills = skills.filter(s => s.progress && s.progress.completed).length;
+      const percentAll = totalAllSkills > 0 ? Math.round((completedAllSkills / totalAllSkills) * 100) : 0;
+
+      const globalItem = document.createElement("div");
+      globalItem.className = `goal-selector-item ${activeBranchKey === "global" ? 'active' : ''}`;
+      globalItem.innerHTML = `
+        <div class="goal-selector-title">
+          <span style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="softskill-branch-dot" style="background-color: var(--accent-cyan); box-shadow: 0 0 6px var(--accent-cyan)66;"></span>
+            Vue Globale
+          </span>
+          <span style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">${percentAll}%</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.2rem;">
+          <span class="goal-selector-meta">${totalAllSkills} compétences au total</span>
+        </div>
+        <div class="goal-selector-progress-track" style="margin-top: 0.4rem;">
+          <div class="goal-selector-progress-fill" style="width: ${percentAll}%; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));"></div>
+        </div>
+      `;
+      globalItem.addEventListener("click", () => {
+        activeBranchKey = "global";
+        document.querySelectorAll("#softskills-selector-list .goal-selector-item").forEach(el => el.classList.remove("active"));
+        globalItem.classList.add("active");
+        renderSoftskillTree(data);
+      });
+      selectorList.appendChild(globalItem);
+
       Object.entries(branches).forEach(([branchKey, branchVal]) => {
         const branchColor = branchVal.color || "#8b5cf6";
         const branchSkills = skills.filter(s => s.branch === branchKey);
@@ -1668,101 +1700,187 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (!activeBranchKey) {
-      container.innerHTML = `<p style="color: var(--text-muted); text-align: center; margin: auto; padding: 3rem 0;">Créez ou sélectionnez une branche à gauche.</p>`;
+      container.insertAdjacentHTML("beforeend", `<p style="color: var(--text-muted); text-align: center; margin: auto; padding: 3rem 0;">Créez ou sélectionnez une branche à gauche.</p>`);
       return;
     }
 
-    const branchSkills = skills.filter(s => s.branch === activeBranchKey);
-    const branchVal = branches[activeBranchKey] || {};
-    const branchColor = branchVal.color || "#8b5cf6";
+    if (activeBranchKey === "global") {
+      // 2. Render absolute coordinate-based layout for all skills
+      container.className = "skill-tree-absolute-container";
+      container.style.position = "relative";
+      container.style.width = "100%";
+      container.style.display = "block";
+      container.style.gap = "";
+      container.style.alignItems = "";
+      container.style.justifyContent = "";
+      container.style.overflow = "auto";
 
-    // Setup container layout classes
-    container.className = "skill-tree-scroll-container";
-    container.style.minWidth = "";
-    container.style.minHeight = "";
-    container.style.width = "100%";
-    container.style.height = "auto";
-    container.style.display = "flex";
-    container.style.gap = "4rem";
-    container.style.alignItems = "center";
-    container.style.justifyContent = "flex-start";
-    container.style.overflowX = "auto";
-    container.style.position = "relative";
+      let maxX = 800;
+      let maxY = 500;
+      skills.forEach(s => {
+        if (s.x > maxX) maxX = s.x;
+        if (s.y > maxY) maxY = s.y;
+      });
+      container.style.minWidth = `${maxX + 220}px`;
+      container.style.minHeight = `${maxY + 150}px`;
 
-    // Organize skills by column based on order attribute
-    const columnsMap = new Map();
-    branchSkills.forEach(s => {
-      const order = s.order || 1;
-      if (!columnsMap.has(order)) {
-        columnsMap.set(order, []);
+      if (svgEl) {
+        svgEl.style.display = "block";
+        svgEl.style.width = "100%";
+        svgEl.style.height = "100%";
       }
-      columnsMap.get(order).push(s);
-    });
 
-    const sortedOrders = Array.from(columnsMap.keys()).sort((a, b) => a - b);
-
-    // Build columns HTML
-    let columnsHTML = "";
-    sortedOrders.forEach(order => {
-      const colSkills = columnsMap.get(order);
       let nodesHTML = "";
-      colSkills.forEach(s => {
+      skills.forEach(s => {
+        const branchVal = branches[s.branch] || {};
+        const branchColor = branchVal.color || "#8b5cf6";
         const isCompleted = s.progress && s.progress.completed;
         const prereqsMet = (s.prerequisites || []).every(pid => {
           const prereqSkill = skills.find(sk => sk.id === pid);
           return prereqSkill && prereqSkill.progress && prereqSkill.progress.completed;
         });
 
-        let stateClass = "locked-node";
-        if (isCompleted) stateClass = "completed-node";
-        else if (prereqsMet) stateClass = "unlocked-node";
-
-        let btnHTML = "";
-        if (isCompleted) {
-          btnHTML = `<span style="color: var(--accent-green); font-size: 0.75rem; font-weight: 700; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.2rem;">✓ Complété</span>`;
-        } else {
-          btnHTML = `<button class="tree-node-btn action-complete-softskill" data-id="${s.id}">Valider</button>`;
-        }
+        let stateClass = "locked";
+        if (isCompleted) stateClass = "completed-skill";
+        else if (prereqsMet) stateClass = "available";
 
         nodesHTML += `
-          <div class="tree-node ${stateClass}" data-id="${s.id}" style="position: relative; padding-top: 1.6rem; border-color: ${isCompleted || prereqsMet ? branchColor : ''};">
-            <div class="tree-node-actions" style="position: absolute; top: 8px; right: 8px; display: flex; gap: 0.4rem;">
-              <span class="action-edit-softskill-icon" data-id="${s.id}" style="cursor: pointer; font-size: 0.75rem; opacity: 0.6; hover: opacity: 1; transition: opacity 0.2s;" title="Modifier la compétence">✏️</span>
+          <div class="softskill-node ${stateClass}" data-id="${s.id}" style="position: absolute; left: ${s.x}px; top: ${s.y}px; border-color: ${isCompleted || prereqsMet ? branchColor : 'rgba(255,255,255,0.1)'}; --node-glow: ${branchColor}66;">
+            <div class="tree-node-actions" style="position: absolute; top: 6px; right: 8px; display: flex; gap: 0.4rem;">
+              <span class="action-edit-softskill-icon" data-id="${s.id}" style="cursor: pointer; font-size: 0.7rem; opacity: 0.6; hover: opacity: 1;" title="Modifier">✏️</span>
             </div>
-            <span class="tree-node-title" style="margin-top: 0.2rem;"><span style="color: var(--text-muted); font-size: 0.75em; margin-right: 0.2em;">[Étape ${s.order || 1}]</span> ${s.name}</span>
-            ${s.description ? `<span class="tree-node-desc" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.2rem; line-height: 1.2;">${s.description}</span>` : ""}
-            ${btnHTML}
+            <span class="softskill-node-name">${s.name}</span>
+            <span class="softskill-node-badge" style="background-color: ${branchColor}22; color: ${branchColor}; border: 1px solid ${branchColor}44;">${s.branch}</span>
+          </div>
+        `;
+      });
+      container.insertAdjacentHTML("beforeend", nodesHTML);
+
+      if (svgEl) {
+        let svgLines = "";
+        skills.forEach(s => {
+          const sX = s.x + 80;
+          const sY = s.y + 25;
+
+          (s.prerequisites || []).forEach(pid => {
+            const parent = skills.find(sk => sk.id === pid);
+            if (parent) {
+              const pX = parent.x + 80;
+              const pY = parent.y + 25;
+              const parentBranchColor = (branches[parent.branch] || {}).color || "#8b5cf6";
+              const lineCompleted = (s.progress && s.progress.completed) && (parent.progress && parent.progress.completed);
+              const strokeColor = lineCompleted ? "var(--accent-green)" : (s.progress && s.progress.completed ? parentBranchColor : "rgba(255, 255, 255, 0.15)");
+              const strokeWidth = lineCompleted ? 3 : 2;
+              
+              svgLines += `<line x1="${pX}" y1="${pY}" x2="${sX}" y2="${sY}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
+            }
+          });
+
+          (s.related || []).forEach(rid => {
+            const rel = skills.find(sk => sk.id === rid);
+            if (rel) {
+              if (s.id < rel.id) {
+                const rX = rel.x + 80;
+                const rY = rel.y + 25;
+                const strokeColor = "rgba(255, 255, 255, 0.12)";
+                svgLines += `<line x1="${sX}" y1="${sY}" x2="${rX}" y2="${rY}" stroke="${strokeColor}" stroke-dasharray="4 4" stroke-width="1.5" />`;
+              }
+            }
+          });
+        });
+        svgEl.innerHTML = svgLines;
+      }
+    } else {
+      // 3. Render branch column-based layout
+      const branchSkills = skills.filter(s => s.branch === activeBranchKey);
+      const branchVal = branches[activeBranchKey] || {};
+      const branchColor = branchVal.color || "#8b5cf6";
+
+      container.className = "skill-tree-scroll-container";
+      container.style.minWidth = "";
+      container.style.minHeight = "";
+      container.style.width = "100%";
+      container.style.height = "auto";
+      container.style.display = "flex";
+      container.style.gap = "4rem";
+      container.style.alignItems = "center";
+      container.style.justifyContent = "flex-start";
+      container.style.overflowX = "auto";
+      container.style.position = "relative";
+
+      const columnsMap = new Map();
+      branchSkills.forEach(s => {
+        const order = s.order || 1;
+        if (!columnsMap.has(order)) {
+          columnsMap.set(order, []);
+        }
+        columnsMap.get(order).push(s);
+      });
+
+      const sortedOrders = Array.from(columnsMap.keys()).sort((a, b) => a - b);
+
+      let columnsHTML = "";
+      sortedOrders.forEach(order => {
+        const colSkills = columnsMap.get(order);
+        let nodesHTML = "";
+        colSkills.forEach(s => {
+          const isCompleted = s.progress && s.progress.completed;
+          const prereqsMet = (s.prerequisites || []).every(pid => {
+            const prereqSkill = skills.find(sk => sk.id === pid);
+            return prereqSkill && prereqSkill.progress && prereqSkill.progress.completed;
+          });
+
+          let stateClass = "locked-node";
+          if (isCompleted) stateClass = "completed-node";
+          else if (prereqsMet) stateClass = "unlocked-node";
+
+          let btnHTML = "";
+          if (isCompleted) {
+            btnHTML = `<span style="color: var(--accent-green); font-size: 0.75rem; font-weight: 700; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.2rem;">✓ Complété</span>`;
+          } else {
+            btnHTML = `<button class="tree-node-btn action-complete-softskill" data-id="${s.id}">Valider</button>`;
+          }
+
+          nodesHTML += `
+            <div class="tree-node ${stateClass}" data-id="${s.id}" style="position: relative; padding-top: 1.6rem; border-color: ${isCompleted || prereqsMet ? branchColor : ''};">
+              <div class="tree-node-actions" style="position: absolute; top: 8px; right: 8px; display: flex; gap: 0.4rem;">
+                <span class="action-edit-softskill-icon" data-id="${s.id}" style="cursor: pointer; font-size: 0.75rem; opacity: 0.6; hover: opacity: 1; transition: opacity 0.2s;" title="Modifier la compétence">✏️</span>
+              </div>
+              <span class="tree-node-title" style="margin-top: 0.2rem;"><span style="color: var(--text-muted); font-size: 0.75em; margin-right: 0.2em;">[Étape ${s.order || 1}]</span> ${s.name}</span>
+              ${s.description ? `<span class="tree-node-desc" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.2rem; line-height: 1.2;">${s.description}</span>` : ""}
+              ${btnHTML}
+            </div>
+          `;
+        });
+
+        columnsHTML += `
+          <div class="tree-column">
+            ${nodesHTML}
           </div>
         `;
       });
 
+      const totalSkills = branchSkills.length;
+      const completedSkills = branchSkills.filter(s => s.progress && s.progress.completed).length;
+      const percent = totalSkills > 0 ? Math.round((completedSkills / totalSkills) * 100) : 0;
+      const branchCompleted = totalSkills > 0 && completedSkills === totalSkills;
+
       columnsHTML += `
         <div class="tree-column">
-          ${nodesHTML}
+          <div class="tree-node ${branchCompleted ? 'completed-node' : 'unlocked-node'}" style="min-height: 120px; border-color: ${branchColor}; box-shadow: 0 0 15px ${branchColor}33;">
+            <span class="substep-tag" style="background: ${branchColor}22; color: ${branchColor}; font-size: 0.65rem;">BRANCHE MAÎTRESSE</span>
+            <span class="tree-node-title" style="font-size: 1.1rem; color: ${branchColor}; margin-top: 0.3rem;">${activeBranchKey.toUpperCase()}</span>
+            <span class="tree-node-desc" style="font-size: 0.78rem;">${percent}% complété</span>
+          </div>
         </div>
       `;
-    });
 
-    // Final column: Branch Master Node
-    const totalSkills = branchSkills.length;
-    const completedSkills = branchSkills.filter(s => s.progress && s.progress.completed).length;
-    const percent = totalSkills > 0 ? Math.round((completedSkills / totalSkills) * 100) : 0;
-    const branchCompleted = totalSkills > 0 && completedSkills === totalSkills;
-
-    columnsHTML += `
-      <div class="tree-column">
-        <div class="tree-node ${branchCompleted ? 'completed-node' : 'unlocked-node'}" style="min-height: 120px; border-color: ${branchColor}; box-shadow: 0 0 15px ${branchColor}33;">
-          <span class="substep-tag" style="background: ${branchColor}22; color: ${branchColor}; font-size: 0.65rem;">BRANCHE MAÎTRESSE</span>
-          <span class="tree-node-title" style="font-size: 1.1rem; color: ${branchColor}; margin-top: 0.3rem;">${activeBranchKey.toUpperCase()}</span>
-          <span class="tree-node-desc" style="font-size: 0.78rem;">${percent}% complété</span>
-        </div>
-      </div>
-    `;
-
-    container.innerHTML = columnsHTML;
+      container.insertAdjacentHTML("beforeend", columnsHTML);
+    }
 
     // Attach click listeners to cards
-    container.querySelectorAll(".tree-node").forEach(node => {
+    const cardSelector = activeBranchKey === "global" ? ".softskill-node" : ".tree-node";
+    container.querySelectorAll(cardSelector).forEach(node => {
       node.addEventListener("click", (e) => {
         if (e.target.closest(".action-complete-softskill") || e.target.closest(".action-edit-softskill-icon") || e.target.closest(".tree-node-btn")) return;
         const skillId = node.getAttribute("data-id");
