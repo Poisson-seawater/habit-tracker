@@ -108,7 +108,7 @@ class SkillConfig(BaseModel):
     related: List[str] = []
     x: Optional[int] = 0
     y: Optional[int] = 0
-    order: Optional[int] = 1
+    execution_order: Optional[int] = 1
 
 
 class SkillUpdate(BaseModel):
@@ -119,7 +119,7 @@ class SkillUpdate(BaseModel):
     related: List[str] = []
     x: Optional[int] = 0
     y: Optional[int] = 0
-    order: Optional[int] = 1
+    execution_order: Optional[int] = 1
 
 
 # --- Multi-User Dependency ---

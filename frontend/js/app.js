@@ -1810,7 +1810,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const columnsMap = new Map();
       branchSkills.forEach(s => {
-        const order = s.order || 1;
+        const order = s.execution_order || 1;
         if (!columnsMap.has(order)) {
           columnsMap.set(order, []);
         }
@@ -1846,7 +1846,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <div class="tree-node-actions" style="position: absolute; top: 8px; right: 8px; display: flex; gap: 0.4rem;">
                 <span class="action-edit-softskill-icon" data-id="${s.id}" style="cursor: pointer; font-size: 0.75rem; opacity: 0.6; hover: opacity: 1; transition: opacity 0.2s;" title="Modifier la compétence">✏️</span>
               </div>
-              <span class="tree-node-title" style="margin-top: 0.2rem;"><span style="color: var(--text-muted); font-size: 0.75em; margin-right: 0.2em;">[Étape ${s.order || 1}]</span> ${s.name}</span>
+              <span class="tree-node-title" style="margin-top: 0.2rem;"><span style="color: var(--text-muted); font-size: 0.75em; margin-right: 0.2em;">[Étape ${s.execution_order || 1}]</span> ${s.name}</span>
               ${s.description ? `<span class="tree-node-desc" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.2rem; line-height: 1.2;">${s.description}</span>` : ""}
               ${btnHTML}
             </div>
@@ -1905,7 +1905,7 @@ document.addEventListener("DOMContentLoaded", () => {
           populateBranchSelect("edit-softskill-branch", skill.branch);
           populateSkillCheckboxes("edit-softskill-prereqs-container", skill.id, skill.prerequisites || []);
           populateSkillCheckboxes("edit-softskill-related-container", skill.id, skill.related || []);
-          document.getElementById("edit-softskill-order").value = skill.order || 1;
+          document.getElementById("edit-softskill-execution-order").value = skill.execution_order || 1;
         }
       });
     });
@@ -2010,7 +2010,7 @@ document.addEventListener("DOMContentLoaded", () => {
         populateBranchSelect("edit-softskill-branch", skill.branch);
         populateSkillCheckboxes("edit-softskill-prereqs-container", skill.id, skill.prerequisites || []);
         populateSkillCheckboxes("edit-softskill-related-container", skill.id, skill.related || []);
-        document.getElementById("edit-softskill-order").value = skill.order || 1;
+        document.getElementById("edit-softskill-execution-order").value = skill.execution_order || 1;
       };
     }
   }
@@ -2068,7 +2068,7 @@ document.addEventListener("DOMContentLoaded", () => {
       populateBranchSelect("create-softskill-branch", activeBranchKey || "");
       populateSkillCheckboxes("create-softskill-prereqs-container", "", []);
       populateSkillCheckboxes("create-softskill-related-container", "", []);
-      document.getElementById("create-softskill-order").value = "1";
+      document.getElementById("create-softskill-execution-order").value = "1";
     });
   }
 
@@ -2081,7 +2081,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const name = document.getElementById("edit-softskill-name").value.trim();
       const desc = document.getElementById("edit-softskill-desc").value.trim();
       const branch = document.getElementById("edit-softskill-branch").value;
-      const order = parseInt(document.getElementById("edit-softskill-order").value) || 1;
+      const order = parseInt(document.getElementById("edit-softskill-execution-order").value) || 1;
 
       const prereqs = Array.from(document.querySelectorAll("#edit-softskill-prereqs-container input:checked")).map(cb => cb.value);
       const related = Array.from(document.querySelectorAll("#edit-softskill-related-container input:checked")).map(cb => cb.value);
@@ -2093,7 +2093,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "Content-Type": "application/json",
             "X-User-ID": localStorage.getItem("user_id") || "1"
           },
-          body: JSON.stringify({ name, description: desc, branch, prerequisites: prereqs, related, x: 0, y: 0, order })
+          body: JSON.stringify({ name, description: desc, branch, prerequisites: prereqs, related, x: 0, y: 0, execution_order: order })
         });
         if (!resp.ok) {
           const err = await resp.json();
@@ -2138,7 +2138,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const name = document.getElementById("create-softskill-name").value.trim();
       const desc = document.getElementById("create-softskill-desc").value.trim();
       const branch = document.getElementById("create-softskill-branch").value;
-      const order = parseInt(document.getElementById("create-softskill-order").value) || 1;
+      const order = parseInt(document.getElementById("create-softskill-execution-order").value) || 1;
       
       // Auto-generate unique slug ID
       const skillId = name
@@ -2164,7 +2164,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "Content-Type": "application/json",
             "X-User-ID": localStorage.getItem("user_id") || "1"
           },
-          body: JSON.stringify({ id: skillId, name, description: desc, branch, prerequisites: prereqs, related, x: 0, y: 0, order })
+          body: JSON.stringify({ id: skillId, name, description: desc, branch, prerequisites: prereqs, related, x: 0, y: 0, execution_order: order })
         });
         if (!resp.ok) {
           const err = await resp.json();

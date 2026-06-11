@@ -199,7 +199,7 @@ def create_skill(skill_data: Dict[str, Any]) -> Dict[str, Any]:
         "related": skill_data.get("related", []),
         "x": int(skill_data.get("x", 0)),
         "y": int(skill_data.get("y", 0)),
-        "order": int(skill_data.get("order", 1))
+        "execution_order": int(skill_data.get("execution_order", 1))
     }
 
     skills.append(new_skill)
@@ -235,7 +235,7 @@ def update_skill(skill_id: str, skill_data: Dict[str, Any]) -> Dict[str, Any]:
         "related": skill_data.get("related", []),
         "x": int(skill_data.get("x", 0)),
         "y": int(skill_data.get("y", 0)),
-        "order": int(skill_data.get("order", 1))
+        "execution_order": int(skill_data.get("execution_order", 1))
     })
 
     config["skills"] = skills

@@ -306,7 +306,7 @@ class TestSoftskillRoutes:
         data = response.json()
         assert data["id"] == "testskill"
         assert "ecoute" in data["prerequisites"]
-        assert data["order"] == 1  # default value
+        assert data["execution_order"] == 1  # default value
 
         # 2. Update skill with cycle (should return 400)
         response = client.put(
@@ -319,7 +319,7 @@ class TestSoftskillRoutes:
                 "related": [],
                 "x": 100,
                 "y": 100,
-                "order": 1
+                "execution_order": 1
             }
         )
         assert response.status_code == 400
@@ -335,14 +335,14 @@ class TestSoftskillRoutes:
                 "related": [],
                 "x": 350,
                 "y": 250,
-                "order": 3
+                "execution_order": 3
             }
         )
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "Test Skill Mod"
         assert data["x"] == 350
-        assert data["order"] == 3
+        assert data["execution_order"] == 3
 
         # 4. Delete skill
         response = client.delete("/api/v1/softskills/skills/testskill")

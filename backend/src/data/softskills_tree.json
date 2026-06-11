@@ -1,0 +1,132 @@
+{
+  "branches": {
+    "communication": {
+      "color": "#e74c3c",
+      "pale_color": "#fadbd8"
+    },
+    "leadership": {
+      "color": "#8e44ad",
+      "pale_color": "#e8daef"
+    },
+    "productivite": {
+      "color": "#3498db",
+      "pale_color": "#ebf5fb"
+    },
+    "resilience": {
+      "color": "#27ae60",
+      "pale_color": "#d5f5e3"
+    }
+  },
+  "skills": [
+    {
+      "id": "ecoute",
+      "name": "Écoute Active",
+      "description": "Capacité à écouter attentivement sans interrompre et à reformuler.",
+      "branch": "communication",
+      "prerequisites": [],
+      "related": [],
+      "x": 100,
+      "y": 80,
+      "execution_order": 1
+    },
+    {
+      "id": "vocabulaire",
+      "name": "Vocabulaire Riche",
+      "description": "Élargir et enrichir son vocabulaire pour s'exprimer avec précision.",
+      "branch": "communication",
+      "prerequisites": [],
+      "related": [],
+      "x": 300,
+      "y": 80,
+      "execution_order": 1
+    },
+    {
+      "id": "articulation",
+      "name": "Articulation Claire",
+      "description": "Prononcer et structurer ses phrases de manière fluide et compréhensible.",
+      "branch": "communication",
+      "prerequisites": ["vocabulaire"],
+      "related": [],
+      "x": 300,
+      "y": 220,
+      "execution_order": 2
+    },
+    {
+      "id": "orateur",
+      "name": "Art Oratoire",
+      "description": "Prendre la parole en public de manière structurée et captivante.",
+      "branch": "communication",
+      "prerequisites": ["ecoute", "articulation"],
+      "related": ["vente"],
+      "x": 200,
+      "y": 360,
+      "execution_order": 3
+    },
+    {
+      "id": "vente",
+      "name": "Vente & Persuasion",
+      "description": "Capacité à convaincre, négocier et présenter de la valeur.",
+      "branch": "communication",
+      "prerequisites": ["ecoute"],
+      "related": ["orateur"],
+      "x": 500,
+      "y": 220,
+      "execution_order": 2
+    },
+    {
+      "id": "confiance",
+      "name": "Confiance en Soi",
+      "description": "Croire en ses capacités et agir sans hésitation excessive.",
+      "branch": "leadership",
+      "prerequisites": [],
+      "related": ["anti_timidite"],
+      "x": 700,
+      "y": 80,
+      "execution_order": 1
+    },
+    {
+      "id": "anti_timidite",
+      "name": "Vaincre la Timidité",
+      "description": "Réduire l'anxiété sociale et s'exprimer librement en groupe.",
+      "branch": "leadership",
+      "prerequisites": ["confiance"],
+      "related": ["orateur"],
+      "x": 700,
+      "y": 220,
+      "execution_order": 2
+    },
+    {
+      "id": "gestion_stress",
+      "name": "Gestion du Stress",
+      "description": "Techniques pour rester calme et performant sous pression.",
+      "branch": "resilience",
+      "prerequisites": [],
+      "related": [],
+      "x": 900,
+      "y": 80,
+      "execution_order": 1
+    },
+    {
+      "id": "discipline_perso",
+      "name": "Discipline Personnelle",
+      "description": "Maintenir des routines et des engagements sur le long terme.",
+      "branch": "productivite",
+      "prerequisites": [],
+      "related": [],
+      "x": 900,
+      "y": 280,
+      "execution_order": 1
+    },
+    {
+      "id": "focus",
+      "name": "Focus & Concentration",
+      "description": "Capacité à travailler en profondeur sans distractions.",
+      "branch": "productivite",
+      "prerequisites": ["discipline_perso"],
+      "related": ["gestion_stress"],
+      "x": 900,
+      "y": 420,
+      "execution_order": 2
+    }
+  ]
+}
