@@ -10,7 +10,7 @@ Habit tracker auto-hébergé façon RPG + système de responsabilité, tournant 
 
 Projet perso à deux frères. Avant de contribuer, lire :
 
-- 🎯 **[VISION.md](./VISION.md)** — pourquoi ce projet existe, ce qu'il n'est pas, la stack.
+- 🎯 **[VISION.md](./VISION.md)** — pourquoi ce projet existe, qui il vise, ce qu'il n'est pas.
 - 🤖 **[CLAUDE.md](./CLAUDE.md)** — conventions et règles pour Claude Code / agents (symlink vers `AGENTS.md`).
 - 🌿 **[CONTRIBUTING.md](./CONTRIBUTING.md)** — branches, PRs, format des commits.
 - 🗺️ **[ROADMAP.md](./ROADMAP.md)** — ce qui reste à faire.
@@ -25,7 +25,7 @@ On travaille par branches `feat/...` → PR vers `dev` → PR vers `main`, 1 rev
 - **Frontend** : Vanilla HTML5 / CSS3 / JS ES6, sans framework ni build, servi en statique.
 - **Données & déploiement** : SQLite unique ; Docker Compose (`api` + `bot`) sur Pi 5, limites RAM 40 / 35 Mo.
 
-Détails et choix d'architecture → [VISION.md](./VISION.md) et [CLAUDE.md](./CLAUDE.md).
+Détails et choix d'architecture → [CLAUDE.md](./CLAUDE.md) et [`specs/001-habit-tracker-bot/plan.md`](./specs/001-habit-tracker-bot/plan.md).
 
 ---
 

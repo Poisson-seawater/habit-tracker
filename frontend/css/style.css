@@ -1135,3 +1135,113 @@ body {
   font-weight: 700;
   color: var(--text-primary);
 }
+
+/* ============================================ */
+/* Softskill Progress Tree Styles              */
+/* ============================================ */
+
+.softskill-node {
+  position: absolute;
+  z-index: 2;
+  background: rgba(30, 34, 43, 0.95);
+  border: 2px solid var(--border-glass);
+  border-radius: 14px;
+  padding: 10px 14px;
+  min-width: 140px;
+  max-width: 180px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  font-family: var(--font-display);
+}
+
+.softskill-node:hover {
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+}
+
+.softskill-node-name {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.softskill-node-desc {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+.softskill-node-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+/* Locked state */
+.softskill-node.locked {
+  opacity: 0.3;
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.3);
+  cursor: default;
+}
+
+.softskill-node.locked:hover {
+  transform: none;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.softskill-node.locked .softskill-node-name::before {
+  content: "🔒 ";
+}
+
+.softskill-node.locked .softskill-node-badge {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+}
+
+/* Available state (prereqs met, not completed) */
+.softskill-node.available {
+  border-style: solid;
+  animation: softskillPulse 3s infinite ease-in-out;
+}
+
+.softskill-node.available .softskill-node-badge {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+
+/* Completed state */
+.softskill-node.completed-skill {
+  border-style: solid;
+  box-shadow: none;
+  opacity: 0.65;
+}
+
+.softskill-node.completed-skill .softskill-node-badge {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--accent-green);
+}
+
+.softskill-node.completed-skill .softskill-node-name::after {
+  content: " ✓";
+  color: var(--accent-green);
+}
+
+@keyframes softskillPulse {
+  0%, 100% { box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
+  50% { box-shadow: 0 4px 20px var(--node-glow, rgba(139, 92, 246, 0.3)); }
+}
+
+/* SVG line styling applied via JS attributes */

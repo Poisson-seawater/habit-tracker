@@ -174,3 +174,18 @@ class GoalSubStepLink(Base):
     goal = relationship("Goal", back_populates="substep_links")
     substep = relationship("SubStep", back_populates="goal_links")
 
+
+class UserSoftskillProgress(Base):
+    __tablename__ = "user_softskill_progress"
+    __table_args__ = (UniqueConstraint("user_id", "softskill_id", name="uix_user_softskill"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    softskill_id = Column(String(100), nullable=False)
+    success_criteria_test = Column(Text, nullable=True)
+    current_level = Column(Integer, default=0)
+    completed = Column(Boolean, default=False)
+    updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
+
+    user = relationship("User", backref="softskill_progress")
+

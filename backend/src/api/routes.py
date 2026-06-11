@@ -5,8 +5,9 @@ from typing import Optional, List, Dict
 from pydantic import BaseModel, Field
 
 from src.database.session import get_db
-from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, Goal, SubStep, GoalSubStepLink, NoTodo
+from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, Goal, SubStep, GoalSubStepLink, NoTodo, UserSoftskillProgress
 from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_12_STATS, DEFAULT_THRESHOLDS
+from src.services import softskill_service
 
 router = APIRouter()
 
@@ -76,6 +77,49 @@ class SubStepUpdate(BaseModel):
 class SubStepLinkRequest(BaseModel):
     goal_id: int
     substep_id: int
+
+
+class SoftskillTestUpdate(BaseModel):
+    success_criteria_test: str
+
+
+class SoftskillCompleteToggle(BaseModel):
+    completed: bool
+
+
+class BranchConfig(BaseModel):
+    key: str
+    color: str
+    pale_color: str
+
+
+class BranchUpdate(BaseModel):
+    new_key: str
+    color: str
+    pale_color: str
+
+
+class SkillConfig(BaseModel):
+    id: str
+    name: str
+    description: str
+    branch: str
+    prerequisites: List[str] = []
+    related: List[str] = []
+    x: Optional[int] = 0
+    y: Optional[int] = 0
+    order: Optional[int] = 1
+
+
+class SkillUpdate(BaseModel):
+    name: str
+    description: str
+    branch: str
+    prerequisites: List[str] = []
+    related: List[str] = []
+    x: Optional[int] = 0
+    y: Optional[int] = 0
+    order: Optional[int] = 1
 
 
 # --- Multi-User Dependency ---
@@ -999,3 +1043,83 @@ def get_history(db: Session = Depends(get_db), user_id: int = Depends(get_curren
         })
         
     return history
+
+
+# --- Softskill Progress Tree Routes ---
+
+@router.get("/softskills")
+def get_softskills_tree(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Get the full softskill tree layout merged with the current user's progress.
+    """
+    return softskill_service.get_tree_with_progress(db, user_id)
+
+
+@router.post("/softskills/{softskill_id}/test")
+def update_softskill_test(softskill_id: str, payload: SoftskillTestUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Save or update the user's custom success criteria test for a softskill.
+    """
+    result = softskill_service.update_success_test(db, user_id, softskill_id, payload.success_criteria_test)
+    return {"status": "success", "message": "Success criteria test updated", "data": result}
+
+
+@router.post("/softskills/{softskill_id}/complete")
+def toggle_softskill_completion(softskill_id: str, payload: SoftskillCompleteToggle, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Manually mark a softskill as completed or uncompleted.
+    Validates that prerequisites are met before allowing completion.
+    """
+    result = softskill_service.toggle_completion(db, user_id, softskill_id, payload.completed)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return {"status": "success", "message": "Softskill completion updated", "data": result}
+
+
+@router.post("/softskills/branches", status_code=201)
+def api_create_branch(payload: BranchConfig):
+    try:
+        return softskill_service.create_branch(payload.key, payload.color, payload.pale_color)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/softskills/branches/{branch_key}")
+def api_update_branch(branch_key: str, payload: BranchUpdate):
+    try:
+        return softskill_service.update_branch(branch_key, payload.new_key, payload.color, payload.pale_color)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/softskills/branches/{branch_key}")
+def api_delete_branch(branch_key: str, db: Session = Depends(get_db)):
+    try:
+        return softskill_service.delete_branch(db, branch_key)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/softskills/skills", status_code=201)
+def api_create_skill(payload: SkillConfig):
+    try:
+        return softskill_service.create_skill(payload.model_dump())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/softskills/skills/{skill_id}")
+def api_update_skill(skill_id: str, payload: SkillUpdate):
+    try:
+        return softskill_service.update_skill(skill_id, payload.model_dump())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/softskills/skills/{skill_id}")
+def api_delete_skill(skill_id: str, db: Session = Depends(get_db)):
+    try:
+        return softskill_service.delete_skill(db, skill_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+

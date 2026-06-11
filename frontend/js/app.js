@@ -2,6 +2,18 @@ document.addEventListener("DOMContentLoaded", () => {
   // Config
   const API_BASE = "/api/v1";
 
+  function getPaleColor(hex) {
+    if (!hex) return "rgba(255, 255, 255, 0.15)";
+    if (hex.startsWith("#")) {
+      const cleanHex = hex.replace("#", "");
+      let r = parseInt(cleanHex.substring(0, 2), 16);
+      let g = parseInt(cleanHex.substring(2, 4), 16);
+      let b = parseInt(cleanHex.substring(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, 0.2)`;
+    }
+    return hex;
+  }
+
   // Override fetch to always include X-User-ID header if logged in
   const originalFetch = window.fetch;
   window.fetch = async function(url, options = {}) {
@@ -36,6 +48,8 @@ document.addEventListener("DOMContentLoaded", () => {
       } else if (targetTab === "settings-tab") {
         loadSettingsThresholds();
         fetchWeeklyPotentials();
+      } else if (targetTab === "softskills-tab") {
+        fetchSoftskills();
       }
     });
   });
@@ -1476,6 +1490,699 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
     }
+  }
+
+  // ==============================================
+  // SOFTSKILL PROGRESS TREE                       //
+  // ==============================================
+  let softskillsData = null; // cached response
+  let activeSoftskillId = null;
+  let activeBranchHighlight = null;
+  let activeBranchKey = null;
+
+  async function fetchSoftskills() {
+    try {
+      const response = await fetch(`${API_BASE}/softskills`);
+      if (!response.ok) throw new Error("Erreur softskills API");
+      softskillsData = await response.json();
+
+      const branchKeys = Object.keys(softskillsData.branches || {});
+      if (activeBranchKey === null || !branchKeys.includes(activeBranchKey)) {
+        activeBranchKey = branchKeys[0] || null;
+      }
+
+      renderSoftskillTree(softskillsData);
+    } catch (error) {
+      console.error(error);
+      const container = document.getElementById("softskills-tree-container");
+      if (container) {
+        container.innerHTML = `<p style="color: var(--accent-red); text-align: center; padding: 2rem;">Erreur de chargement de l'arbre de compétences.</p>`;
+      }
+    }
+  }
+
+  function showSoftskillDrawerSection(sectionId, title = "🌳 Détail Softskill") {
+    document.getElementById("softskill-detail-title").textContent = title;
+    const sections = [
+      "softskill-view-section",
+      "softskill-edit-form",
+      "softskill-create-form",
+      "softskill-branch-form"
+    ];
+    sections.forEach(s => {
+      const el = document.getElementById(s);
+      if (el) el.style.display = s === sectionId ? "flex" : "none";
+    });
+
+    const overlay = document.getElementById("softskill-detail-overlay");
+    const drawer = document.getElementById("softskill-detail-drawer");
+    if (overlay) overlay.classList.add("open");
+    if (drawer) drawer.classList.add("open");
+  }
+
+  function populateBranchSelect(selectId, activeBranch) {
+    const select = document.getElementById(selectId);
+    if (!select || !softskillsData) return;
+    select.innerHTML = "";
+    Object.keys(softskillsData.branches || {}).forEach(key => {
+      const opt = document.createElement("option");
+      opt.value = key;
+      opt.textContent = key;
+      if (key === activeBranch) opt.selected = true;
+      select.appendChild(opt);
+    });
+  }
+
+  function populateSkillCheckboxes(containerId, activeSkillId, checkedIds) {
+    const container = document.getElementById(containerId);
+    if (!container || !softskillsData) return;
+    container.innerHTML = "";
+    (softskillsData.skills || []).forEach(skill => {
+      if (skill.id === activeSkillId) return; // Cannot depend on itself
+      const label = document.createElement("label");
+      label.style.marginTop = "0";
+      label.style.display = "flex";
+      label.style.alignItems = "center";
+      label.style.gap = "0.5rem";
+      label.style.fontSize = "0.8rem";
+      
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.value = skill.id;
+      if (checkedIds.includes(skill.id)) cb.checked = true;
+      
+      const text = document.createElement("span");
+      text.textContent = skill.name;
+      
+      label.appendChild(cb);
+      label.appendChild(text);
+      container.appendChild(label);
+    });
+  }
+
+  function scrollToSkillNode(skillId) {
+    const node = document.querySelector(`.softskill-node[data-id="${skillId}"]`);
+    if (node) {
+      node.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+      node.style.transform = "scale(1.15)";
+      node.style.zIndex = "10";
+      setTimeout(() => {
+        node.style.transform = "";
+        node.style.zIndex = "";
+      }, 1000);
+    }
+  }
+
+  function openBranchEdit(branchKey, branchVal) {
+    showSoftskillDrawerSection("softskill-branch-form", "✏️ Modifier la branche");
+    document.getElementById("edit-branch-old-key").value = branchKey;
+    document.getElementById("edit-branch-key").value = branchKey;
+    document.getElementById("edit-branch-color").value = branchVal.color || "#8b5cf6";
+    document.getElementById("delete-branch-btn").style.display = "block";
+  }
+
+  function renderSoftskillTree(data) {
+    const container = document.getElementById("softskills-tree-container");
+    const svgEl = document.getElementById("softskills-svg-lines");
+    if (!container || !svgEl) return;
+
+    container.innerHTML = "";
+    if (svgEl) {
+      svgEl.style.display = "none";
+      svgEl.innerHTML = "";
+    }
+
+    const branches = data.branches || {};
+    const skills = data.skills || [];
+
+    const completedSet = new Set();
+    skills.forEach(s => {
+      if (s.progress && s.progress.completed) completedSet.add(s.id);
+    });
+
+    // Render left sidebar menu
+    const selectorList = document.getElementById("softskills-selector-list");
+    if (selectorList) {
+      selectorList.innerHTML = "";
+      Object.entries(branches).forEach(([branchKey, branchVal]) => {
+        const branchColor = branchVal.color || "#8b5cf6";
+        const branchSkills = skills.filter(s => s.branch === branchKey);
+
+        const totalSkills = branchSkills.length;
+        const completedSkills = branchSkills.filter(s => s.progress && s.progress.completed).length;
+        const percent = totalSkills > 0 ? Math.round((completedSkills / totalSkills) * 100) : 0;
+
+        const item = document.createElement("div");
+        item.className = `goal-selector-item ${branchKey === activeBranchKey ? 'active' : ''}`;
+        item.innerHTML = `
+          <div class="goal-selector-title">
+            <span style="display: flex; align-items: center; gap: 0.5rem;">
+              <span class="softskill-branch-dot" style="background-color: ${branchColor}; box-shadow: 0 0 6px ${branchColor}66;"></span>
+              ${branchKey}
+            </span>
+            <span style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">${percent}%</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.2rem;">
+            <span class="goal-selector-meta">${totalSkills} compétence${totalSkills > 1 ? 's' : ''}</span>
+            <button class="softskill-branch-edit-btn" data-branch="${branchKey}" style="margin: 0; padding: 2px 6px; font-size: 0.75rem;">✏️</button>
+          </div>
+          <div class="goal-selector-progress-track" style="margin-top: 0.4rem;">
+            <div class="goal-selector-progress-fill" style="width: ${percent}%; background: ${branchColor};"></div>
+          </div>
+        `;
+
+        item.addEventListener("click", (e) => {
+          if (e.target.closest(".softskill-branch-edit-btn")) {
+            e.stopPropagation();
+            openBranchEdit(branchKey, branchVal);
+            return;
+          }
+          activeBranchKey = branchKey;
+          document.querySelectorAll("#softskills-selector-list .goal-selector-item").forEach(el => el.classList.remove("active"));
+          item.classList.add("active");
+          renderSoftskillTree(data);
+        });
+
+        selectorList.appendChild(item);
+      });
+    }
+
+    if (!activeBranchKey) {
+      container.innerHTML = `<p style="color: var(--text-muted); text-align: center; margin: auto; padding: 3rem 0;">Créez ou sélectionnez une branche à gauche.</p>`;
+      return;
+    }
+
+    const branchSkills = skills.filter(s => s.branch === activeBranchKey);
+    const branchVal = branches[activeBranchKey] || {};
+    const branchColor = branchVal.color || "#8b5cf6";
+
+    // Setup container layout classes
+    container.className = "skill-tree-scroll-container";
+    container.style.minWidth = "";
+    container.style.minHeight = "";
+    container.style.width = "100%";
+    container.style.height = "auto";
+    container.style.display = "flex";
+    container.style.gap = "4rem";
+    container.style.alignItems = "center";
+    container.style.justifyContent = "flex-start";
+    container.style.overflowX = "auto";
+    container.style.position = "relative";
+
+    // Organize skills by column based on order attribute
+    const columnsMap = new Map();
+    branchSkills.forEach(s => {
+      const order = s.order || 1;
+      if (!columnsMap.has(order)) {
+        columnsMap.set(order, []);
+      }
+      columnsMap.get(order).push(s);
+    });
+
+    const sortedOrders = Array.from(columnsMap.keys()).sort((a, b) => a - b);
+
+    // Build columns HTML
+    let columnsHTML = "";
+    sortedOrders.forEach(order => {
+      const colSkills = columnsMap.get(order);
+      let nodesHTML = "";
+      colSkills.forEach(s => {
+        const isCompleted = s.progress && s.progress.completed;
+        const prereqsMet = (s.prerequisites || []).every(pid => {
+          const prereqSkill = skills.find(sk => sk.id === pid);
+          return prereqSkill && prereqSkill.progress && prereqSkill.progress.completed;
+        });
+
+        let stateClass = "locked-node";
+        if (isCompleted) stateClass = "completed-node";
+        else if (prereqsMet) stateClass = "unlocked-node";
+
+        let btnHTML = "";
+        if (isCompleted) {
+          btnHTML = `<span style="color: var(--accent-green); font-size: 0.75rem; font-weight: 700; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.2rem;">✓ Complété</span>`;
+        } else {
+          btnHTML = `<button class="tree-node-btn action-complete-softskill" data-id="${s.id}">Valider</button>`;
+        }
+
+        nodesHTML += `
+          <div class="tree-node ${stateClass}" data-id="${s.id}" style="position: relative; padding-top: 1.6rem; border-color: ${isCompleted || prereqsMet ? branchColor : ''};">
+            <div class="tree-node-actions" style="position: absolute; top: 8px; right: 8px; display: flex; gap: 0.4rem;">
+              <span class="action-edit-softskill-icon" data-id="${s.id}" style="cursor: pointer; font-size: 0.75rem; opacity: 0.6; hover: opacity: 1; transition: opacity 0.2s;" title="Modifier la compétence">✏️</span>
+            </div>
+            <span class="tree-node-title" style="margin-top: 0.2rem;"><span style="color: var(--text-muted); font-size: 0.75em; margin-right: 0.2em;">[Étape ${s.order || 1}]</span> ${s.name}</span>
+            ${s.description ? `<span class="tree-node-desc" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.2rem; line-height: 1.2;">${s.description}</span>` : ""}
+            ${btnHTML}
+          </div>
+        `;
+      });
+
+      columnsHTML += `
+        <div class="tree-column">
+          ${nodesHTML}
+        </div>
+      `;
+    });
+
+    // Final column: Branch Master Node
+    const totalSkills = branchSkills.length;
+    const completedSkills = branchSkills.filter(s => s.progress && s.progress.completed).length;
+    const percent = totalSkills > 0 ? Math.round((completedSkills / totalSkills) * 100) : 0;
+    const branchCompleted = totalSkills > 0 && completedSkills === totalSkills;
+
+    columnsHTML += `
+      <div class="tree-column">
+        <div class="tree-node ${branchCompleted ? 'completed-node' : 'unlocked-node'}" style="min-height: 120px; border-color: ${branchColor}; box-shadow: 0 0 15px ${branchColor}33;">
+          <span class="substep-tag" style="background: ${branchColor}22; color: ${branchColor}; font-size: 0.65rem;">BRANCHE MAÎTRESSE</span>
+          <span class="tree-node-title" style="font-size: 1.1rem; color: ${branchColor}; margin-top: 0.3rem;">${activeBranchKey.toUpperCase()}</span>
+          <span class="tree-node-desc" style="font-size: 0.78rem;">${percent}% complété</span>
+        </div>
+      </div>
+    `;
+
+    container.innerHTML = columnsHTML;
+
+    // Attach click listeners to cards
+    container.querySelectorAll(".tree-node").forEach(node => {
+      node.addEventListener("click", (e) => {
+        if (e.target.closest(".action-complete-softskill") || e.target.closest(".action-edit-softskill-icon") || e.target.closest(".tree-node-btn")) return;
+        const skillId = node.getAttribute("data-id");
+        if (skillId) {
+          const skill = skills.find(s => s.id === skillId);
+          if (skill) openSoftskillDetail(skill);
+        }
+      });
+    });
+
+    // Attach edit icon listeners
+    container.querySelectorAll(".action-edit-softskill-icon").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const skillId = btn.getAttribute("data-id");
+        const skill = skills.find(s => s.id === skillId);
+        if (skill) {
+          showSoftskillDrawerSection("softskill-edit-form", "✏️ Modifier le Softskill");
+          document.getElementById("edit-softskill-id-hidden").value = skill.id;
+          document.getElementById("edit-softskill-name").value = skill.name;
+          document.getElementById("edit-softskill-desc").value = skill.description;
+          populateBranchSelect("edit-softskill-branch", skill.branch);
+          populateSkillCheckboxes("edit-softskill-prereqs-container", skill.id, skill.prerequisites || []);
+          populateSkillCheckboxes("edit-softskill-related-container", skill.id, skill.related || []);
+          document.getElementById("edit-softskill-order").value = skill.order || 1;
+        }
+      });
+    });
+
+    // Attach completion action listeners
+    container.querySelectorAll(".action-complete-softskill").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const skillId = btn.getAttribute("data-id");
+        const skill = skills.find(s => s.id === skillId);
+        if (!skill) return;
+        const isCurrentlyCompleted = skill.progress && skill.progress.completed;
+        try {
+          const response = await fetch(`${API_BASE}/softskills/${skillId}/complete`, {
+            method: "POST",
+            headers: { 
+              "Content-Type": "application/json",
+              "X-User-ID": localStorage.getItem("user_id") || "1"
+            },
+            body: JSON.stringify({ completed: !isCurrentlyCompleted })
+          });
+          if (!response.ok) {
+            const errData = await response.json();
+            showToast(errData.detail || "Prérequis non remplis", true);
+            return;
+          }
+          showToast(isCurrentlyCompleted ? "Softskill réinitialisé" : "Softskill complété ! 🎉");
+          await fetchSoftskills();
+        } catch (error) {
+          console.error(error);
+          showToast("Erreur lors de la mise à jour", true);
+        }
+      });
+    });
+  }
+
+  // Detail modal logic
+  function openSoftskillDetail(skill) {
+    activeSoftskillId = skill.id;
+    showSoftskillDrawerSection("softskill-view-section", `🌳 ${skill.name}`);
+
+    const branches = softskillsData ? softskillsData.branches : {};
+    const branch = branches[skill.branch] || {};
+    const progress = skill.progress || {};
+    const isCompleted = progress.completed || false;
+
+    document.getElementById("softskill-detail-desc").textContent = skill.description;
+    document.getElementById("softskill-detail-branch").innerHTML = `<strong>Branche :</strong> <span style="color: ${branch.color || "#fff"};">${skill.branch}</span>`;
+
+    const prereqNames = (skill.prerequisites || []).map(pid => {
+      const s = (softskillsData.skills || []).find(sk => sk.id === pid);
+      return s ? s.name : pid;
+    });
+    document.getElementById("softskill-detail-prereqs").innerHTML = prereqNames.length > 0
+      ? `<strong>Prérequis :</strong> ${prereqNames.join(", ")}`
+      : `<strong>Prérequis :</strong> Aucun`;
+
+    const relatedNames = (skill.related || []).map(rid => {
+      const s = (softskillsData.skills || []).find(sk => sk.id === rid);
+      return s ? s.name : rid;
+    });
+    document.getElementById("softskill-detail-related").innerHTML = relatedNames.length > 0
+      ? `<strong>Liés :</strong> ${relatedNames.join(", ")}`
+      : "";
+
+    const statusEl = document.getElementById("softskill-detail-status");
+    if (isCompleted) {
+      statusEl.innerHTML = `<span style="color: var(--accent-green);">✅ Complété</span>`;
+    } else {
+      const prereqsMet = (skill.prerequisites || []).every(pid => {
+        const s = (softskillsData.skills || []).find(sk => sk.id === pid);
+        return s && s.progress && s.progress.completed;
+      });
+      statusEl.innerHTML = prereqsMet
+        ? `<span style="color: var(--accent-cyan);">🔓 Disponible</span>`
+        : `<span style="color: var(--text-muted);">🔒 Verrouillé — prérequis manquants</span>`;
+    }
+
+    document.getElementById("softskill-test-input").value = progress.success_criteria_test || "";
+
+    const completeBtn = document.getElementById("toggle-softskill-complete-btn");
+    if (isCompleted) {
+      completeBtn.textContent = "↩️ Réinitialiser";
+      completeBtn.style.background = "rgba(239, 68, 68, 0.15)";
+      completeBtn.style.borderColor = "rgba(239, 68, 68, 0.5)";
+      completeBtn.style.color = "#ef4444";
+    } else {
+      completeBtn.textContent = "✅ Marquer comme Complété";
+      completeBtn.style.background = "";
+      completeBtn.style.borderColor = "";
+      completeBtn.style.color = "";
+    }
+
+    // Bind Edit Button
+    const editBtn = document.getElementById("edit-softskill-btn");
+    if (editBtn) {
+      editBtn.onclick = () => {
+        showSoftskillDrawerSection("softskill-edit-form", "✏️ Modifier le Softskill");
+        document.getElementById("edit-softskill-id-hidden").value = skill.id;
+        document.getElementById("edit-softskill-name").value = skill.name;
+        document.getElementById("edit-softskill-desc").value = skill.description;
+        populateBranchSelect("edit-softskill-branch", skill.branch);
+        populateSkillCheckboxes("edit-softskill-prereqs-container", skill.id, skill.prerequisites || []);
+        populateSkillCheckboxes("edit-softskill-related-container", skill.id, skill.related || []);
+        document.getElementById("edit-softskill-order").value = skill.order || 1;
+      };
+    }
+  }
+
+  function closeSoftskillDetail() {
+    const overlay = document.getElementById("softskill-detail-overlay");
+    const drawer = document.getElementById("softskill-detail-drawer");
+    if (overlay) overlay.classList.remove("open");
+    if (drawer) drawer.classList.remove("open");
+    activeSoftskillId = null;
+    
+    // Clear sidebar highlighting if not highlighting branch
+    document.querySelectorAll(".softskill-sidebar-skill-item").forEach(i => i.classList.remove("active"));
+  }
+
+  // Bind static UI actions
+  const closeSoftskillBtn = document.getElementById("close-softskill-detail-btn");
+  if (closeSoftskillBtn) closeSoftskillBtn.addEventListener("click", closeSoftskillDetail);
+
+  const softskillOverlay = document.getElementById("softskill-detail-overlay");
+  if (softskillOverlay) softskillOverlay.addEventListener("click", closeSoftskillDetail);
+
+  // Edit skill Cancel
+  const cancelEditSkillBtn = document.getElementById("cancel-edit-softskill-btn");
+  if (cancelEditSkillBtn) cancelEditSkillBtn.addEventListener("click", () => showSoftskillDrawerSection("softskill-view-section"));
+
+  // Create skill Cancel
+  const cancelCreateSkillBtn = document.getElementById("cancel-create-softskill-btn");
+  if (cancelCreateSkillBtn) cancelCreateSkillBtn.addEventListener("click", closeSoftskillDetail);
+
+  // Branch Cancel
+  const cancelBranchBtn = document.getElementById("cancel-branch-btn");
+  if (cancelBranchBtn) cancelBranchBtn.addEventListener("click", closeSoftskillDetail);
+
+  // Bind creation buttons
+  const addBranchBtn = document.getElementById("add-softskill-branch-btn");
+  if (addBranchBtn) {
+    addBranchBtn.addEventListener("click", () => {
+      showSoftskillDrawerSection("softskill-branch-form", "✨ Forger une branche");
+      document.getElementById("edit-branch-old-key").value = "";
+      document.getElementById("edit-branch-key").value = "";
+      document.getElementById("edit-branch-color").value = "#8b5cf6";
+      document.getElementById("edit-branch-pale-color").value = "#dddddd";
+      document.getElementById("delete-branch-btn").style.display = "none";
+    });
+  }
+
+  const addNodeBtn = document.getElementById("add-softskill-node-btn");
+  if (addNodeBtn) {
+    addNodeBtn.addEventListener("click", () => {
+      showSoftskillDrawerSection("softskill-create-form", "✨ Forger une compétence");
+      document.getElementById("create-softskill-id").value = "";
+      document.getElementById("create-softskill-name").value = "";
+      document.getElementById("create-softskill-desc").value = "";
+      populateBranchSelect("create-softskill-branch", activeBranchKey || "");
+      populateSkillCheckboxes("create-softskill-prereqs-container", "", []);
+      populateSkillCheckboxes("create-softskill-related-container", "", []);
+      document.getElementById("create-softskill-order").value = "1";
+    });
+  }
+
+  // Edit form submit
+  const editSkillForm = document.getElementById("softskill-edit-form");
+  if (editSkillForm) {
+    editSkillForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const skillId = document.getElementById("edit-softskill-id-hidden").value;
+      const name = document.getElementById("edit-softskill-name").value.trim();
+      const desc = document.getElementById("edit-softskill-desc").value.trim();
+      const branch = document.getElementById("edit-softskill-branch").value;
+      const order = parseInt(document.getElementById("edit-softskill-order").value) || 1;
+
+      const prereqs = Array.from(document.querySelectorAll("#edit-softskill-prereqs-container input:checked")).map(cb => cb.value);
+      const related = Array.from(document.querySelectorAll("#edit-softskill-related-container input:checked")).map(cb => cb.value);
+
+      try {
+        const resp = await fetch(`${API_BASE}/softskills/skills/${skillId}`, {
+          method: "PUT",
+          headers: { 
+            "Content-Type": "application/json",
+            "X-User-ID": localStorage.getItem("user_id") || "1"
+          },
+          body: JSON.stringify({ name, description: desc, branch, prerequisites: prereqs, related, x: 0, y: 0, order })
+        });
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.detail || "Erreur de modification");
+        }
+        showToast("Softskill modifié avec succès ! ✏️");
+        closeSoftskillDetail();
+        await fetchSoftskills();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+  }
+
+  // Delete skill button
+  const deleteSkillBtn = document.getElementById("delete-softskill-btn");
+  if (deleteSkillBtn) {
+    deleteSkillBtn.addEventListener("click", async () => {
+      const skillId = document.getElementById("edit-softskill-id-hidden").value;
+      if (!skillId) return;
+      if (!confirm("Voulez-vous vraiment détruire ce softskill et toute sa progression ?")) return;
+      try {
+        const resp = await fetch(`${API_BASE}/softskills/skills/${skillId}`, { 
+          method: "DELETE",
+          headers: { "X-User-ID": localStorage.getItem("user_id") || "1" }
+        });
+        if (!resp.ok) throw new Error("Erreur de suppression");
+        showToast("Softskill détruit ! 🗑️");
+        closeSoftskillDetail();
+        await fetchSoftskills();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+  }
+
+  // Create form submit
+  const createSkillForm = document.getElementById("softskill-create-form");
+  if (createSkillForm) {
+    createSkillForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("create-softskill-name").value.trim();
+      const desc = document.getElementById("create-softskill-desc").value.trim();
+      const branch = document.getElementById("create-softskill-branch").value;
+      const order = parseInt(document.getElementById("create-softskill-order").value) || 1;
+      
+      // Auto-generate unique slug ID
+      const skillId = name
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Remove accents
+        .replace(/[^a-z0-9_]/g, "_")    // Replace non-alphanumeric with _
+        .replace(/__+/g, "_")            // Replace multiple underscores with one
+        .replace(/^_+|_+$/g, "");        // Trim underscores
+
+      if (!skillId) {
+        showToast("Le nom de la compétence est invalide pour générer un identifiant.", true);
+        return;
+      }
+      
+      const prereqs = Array.from(document.querySelectorAll("#create-softskill-prereqs-container input:checked")).map(cb => cb.value);
+      const related = Array.from(document.querySelectorAll("#create-softskill-related-container input:checked")).map(cb => cb.value);
+      
+      try {
+        const resp = await fetch(`${API_BASE}/softskills/skills`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "X-User-ID": localStorage.getItem("user_id") || "1"
+          },
+          body: JSON.stringify({ id: skillId, name, description: desc, branch, prerequisites: prereqs, related, x: 0, y: 0, order })
+        });
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.detail || "Erreur de création");
+        }
+        showToast("Nouveau softskill forgé ! 🌳");
+        closeSoftskillDetail();
+        await fetchSoftskills();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+  }
+
+  // Branch form submit
+  const branchForm = document.getElementById("softskill-branch-form");
+  if (branchForm) {
+    branchForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const oldKey = document.getElementById("edit-branch-old-key").value;
+      const newKey = document.getElementById("edit-branch-key").value.trim();
+      const color = document.getElementById("edit-branch-color").value;
+      const paleColor = getPaleColor(color);
+      
+      try {
+        let resp;
+        if (oldKey) {
+          resp = await fetch(`${API_BASE}/softskills/branches/${oldKey}`, {
+            method: "PUT",
+            headers: { 
+              "Content-Type": "application/json",
+              "X-User-ID": localStorage.getItem("user_id") || "1"
+            },
+            body: JSON.stringify({ new_key: newKey, color, pale_color: paleColor })
+          });
+        } else {
+          resp = await fetch(`${API_BASE}/softskills/branches`, {
+            method: "POST",
+            headers: { 
+              "Content-Type": "application/json",
+              "X-User-ID": localStorage.getItem("user_id") || "1"
+            },
+            body: JSON.stringify({ key: newKey, color, pale_color: paleColor })
+          });
+        }
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.detail || "Erreur sur la branche");
+        }
+        showToast(oldKey ? "Branche modifiée avec succès !" : "Nouvelle branche créée !");
+        closeSoftskillDetail();
+        await fetchSoftskills();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+  }
+
+  // Delete branch button
+  const deleteBranchBtn = document.getElementById("delete-branch-btn");
+  if (deleteBranchBtn) {
+    deleteBranchBtn.addEventListener("click", async () => {
+      const branchKey = document.getElementById("edit-branch-old-key").value;
+      if (!branchKey) return;
+      if (!confirm(`ATTENTION: Supprimer la branche '${branchKey}' supprimera TOUS ses softskills associés et leur progression ! Continuer ?`)) return;
+      try {
+        const resp = await fetch(`${API_BASE}/softskills/branches/${branchKey}`, { 
+          method: "DELETE",
+          headers: { "X-User-ID": localStorage.getItem("user_id") || "1" }
+        });
+        if (!resp.ok) throw new Error("Erreur de suppression de la branche");
+        showToast("Branche et ses compétences supprimées.");
+        closeSoftskillDetail();
+        await fetchSoftskills();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+  }
+
+  // Save success test
+  const saveTestBtn = document.getElementById("save-softskill-test-btn");
+  if (saveTestBtn) {
+    saveTestBtn.addEventListener("click", async () => {
+      if (!activeSoftskillId) return;
+      const testVal = document.getElementById("softskill-test-input").value.trim();
+      try {
+        const response = await fetch(`${API_BASE}/softskills/${activeSoftskillId}/test`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "X-User-ID": localStorage.getItem("user_id") || "1"
+          },
+          body: JSON.stringify({ success_criteria_test: testVal })
+        });
+        if (!response.ok) throw new Error("Erreur de sauvegarde");
+        showToast("Test de succès mis à jour");
+        await fetchSoftskills();
+      } catch (error) {
+        console.error(error);
+        showToast("Erreur lors de la sauvegarde", true);
+      }
+    });
+  }
+
+  // Toggle completion
+  const toggleCompleteBtn = document.getElementById("toggle-softskill-complete-btn");
+  if (toggleCompleteBtn) {
+    toggleCompleteBtn.addEventListener("click", async () => {
+      if (!activeSoftskillId) return;
+      const skill = (softskillsData.skills || []).find(s => s.id === activeSoftskillId);
+      if (!skill) return;
+      const isCurrentlyCompleted = skill.progress && skill.progress.completed;
+      
+      try {
+        const response = await fetch(`${API_BASE}/softskills/${activeSoftskillId}/complete`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "X-User-ID": localStorage.getItem("user_id") || "1"
+          },
+          body: JSON.stringify({ completed: !isCurrentlyCompleted })
+        });
+        if (!response.ok) {
+          const errData = await response.json();
+          showToast(errData.detail || "Prérequis non remplis", true);
+          return;
+        }
+        showToast(isCurrentlyCompleted ? "Softskill réinitialisé" : "Softskill complété ! 🎉");
+        closeSoftskillDetail();
+        await fetchSoftskills();
+      } catch (error) {
+        console.error(error);
+        showToast("Erreur lors de la mise à jour", true);
+      }
+    });
   }
 
   // Logout Logic

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script>(function(){try{var t=localStorage.getItem('pwdoc-theme');if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
-  <title>Stats, XP, niveau &amp; or — Habit Tracker RPG</title>
+  <title>Softskills — Habit Tracker RPG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -37,40 +37,43 @@
         <li><a href="perfect-day.html">Perfect Day</a></li>
         <li><a href="habitudes.html">Habitudes (Quêtes)</a></li>
         <li><a href="objectifs.html">Objectifs</a></li>
-        <li><a href="softskills.html">Softskills</a></li>
+        <li><a href="softskills.html" aria-current="page">Softskills</a></li>
         <li><a href="primes-todo.html">Primes (Todos)</a></li>
         <li><a href="no-todo.html">No-Todo</a></li>
         <li><a href="templates-de-jour.html">Templates de jour</a></li>
-        <li><a href="stats-xp-niveau-or.html" aria-current="page">Stats, XP, niveau &amp; or</a></li>
+        <li><a href="stats-xp-niveau-or.html">Stats, XP, niveau &amp; or</a></li>
       </ul>
     </nav>
 
     <main class="content">
       <article class="prose">
-        <h1>Stats, XP, niveau &amp; or</h1>
-        <p class="intro">Le jeu a plusieurs compteurs, et chacun mesure une chose différente. Les <strong>stats</strong> sont éphémères : on les juge chaque jour. L'<strong>XP</strong> et le <strong>niveau</strong> mesurent ta régularité dans le temps. L'<strong>Or</strong>, lui, suit l'avancement de tes objectifs.</p>
+        <h1>Softskills (Arbre de Compétences)</h1>
+        <p class="intro">Les softskills représentent ta progression personnelle en développement personnel (ex: prise de parole, vaincre la timidité). Visualisés sous forme d'arbre de compétences (RPG Skill Tree), ils sont regroupés par branches colorées et soumis à des prérequis d'apprentissage.</p>
 
-        <h2 id="stats">Stats (éphémères)</h2>
-        <p>Dans un RPG, ton personnage a des stats : force, intelligence… Ici, le personnage, c'est toi. Et chaque action de ta vraie vie développe une facette de toi, exactement comme une action monte une stat dans un jeu.</p>
-        <p>Une stat, c'est donc une <strong>dimension de ta vie</strong>, mesurée en points. Il y en a 12 : Force, Endurance, Mobilité, Discipline, Créativité, Connaissance, Sociabilité, Santé mentale, Finance, Organisation, Spiritualité, Repos. Quand tu valides une <a href="habitudes.html">habitude</a> ou que tu coches une <a href="primes-todo.html">prime</a>, ça ajoute des points à une ou plusieurs de ces dimensions.</p>
-        <p>La question que pose le jeu, c'est : « qu'as-tu construit <strong>aujourd'hui</strong> ? » Du coup, les stats ne mesurent pas toute ta vie, juste ta journée — elles <strong>repartent à zéro chaque matin</strong>. C'est aussi pour ça qu'elles servent à juger ton <a href="perfect-day.html">Perfect Day</a> : il se décide sur les points du jour.</p>
-
-        <h2 id="xp">XP &amp; niveau (permanents)</h2>
+        <h2 id="structure">L'arbre de compétences</h2>
         <ul>
-          <li>Un <a href="perfect-day.html">Perfect Day</a> → <strong>+5 XP</strong>.</li>
-          <li>Une <a href="primes-todo.html">prime</a> → jusqu'à <strong>+40 XP</strong> directs.</li>
-          <li>Niveau <strong>exponentiel</strong> : chaque palier demande deux fois plus d'XP que le précédent (N+1 = 2 × N).</li>
+          <li><strong>Branches thématiques</strong> : Chaque domaine (ex. Communication, Leadership) a sa propre couleur distinctive sur l'arbre.</li>
+          <li><strong>Relations et Dépendances</strong> : Certaines compétences nécessitent d'avoir complété des compétences parentes (🔒) avant de pouvoir être débloquées. Des liaisons secondaires en pointillés relient les compétences similaires d'autres branches (ex. Vente et Art Oratoire).</li>
+          <li><strong>Positionnement visuel</strong> : Le graphe interactif affiche les nœuds à des coordonnées fixes et dessine dynamiquement des lignes de connexion colorées (pleines pour les prérequis, pointillées pour les liaisons connexes).</li>
         </ul>
 
-        <h2 id="or">Or (Gold, permanent)</h2>
-        <p>Gagné en validant les sous-étapes d'<a href="objectifs.html">objectifs</a>. C'est la monnaie de l'avancement réel de tes projets — distincte de l'XP, qui mesure la régularité.</p>
+        <h2 id="validation">Test de Succès Personnalisé</h2>
+        <p>Contrairement aux habitudes quotidiennes quantifiables, la progression d'un softskill est validée manuellement. Pour chaque compétence, l'usager définit sa propre phrase de succès (ex. <em>« Parler à 10 inconnus sans stresser »</em>) servant d'épreuve de validation.</p>
+
+        <h2 id="progression">Cycle de Déblocage</h2>
+        <p>Un softskill passe par trois états distincts :</p>
+        <ol>
+          <li><strong>Verrouillé (🔒)</strong> : Prerequis non satisfaits. Impossible de valider la compétence.</li>
+          <li><strong>Disponible (🔓)</strong> : Tous les prérequis parents sont validés. L'utilisateur peut formuler son test de succès et marquer la compétence comme complétée à tout moment.</li>
+          <li><strong>Complété (✅)</strong> : Compétence acquise. Sa validation débloque les compétences suivantes dans l'arbre.</li>
+        </ol>
       </article>
     </main>
   </div>
 
   <footer class="site-footer">
     <div class="site-footer__inner">
-      <span>Documentation Habit Tracker RPG · état au 2026-06-04.</span>
+      <span>Documentation Habit Tracker RPG · état au 2026-06-11.</span>
       <a href="#top">↑ Haut de page</a>
     </div>
   </footer>
