@@ -252,17 +252,33 @@
       justify-content: center;
       position: relative;
       min-width: 200px;
+      align-items: center;
     }
-    .tree-column:not(:first-child)::before {
+
+    /* Hexagon skill node wrapper — provides the border/glow */
+    .hex-wrapper {
+      position: relative;
+      width: 100px;
+      height: 112px;
+      z-index: 2;
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+      transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .hex-wrapper:hover {
+      transform: translateY(-5px) scale(1.04);
+      filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.5));
+    }
+    /* Outer hex shape = border layer */
+    .hex-wrapper::before {
       content: "";
       position: absolute;
-      left: -2rem;
-      top: 15%;
-      bottom: 15%;
-      width: 2px;
-      background: rgba(255, 255, 255, 0.08);
-      z-index: 1;
+      inset: 0;
+      background: var(--hex-border-color, var(--border-glass));
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      z-index: 0;
     }
+
+    /* Original tree-node styles (used by Goals tab) */
     .tree-node {
       background: #1e222b;
       border: 1.5px solid var(--border-glass);
@@ -313,6 +329,38 @@
       display: none;
     }
 
+    /* Hexagonal override ONLY inside hex-wrapper (Softskills tab) */
+    .hex-wrapper .tree-node {
+      position: absolute;
+      inset: 2px;
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      min-width: unset;
+      padding: 0.8rem 0.5rem;
+      gap: 0.2rem;
+    }
+    .hex-wrapper .tree-node:hover {
+      transform: none; /* hover handled by wrapper */
+    }
+    .hex-wrapper .tree-node::before,
+    .hex-wrapper .tree-node::after {
+      display: none;
+    }
+
+    /* Connector lines between columns (shared) */
+    .tree-column:not(:first-child)::before {
+      content: "";
+      position: absolute;
+      left: -2rem;
+      top: 15%;
+      bottom: 15%;
+      width: 2px;
+      background: rgba(255, 255, 255, 0.08);
+      z-index: 1;
+    }
+
     .tree-node-title {
       font-family: var(--font-display);
       font-weight: 700;
@@ -323,6 +371,16 @@
       color: var(--text-muted);
       margin-top: 0.1rem;
       line-height: 1.2;
+    }
+    /* Smaller text inside hexagons */
+    .hex-wrapper .tree-node-title {
+      font-size: 0.72rem;
+      line-height: 1.15;
+    }
+    .hex-wrapper .tree-node-desc {
+      font-size: 0.65rem;
+      margin-top: 0;
+      max-width: 90px;
     }
     .tree-node-gold {
       font-size: 0.75rem;
@@ -338,6 +396,7 @@
       justify-content: center;
     }
 
+    /* Goals tab state classes (on .tree-node directly) */
     .tree-node.completed-node {
       border: 2px solid var(--accent-green);
       box-shadow: 0 0 16px rgba(74, 222, 128, 0.45);
@@ -361,6 +420,98 @@
     .tree-node.locked-node:hover {
       transform: none;
       border-color: var(--text-muted);
+    }
+
+    /* Hexagon state classes on the WRAPPER */
+    .hex-wrapper.completed-node::before {
+      background: var(--accent-green);
+    }
+    .hex-wrapper.completed-node {
+      filter: drop-shadow(0 0 14px rgba(74, 222, 128, 0.45));
+    }
+    .hex-wrapper.completed-node .tree-node {
+      background: rgba(20, 30, 22, 0.98);
+    }
+
+    .hex-wrapper.unlocked-node::before {
+      background: var(--hex-border-color, var(--accent-cyan));
+    }
+    .hex-wrapper.unlocked-node {
+      filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.25));
+    }
+    .hex-wrapper.unlocked-node .tree-node {
+      background: rgba(18, 24, 30, 0.98);
+    }
+
+    .hex-wrapper.locked-node {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .hex-wrapper.locked-node::before {
+      background: var(--text-muted);
+      opacity: 0.4;
+    }
+    .hex-wrapper.locked-node .tree-node {
+      background: rgba(10, 12, 18, 0.95);
+    }
+    .hex-wrapper.locked-node:hover {
+      transform: none;
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+    }
+
+    /* Small action buttons positioned around the hexagon */
+    .hex-action-edit {
+      position: absolute;
+      top: 4px;
+      right: 16px;
+      z-index: 10;
+      background: rgba(30, 34, 43, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.55rem;
+      transition: all 0.25s ease;
+      color: var(--text-muted);
+    }
+    .hex-action-edit:hover {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+      transform: scale(1.15);
+    }
+    .hex-action-done {
+      position: absolute;
+      bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
+      border: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.7rem;
+      transition: all 0.25s ease;
+      box-shadow: 0 2px 8px rgba(6, 182, 212, 0.3);
+      color: #fff;
+      padding: 0;
+    }
+    .hex-action-done:hover {
+      transform: translateX(-50%) scale(1.2);
+      box-shadow: 0 4px 14px rgba(6, 182, 212, 0.5);
+    }
+    .hex-action-done.is-completed {
+      background: var(--accent-green);
+      box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
     }
 
     /* Creators Overlay Modal (Popup instead of Right Sidebar) */
@@ -649,6 +800,7 @@
         <button class="nav-tab" data-tab="goals-tab">🏆 Objectifs & Graphes</button>
         <button class="nav-tab" data-tab="softskills-tab">🌳 Softskills</button>
         <button class="nav-tab" data-tab="notodo-tab">🚫 NO To-Do</button>
+        <button class="nav-tab" data-tab="rewards-tab">🏪 Boutique</button>
         <button class="nav-tab" data-tab="settings-tab">⚙️ Perfect Days</button>
         <a href="/docs/index.html" class="nav-tab" target="_blank" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">📖 Docs</a>
       </div>
@@ -695,18 +847,67 @@
       <!-- Dashboard Grid -->
       <main class="dashboard-grid">
         
-        <!-- Left Column: Ephemeral Daily Character Stats -->
-        <section class="glass-card stats-panel">
-          <h2 class="section-header">🛡️ <span>Feuille de Personnage (Éphémère)</span></h2>
-          <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
-            Ces statistiques éphémères retombent strictement à 0 chaque matin ! Complétez vos quêtes et primes pour valider les seuils requis de la journée.
-          </p>
+        <!-- Left Column: Recap & Stats -->
+        <div class="left-column-container" style="display: flex; flex-direction: column; gap: 2rem;">
           
-          <div class="stats-grid" id="stats-container">
-            <!-- Dynamically populated stats rows will be inserted here -->
-            <p style="text-align: center; color: var(--text-muted);">Chargement de la feuille de personnage...</p>
-          </div>
-        </section>
+          <!-- 3-3-3 Recap Panel -->
+          <section class="glass-card recap-panel" id="recap-3-3-3-panel">
+            <h2 class="section-header">🛡️ <span>Recap 3 - 3 - 3</span></h2>
+            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
+              Gardez le cap sur vos 3 objectifs prioritaires, vos 3 compétences actives et votre allostasie du jour.
+            </p>
+            <div class="recap-grid">
+              
+              <!-- Section 1: Objectifs Majeurs -->
+              <div class="recap-section" id="recap-goals-section">
+                <div class="recap-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">
+                  <h3 style="font-size: 0.95rem; margin: 0; color: var(--accent-cyan);">🏆 Objectifs</h3>
+                  <button class="recap-edit-btn" id="recap-edit-goals-btn" title="Modifier les objectifs épinglés" style="background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 2px;">✏️</button>
+                </div>
+                <ul class="recap-list" id="recap-goals-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem;">
+                  <li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--text-muted);">Chargement...</li>
+                </ul>
+              </div>
+
+              <!-- Section 2: Compétences Clés -->
+              <div class="recap-section" id="recap-skills-section">
+                <div class="recap-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">
+                  <h3 style="font-size: 0.95rem; margin: 0; color: var(--accent-cyan);">🧬 Compétences</h3>
+                  <button class="recap-edit-btn" id="recap-edit-skills-btn" title="Modifier les compétences épinglées" style="background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 2px;">✏️</button>
+                </div>
+                <ul class="recap-list" id="recap-skills-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem;">
+                  <li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--text-muted);">Chargement...</li>
+                </ul>
+              </div>
+
+              <!-- Section 3: Allostasie -->
+              <div class="recap-section" id="recap-allostasis-section">
+                <div class="recap-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">
+                  <h3 id="recap-allostasis-title" style="font-size: 0.95rem; margin: 0; color: var(--accent-cyan);">🩹 Allostasie</h3>
+                  <button class="recap-edit-btn" id="recap-toggle-allostasis-btn" title="Basculer Daily / Weekly" style="background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 2px;">🔄</button>
+                </div>
+                <ul class="recap-list" id="recap-allostasis-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem;">
+                  <li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--text-muted);">Chargement...</li>
+                </ul>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- Left Column: Ephemeral Daily Character Stats -->
+          <section class="glass-card stats-panel">
+            <h2 class="section-header">🛡️ <span>Feuille de Personnage (Éphémère)</span></h2>
+            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
+              Ces statistiques éphémères retombent strictement à 0 chaque matin ! Complétez vos quêtes et primes pour valider les seuils requis de la journée.
+            </p>
+            
+            <div class="stats-grid" id="stats-container">
+              <!-- Dynamically populated stats rows will be inserted here -->
+              <p style="text-align: center; color: var(--text-muted);">Chargement de la feuille de personnage...</p>
+            </div>
+          </section>
+          
+        </div>
 
         <!-- Right Column: Quests & Todos -->
         <div class="widgets-container">
@@ -1032,6 +1233,58 @@
 
           </div>
         </section>
+      </div> <!-- Close #creators-drawer -->
+    </div> <!-- Close #goals-tab -->
+
+    <!-- ============================================== -->
+    <!-- SCREEN 2.5: REWARDS SHOP TAB                   -->
+    <!-- ============================================== -->
+    <div id="rewards-tab" class="tab-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h2 style="font-family: var(--font-display); font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, var(--accent-gold), var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">🏪 Boutique de Récompenses</h2>
+        <button id="open-reward-modal-btn" class="nav-tab" style="background: rgba(245, 158, 11, 0.1); border-color: var(--accent-gold); color: var(--text-primary);">➕ Créer une Récompense</button>
+      </div>
+
+      <!-- Shop Balance and Filter Header -->
+      <div class="glass-card" style="padding: 1.5rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <span style="color: var(--text-muted); font-size: 0.9rem;">Votre Trésor Actuel :</span>
+          <span class="user-gold-balance" id="shop-gold-val" style="font-size: 1.6rem; margin-left: 0.5rem; display: inline-block; font-weight: 700; color: var(--accent-gold);">💰 0 Gold</span>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="nav-tab active shop-filter-btn" data-filter="all">Toutes</button>
+          <button class="nav-tab shop-filter-btn" data-filter="unlocked">Disponibles</button>
+          <button class="nav-tab shop-filter-btn" data-filter="locked">Verrouillées</button>
+        </div>
+      </div>
+
+      <!-- Allostasis Sections -->
+      <div id="allostasis-daily-section" style="margin-bottom: 3rem; display: none;">
+        <h3 style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--accent-cyan); margin-bottom: 1rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+          🔄 Allostasie Daily <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">(Max 3 items, se répètent chaque jour)</span>
+        </h3>
+        <div id="rewards-grid-allostasis-daily" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+          <!-- Daily allostasis items will be injected here -->
+        </div>
+      </div>
+
+      <div id="allostasis-weekly-section" style="margin-bottom: 3rem; display: none;">
+        <h3 style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--accent-purple); margin-bottom: 1rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+          📅 Allostasie Weekly <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">(Max 3 items, se répètent toutes les semaines)</span>
+        </h3>
+        <div id="rewards-grid-allostasis-weekly" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+          <!-- Weekly allostasis items will be injected here -->
+        </div>
+      </div>
+
+      <!-- Standard Rewards Grid -->
+      <div id="standard-rewards-section" style="margin-bottom: 3rem;">
+        <h3 id="standard-rewards-header" style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--accent-gold); margin-bottom: 1rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.5rem; display: none;">
+          💎 Récompenses Classiques
+        </h3>
+        <div id="rewards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+          <!-- Dynamically loaded standard rewards will be injected here -->
+        </div>
       </div>
     </div>
 
@@ -1328,6 +1581,164 @@
     <div style="display:flex;gap:0.8rem;margin-top:0.5rem;">
       <button id="save-edit-quest-btn" class="quest-action-btn" style="flex:1;padding:10px;">Sauvegarder</button>
       <button id="delete-quest-btn" class="quest-action-btn" style="flex:1;padding:10px;background:rgba(220,53,69,0.2);border-color:rgba(220,53,69,0.4);color:#ff6b6b;">Supprimer</button>
+    </div>
+  </div>
+
+  <!-- Habit Detail & Calendar Modal -->
+  <div id="habit-detail-overlay" class="drawer-overlay"></div>
+  <div id="habit-detail-drawer" class="creators-drawer" style="max-width: 480px; overflow-y: auto;">
+    <div class="drawer-header">
+      <span class="drawer-title" id="habit-detail-title-val">Détails de la Quête</span>
+      <button id="close-habit-detail-btn" class="drawer-close-btn">&times;</button>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+      <p id="habit-detail-desc-val" style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;"></p>
+      
+      <!-- Stats / Rewards Row -->
+      <div id="habit-detail-rewards" style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.8rem; background: rgba(255,255,255,0.02); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-glass);">
+        <!-- Populated dynamically -->
+      </div>
+
+      <!-- Streaks Badges Panel -->
+      <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+        <div class="glass-card" style="flex: 1; padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: rgba(255,255,255,0.02); border-radius: 12px;">
+          <span style="font-size: 1.5rem;">🔥</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Streak Actuel</span>
+          <span id="habit-detail-current-streak" style="font-size: 1.4rem; font-weight: 700; color: var(--accent-gold);">0 jours</span>
+        </div>
+        <div class="glass-card" style="flex: 1; padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: rgba(255,255,255,0.02); border-radius: 12px;">
+          <span style="font-size: 1.5rem;">🏆</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Record de Streak</span>
+          <span id="habit-detail-max-streak" style="font-size: 1.4rem; font-weight: 700; color: var(--accent-cyan);">0 jours</span>
+        </div>
+      </div>
+
+      <!-- Monthly Calendar Grid Section -->
+      <div class="glass-card" style="padding: 1.2rem; background: rgba(255,255,255,0.01); border-radius: 12px; border: 1px solid var(--border-glass); margin-top: 0.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <button id="habit-calendar-prev-btn" class="quest-action-btn" style="width: auto; padding: 4px 10px; font-size: 0.8rem; background: rgba(255,255,255,0.05); color: var(--text-primary);">&larr;</button>
+          <h4 id="habit-calendar-month-title" style="margin: 0; font-family: var(--font-display); font-size: 0.95rem; color: var(--text-primary);">Juin 2026</h4>
+          <button id="habit-calendar-next-btn" class="quest-action-btn" style="width: auto; padding: 4px 10px; font-size: 0.8rem; background: rgba(255,255,255,0.05); color: var(--text-primary);">&rarr;</button>
+        </div>
+
+        <!-- Calendar Weekday Headers -->
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; font-size: 0.7rem; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">
+          <div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div>
+        </div>
+
+        <div id="habit-detail-calendar-grid" class="habit-detail-calendar-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;">
+          <!-- Populated dynamically -->
+        </div>
+
+        <!-- Legend -->
+        <div style="display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 1rem; font-size: 0.72rem; color: var(--text-muted); border-top: 1px solid var(--border-glass); padding-top: 0.8rem;">
+          <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 3px; background: var(--accent-green); display: inline-block;"></span> Fait</span>
+          <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 3px; background: var(--accent-gold); display: inline-block;"></span> Passé</span>
+          <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 3px; background: rgba(239, 68, 68, 0.4); display: inline-block;"></span> Manqué</span>
+          <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 3px; background: rgba(255,255,255,0.03); border: 1px dashed var(--border-glass); display: inline-block; box-sizing: border-box;"></span> Non Planifié</span>
+        </div>
+      </div>
+
+      <!-- Action Panel (Deactivate/Reactivate) -->
+      <div style="display: flex; gap: 0.8rem; margin-top: 1rem;">
+        <button id="deactivate-reactivate-habit-btn" class="quest-action-btn" style="flex: 1; padding: 12px; background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.5); color: #ef4444;">
+          Désactiver la Quête
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Drawer for creating/editing rewards -->
+  <div id="reward-drawer" class="creators-drawer">
+    <div class="drawer-header">
+      <span class="drawer-title" id="reward-drawer-title">Créer une Récompense</span>
+      <button id="close-reward-drawer-btn" class="drawer-close-btn">&times;</button>
+    </div>
+    <form id="reward-form" class="modal-form" style="display: flex; flex-direction: column; gap: 1rem;">
+      <input type="hidden" id="reward-form-id">
+      
+      <div class="form-group">
+        <label for="reward-form-title">Titre *</label>
+        <input type="text" id="reward-form-title" placeholder="Ex: Regarder un épisode" required class="quest-input">
+      </div>
+
+      <div class="form-group">
+        <label for="reward-form-category">Catégorie *</label>
+        <select id="reward-form-category" class="quest-input" required>
+          <option value="regular">Classique (Coûte de l'or)</option>
+          <option value="allostasis_daily">Allostasie Daily (0 Or, répété chaque jour)</option>
+          <option value="allostasis_weekly">Allostasie Weekly (0 Or, répété chaque semaine)</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label for="reward-form-desc">Description</label>
+        <textarea id="reward-form-desc" placeholder="Détails sur la récompense..." class="quest-input" style="height: 60px; resize: vertical;"></textarea>
+      </div>
+      
+      <div id="reward-form-cost-grid" class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label for="reward-form-cost">Coût en Or (Or) *</label>
+          <input type="number" id="reward-form-cost" min="0" value="0" required class="quest-input">
+        </div>
+        <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1.5rem;">
+          <input type="checkbox" id="reward-form-onetime" style="width: 20px; height: 20px; cursor: pointer; margin: 0;">
+          <label for="reward-form-onetime" style="cursor: pointer; margin-bottom: 0;">Achat unique</label>
+        </div>
+      </div>
+      
+      <div id="reward-form-softskill-group" class="form-group">
+        <label for="reward-form-softskill">Prérequis Softskill</label>
+        <select id="reward-form-softskill" class="quest-input">
+          <option value="">Aucun prérequis</option>
+          <!-- Loaded dynamically -->
+        </select>
+      </div>
+      
+      <div id="reward-form-goal-group" class="form-group">
+        <label for="reward-form-goal">Prérequis Objectif</label>
+        <select id="reward-form-goal" class="quest-input">
+          <option value="">Aucun prérequis</option>
+          <!-- Loaded dynamically -->
+        </select>
+      </div>
+      
+      <div style="display: flex; gap: 0.8rem; margin-top: 1rem;">
+        <button type="submit" class="quest-action-btn" style="flex: 2;">Enregistrer</button>
+        <button type="button" id="delete-reward-btn" class="quest-action-btn" style="flex: 1; background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.5); color: #ef4444; display: none;">Supprimer</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Modal Drawer for Pinning Recap Items -->
+  <div id="recap-pin-drawer" class="creators-drawer" style="max-width: 480px; overflow-y: auto;">
+    <div class="drawer-header">
+      <span class="drawer-title">📌 Gérer les Épingles 3-3-3</span>
+      <button id="close-recap-pin-drawer-btn" class="drawer-close-btn">&times;</button>
+    </div>
+    
+    <div style="display: flex; flex-direction: column; gap: 1.5rem; padding: 1.2rem; padding-bottom: 1.5rem;">
+      <!-- Goals section -->
+      <div id="recap-pin-goals-group">
+        <h4 style="margin-top: 0; margin-bottom: 0.8rem; color: var(--accent-cyan); font-size: 1rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">🏆 Objectifs (Sous-étapes, max 3)</h4>
+        <div id="recap-pin-goals-list" style="display: flex; flex-direction: column; gap: 0.6rem; max-height: 200px; overflow-y: auto; padding-right: 0.5rem;">
+          <!-- Dynamically populated checkboxes -->
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Aucune sous-étape disponible.</p>
+        </div>
+      </div>
+
+      <!-- Softskills section -->
+      <div id="recap-pin-skills-group">
+        <h4 style="margin-top: 0; margin-bottom: 0.8rem; color: var(--accent-cyan); font-size: 1rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">🧬 Compétences Clés (Max 3)</h4>
+        <div id="recap-pin-skills-list" style="display: flex; flex-direction: column; gap: 0.6rem; max-height: 200px; overflow-y: auto; padding-right: 0.5rem;">
+          <!-- Dynamically populated checkboxes -->
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Aucune compétence disponible.</p>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.8rem; margin-top: 1rem;">
+        <button id="save-recap-pins-btn" class="quest-action-btn" style="width: 100%; padding: 12px; font-weight: bold;">Sauvegarder les Épingles</button>
+      </div>
     </div>
   </div>
 

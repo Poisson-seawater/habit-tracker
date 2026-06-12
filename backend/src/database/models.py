@@ -13,6 +13,8 @@ class User(Base):
     level = Column(Integer, default=1)
     gold = Column(Integer, default=0)  # Total accumulated gold
     created_at = Column(DateTime, default=datetime.datetime.now)
+    pinned_substeps = Column(JSON, nullable=True, default=list)
+    pinned_softskills = Column(JSON, nullable=True, default=list)
 
     logs = relationship("HabitLog", back_populates="user", cascade="all, delete-orphan")
     scores = relationship("DailyScore", back_populates="user", cascade="all, delete-orphan")
@@ -23,6 +25,7 @@ class User(Base):
     perfect_day_templates = relationship("PerfectDayTemplate", back_populates="user", cascade="all, delete-orphan")
     habits = relationship("Habit", back_populates="user", cascade="all, delete-orphan")
     notodos = relationship("NoTodo", back_populates="user", cascade="all, delete-orphan")
+    rewards = relationship("Reward", back_populates="user", cascade="all, delete-orphan")
 
 
 class Habit(Base):
@@ -44,6 +47,8 @@ class Habit(Base):
     daily_cap = Column(Integer, nullable=True)  # Cap on points for quantitative habits
     unit = Column(String, nullable=True)  # Unit e.g. "min", "km"
     is_active = Column(Boolean, default=True)
+    deactivated_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.now)
 
     user = relationship("User", back_populates="habits")
     logs = relationship("HabitLog", back_populates="habit", cascade="all, delete-orphan")
@@ -188,4 +193,24 @@ class UserSoftskillProgress(Base):
     updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
     user = relationship("User", backref="softskill_progress")
+
+
+class Reward(Base):
+    __tablename__ = "rewards"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    gold_cost = Column(Integer, nullable=False, default=0)
+    required_softskill_id = Column(String(100), nullable=True)
+    required_goal_id = Column(Integer, ForeignKey("goals.id", ondelete="SET NULL"), nullable=True)
+    is_one_time = Column(Boolean, default=False)
+    purchased_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.datetime.now)
+    category = Column(String(50), nullable=False, default="regular")
+    last_purchased_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", back_populates="rewards")
+    required_goal = relationship("Goal")
 

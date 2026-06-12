@@ -664,6 +664,44 @@ body {
   color: var(--accent-red);
 }
 
+/* Individual Habit Calendar Day States */
+.calendar-day-box.completed {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+  box-shadow: 0 0 10px var(--accent-green-glow);
+}
+
+.calendar-day-box.skipped {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+  box-shadow: 0 0 8px var(--accent-gold-glow);
+}
+
+.calendar-day-box.missed {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+  box-shadow: 0 0 8px var(--accent-red-glow);
+}
+
+.calendar-day-box.non-scheduled {
+  background: rgba(255, 255, 255, 0.02);
+  background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255, 255, 255, 0.03) 5px, rgba(255, 255, 255, 0.03) 10px);
+  border-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.calendar-day-box.pre-creation {
+  background: rgba(255, 255, 255, 0.01);
+  border-color: transparent;
+  color: var(--text-muted);
+  opacity: 0.2;
+  cursor: default;
+}
+
 .calendar-day-box.future {
   opacity: 0.3;
   cursor: default;
@@ -1245,3 +1283,354 @@ body {
 }
 
 /* SVG line styling applied via JS attributes */
+
+
+/* ============================================== */
+/* REWARD SHOP (BOUTIQUE) STYLES                  */
+/* ============================================== */
+
+.reward-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.2rem;
+  transition: var(--transition-smooth);
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.reward-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+
+.reward-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+
+.reward-card-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.reward-card-cost {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--accent-gold);
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.reward-card-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.reward-card-requirements {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  border-top: 1px solid var(--border-glass);
+  padding-top: 0.8rem;
+  margin-top: auto;
+}
+
+.reward-req-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+}
+
+.reward-req-badge.met {
+  color: var(--accent-green);
+}
+
+.reward-req-badge.unmet {
+  color: var(--accent-red);
+}
+
+.reward-card-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.reward-buy-btn {
+  flex-grow: 1;
+  background: linear-gradient(135deg, var(--accent-gold), #f59e0b);
+  color: #000;
+  border: none;
+  font-family: var(--font-display);
+  font-weight: 700;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.reward-buy-btn:hover:not(:disabled) {
+  transform: scale(1.02);
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+}
+
+.reward-buy-btn:disabled {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-glass);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.reward-edit-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass);
+  color: var(--text-muted);
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-smooth);
+  font-size: 0.9rem;
+}
+
+.reward-edit-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+}
+
+/* Locked Reward Overlay */
+.reward-card.locked {
+  opacity: 0.6;
+}
+
+.reward-card.locked::before {
+  content: "🔒";
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 1.2rem;
+  opacity: 0.7;
+}
+
+/* One time purchase / Owned state */
+.reward-card.owned {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.01);
+}
+
+.reward-card.owned::before {
+  content: "👑";
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 1.2rem;
+}
+
+.reward-card-purchased-badge {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+  text-align: right;
+  display: block;
+}
+
+/* Allostasis Reward Styles */
+.reward-card-allostasis {
+  border-color: rgba(6, 182, 212, 0.15);
+}
+
+.reward-card-allostasis.completed-allostasis {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.02);
+  opacity: 0.85;
+}
+
+.reward-card-allostasis.completed-allostasis::before {
+  content: "✓";
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 1.2rem;
+  color: var(--accent-green);
+  font-weight: bold;
+}
+
+.reward-card-allostasis.completed-allostasis .reward-buy-btn {
+  background: rgba(34, 197, 94, 0.15) !important;
+  border: 1px solid rgba(34, 197, 94, 0.3) !important;
+  color: var(--accent-green) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+}
+
+.reward-card-allostasis .reward-buy-btn {
+  background: linear-gradient(135deg, var(--accent-cyan), #0891b2);
+  color: #000;
+}
+.reward-card-allostasis .reward-buy-btn:hover:not(:disabled) {
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+}
+
+.recap-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.recap-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.recap-item:hover {
+  transform: translateX(4px);
+  border-color: var(--accent-cyan);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.recap-item.completed {
+  border-color: rgba(34, 197, 94, 0.25);
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.recap-item.completed:hover {
+  border-color: var(--accent-green);
+}
+
+.recap-item-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 75%;
+  color: var(--text-primary);
+}
+
+.recap-item.completed .recap-item-text {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.recap-item-badge {
+  font-size: 0.72rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  border: 1px solid var(--border-glass);
+}
+
+.recap-item-status-icon {
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recap-edit-btn {
+  opacity: 0.6;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.recap-edit-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.recap-claim-btn {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid var(--accent-gold);
+  color: var(--accent-gold);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.recap-claim-btn:hover {
+  background: var(--accent-gold);
+  color: #000;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
+.recap-checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.recap-checkbox-container:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--accent-cyan);
+}
+
+.recap-checkbox-container input {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+@keyframes pulse-highlight {
+  0% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.7);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 15px rgba(6, 182, 212, 0);
+    transform: scale(1.05);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0);
+    transform: scale(1);
+  }
+}
+
+
+
+

@@ -189,18 +189,39 @@ def update_streaks(db: Session, user_id: int, date: datetime.date):
             h_streak = Streak(user_id=user_id, streak_type=f"habit:{habit.id}", current_streak=0, max_streak=0)
             db.add(h_streak)
 
+        # Find the most recent scheduled day before today
+        test_date = date - datetime.timedelta(days=1)
+        limit_date = habit.created_at.date() if habit.created_at else (date - datetime.timedelta(days=365))
+        last_scheduled_date = None
+        while test_date >= limit_date:
+            t_weekday = test_date.weekday()
+            t_model_day_idx = (t_weekday + 1) % 7
+            if str(t_model_day_idx) in [day.strip() for day in habit.scheduled_days.split(",")]:
+                last_scheduled_date = test_date
+                break
+            test_date -= datetime.timedelta(days=1)
+
         if h_streak.last_incremented != date:
             if is_done:
-                if h_streak.last_incremented == yesterday:
+                if h_streak.last_incremented == last_scheduled_date or h_streak.last_incremented is None:
                     h_streak.current_streak += 1
                 else:
                     h_streak.current_streak = 1
                 h_streak.max_streak = max(h_streak.max_streak, h_streak.current_streak)
                 h_streak.last_incremented = date
+
+                # Award milestone rewards
+                user = db.query(User).filter_by(id=user_id).first()
+                if h_streak.current_streak == 30:
+                    user.gold += 50
+                    add_user_xp(user, 100)
+                elif h_streak.current_streak == 90:
+                    user.gold += 150
+                    add_user_xp(user, 300)
             elif is_skipped:
                 h_streak.last_incremented = date
             else:
-                if h_streak.last_incremented == yesterday or h_streak.last_incremented is None:
+                if h_streak.last_incremented == last_scheduled_date or h_streak.last_incremented is None:
                     h_streak.current_streak = 0
 
     db.commit()

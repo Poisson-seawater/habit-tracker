@@ -5,7 +5,7 @@ from typing import Optional, List, Dict
 from pydantic import BaseModel, Field
 
 from src.database.session import get_db
-from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, Goal, SubStep, GoalSubStepLink, NoTodo, UserSoftskillProgress
+from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, Goal, SubStep, GoalSubStepLink, NoTodo, UserSoftskillProgress, Reward
 from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_12_STATS, DEFAULT_THRESHOLDS
 from src.services import softskill_service
 
@@ -99,6 +99,26 @@ class BranchUpdate(BaseModel):
     pale_color: str
 
 
+class RewardCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    gold_cost: int = Field(0, ge=0)
+    required_softskill_id: Optional[str] = None
+    required_goal_id: Optional[int] = None
+    is_one_time: Optional[bool] = False
+    category: Optional[str] = "regular"
+
+
+class RewardUpdate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    gold_cost: int = Field(0, ge=0)
+    required_softskill_id: Optional[str] = None
+    required_goal_id: Optional[int] = None
+    is_one_time: Optional[bool] = False
+    category: Optional[str] = "regular"
+
+
 class SkillConfig(BaseModel):
     id: str
     name: str
@@ -120,6 +140,11 @@ class SkillUpdate(BaseModel):
     x: Optional[int] = 0
     y: Optional[int] = 0
     execution_order: Optional[int] = 1
+
+
+class PinsUpdate(BaseModel):
+    pinned_substeps: List[int] = []
+    pinned_softskills: List[str] = []
 
 
 # --- Multi-User Dependency ---
@@ -259,8 +284,24 @@ def get_profile(db: Session = Depends(get_db), user_id: int = Depends(get_curren
         # RPG elements
         "xp": user.xp,
         "level": user.level,
-        "gold": user.gold
+        "gold": user.gold,
+        "pinned_substeps": user.pinned_substeps or [],
+        "pinned_softskills": user.pinned_softskills or []
     }
+
+
+@router.put("/profile/pins")
+def update_profile_pins(payload: PinsUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Update the user's pinned sub-steps and pinned softskills.
+    """
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.pinned_substeps = payload.pinned_substeps
+    user.pinned_softskills = payload.pinned_softskills
+    db.commit()
+    return {"status": "success", "message": "Pins updated successfully"}
 
 
 @router.get("/status")
@@ -960,13 +1001,31 @@ class HabitUpdate(BaseModel):
     is_mandatory: Optional[bool] = None
     is_private: Optional[bool] = None
     is_reportable: Optional[bool] = None
+    is_active: Optional[bool] = None
 
 @router.put("/habits/{habit_id}")
 def update_habit(habit_id: int, payload: HabitUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found.")
-    for field, value in payload.model_dump(exclude_none=True).items():
+    
+    # Handle active status transition logic
+    payload_dict = payload.model_dump(exclude_none=True)
+    if "is_active" in payload_dict:
+        new_active = payload_dict["is_active"]
+        if new_active is False and habit.is_active is True:
+            habit.deactivated_at = datetime.datetime.now()
+        elif new_active is True and habit.is_active is False:
+            if habit.deactivated_at:
+                freeze_days = (datetime.datetime.now() - habit.deactivated_at).days
+                if freeze_days > 14:
+                    # Reset streak
+                    h_streak = db.query(Streak).filter_by(user_id=user_id, streak_type=f"habit:{habit.id}").first()
+                    if h_streak:
+                        h_streak.current_streak = 0
+            habit.deactivated_at = None
+
+    for field, value in payload_dict.items():
         setattr(habit, field, value)
     db.commit()
     return {"status": "updated"}
@@ -977,8 +1036,96 @@ def delete_habit(habit_id: int, db: Session = Depends(get_db), user_id: int = De
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found.")
     habit.is_active = False
+    habit.deactivated_at = datetime.datetime.now()
     db.commit()
     return {"status": "deleted"}
+
+@router.get("/habits/{habit_id}/calendar")
+def get_habit_calendar(
+    habit_id: int,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    import calendar
+    habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found.")
+
+    today = datetime.date.today()
+    if year is None:
+        year = today.year
+    if month is None:
+        month = today.month
+
+    _, num_days = calendar.monthrange(year, month)
+
+    start_date = datetime.date(year, month, 1)
+    end_date = datetime.date(year, month, num_days)
+    
+    start_dt = datetime.datetime.combine(start_date, datetime.time.min)
+    end_dt = datetime.datetime.combine(end_date, datetime.time.max)
+
+    logs = db.query(HabitLog).filter(
+        HabitLog.habit_id == habit_id,
+        HabitLog.user_id == user_id,
+        HabitLog.timestamp >= start_dt,
+        HabitLog.timestamp <= end_dt
+    ).all()
+
+    logs_by_day = {}
+    for log in logs:
+        log_day = log.timestamp.date().day
+        logs_by_day.setdefault(log_day, []).append(log)
+
+    days_status = {}
+    
+    h_streak = db.query(Streak).filter_by(user_id=user_id, streak_type=f"habit:{habit.id}").first()
+    current_streak = h_streak.current_streak if h_streak else 0
+    max_streak = h_streak.max_streak if h_streak else 0
+
+    habit_created_date = habit.created_at.date() if habit.created_at else None
+
+    for day in range(1, num_days + 1):
+        day_date = datetime.date(year, month, day)
+        
+        if day_date > today:
+            days_status[day] = "future"
+            continue
+
+        if habit_created_date and day_date < habit_created_date:
+            days_status[day] = "pre-creation"
+            continue
+
+        day_logs = logs_by_day.get(day, [])
+        is_done = any(l.log_type in ["done", "log"] for l in day_logs)
+        is_skipped = any(l.log_type == "skip" for l in day_logs)
+
+        if is_done:
+            days_status[day] = "completed"
+        elif is_skipped:
+            days_status[day] = "skipped"
+        else:
+            weekday = day_date.weekday()
+            model_day_idx = (weekday + 1) % 7
+            is_scheduled = str(model_day_idx) in [d.strip() for d in habit.scheduled_days.split(",")]
+            
+            if is_scheduled:
+                days_status[day] = "missed"
+            else:
+                days_status[day] = "non-scheduled"
+
+    return {
+        "habit_id": habit.id,
+        "habit_name": habit.name,
+        "year": year,
+        "month": month,
+        "current_streak": current_streak,
+        "max_streak": max_streak,
+        "deactivated_at": habit.deactivated_at.isoformat() if habit.deactivated_at else None,
+        "days": days_status
+    }
 
 @router.post("/habits", status_code=201)
 def create_habit(payload: HabitCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
@@ -1122,4 +1269,137 @@ def api_delete_skill(skill_id: str, db: Session = Depends(get_db)):
         return softskill_service.delete_skill(db, skill_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# --- Reward Shop (Boutique) Routes ---
+
+@router.get("/rewards")
+def get_rewards(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Get list of rewards for the user, with lock states calculated dynamically.
+    """
+    from src.services.reward_service import check_reward_lock, is_allostasis_available
+    rewards = db.query(Reward).filter_by(user_id=user_id).all()
+    result = []
+    for r in rewards:
+        unlocked, lock_reason = check_reward_lock(db, user_id, r)
+        is_available = is_allostasis_available(r) if r.category in ("allostasis_daily", "allostasis_weekly") else True
+        result.append({
+            "id": r.id,
+            "title": r.title,
+            "description": r.description,
+            "gold_cost": r.gold_cost,
+            "required_softskill_id": r.required_softskill_id,
+            "required_goal_id": r.required_goal_id,
+            "is_one_time": r.is_one_time,
+            "purchased_count": r.purchased_count,
+            "unlocked": unlocked,
+            "lock_reason": lock_reason,
+            "category": r.category,
+            "last_purchased_at": r.last_purchased_at.isoformat() if r.last_purchased_at else None,
+            "is_available": is_available
+        })
+    return result
+
+
+@router.post("/rewards", status_code=201)
+def create_reward(payload: RewardCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Create a new reward.
+    """
+    softskill_id = payload.required_softskill_id if payload.required_softskill_id and payload.required_softskill_id.strip() else None
+    goal_id = payload.required_goal_id
+    if goal_id:
+        goal = db.query(Goal).filter_by(id=goal_id, user_id=user_id).first()
+        if not goal:
+            raise HTTPException(status_code=400, detail="Objectif requis introuvable ou invalide.")
+
+    category = payload.category or "regular"
+    if category in ("allostasis_daily", "allostasis_weekly"):
+        gold_cost = 0
+        existing_count = db.query(Reward).filter_by(user_id=user_id, category=category).count()
+        if existing_count >= 3:
+            raise HTTPException(status_code=400, detail=f"Limite de 3 items pour la catégorie {category} atteinte.")
+    else:
+        gold_cost = payload.gold_cost
+
+    reward = Reward(
+        user_id=user_id,
+        title=payload.title,
+        description=payload.description,
+        gold_cost=gold_cost,
+        required_softskill_id=softskill_id,
+        required_goal_id=goal_id,
+        is_one_time=payload.is_one_time or False,
+        purchased_count=0,
+        category=category
+    )
+    db.add(reward)
+    db.commit()
+    db.refresh(reward)
+    return {"status": "success", "reward": reward}
+
+
+@router.put("/rewards/{reward_id}")
+def update_reward(reward_id: int, payload: RewardUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Update an existing reward.
+    """
+    reward = db.query(Reward).filter_by(id=reward_id, user_id=user_id).first()
+    if not reward:
+        raise HTTPException(status_code=404, detail="Récompense introuvable.")
+
+    softskill_id = payload.required_softskill_id if payload.required_softskill_id and payload.required_softskill_id.strip() else None
+    goal_id = payload.required_goal_id
+    if goal_id:
+        goal = db.query(Goal).filter_by(id=goal_id, user_id=user_id).first()
+        if not goal:
+            raise HTTPException(status_code=400, detail="Objectif requis introuvable ou invalide.")
+
+    category = payload.category or "regular"
+    if category in ("allostasis_daily", "allostasis_weekly"):
+        gold_cost = 0
+        existing_count = db.query(Reward).filter(
+            Reward.user_id == user_id,
+            Reward.category == category,
+            Reward.id != reward_id
+        ).count()
+        if existing_count >= 3:
+            raise HTTPException(status_code=400, detail=f"Limite de 3 items pour la catégorie {category} atteinte.")
+    else:
+        gold_cost = payload.gold_cost
+
+    reward.title = payload.title
+    reward.description = payload.description
+    reward.gold_cost = gold_cost
+    reward.required_softskill_id = softskill_id
+    reward.required_goal_id = goal_id
+    reward.is_one_time = payload.is_one_time or False
+    reward.category = category
+
+    db.commit()
+    db.refresh(reward)
+    return {"status": "success", "reward": reward}
+
+
+@router.delete("/rewards/{reward_id}")
+def delete_reward(reward_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Delete a reward.
+    """
+    reward = db.query(Reward).filter_by(id=reward_id, user_id=user_id).first()
+    if not reward:
+        raise HTTPException(status_code=404, detail="Récompense introuvable.")
+    db.delete(reward)
+    db.commit()
+    return {"status": "success", "message": "Reward deleted successfully"}
+
+
+@router.post("/rewards/{reward_id}/purchase")
+def purchase_reward_endpoint(reward_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Purchase a reward.
+    """
+    from src.services.reward_service import purchase_reward
+    return purchase_reward(db, user_id, reward_id)
 

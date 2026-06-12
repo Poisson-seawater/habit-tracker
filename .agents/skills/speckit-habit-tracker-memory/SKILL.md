@@ -66,9 +66,35 @@ Maps many-to-many linkages so steps can belong to multiple goal trees.
 - `goal_id` (Integer, Foreign Key)
 - `substep_id` (Integer, Foreign Key)
 
+### 4. `Habit`
+Represents character habits and scheduled check-ins.
+- `id` (Integer, Primary Key)
+- `user_id` (Integer, Foreign Key)
+- `name` (String, Required)
+- `type` (String, "binary" or "quantitative")
+- `frequency` (String, default: "daily")
+- `scheduled_days` (String, default: "0,1,2,3,4,5,6")
+- `is_active` (Boolean, default: `True`)
+- `deactivated_at` (DateTime, Optional)
+- `created_at` (DateTime, default: `datetime.now`)
+
+### 5. `User`
+Represents character profile and pinned goals/softskills.
+- `id` (Integer, Primary Key)
+- `username` (String)
+- `level` (Integer, default: `1`)
+- `xp` (Integer, default: `0`)
+- `gold` (Integer, default: `0`)
+- `pinned_substeps` (TEXT, serialized JSON list of integers)
+- `pinned_softskills` (TEXT, serialized JSON list of strings)
+
 ---
 
 ## 3. Backend Endpoints
+
+### Profile & Pins
+- `GET /api/v1/profile` — Retrieves active player statistics and pinned lists.
+- `PUT /api/v1/profile/pins` — Saves user's pinned sub-step and softskill IDs (max 3 per category).
 
 ### Goals
 - `GET /api/v1/goals` — Retrieves all goals with resolved substeps and completeness percentages.
@@ -82,9 +108,21 @@ Maps many-to-many linkages so steps can belong to multiple goal trees.
 - `DELETE /api/v1/substeps/{substep_id}` — Deletes a substep.
 - `POST /api/v1/substeps/{substep_id}/complete` — Marks substep as complete, rewards the player gold, updates character stats, and flags the parent goal as complete if all substeps are satisfied.
 
+### Habits & Streaks
+- `GET /api/v1/habits` — Retrieves all habits.
+- `POST /api/v1/habits` — Creates a new habit.
+- `PUT /api/v1/habits/{id}` — Updates a habit (handles deactivation/reactivation state and streak freeze resets).
+- `DELETE /api/v1/habits/{id}` — Soft-deactivates a habit and sets `deactivated_at`.
+- `GET /api/v1/habits/{id}/calendar` — Retrieves monthly streak data and status calendar grid.
+
 ---
 
 ## 4. Frontend & Layout Conventions
+
+### 3-3-3 Recap Dashboard Panel
+- **Vertical Stack**: Placed on the main page above the character sheet, displaying sections vertically (`display: flex; flex-direction: column;`).
+- **Focus Node Animation**: Clicking a pinned item focuses on its node (redirecting to the respective tab and animating with `pulse-highlight` keyframes).
+- **Selection Constraints**: Selection checkboxes in `#recap-pin-drawer` are limited to 3 items max.
 
 ### Slide-Out Drawer vs Centered Modal Popup
 1. **Creation View**: Clicking `⚔️ Forger & Gérer` slides a large panel out from the right (`right: 0`) showing all form sections.
@@ -111,6 +149,11 @@ In `app.js`, `openDrawer(mode, ...)` handles toggling specific form cards to pre
 - **`mode === "edit"`**: Displays only `#edit-goal-section` populated with existing goal data.
 - **`mode === "edit-substep"`**: Displays only `#edit-substep-section` populated with existing substep data.
 
+### Habit Detail Drawer & Calendar
+- **Interactive Habit View**: Clicking on a habit card slides out the `#habit-detail-drawer` containing badges for current and max streak, a list of stat rewards, and a monthly interactive calendar grid (`#habit-detail-calendar-grid`).
+- **Calendar Color Codes**: Days are visually distinct based on state classes (`completed`, `skipped`, `missed`, `non-scheduled`, `pre-creation`). Tooltips are rendered dynamically on hover to show the detailed state name.
+- **Deactivation/Reactivation Toggle**: A button inside the drawer allows users to soft-delete (deactivate) or reactivate habits, applying confirmation alerts and calling the soft-delete/update API routes.
+
 ---
 
 ## 5. Development & Testing Commands
@@ -118,6 +161,6 @@ In `app.js`, `openDrawer(mode, ...)` handles toggling specific form cards to pre
 To verify backend schema changes, API endpoints, or database structures:
 - Run Pytest from the backend directory using the project's virtualenv:
   ```bash
-  PYTHONPATH=. ../.venv/bin/pytest
+  PYTHONPATH=backend .venv/bin/pytest backend/tests
   ```
 - All endpoints, daily scores, and user isolation schemas should remain 100% green.

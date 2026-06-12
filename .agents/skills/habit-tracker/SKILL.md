@@ -40,13 +40,14 @@ aucun champ ni aucun id** : `GET` d'abord, récap avant écriture, puis POST.
 | **Stats potentielles / jour** | `GET /quests/daily-stats-potentials` | |
 | **Créer (unitaire ou en masse)** | `POST /todos` · `POST /habits` · `POST /notodos` (boucle) | voir « Création » |
 | **Gérer objectifs & sous-étapes** | `POST/PUT/DELETE /goals` · `POST /goals/{id}/substeps` · `PUT/DELETE /substeps/{id}` · `POST /substeps/{id}/complete` (gold) · `POST /substeps/link` | |
+| **Gérer la boutique & acheter** | `GET/POST/PUT/DELETE /rewards` · `POST /rewards/{id}/purchase` | |
 
 ## Endpoints (`?user_id=$U`, `-H 'Content-Type: application/json'` ; `/health` seul est hors `/api/v1`)
 
 | Méthode | Chemin | Corps JSON |
 |---------|--------|-----------|
 | GET | `/health`, `/api/v1/users`, `/api/v1/profile`, `/api/v1/history`, `/api/v1/quests/daily-stats-potentials`, `/api/v1/templates` | — |
-| GET | `/api/v1/habits`, `/api/v1/todos`, `/api/v1/notodos`, `/api/v1/goals` | — |
+| GET | `/api/v1/habits`, `/api/v1/todos`, `/api/v1/notodos`, `/api/v1/goals`, `/api/v1/rewards` | — |
 | POST | `/api/v1/logs` | `{habit_id, log_type:"done"|"log"|"skip", amount?, reason?}` |
 | POST | `/api/v1/habits` | `{name, type, description?, frequency?, scheduled_days?, reminder_time?, is_private?, is_reportable?, is_mandatory?, point_rewards, daily_cap?, unit?}` |
 | POST | `/api/v1/todos` | `{title, stat_reward_1?, points_reward_1?, stat_reward_2?, points_reward_2?, xp_reward?}` |
@@ -59,6 +60,8 @@ aucun champ ni aucun id** : `GET` d'abord, récap avant écriture, puis POST.
 | POST | `/api/v1/goals/{id}/substeps` · PUT `/api/v1/substeps/{id}` | `{title, description?, gold_reward?, stats_json?, execution_order?}` |
 | POST | `/api/v1/substeps/{id}/complete` · DELETE `/api/v1/substeps/{id}` | — |
 | POST | `/api/v1/substeps/link` | `{goal_id, substep_id}` |
+| POST/PUT/DELETE | `/api/v1/rewards` · `/api/v1/rewards/{id}` | `{title, description?, gold_cost, category?, required_softskill_id?, required_goal_id?, is_one_time}` |
+| POST | `/api/v1/rewards/{id}/purchase` | — |
 
 ```bash
 # Créer une prime

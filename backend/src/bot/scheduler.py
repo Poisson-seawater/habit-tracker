@@ -9,6 +9,7 @@ from src.config import TELEGRAM_BOT_TOKEN
 from src.database.session import SessionLocal
 from src.database.models import User, Habit, HabitLog, DailyScore, Streak, Todo
 from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_12_STATS
+from src.services.reward_service import get_allostasis_purchases_on_date
 
 STAT_LABELS = {
     "force": "Force 💪",
@@ -137,12 +138,20 @@ async def publish_daily_recap():
             if private_completed_count > 0:
                 actions_str += f" (+{private_completed_count} privées 🔒)"
 
+            # Fetch today's redeemed allostasis rewards
+            allostasis_purchased = get_allostasis_purchases_on_date(db, user.id, today)
+            allostasis_line = ""
+            if allostasis_purchased:
+                allostasis_items_str = ", ".join(f"{html.escape(r.title)} ✅" for r in allostasis_purchased)
+                allostasis_line = f"\n🧠 <b>Allostasie :</b> {allostasis_items_str}"
+
             user_block = (
                 f"👤 Aventurier : <b>{html.escape(user.username)}</b> (Niveau {user.level}{lvl_info})\n"
                 f"🛡️ <b>Statut :</b> {status_emoji} | Template : {score.template_used.upper()}\n"
                 f"🔥 Streak Perfect : <b>{perf_streak_val}j</b> | 💰 Or : <b>{user.gold} Gold</b>\n"
                 f"📈 <b>Stats du jour :</b> {stat_progression_str}\n"
                 f"⚔️ <b>Actions :</b> {actions_str}"
+                f"{allostasis_line}"
             )
             user_blocks.append(user_block)
             individual_reports[user.chat_id] = user_block

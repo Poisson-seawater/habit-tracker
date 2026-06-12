@@ -53,6 +53,40 @@ Agents **MUST** consult this history skill to understand what features have alre
   * **PyTest Suite** (`test_softskills.py`):
     * Added comprehensive route tests using `mock_config_file` temporary fixtures to test config mutations in isolation without writing to the live database or original json layout.
 
+### Milestone 4: Habit Streak Tracker & Interactive Calendar (Spec 004)
+* **Goal**: Enable streak tracking with custom frequencies, soft deactivation/reactivation rules, and a detailed visual monthly calendar history.
+* **Features**:
+  * **Database columns**: Added `is_active`, `deactivated_at`, and `created_at` fields to the `Habit` model.
+  * **Streak Logic & Rewards**: Continuity calculations ignore non-scheduled days, preserve streak on skips with reasons, reset only when scheduled days are missed, and award XP/Gold milestones at 30-day and 90-day marks.
+  * **FastAPI Backend API**:
+    * Soft-deactivation (DELETE) and reactivation (PUT) with 14-day freeze rules (re-activating after 14 days resets the streak to 0).
+    * `GET /api/v1/habits/{habit_id}/calendar` resolving day states: `pre-creation`, `non-scheduled`, `completed`, `skipped`, and `missed`.
+  * **Frontend Calendar UI**: Glassmorphism sliding detail drawer with previous/next month calendar grids, status-colored badges, and dynamic tooltips.
+  * **PyTest Suite** (`test_habit_streaks.py`): Testing freeze rules, milestone rewards, and calendar resolution.
+
+### Milestone 5: Reward Shop & Purchase Logic (Spec 005)
+* **Goal**: Add a shop category allowing users to buy custom rewards with accumulated gold.
+* **Features**:
+  - `Reward` and `PurchaseLog` models created in `models.py`.
+  - Check locks/requirements: rewards can be locked by unobtained softskills or uncompleted goals.
+  - CRUD routes for rewards and `/rewards/{reward_id}/purchase` endpoint.
+  - Interactive checkout modal in frontend.
+
+### Milestone 6: Allostasis Rewards & Weekly Reset (Spec 006)
+* **Goal**: Support specific Allostasis daily/weekly tasks that are free and reset at midnight / Monday morning.
+* **Features**:
+  - Added `allostasis_daily` and `allostasis_weekly` categories to rewards.
+  - Reset logic in `scheduler.py` resetting availability.
+  - Integration in Telegram Bot with `/shop` showing task status.
+
+### Milestone 7: 3-3-3 Recap Dashboard Panel (Spec 007)
+* **Goal**: Visually track the top 3 goals, top 3 softskills, and 3 active allostasis activities vertically on the main page.
+* **Features**:
+  - Added user fields `pinned_substeps` and `pinned_softskills` to store JSON arrays of pins.
+  - Selection overlay drawer with checkboxes restricted to 3 choices max.
+  - Navigation focusing: clicking a pinned item redirects to its respective tab and highlights the target node with a custom animation.
+  - Inline Allostasis checklist validation directly on the dashboard.
+
 ---
 
 ## 2. Database Migration Log
@@ -65,6 +99,10 @@ Manual SQLite migrations are stored under `backend/src/database/migrations/`.
 | `v2` | `v2_migration.sql` | Migration to handle database updates for v2 schemas. |
 | `v3` | `v3_substep_order.sql` | Adds `execution_order` to the `substeps` table to layout goal milestones. |
 | `v4` | `v4_softskills.sql` | Creates `user_softskill_progress` table tracking per-user completion and custom success criteria for softskills. |
+| `v5` | `v5_habit_deactivation.sql` | Adds `is_active`, `deactivated_at`, and `created_at` columns to the `habits` table. |
+| `v6` | `v6_rewards.sql` | Creates `rewards` and `purchase_logs` tables. |
+| `v7` | `v7_allostasis_rewards.sql` | Modifies categories to support daily/weekly allostasis types. |
+| `v8` | `v8_pinned_items.sql` | Adds `pinned_substeps` and `pinned_softskills` TEXT columns to `users`. |
 
 ---
 

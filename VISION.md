@@ -58,7 +58,7 @@ pour que tenir ses habitudes soit motivant plutôt que pénible.
 
 > Ce brainstorm contient les idées brutes du projet à structurer pour une future session de code. Chaque fonctionnalité est définie par son objectif et son gain de valeur directe.
 
-- **Gamification des seuils d'ancrage (30J / 90J)** :
+- **Gamification des seuils d'ancrage (30J / 90J)** : FAIT
   - **Objectif** : Valoriser le passage des paliers de formation d'une habitude (30 jours pour l'adoption initiale, 90 jours pour l'ancrage définitif).
   - **Gain** : Maintenir l'engagement à long terme en évitant le découragement après les premiers jours de streak. Offrir un sentiment de progression psychologique clair (ex: évolution visuelle ou titre honorifique de l'habitude).
 - **Règle d'initialisation des 7x7 (Démarrage rapide)** :
@@ -70,10 +70,13 @@ pour que tenir ses habitudes soit motivant plutôt que pénible.
 - **Régulation de la charge cognitive (Anti-surcharge)** :
   - **Objectif** : Limiter le nombre maximum de projets et d'habitudes actifs simultanément pour éviter la dispersion de l'attention et le burn-out de la volonté.
   - **Gain** : Maximiser le taux de succès sur les engagements pris en forçant l'utilisateur à se concentrer sur l'essentiel (finir ce qui est en cours avant d'en démarrer d'autres).
-- **Système de Visualisation des Skills** :
+- **Système de Visualisation des Skills** : FAIT
   - **Objectif** : Cartographier et suivre le développement des compétences personnelles et professionnelles en cours de développement, de manière similaire aux objectifs à long terme.
   - **Gain** : Rendre tangible la progression des compétences (ex. cuisine, programmation, sport, dessin) en reliant les actions quotidiennes à des gains de niveaux de compétence clairs, offrant ainsi une vision globale de son propre développement.
-- **Système de Punitions & Récompenses** :
-  - **Objectif** : Créer un mécanisme équilibré de conséquences positives (rewards) et négatives (punitions) face au respect ou à l'échec des engagements. Les récompenses proposent une boutique d'achats cosmétiques ou d'activités réelles, tandis que les punitions imposent des actions compensatoires utiles.
-  - **Gain** : Renforcer l'implication en donnant une valeur tangible (récompenses) et une conséquence constructive (punitions) aux comportements quotidiens, tout en évitant la culpabilité stérile grâce aux actions compensatoires.
+- **Système de Récompenses (Boutique) — FAIT** :
+  - **Objectif** : Boutique d'achats de récompenses réelles ou d'activités en échange de l'or durement gagné. Les récompenses peuvent exiger de débloquer certains objectifs ou compétences.
+  - **Gain** : Valorise tangiblement l'effort quotidien et l'or récolté.
+- **Système de Punitions (Futur)** :
+  - **Objectif** : Actions compensatoires utiles face à l'échec d'engagements.
+  - **Gain** : Éviter la culpabilité stérile via des corrections constructives.
 

@@ -8,10 +8,12 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes, Cal
 
 from src.config import TELEGRAM_BOT_TOKEN, TELEGRAM_GROUP_ID, TELEGRAM_WEB_APP_URL
 from src.database.session import SessionLocal
-from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, NoTodo
+from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, NoTodo, Reward
 from src.bot.parser import parse_command, ParserError
 from src.services.score_service import calculate_daily_score, update_streaks, DEFAULT_THRESHOLDS
 from src.bot.scheduler import start_scheduler
+from src.services.reward_service import check_reward_lock, purchase_reward, is_allostasis_available
+from fastapi import HTTPException
 
 # Mapping stats to their French display labels
 STAT_LABELS = {
@@ -547,6 +549,122 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             await update.message.reply_text(f"✨ Habitude créée : {title} ({habit_type_db})")
 
+        elif cmd == "shop":
+            filter_val = parsed.get("filter", "toutes")
+            rewards = db.query(Reward).filter_by(user_id=user.id).all()
+            
+            if not rewards:
+                await update.message.reply_text("🏪 La boutique est vide. Créez des récompenses sur le dashboard !")
+                return
+
+            daily_items = []
+            weekly_items = []
+            regular_items = []
+            
+            for r in rewards:
+                unlocked, reason = check_reward_lock(db, user.id, r)
+                
+                is_available = True
+                if r.category in ["allostasis_daily", "allostasis_weekly"]:
+                    is_available = is_allostasis_available(r)
+                    
+                is_owned = r.is_one_time and r.purchased_count > 0
+                
+                # Apply filters
+                if filter_val in ["dispos", "unlocked"]:
+                    if not unlocked:
+                        continue
+                    if is_owned:
+                        continue
+                    if r.category in ["allostasis_daily", "allostasis_weekly"] and not is_available:
+                        continue
+                if filter_val in ["verrouillees", "locked"] and unlocked:
+                    continue
+                    
+                desc_str = f" - <i>{html.escape(r.description)}</i>" if r.description else ""
+                
+                if r.category in ["allostasis_daily", "allostasis_weekly"]:
+                    if not unlocked:
+                        status = f" [🔒 Verrouillé: {reason}]"
+                    elif not is_available:
+                        status = " [✓ Validé]"
+                    else:
+                        status = " [🔄 A valider]"
+                    line = f"• <b>{html.escape(r.title)}</b>{desc_str}\n  Prix: <b>Gratuit</b>{status}"
+                    if r.category == "allostasis_daily":
+                        daily_items.append(line)
+                    else:
+                        weekly_items.append(line)
+                else:
+                    if is_owned:
+                        status = " [👑 Acquis]"
+                    elif not unlocked:
+                        status = f" [🔒 Verrouillé: {reason}]"
+                    else:
+                        status = " [🛒 Achetable]"
+                    line = f"• <b>{html.escape(r.title)}</b>{desc_str}\n  Prix: 💰 <b>{r.gold_cost} Or</b>{status}"
+                    regular_items.append(line)
+                    
+            lines = [f"🏪 <b>Boutique de {username}</b> (Solde : 💰 <b>{user.gold} Or</b>)\n"]
+            
+            if daily_items:
+                lines.append("🔄 <b>Allostasie Daily :</b>")
+                lines.extend(daily_items)
+                lines.append("")
+                
+            if weekly_items:
+                lines.append("📅 <b>Allostasie Weekly :</b>")
+                lines.extend(weekly_items)
+                lines.append("")
+                
+            if regular_items:
+                lines.append("💎 <b>Récompenses Classiques :</b>")
+                lines.extend(regular_items)
+
+            if len(daily_items) == 0 and len(weekly_items) == 0 and len(regular_items) == 0:
+                await update.message.reply_text("Aucune récompense ne correspond à ce filtre.")
+                return
+                
+            await update.message.reply_text("\n".join(lines).strip(), parse_mode="HTML")
+
+        elif cmd == "buy":
+            reward_name = parsed["reward_name"]
+            matches = db.query(Reward).filter(
+                Reward.user_id == user.id,
+                Reward.title.ilike(f"%{reward_name}%")
+            ).all()
+            
+            if not matches:
+                await update.message.reply_text(f"❌ Aucune récompense ne correspond à \"{reward_name}\".")
+                return
+                
+            if len(matches) > 1:
+                options_str = ", ".join(f"\"{r.title}\"" for r in matches)
+                await update.message.reply_text(
+                    f"❌ Plusieurs récompenses correspondent : {options_str}. Soyez plus précis."
+                )
+                return
+                
+            reward_to_buy = matches[0]
+            try:
+                res = purchase_reward(db, user.id, reward_to_buy.id)
+                if reward_to_buy.category in ["allostasis_daily", "allostasis_weekly"]:
+                    await update.message.reply_text(
+                        f"✅ Allostasie validée ! Vous avez validé <b>{html.escape(reward_to_buy.title)}</b>.\n"
+                        f"Solde actuel : 💰 <b>{res['new_gold']} Or</b>.",
+                        parse_mode="HTML"
+                    )
+                else:
+                    await update.message.reply_text(
+                        f"💸 Achat réussi ! Vous avez acheté <b>{html.escape(reward_to_buy.title)}</b> pour 💰 <b>{res['gold_spent']} Or</b>.\n"
+                        f"Nouveau solde : 💰 <b>{res['new_gold']} Or</b>.",
+                        parse_mode="HTML"
+                    )
+            except HTTPException as he:
+                await update.message.reply_text(f"⚠️ {he.detail}")
+            except Exception as e:
+                await update.message.reply_text(f"❌ Erreur lors de l'achat : {e}")
+
         elif cmd == "aide":
             keyboard = [
                 [InlineKeyboardButton("Ouvrir Mini App", callback_data="help_app")],
@@ -588,6 +706,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "<b>/add</b> [todo|notodo|habit] [titre] — Ajoute une tâche ou une règle (boutons si sans argument)\n"
             "<b>/add_habit</b> [binary|quant] [titre] [unité] — Crée une habitude\n"
             "<b>/fail</b> [nom_notodo] — Marque une règle No-Todo comme transgressée\n"
+            "<b>/shop</b> [filtre] — Affiche les récompenses de la boutique\n"
+            "<b>/buy</b> [nom] — Achète une récompense de la boutique\n"
             "<b>/motivation</b> — Liste tes objectifs à long terme\n"
             "<b>/app</b> — Ouvre le dashboard en Mini App Telegram\n"
             "<b>/aide</b> (alias <b>/help</b>) — Affiche ce menu d'aide"

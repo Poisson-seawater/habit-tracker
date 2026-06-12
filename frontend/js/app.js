@@ -32,6 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
   navTabs.forEach(tab => {
     tab.addEventListener("click", () => {
       const targetTab = tab.getAttribute("data-tab");
+      if (!targetTab) return;
       
       navTabs.forEach(t => t.classList.remove("active"));
       tabContents.forEach(c => c.classList.remove("active"));
@@ -50,6 +51,8 @@ document.addEventListener("DOMContentLoaded", () => {
         fetchWeeklyPotentials();
       } else if (targetTab === "softskills-tab") {
         fetchSoftskills();
+      } else if (targetTab === "rewards-tab") {
+        fetchRewards();
       }
     });
   });
@@ -191,7 +194,7 @@ document.addEventListener("DOMContentLoaded", () => {
           statsContainer.appendChild(statRow);
         });
       }
-
+      renderRecapPanel(data);
     } catch (error) {
       console.error(error);
       showToast("Erreur lors du chargement des statistiques", true);
@@ -255,7 +258,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         questItem.innerHTML = `
-          <div class="quest-details">
+          <div class="quest-details" data-id="${habit.id}" style="cursor: pointer;">
             <span class="quest-name">${habit.name}${privateLock}${freqBadge}</span>
             <span class="quest-desc">${habit.description || ''}</span>
             <span class="quest-reward-tag">Récompense : ${rewards}</span>
@@ -268,8 +271,17 @@ document.addEventListener("DOMContentLoaded", () => {
         questsListContainer.appendChild(questItem);
       });
 
+      document.querySelectorAll(".quest-details").forEach(el => {
+        el.addEventListener("click", () => {
+          const id = parseInt(el.getAttribute("data-id"));
+          const habit = visibleHabits.find(h => h.id === id);
+          if (habit) openHabitDetailModal(habit);
+        });
+      });
+
       document.querySelectorAll(".quest-edit-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
           const habit = JSON.parse(btn.getAttribute("data-habit"));
           openEditQuestModal(habit);
         });
@@ -277,14 +289,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Bind check-ins
       document.querySelectorAll(".done-action-btn").forEach(btn => {
-        btn.addEventListener("click", async () => {
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
           const habitId = btn.getAttribute("data-id");
           await submitQuestLog(habitId, "done");
         });
       });
 
       document.querySelectorAll(".log-action-btn").forEach(btn => {
-        btn.addEventListener("click", async () => {
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
           const habitId = btn.getAttribute("data-id");
           const unit = btn.getAttribute("data-unit");
           const val = prompt(`Combien de ${unit || 'points'} voulez-vous logger ?`);
@@ -297,7 +311,6 @@ document.addEventListener("DOMContentLoaded", () => {
           await submitQuestLog(habitId, "log", amt);
         });
       });
-
     } catch (error) {
       console.error(error);
       questsListContainer.innerHTML = `<p style="color: var(--accent-red); font-size: 0.9rem; text-align: center;">Erreur de chargement des quêtes.</p>`;
@@ -324,6 +337,160 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast("Erreur lors de l'enregistrement de l'habitude", true);
     }
   }
+
+  // ==============================================
+  // HABIT DETAILS & CALENDAR DRAWER               //
+  // ==============================================
+  let activeHabitForCalendar = null;
+  let calendarYear = new Date().getFullYear();
+  let calendarMonth = new Date().getMonth() + 1; // 1-12
+
+  async function openHabitDetailModal(habit, year = null, month = null) {
+    activeHabitForCalendar = habit;
+    if (year !== null) calendarYear = year;
+    if (month !== null) calendarMonth = month;
+
+    document.getElementById("habit-detail-overlay").classList.add("open");
+    document.getElementById("habit-detail-drawer").classList.add("open");
+
+    document.getElementById("habit-detail-title-val").textContent = habit.name;
+    document.getElementById("habit-detail-desc-val").textContent = habit.description || "Aucune description.";
+
+    const rewardsContainer = document.getElementById("habit-detail-rewards");
+    rewardsContainer.innerHTML = "";
+    const rewards = habit.point_rewards || {};
+    for (const [stat, pts] of Object.entries(rewards)) {
+      const badge = document.createElement("span");
+      badge.style.cssText = "background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.2); color: var(--accent-cyan); padding: 2px 8px; border-radius: 6px; font-weight: 600;";
+      badge.textContent = `${stat.toUpperCase()} +${pts}`;
+      rewardsContainer.appendChild(badge);
+    }
+    if (Object.keys(rewards).length === 0) {
+      rewardsContainer.textContent = "Aucune récompense de statistique.";
+    }
+
+    const actionBtn = document.getElementById("deactivate-reactivate-habit-btn");
+    if (habit.is_active) {
+      actionBtn.textContent = "Désactiver la Quête";
+      actionBtn.className = "quest-action-btn";
+      actionBtn.style.cssText = "flex: 1; padding: 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); color: #ef4444; cursor: pointer; border-radius: 8px; font-weight: 600;";
+    } else {
+      actionBtn.textContent = "Réactiver la Quête";
+      actionBtn.className = "quest-action-btn submit-btn";
+      actionBtn.style.cssText = "flex: 1; padding: 12px; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.5); color: var(--accent-green); cursor: pointer; border-radius: 8px; font-weight: 600;";
+    }
+
+    await fetchAndRenderHabitCalendar(habit.id, calendarYear, calendarMonth);
+  }
+
+  async function fetchAndRenderHabitCalendar(habitId, year, month) {
+    try {
+      const response = await fetch(`${API_BASE}/habits/${habitId}/calendar?year=${year}&month=${month}`);
+      if (!response.ok) throw new Error("Erreur de récupération du calendrier");
+      const data = await response.json();
+
+      const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+      document.getElementById("habit-calendar-month-title").textContent = `${monthNames[month - 1]} ${year}`;
+
+      document.getElementById("habit-detail-current-streak").textContent = `${data.current_streak} jours`;
+      document.getElementById("habit-detail-max-streak").textContent = `${data.max_streak} jours`;
+
+      const gridContainer = document.getElementById("habit-detail-calendar-grid");
+      gridContainer.innerHTML = "";
+
+      const firstDayDate = new Date(year, month - 1, 1);
+      const jsDay = firstDayDate.getDay();
+      const offset = (jsDay + 6) % 7;
+
+      for (let i = 0; i < offset; i++) {
+        const emptyCell = document.createElement("div");
+        emptyCell.className = "calendar-day-empty";
+        gridContainer.appendChild(emptyCell);
+      }
+
+      const totalDays = Object.keys(data.days).length;
+      for (let day = 1; day <= totalDays; day++) {
+        const cell = document.createElement("div");
+        cell.className = "calendar-day-box";
+        cell.textContent = day;
+
+        const status = data.days[day];
+        if (status) {
+          cell.classList.add(status);
+          
+          const stateLabels = {
+            completed: "Fait",
+            skipped: "Passé (Skip)",
+            missed: "Manqué",
+            "non-scheduled": "Non planifié",
+            "pre-creation": "Avant création",
+            future: "Futur"
+          };
+          cell.title = `Jour ${day}: ${stateLabels[status] || status}`;
+        }
+
+        gridContainer.appendChild(cell);
+      }
+    } catch (err) {
+      console.error(err);
+      document.getElementById("habit-detail-calendar-grid").innerHTML = `<p style="color:var(--accent-red);font-size:0.8rem;grid-column: span 7;text-align:center;">Erreur calendrier.</p>`;
+    }
+  }
+
+  function closeHabitDetail() {
+    document.getElementById("habit-detail-overlay").classList.remove("open");
+    document.getElementById("habit-detail-drawer").classList.remove("open");
+    activeHabitForCalendar = null;
+  }
+
+  document.getElementById("close-habit-detail-btn").addEventListener("click", closeHabitDetail);
+  document.getElementById("habit-detail-overlay").addEventListener("click", closeHabitDetail);
+
+  document.getElementById("habit-calendar-prev-btn").addEventListener("click", () => {
+    if (!activeHabitForCalendar) return;
+    calendarMonth--;
+    if (calendarMonth < 1) {
+      calendarMonth = 12;
+      calendarYear--;
+    }
+    fetchAndRenderHabitCalendar(activeHabitForCalendar.id, calendarYear, calendarMonth);
+  });
+
+  document.getElementById("habit-calendar-next-btn").addEventListener("click", () => {
+    if (!activeHabitForCalendar) return;
+    calendarMonth++;
+    if (calendarMonth > 12) {
+      calendarMonth = 1;
+      calendarYear++;
+    }
+    fetchAndRenderHabitCalendar(activeHabitForCalendar.id, calendarYear, calendarMonth);
+  });
+
+  document.getElementById("deactivate-reactivate-habit-btn").addEventListener("click", async () => {
+    if (!activeHabitForCalendar) return;
+    const newActiveState = !activeHabitForCalendar.is_active;
+    const confirmMsg = newActiveState 
+      ? "Voulez-vous réactiver cette quête ?" 
+      : "Voulez-vous vraiment désactiver cette quête ? Elle ne s'affichera plus dans vos quêtes actives.";
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/habits/${activeHabitForCalendar.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: newActiveState })
+      });
+      if (!response.ok) throw new Error("Erreur de mise à jour");
+      
+      showToast(newActiveState ? "Quête réactivée ! ✨" : "Quête désactivée !");
+      activeHabitForCalendar.is_active = newActiveState;
+      closeHabitDetail();
+      fetchQuests();
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la mise à jour de l'état.");
+    }
+  });
 
   // ==============================================
   // DAILY SCORES TEMPLATE OVERRIDES               //
@@ -866,7 +1033,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const statsTags = s.stats.map(st => `<span class="substep-tag">${STAT_LABELS[st.toLowerCase()] || st}</span>`).join(" ");
 
         nodesHTML += `
-          <div class="tree-node ${stateClass}" style="position: relative; padding-top: 1.6rem;">
+          <div class="tree-node ${stateClass}" data-substep-id="${s.id}" style="position: relative; padding-top: 1.6rem;">
             <div class="tree-node-actions" style="position: absolute; top: 8px; right: 8px; display: flex; gap: 0.4rem;">
               <span class="action-edit-substep-icon" data-id="${s.id}" style="cursor: pointer; font-size: 0.75rem; opacity: 0.6; hover: opacity: 1; transition: opacity 0.2s;" title="Modifier la sous-étape">✏️</span>
             </div>
@@ -1300,6 +1467,11 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchHistory();
     fetchBounties();
     fetchNoTodos();
+    
+    const rewardsTab = document.getElementById("rewards-tab");
+    if (rewardsTab && rewardsTab.classList.contains("active")) {
+      fetchRewards();
+    }
   }
 
   // Multi-user Login & Initialization
@@ -1342,6 +1514,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupBountiesEvents();
     setupQuestsEvents();
     setupNoTodosEvents();
+    setupRewardsEvents();
     // Auto-sync dashboard every 12 seconds
     setInterval(refreshAll, 12000);
   }
@@ -1607,7 +1780,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!container || !svgEl) return;
 
     // Clear only dynamically created nodes, leaving the SVG element intact
-    container.querySelectorAll(".softskill-node, .tree-node, .tree-column, p").forEach(el => el.remove());
+    container.querySelectorAll(".softskill-node, .hex-wrapper, .tree-node, .tree-column, p").forEach(el => el.remove());
     if (svgEl) {
       svgEl.style.display = "none";
       svgEl.innerHTML = "";
@@ -1740,17 +1913,20 @@ document.addEventListener("DOMContentLoaded", () => {
           return prereqSkill && prereqSkill.progress && prereqSkill.progress.completed;
         });
 
-        let stateClass = "locked";
-        if (isCompleted) stateClass = "completed-skill";
-        else if (prereqsMet) stateClass = "available";
+        let stateClass = "locked-node";
+        if (isCompleted) stateClass = "completed-node";
+        else if (prereqsMet) stateClass = "unlocked-node";
+
+        const doneIcon = isCompleted ? "✓" : "✔";
+        const doneCompletedClass = isCompleted ? "is-completed" : "";
 
         nodesHTML += `
-          <div class="softskill-node ${stateClass}" data-id="${s.id}" style="position: absolute; left: ${s.x}px; top: ${s.y}px; border-color: ${isCompleted || prereqsMet ? branchColor : 'rgba(255,255,255,0.1)'}; --node-glow: ${branchColor}66;">
-            <div class="tree-node-actions" style="position: absolute; top: 6px; right: 8px; display: flex; gap: 0.4rem;">
-              <span class="action-edit-softskill-icon" data-id="${s.id}" style="cursor: pointer; font-size: 0.7rem; opacity: 0.6; hover: opacity: 1;" title="Modifier">✏️</span>
+          <div class="hex-wrapper ${stateClass}" data-id="${s.id}" style="position: absolute; left: ${s.x}px; top: ${s.y}px; --hex-border-color: ${isCompleted || prereqsMet ? branchColor : 'rgba(255,255,255,0.15)'};">
+            <span class="hex-action-edit action-edit-softskill-icon" data-id="${s.id}" title="Modifier">✏️</span>
+            <button class="hex-action-done action-complete-softskill ${doneCompletedClass}" data-id="${s.id}" title="${isCompleted ? 'Complété' : 'Valider'}">${doneIcon}</button>
+            <div class="tree-node" data-id="${s.id}">
+              <span class="tree-node-title">${s.name}</span>
             </div>
-            <span class="softskill-node-name">${s.name}</span>
-            <span class="softskill-node-badge" style="background-color: ${branchColor}22; color: ${branchColor}; border: 1px solid ${branchColor}44;">${s.branch}</span>
           </div>
         `;
       });
@@ -1759,14 +1935,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (svgEl) {
         let svgLines = "";
         skills.forEach(s => {
-          const sX = s.x + 80;
-          const sY = s.y + 25;
+          const sX = s.x + 50;
+          const sY = s.y + 56;
 
           (s.prerequisites || []).forEach(pid => {
             const parent = skills.find(sk => sk.id === pid);
             if (parent) {
-              const pX = parent.x + 80;
-              const pY = parent.y + 25;
+              const pX = parent.x + 50;
+              const pY = parent.y + 56;
               const parentBranchColor = (branches[parent.branch] || {}).color || "#8b5cf6";
               const lineCompleted = (s.progress && s.progress.completed) && (parent.progress && parent.progress.completed);
               const strokeColor = lineCompleted ? "var(--accent-green)" : (s.progress && s.progress.completed ? parentBranchColor : "rgba(255, 255, 255, 0.15)");
@@ -1780,8 +1956,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const rel = skills.find(sk => sk.id === rid);
             if (rel) {
               if (s.id < rel.id) {
-                const rX = rel.x + 80;
-                const rY = rel.y + 25;
+                const rX = rel.x + 50;
+                const rY = rel.y + 56;
                 const strokeColor = "rgba(255, 255, 255, 0.12)";
                 svgLines += `<line x1="${sX}" y1="${sY}" x2="${rX}" y2="${rY}" stroke="${strokeColor}" stroke-dasharray="4 4" stroke-width="1.5" />`;
               }
@@ -1834,21 +2010,16 @@ document.addEventListener("DOMContentLoaded", () => {
           if (isCompleted) stateClass = "completed-node";
           else if (prereqsMet) stateClass = "unlocked-node";
 
-          let btnHTML = "";
-          if (isCompleted) {
-            btnHTML = `<span style="color: var(--accent-green); font-size: 0.75rem; font-weight: 700; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.2rem;">✓ Complété</span>`;
-          } else {
-            btnHTML = `<button class="tree-node-btn action-complete-softskill" data-id="${s.id}">Valider</button>`;
-          }
+          const doneIcon = isCompleted ? "✓" : "✔";
+          const doneCompletedClass = isCompleted ? "is-completed" : "";
 
           nodesHTML += `
-            <div class="tree-node ${stateClass}" data-id="${s.id}" style="position: relative; padding-top: 1.6rem; border-color: ${isCompleted || prereqsMet ? branchColor : ''};">
-              <div class="tree-node-actions" style="position: absolute; top: 8px; right: 8px; display: flex; gap: 0.4rem;">
-                <span class="action-edit-softskill-icon" data-id="${s.id}" style="cursor: pointer; font-size: 0.75rem; opacity: 0.6; hover: opacity: 1; transition: opacity 0.2s;" title="Modifier la compétence">✏️</span>
+            <div class="hex-wrapper ${stateClass}" data-id="${s.id}" style="--hex-border-color: ${isCompleted || prereqsMet ? branchColor : 'rgba(255,255,255,0.15)'};">
+              <span class="hex-action-edit action-edit-softskill-icon" data-id="${s.id}" title="Modifier">✏️</span>
+              <button class="hex-action-done action-complete-softskill ${doneCompletedClass}" data-id="${s.id}" title="${isCompleted ? 'Complété' : 'Valider'}">${doneIcon}</button>
+              <div class="tree-node" data-id="${s.id}">
+                <span class="tree-node-title"><span style="color: var(--text-muted); font-size: 0.7em; display: block; margin-bottom: 0.15em;">[Étape ${s.execution_order || 1}]</span>${s.name}</span>
               </div>
-              <span class="tree-node-title" style="margin-top: 0.2rem;"><span style="color: var(--text-muted); font-size: 0.75em; margin-right: 0.2em;">[Étape ${s.execution_order || 1}]</span> ${s.name}</span>
-              ${s.description ? `<span class="tree-node-desc" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.2rem; line-height: 1.2;">${s.description}</span>` : ""}
-              ${btnHTML}
             </div>
           `;
         });
@@ -1858,6 +2029,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ${nodesHTML}
           </div>
         `;
+
       });
 
       const totalSkills = branchSkills.length;
@@ -1867,10 +2039,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
       columnsHTML += `
         <div class="tree-column">
-          <div class="tree-node ${branchCompleted ? 'completed-node' : 'unlocked-node'}" style="min-height: 120px; border-color: ${branchColor}; box-shadow: 0 0 15px ${branchColor}33;">
-            <span class="substep-tag" style="background: ${branchColor}22; color: ${branchColor}; font-size: 0.65rem;">BRANCHE MAÎTRESSE</span>
-            <span class="tree-node-title" style="font-size: 1.1rem; color: ${branchColor}; margin-top: 0.3rem;">${activeBranchKey.toUpperCase()}</span>
-            <span class="tree-node-desc" style="font-size: 0.78rem;">${percent}% complété</span>
+          <div class="hex-wrapper ${branchCompleted ? 'completed-node' : 'unlocked-node'}" style="--hex-border-color: ${branchColor}; width: 120px; height: 134px;">
+            <div class="tree-node">
+              <span class="substep-tag" style="background: ${branchColor}22; color: ${branchColor}; font-size: 0.55rem; padding: 2px 6px; border-radius: 4px;">BRANCHE MAÎTRESSE</span>
+              <span class="tree-node-title" style="font-size: 0.7rem; color: ${branchColor};">${activeBranchKey.toUpperCase()}</span>
+              <span class="tree-node-desc" style="font-size: 0.72rem;">${percent}% complété</span>
+            </div>
           </div>
         </div>
       `;
@@ -1879,8 +2053,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Attach click listeners to cards
-    const cardSelector = activeBranchKey === "global" ? ".softskill-node" : ".tree-node";
-    container.querySelectorAll(cardSelector).forEach(node => {
+    container.querySelectorAll(".hex-wrapper").forEach(node => {
       node.addEventListener("click", (e) => {
         if (e.target.closest(".action-complete-softskill") || e.target.closest(".action-edit-softskill-icon") || e.target.closest(".tree-node-btn")) return;
         const skillId = node.getAttribute("data-id");
@@ -2300,6 +2473,778 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error(error);
         showToast("Erreur lors de la mise à jour", true);
       }
+    });
+  }
+
+  // ==============================================
+  // REWARD SHOP (BOUTIQUE) ACTIONS & RENDERING
+  // ==============================================
+
+  async function populateRewardFormDropdowns() {
+    try {
+      // 1. Populate softskills dropdown
+      const softskillsResp = await fetch(`${API_BASE}/softskills`);
+      if (softskillsResp.ok) {
+        const data = await softskillsResp.json();
+        const skills = data.skills || [];
+        const select = document.getElementById("reward-form-softskill");
+        if (select) {
+          select.innerHTML = '<option value="">Aucun prérequis</option>';
+          skills.forEach(s => {
+            const opt = document.createElement("option");
+            opt.value = s.id;
+            opt.textContent = `${s.name} (${s.branch})`;
+            select.appendChild(opt);
+          });
+        }
+      }
+
+      // 2. Populate goals dropdown
+      const goalsResp = await fetch(`${API_BASE}/goals`);
+      if (goalsResp.ok) {
+        const goals = await goalsResp.json();
+        const select = document.getElementById("reward-form-goal");
+        if (select) {
+          select.innerHTML = '<option value="">Aucun prérequis</option>';
+          goals.forEach(g => {
+            const opt = document.createElement("option");
+            opt.value = g.id;
+            opt.textContent = g.title;
+            select.appendChild(opt);
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Error populating reward form dropdowns:", err);
+    }
+  }
+
+  async function openRewardDrawer(reward = null) {
+    const drawer = document.getElementById("reward-drawer");
+    const overlay = document.getElementById("drawer-overlay");
+    if (!drawer || !overlay) return;
+
+    await populateRewardFormDropdowns();
+
+    drawer.classList.add("open");
+    overlay.classList.add("open");
+
+    const drawerTitle = document.getElementById("reward-drawer-title");
+    const deleteBtn = document.getElementById("delete-reward-btn");
+
+    const categorySelect = document.getElementById("reward-form-category");
+    const costInput = document.getElementById("reward-form-cost");
+    const oneTimeCheckbox = document.getElementById("reward-form-onetime");
+
+    function updateCategoryDisabledStates() {
+      if (!categorySelect) return;
+      const val = categorySelect.value;
+      const costGrid = document.getElementById("reward-form-cost-grid");
+      const softskillGroup = document.getElementById("reward-form-softskill-group");
+      const goalGroup = document.getElementById("reward-form-goal-group");
+
+      if (val === "allostasis_daily" || val === "allostasis_weekly") {
+        costInput.value = "0";
+        costInput.disabled = true;
+        oneTimeCheckbox.checked = false;
+        oneTimeCheckbox.disabled = true;
+        
+        if (costGrid) costGrid.style.display = "none";
+        if (softskillGroup) {
+          softskillGroup.style.display = "none";
+          const ssSelect = document.getElementById("reward-form-softskill");
+          if (ssSelect) ssSelect.value = "";
+        }
+        if (goalGroup) {
+          goalGroup.style.display = "none";
+          const gSelect = document.getElementById("reward-form-goal");
+          if (gSelect) gSelect.value = "";
+        }
+      } else {
+        costInput.disabled = false;
+        oneTimeCheckbox.disabled = false;
+        
+        if (costGrid) costGrid.style.display = "grid";
+        if (softskillGroup) softskillGroup.style.display = "block";
+        if (goalGroup) goalGroup.style.display = "block";
+      }
+    }
+
+    if (reward) {
+      drawerTitle.textContent = "✏️ Modifier la Récompense";
+      deleteBtn.style.display = "block";
+      
+      document.getElementById("reward-form-id").value = reward.id;
+      document.getElementById("reward-form-title").value = reward.title;
+      document.getElementById("reward-form-desc").value = reward.description || "";
+      document.getElementById("reward-form-cost").value = reward.gold_cost;
+      document.getElementById("reward-form-onetime").checked = reward.is_one_time || false;
+      document.getElementById("reward-form-softskill").value = reward.required_softskill_id || "";
+      document.getElementById("reward-form-goal").value = reward.required_goal_id || "";
+      if (categorySelect) categorySelect.value = reward.category || "regular";
+    } else {
+      drawerTitle.textContent = "🏪 Créer une Récompense";
+      deleteBtn.style.display = "none";
+      
+      document.getElementById("reward-form-id").value = "";
+      document.getElementById("reward-form-title").value = "";
+      document.getElementById("reward-form-desc").value = "";
+      document.getElementById("reward-form-cost").value = "0";
+      document.getElementById("reward-form-onetime").checked = false;
+      document.getElementById("reward-form-softskill").value = "";
+      document.getElementById("reward-form-goal").value = "";
+      if (categorySelect) categorySelect.value = "regular";
+    }
+    updateCategoryDisabledStates();
+  }
+
+  function closeRewardDrawer() {
+    const drawer = document.getElementById("reward-drawer");
+    const overlay = document.getElementById("drawer-overlay");
+    if (drawer) drawer.classList.remove("open");
+    if (overlay) overlay.classList.remove("open");
+  }
+
+  async function fetchRewards() {
+    try {
+      const profileResp = await fetch(`${API_BASE}/profile`);
+      if (profileResp.ok) {
+        const profileData = await profileResp.json();
+        const topGoldVal = document.getElementById("top-gold-val");
+        const charGoldVal = document.getElementById("char-gold-val");
+        const shopGoldVal = document.getElementById("shop-gold-val");
+        if (topGoldVal) topGoldVal.textContent = `💰 ${profileData.gold} Gold`;
+        if (charGoldVal) charGoldVal.textContent = profileData.gold;
+        if (shopGoldVal) shopGoldVal.textContent = `💰 ${profileData.gold} Gold`;
+      }
+
+      const response = await fetch(`${API_BASE}/rewards`);
+      if (!response.ok) throw new Error("Erreur fetch rewards");
+      const rewards = await response.json();
+
+      const dailyGrid = document.getElementById("rewards-grid-allostasis-daily");
+      const weeklyGrid = document.getElementById("rewards-grid-allostasis-weekly");
+      const standardGrid = document.getElementById("rewards-grid");
+      const dailySection = document.getElementById("allostasis-daily-section");
+      const weeklySection = document.getElementById("allostasis-weekly-section");
+      const standardHeader = document.getElementById("standard-rewards-header");
+
+      if (dailyGrid) dailyGrid.innerHTML = "";
+      if (weeklyGrid) weeklyGrid.innerHTML = "";
+      if (standardGrid) standardGrid.innerHTML = "";
+
+      const activeFilterBtn = document.querySelector(".shop-filter-btn.active");
+      const filter = activeFilterBtn ? activeFilterBtn.getAttribute("data-filter") : "all";
+
+      const filteredRewards = rewards.filter(r => {
+        if (filter === "unlocked") return r.unlocked;
+        if (filter === "locked") return !r.unlocked;
+        return true;
+      });
+
+      if (filteredRewards.length === 0) {
+        if (standardGrid) {
+          standardGrid.innerHTML = `<p style="grid-column: 1 / -1; color: var(--text-secondary); text-align: center; padding: 2rem 0; font-size: 0.9rem;">Aucune récompense à afficher.</p>`;
+        }
+        if (dailySection) dailySection.style.display = "none";
+        if (weeklySection) weeklySection.style.display = "none";
+        if (standardHeader) standardHeader.style.display = "none";
+        return;
+      }
+
+      let dailyCount = 0;
+      let weeklyCount = 0;
+      let regularCount = 0;
+
+      filteredRewards.forEach(r => {
+        const isAllostasis = r.category === "allostasis_daily" || r.category === "allostasis_weekly";
+        
+        let buyBtnText = "";
+        let buyDisabled = false;
+        let cardClass = "";
+        
+        if (isAllostasis) {
+          const isCompleted = !r.is_available;
+          buyBtnText = isCompleted ? "✓ Validé" : "Valider";
+          buyDisabled = isCompleted || !r.unlocked;
+          cardClass = `reward-card reward-card-allostasis ${!r.unlocked ? 'locked' : ''} ${isCompleted ? 'completed-allostasis' : ''}`;
+        } else {
+          const isOnetimeOwned = r.is_one_time && r.purchased_count > 0;
+          buyBtnText = isOnetimeOwned ? "Déjà acquis" : `Acheter (💰 ${r.gold_cost} Or)`;
+          buyDisabled = !r.unlocked || isOnetimeOwned;
+          cardClass = `reward-card ${!r.unlocked ? 'locked' : ''} ${isOnetimeOwned ? 'owned' : ''}`;
+        }
+
+        let requirementsHTML = "";
+        if (!r.unlocked && r.lock_reason) {
+          requirementsHTML = `
+            <div class="reward-card-requirements">
+              <span class="reward-req-badge unmet">🔒 ${r.lock_reason}</span>
+            </div>
+          `;
+        } else if (r.required_softskill_id || r.required_goal_id) {
+          requirementsHTML = `
+            <div class="reward-card-requirements">
+              <span class="reward-req-badge met">✓ Prérequis remplis</span>
+            </div>
+          `;
+        }
+
+        let purchasedCountHTML = "";
+        if (isAllostasis) {
+          purchasedCountHTML = r.purchased_count > 0 
+            ? `<span class="reward-card-purchased-badge">Validations : ${r.purchased_count} fois</span>` 
+            : "";
+        } else {
+          purchasedCountHTML = r.purchased_count > 0 
+            ? `<span class="reward-card-purchased-badge">Acheté : ${r.purchased_count} fois</span>` 
+            : "";
+        }
+
+        const costHTML = isAllostasis 
+          ? `<span class="reward-card-cost free" style="color: var(--accent-cyan); font-weight: 700;">Gratuit</span>` 
+          : `<span class="reward-card-cost">💰 ${r.gold_cost} Or</span>`;
+
+        const card = document.createElement("div");
+        card.className = cardClass;
+        card.innerHTML = `
+          <div class="reward-card-header">
+            <h3 class="reward-card-title">${r.title}</h3>
+            ${costHTML}
+          </div>
+          <p class="reward-card-desc">${r.description || 'Aucune description.'}</p>
+          ${requirementsHTML}
+          <div>
+            ${purchasedCountHTML}
+            <div class="reward-card-actions">
+              <button class="reward-buy-btn" data-id="${r.id}" ${buyDisabled ? 'disabled' : ''}>
+                ${buyBtnText}
+              </button>
+              <button class="reward-edit-btn" data-reward='${JSON.stringify(r)}'>✏️</button>
+            </div>
+          </div>
+        `;
+
+        card.querySelector(".reward-buy-btn").addEventListener("click", () => buyReward(r.id));
+        card.querySelector(".reward-edit-btn").addEventListener("click", () => openRewardDrawer(r));
+
+        if (r.category === "allostasis_daily") {
+          if (dailyGrid) {
+            dailyGrid.appendChild(card);
+            dailyCount++;
+          }
+        } else if (r.category === "allostasis_weekly") {
+          if (weeklyGrid) {
+            weeklyGrid.appendChild(card);
+            weeklyCount++;
+          }
+        } else {
+          if (standardGrid) {
+            standardGrid.appendChild(card);
+            regularCount++;
+          }
+        }
+      });
+
+      if (dailySection) dailySection.style.display = dailyCount > 0 ? "block" : "none";
+      if (weeklySection) weeklySection.style.display = weeklyCount > 0 ? "block" : "none";
+      if (standardHeader) standardHeader.style.display = (dailyCount > 0 || weeklyCount > 0) && regularCount > 0 ? "block" : "none";
+
+      if (dailyCount === 0 && weeklyCount === 0 && regularCount === 0) {
+        if (standardGrid) {
+          standardGrid.innerHTML = `<p style="grid-column: 1 / -1; color: var(--text-secondary); text-align: center; padding: 2rem 0; font-size: 0.9rem;">Aucune récompense à afficher.</p>`;
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Erreur lors de la récupération des récompenses", true);
+    }
+  }
+
+  async function buyReward(rewardId) {
+    try {
+      const response = await fetch(`${API_BASE}/rewards/${rewardId}/purchase`, {
+        method: "POST"
+      });
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || "Erreur lors de l'achat");
+      }
+      const data = await response.json();
+      showToast(`Achat réussi ! Or dépensé : ${data.gold_spent} Or 💸`);
+      await fetchRewards();
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  }
+
+  function setupRewardsEvents() {
+    const openBtn = document.getElementById("open-reward-modal-btn");
+    const closeBtn = document.getElementById("close-reward-drawer-btn");
+    const form = document.getElementById("reward-form");
+    const deleteBtn = document.getElementById("delete-reward-btn");
+    const overlay = document.getElementById("drawer-overlay");
+
+    if (openBtn) {
+      openBtn.addEventListener("click", () => openRewardDrawer(null));
+    }
+    if (closeBtn) {
+      closeBtn.addEventListener("click", closeRewardDrawer);
+    }
+    if (overlay) {
+      overlay.addEventListener("click", closeRewardDrawer);
+    }
+
+    const filterBtns = document.querySelectorAll(".shop-filter-btn");
+    filterBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        filterBtns.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        fetchRewards();
+      });
+    });
+
+    const categorySelect = document.getElementById("reward-form-category");
+    const costInput = document.getElementById("reward-form-cost");
+    const oneTimeCheckbox = document.getElementById("reward-form-onetime");
+
+    if (categorySelect) {
+      categorySelect.addEventListener("change", () => {
+        const val = categorySelect.value;
+        const costGrid = document.getElementById("reward-form-cost-grid");
+        const softskillGroup = document.getElementById("reward-form-softskill-group");
+        const goalGroup = document.getElementById("reward-form-goal-group");
+
+        if (val === "allostasis_daily" || val === "allostasis_weekly") {
+          costInput.value = "0";
+          costInput.disabled = true;
+          oneTimeCheckbox.checked = false;
+          oneTimeCheckbox.disabled = true;
+          
+          if (costGrid) costGrid.style.display = "none";
+          if (softskillGroup) {
+            softskillGroup.style.display = "none";
+            const ssSelect = document.getElementById("reward-form-softskill");
+            if (ssSelect) ssSelect.value = "";
+          }
+          if (goalGroup) {
+            goalGroup.style.display = "none";
+            const gSelect = document.getElementById("reward-form-goal");
+            if (gSelect) gSelect.value = "";
+          }
+        } else {
+          costInput.disabled = false;
+          oneTimeCheckbox.disabled = false;
+          
+          if (costGrid) costGrid.style.display = "grid";
+          if (softskillGroup) softskillGroup.style.display = "block";
+          if (goalGroup) goalGroup.style.display = "block";
+        }
+      });
+    }
+
+    if (form) {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const id = document.getElementById("reward-form-id").value;
+        const title = document.getElementById("reward-form-title").value.trim();
+        const desc = document.getElementById("reward-form-desc").value.trim();
+        const cost = parseInt(document.getElementById("reward-form-cost").value) || 0;
+        const onetime = document.getElementById("reward-form-onetime").checked;
+        const softskill = document.getElementById("reward-form-softskill").value || null;
+        const category = document.getElementById("reward-form-category").value || "regular";
+        
+        const goalVal = document.getElementById("reward-form-goal").value;
+        const goal = goalVal ? parseInt(goalVal) : null;
+
+        const payload = {
+          title: title,
+          description: desc,
+          gold_cost: cost,
+          required_softskill_id: softskill,
+          required_goal_id: goal,
+          is_one_time: onetime,
+          category: category
+        };
+
+        try {
+          const method = id ? "PUT" : "POST";
+          const url = id ? `${API_BASE}/rewards/${id}` : `${API_BASE}/rewards`;
+          
+          const response = await fetch(url, {
+            method: method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.detail || "Erreur de sauvegarde");
+          }
+
+          showToast(id ? "Récompense modifiée avec succès !" : "Nouvelle récompense créée ! ✨");
+          closeRewardDrawer();
+          await fetchRewards();
+        } catch (err) {
+          showToast(err.message, true);
+        }
+      });
+    }
+
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", async () => {
+        const id = document.getElementById("reward-form-id").value;
+        if (!id) return;
+        if (!confirm("Voulez-vous vraiment supprimer cette récompense ?")) return;
+
+        try {
+          const response = await fetch(`${API_BASE}/rewards/${id}`, {
+            method: "DELETE"
+          });
+          if (!response.ok) throw new Error("Erreur lors de la suppression");
+
+          showToast("Récompense supprimée.");
+          closeRewardDrawer();
+          await fetchRewards();
+        } catch (err) {
+          showToast(err.message, true);
+        }
+      });
+    }
+  }
+
+  // ==============================================
+  // 3-3-3 RECAP PANEL & DRAWER                    //
+  // ==============================================
+  let allostasisViewMode = "daily"; // "daily" or "weekly"
+  let pinnedSubsteps = [];
+  let pinnedSoftskills = [];
+
+  // Helper to open/close the pin drawer
+  function openRecapPinDrawer() {
+    const overlay = document.getElementById("drawer-overlay");
+    const drawer = document.getElementById("recap-pin-drawer");
+    if (overlay && drawer) {
+      overlay.classList.add("open");
+      drawer.classList.add("open");
+      populatePinDrawerOptions();
+    }
+  }
+
+  function closeRecapPinDrawer() {
+    const overlay = document.getElementById("drawer-overlay");
+    const drawer = document.getElementById("recap-pin-drawer");
+    if (overlay && drawer) {
+      overlay.classList.remove("open");
+      drawer.classList.remove("open");
+    }
+  }
+
+  // Populate checklist checkboxes in the pin drawer
+  async function populatePinDrawerOptions() {
+    const goalsListContainer = document.getElementById("recap-pin-goals-list");
+    const skillsListContainer = document.getElementById("recap-pin-skills-list");
+    if (!goalsListContainer || !skillsListContainer) return;
+
+    goalsListContainer.innerHTML = `<p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Chargement des objectifs...</p>`;
+    skillsListContainer.innerHTML = `<p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Chargement des compétences...</p>`;
+
+    try {
+      // 1. Fetch Goals & Substeps
+      const goalsResp = await fetch(`${API_BASE}/goals`);
+      if (!goalsResp.ok) throw new Error("Failed to load goals");
+      const goals = await goalsResp.json();
+
+      // Find all uncompleted substeps across all goals
+      let substepsHtml = "";
+      let hasSubsteps = false;
+      goals.forEach(goal => {
+        const eligibleSubsteps = goal.substeps.filter(s => !s.completed || pinnedSubsteps.includes(s.id));
+        if (eligibleSubsteps.length > 0) {
+          hasSubsteps = true;
+          eligibleSubsteps.forEach(sub => {
+            const isChecked = pinnedSubsteps.includes(sub.id) ? "checked" : "";
+            substepsHtml += `
+              <label class="recap-checkbox-container">
+                <input type="checkbox" name="pin-substep-checkbox" value="${sub.id}" ${isChecked}>
+                <span style="font-size: 0.8rem;"><strong>${goal.title}</strong>: ${sub.title}</span>
+              </label>
+            `;
+          });
+        }
+      });
+      goalsListContainer.innerHTML = hasSubsteps ? substepsHtml : `<p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Aucune sous-étape active.</p>`;
+
+      // 2. Fetch Softskills
+      const skillsResp = await fetch(`${API_BASE}/softskills`);
+      if (!skillsResp.ok) throw new Error("Failed to load softskills");
+      const skillsData = await skillsResp.json();
+      const skills = skillsData.skills || [];
+
+      // Filter uncompleted or already pinned softskills
+      const eligibleSkills = skills.filter(s => !(s.progress && s.progress.completed) || pinnedSoftskills.includes(s.id));
+      let skillsHtml = "";
+      if (eligibleSkills.length > 0) {
+        eligibleSkills.forEach(skill => {
+          const isChecked = pinnedSoftskills.includes(skill.id) ? "checked" : "";
+          skillsHtml += `
+            <label class="recap-checkbox-container">
+              <input type="checkbox" name="pin-skill-checkbox" value="${skill.id}" ${isChecked}>
+              <span style="font-size: 0.8rem;"><strong>${skill.branch}</strong>: ${skill.name}</span>
+            </label>
+          `;
+        });
+        skillsListContainer.innerHTML = skillsHtml;
+      } else {
+        skillsListContainer.innerHTML = `<p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Aucune compétence active.</p>`;
+      }
+
+      // Add selection limits (max 3)
+      setupCheckboxLimit("pin-substep-checkbox");
+      setupCheckboxLimit("pin-skill-checkbox");
+
+    } catch (err) {
+      goalsListContainer.innerHTML = `<p style="font-size: 0.8rem; color: var(--accent-red); margin: 0;">Erreur de chargement.</p>`;
+      skillsListContainer.innerHTML = `<p style="font-size: 0.8rem; color: var(--accent-red); margin: 0;">Erreur de chargement.</p>`;
+    }
+  }
+
+  // Disable extra checkboxes if 3 are checked
+  function setupCheckboxLimit(checkboxName) {
+    const checkboxes = document.querySelectorAll(`input[name="${checkboxName}"]`);
+    
+    const updateStates = () => {
+      const checkedCount = document.querySelectorAll(`input[name="${checkboxName}"]:checked`).length;
+      checkboxes.forEach(cb => {
+        if (!cb.checked) {
+          cb.disabled = checkedCount >= 3;
+        } else {
+          cb.disabled = false;
+        }
+      });
+    };
+
+    checkboxes.forEach(cb => {
+      cb.addEventListener("change", updateStates);
+    });
+
+    updateStates();
+  }
+
+  // Save pinned items to database
+  async function savePinnedItems() {
+    const checkedSubsteps = Array.from(document.querySelectorAll('input[name="pin-substep-checkbox"]:checked')).map(cb => parseInt(cb.value));
+    const checkedSkills = Array.from(document.querySelectorAll('input[name="pin-skill-checkbox"]:checked')).map(cb => cb.value);
+
+    try {
+      const resp = await fetch(`${API_BASE}/profile/pins`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pinned_substeps: checkedSubsteps,
+          pinned_softskills: checkedSkills
+        })
+      });
+
+      if (!resp.ok) throw new Error("Erreur de sauvegarde de l'API");
+      showToast("Épingles 3-3-3 sauvegardées ! 📌");
+      closeRecapPinDrawer();
+      fetchProfile(); // Reload dashboard profile and recap panel
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  }
+
+  // Render the recap panel content
+  async function renderRecapPanel(profileData) {
+    const goalsList = document.getElementById("recap-goals-list");
+    const skillsList = document.getElementById("recap-skills-list");
+    const allostasisList = document.getElementById("recap-allostasis-list");
+    const allostasisTitle = document.getElementById("recap-allostasis-title");
+
+    if (!goalsList || !skillsList || !allostasisList) return;
+
+    pinnedSubsteps = profileData.pinned_substeps || [];
+    pinnedSoftskills = profileData.pinned_softskills || [];
+
+    // 1. Render Goals
+    try {
+      const goalsResp = await fetch(`${API_BASE}/goals`);
+      const goals = await goalsResp.json();
+      goalsList.innerHTML = "";
+
+      let goalsRendered = 0;
+      pinnedSubsteps.forEach(subId => {
+        let foundSub = null;
+        let foundGoal = null;
+        for (const g of goals) {
+          const s = g.substeps.find(sub => sub.id === subId);
+          if (s) {
+            foundSub = s;
+            foundGoal = g;
+            break;
+          }
+        }
+
+        if (foundSub) {
+          goalsRendered++;
+          const li = document.createElement("li");
+          li.className = `recap-item ${foundSub.completed ? 'completed' : ''}`;
+          
+          const icon = foundSub.completed ? "✓" : "☖";
+          li.innerHTML = `
+            <span class="recap-item-text" title="${foundGoal.title}: ${foundSub.title}">${foundSub.title}</span>
+            <span class="recap-item-status-icon">${icon}</span>
+          `;
+          li.addEventListener("click", () => {
+            activeGoalId = foundGoal.id;
+            const tabBtn = document.querySelector('.nav-tab[data-tab="goals-tab"]');
+            if (tabBtn) {
+              tabBtn.click();
+              setTimeout(() => {
+                const node = document.querySelector(`.tree-node[data-substep-id="${subId}"]`);
+                if (node) {
+                  node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  node.style.animation = "pulse-highlight 1.5s ease-in-out 3";
+                }
+              }, 400);
+            }
+          });
+          goalsList.appendChild(li);
+        }
+      });
+
+      if (goalsRendered === 0) {
+        goalsList.innerHTML = `<li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--text-muted);">Aucune étape épinglée. ✏️</li>`;
+      }
+    } catch (err) {
+      goalsList.innerHTML = `<li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--accent-red);">Erreur objectifs.</li>`;
+    }
+
+    // 2. Render Softskills
+    try {
+      const skillsResp = await fetch(`${API_BASE}/softskills`);
+      const skillsData = await skillsResp.json();
+      const skills = skillsData.skills || [];
+      skillsList.innerHTML = "";
+
+      let skillsRendered = 0;
+      pinnedSoftskills.forEach(skillId => {
+        const skill = skills.find(s => s.id === skillId);
+        if (skill) {
+          skillsRendered++;
+          const isCompleted = skill.progress && skill.progress.completed;
+          const li = document.createElement("li");
+          li.className = `recap-item ${isCompleted ? 'completed' : ''}`;
+          
+          const icon = isCompleted ? "✓" : "☖";
+          li.innerHTML = `
+            <span class="recap-item-text" title="${skill.branch}: ${skill.name}">${skill.name}</span>
+            <span class="recap-item-status-icon">${icon}</span>
+          `;
+          li.addEventListener("click", () => {
+            activeBranchKey = "global";
+            const tabBtn = document.querySelector('.nav-tab[data-tab="softskills-tab"]');
+            if (tabBtn) {
+              tabBtn.click();
+              setTimeout(() => {
+                const node = document.querySelector(`.hex-wrapper[data-id="${skillId}"]`);
+                if (node) {
+                  node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  node.style.animation = "pulse-highlight 1.5s ease-in-out 3";
+                }
+              }, 400);
+            }
+          });
+          skillsList.appendChild(li);
+        }
+      });
+
+      if (skillsRendered === 0) {
+        skillsList.innerHTML = `<li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--text-muted);">Aucune compétence épinglée. ✏️</li>`;
+      }
+    } catch (err) {
+      skillsList.innerHTML = `<li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--accent-red);">Erreur compétences.</li>`;
+    }
+
+    // 3. Render Allostasis
+    try {
+      const rewardsResp = await fetch(`${API_BASE}/rewards`);
+      const rewards = await rewardsResp.json();
+      allostasisList.innerHTML = "";
+
+      const targetCat = allostasisViewMode === "daily" ? "allostasis_daily" : "allostasis_weekly";
+      allostasisTitle.textContent = allostasisViewMode === "daily" ? "🩹 Allostasie (Jour)" : "🩹 Allostasie (Sem.)";
+
+      const listItems = rewards.filter(r => r.category === targetCat);
+      
+      listItems.forEach(item => {
+        const li = document.createElement("li");
+        const isCompleted = !item.is_available;
+        li.className = `recap-item ${isCompleted ? 'completed' : ''}`;
+        
+        let actionHTML = "";
+        if (isCompleted) {
+          actionHTML = `<span class="recap-item-status-icon" style="color: var(--accent-green);">✓ Fait</span>`;
+        } else {
+          actionHTML = `<button class="recap-claim-btn" data-id="${item.id}">Valider</button>`;
+        }
+
+        li.innerHTML = `
+          <span class="recap-item-text" title="${item.title}">${item.title}</span>
+          ${actionHTML}
+        `;
+
+        const btn = li.querySelector(".recap-claim-btn");
+        if (btn) {
+          btn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            btn.disabled = true;
+            btn.textContent = "...";
+
+            try {
+              const purchaseResp = await fetch(`${API_BASE}/rewards/${item.id}/purchase`, { method: "POST" });
+              if (!purchaseResp.ok) {
+                const errData = await purchaseResp.json();
+                throw new Error(errData.detail || "Validation échouée");
+              }
+              showToast(`Allostasie validée : ${item.title} ! 🎉`);
+              fetchProfile();
+            } catch (err) {
+              showToast(err.message, true);
+              btn.disabled = false;
+              btn.textContent = "Valider";
+            }
+          });
+        }
+
+        allostasisList.appendChild(li);
+      });
+
+      if (listItems.length === 0) {
+        allostasisList.innerHTML = `<li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--text-muted);">Aucune activité créée dans la boutique.</li>`;
+      }
+    } catch (err) {
+      allostasisList.innerHTML = `<li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--accent-red);">Erreur allostasie.</li>`;
+    }
+  }
+
+  // Register Event Listeners for Pinned Recap Panel Actions
+  const editGoalsBtn = document.getElementById("recap-edit-goals-btn");
+  const editSkillsBtn = document.getElementById("recap-edit-skills-btn");
+  const closePinDrawerBtn = document.getElementById("close-recap-pin-drawer-btn");
+  const savePinsBtn = document.getElementById("save-recap-pins-btn");
+  const toggleAllostasisBtn = document.getElementById("recap-toggle-allostasis-btn");
+
+  if (editGoalsBtn) editGoalsBtn.addEventListener("click", openRecapPinDrawer);
+  if (editSkillsBtn) editSkillsBtn.addEventListener("click", openRecapPinDrawer);
+  if (closePinDrawerBtn) closePinDrawerBtn.addEventListener("click", closeRecapPinDrawer);
+  if (savePinsBtn) savePinsBtn.addEventListener("click", savePinnedItems);
+  
+  if (toggleAllostasisBtn) {
+    toggleAllostasisBtn.addEventListener("click", () => {
+      allostasisViewMode = allostasisViewMode === "daily" ? "weekly" : "daily";
+      fetchProfile();
     });
   }
 

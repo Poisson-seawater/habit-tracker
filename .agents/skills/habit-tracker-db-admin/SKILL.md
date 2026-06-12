@@ -70,6 +70,12 @@ Use this skill whenever a task asks to modify Habit Tracker data directly or ind
 - Valid template keys are `week`, `weekend`, `recup`, and `malade`.
 - Daily score rows are derived data. Prefer recalculation over manual edits unless fixing a known bad row.
 
+### Rewards (Boutique)
+
+- Insert into `rewards` table to add new rewards.
+- Columns: `user_id`, `title`, `description`, `gold_cost` (must be >= 0), `required_softskill_id` (nullable), `required_goal_id` (nullable), `is_one_time` (default False), `purchased_count` (default 0).
+- If updating user gold balance after database purchases, subtract `gold_cost` from `users.gold` and increment `rewards.purchased_count`. Ensure ACID atomicity using transactions.
+
 ## Snapshot Workflow
 
 From the repo root:
