@@ -1,0 +1,4 @@
+interface:
+  display_name: "Habit Tracker Action"
+  short_description: "Exécuter les actions courantes du tracker"
+  default_prompt: "Use $habit-tracker-action to complete my reading habit."

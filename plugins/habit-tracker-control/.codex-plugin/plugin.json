@@ -1,0 +1,22 @@
+{
+  "name": "habit-tracker-control",
+  "version": "0.1.0",
+  "description": "Deterministic remote control for Gabriel's Habit Tracker through its HTTP API.",
+  "author": {
+    "name": "Gabriel"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Habit Tracker Control",
+    "shortDescription": "Query and update the Habit Tracker safely.",
+    "longDescription": "Compact skills and a deterministic CLI for querying, acting on, and managing the private Habit Tracker API.",
+    "developerName": "Gabriel",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "defaultPrompt": [
+      "Quels sont mes objectifs ?",
+      "Valide mon habitude de lecture.",
+      "Ajoute une branche de compétences Bon vivant."
+    ]
+  }
+}

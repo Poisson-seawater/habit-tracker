@@ -27,6 +27,11 @@ On travaille par branches `feat/...` → PR vers `dev` → PR vers `main`, 1 rev
 
 Détails et choix d'architecture → [CLAUDE.md](./CLAUDE.md) et [`specs/001-habit-tracker-bot/plan.md`](./specs/001-habit-tracker-bot/plan.md).
 
+Télécommande IA sans MCP :
+[fonctionnement du plugin](./docs/notes/habit-tracker-control-plugin.md),
+[migration SQLite v9](./docs/notes/database-v9-remote-operations.md) et
+[décision d'architecture](./docs/adr/002-plugin-habit-tracker-control.md).
+
 ---
 
 ## 🚀 Setup local (≤ 5 commandes)

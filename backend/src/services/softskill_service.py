@@ -10,7 +10,11 @@ Handles:
 import json
 import logging
 import os
+import tempfile
+from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Tuple
+
+import fcntl
 
 from sqlalchemy.orm import Session
 
@@ -21,6 +25,7 @@ logger = logging.getLogger(__name__)
 # ---- Configuration Loading & Validation ----
 
 _tree_config: Optional[Dict[str, Any]] = None
+_tree_config_mtime: Optional[float] = None
 
 LAYOUT_X_ORIGIN = 100
 LAYOUT_Y_ORIGIN = 80
@@ -194,9 +199,69 @@ def repair_skill_positions(config: Dict[str, Any]) -> bool:
 
 
 def _get_config_path() -> str:
-    """Resolve the path to softskills_tree.json relative to this module."""
+    """Resolve the mutable config path, persisted on the production data volume."""
+    configured_path = os.getenv("SOFTSKILLS_CONFIG_PATH")
+    if configured_path:
+        return configured_path
+    database_url = os.getenv("DATABASE_URL", "")
+    if database_url.startswith("sqlite:////data/"):
+        return "/data/softskills_tree.json"
+    return _get_packaged_config_path()
+
+
+def _get_packaged_config_path() -> str:
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_dir, "data", "softskills_tree.json")
+
+
+def _ensure_config_file(config_path: str) -> None:
+    if os.path.exists(config_path):
+        return
+    os.makedirs(os.path.dirname(config_path) or ".", exist_ok=True)
+    packaged_path = _get_packaged_config_path()
+    if config_path != packaged_path and os.path.exists(packaged_path):
+        with open(packaged_path, "r", encoding="utf-8") as packaged_file:
+            _save_config_unlocked(config_path, json.load(packaged_file))
+
+
+@contextmanager
+def _config_lock(config_path: str):
+    lock_path = f"{config_path}.lock"
+    os.makedirs(os.path.dirname(lock_path) or ".", exist_ok=True)
+    with open(lock_path, "a", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _read_config(config_path: str) -> Dict[str, Any]:
+    _ensure_config_file(config_path)
+    if not os.path.exists(config_path):
+        return {"branches": {}, "skills": []}
+    with open(config_path, "r", encoding="utf-8") as config_file:
+        return json.load(config_file)
+
+
+def _save_config_unlocked(config_path: str, config: Dict[str, Any]) -> None:
+    directory = os.path.dirname(config_path) or "."
+    os.makedirs(directory, exist_ok=True)
+    fd, temp_path = tempfile.mkstemp(
+        prefix=".softskills-tree-",
+        suffix=".json",
+        dir=directory,
+        text=True,
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as config_file:
+            json.dump(config, config_file, indent=2, ensure_ascii=False)
+            config_file.flush()
+            os.fsync(config_file.fileno())
+        os.replace(temp_path, config_path)
+    finally:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
 
 
 def load_tree_config(force_reload: bool = False) -> Dict[str, Any]:
@@ -204,24 +269,27 @@ def load_tree_config(force_reload: bool = False) -> Dict[str, Any]:
     Load the softskills tree configuration from the static JSON file.
     Caches in memory after first load. Use force_reload=True to re-read.
     """
-    global _tree_config
-    if _tree_config is not None and not force_reload:
-        return _tree_config
-
+    global _tree_config, _tree_config_mtime
     config_path = _get_config_path()
-    if not os.path.exists(config_path):
-        logger.error("Softskills tree config not found at %s", config_path)
-        _tree_config = {"branches": {}, "skills": []}
+    current_mtime = (
+        os.path.getmtime(config_path) if os.path.exists(config_path) else None
+    )
+    if (
+        _tree_config is not None
+        and not force_reload
+        and current_mtime == _tree_config_mtime
+    ):
         return _tree_config
 
-    with open(config_path, "r", encoding="utf-8") as f:
-        _tree_config = json.load(f)
+    with _config_lock(config_path):
+        _tree_config = _read_config(config_path)
+        validate_no_cycles(_tree_config)
+        if repair_skill_positions(_tree_config):
+            _save_config_unlocked(config_path, _tree_config)
+    _tree_config_mtime = (
+        os.path.getmtime(config_path) if os.path.exists(config_path) else None
+    )
 
-    # Validate on load
-    validate_no_cycles(_tree_config)
-    if repair_skill_positions(_tree_config):
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(_tree_config, f, indent=2, ensure_ascii=False)
     return _tree_config
 
 
@@ -272,13 +340,93 @@ def save_tree_config(config: Dict[str, Any]) -> None:
     Validate and save the configuration back to softskills_tree.json.
     Updates the cached config.
     """
-    global _tree_config
+    global _tree_config, _tree_config_mtime
     repair_skill_positions(config)
     validate_no_cycles(config)
     config_path = _get_config_path()
-    with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=2, ensure_ascii=False)
+    with _config_lock(config_path):
+        _save_config_unlocked(config_path, config)
     _tree_config = config
+    _tree_config_mtime = os.path.getmtime(config_path)
+
+
+def create_branch_with_skills(
+    key: str,
+    color: str,
+    pale_color: str,
+    skills: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Create one branch and all its skills in a single atomic file replace."""
+    global _tree_config, _tree_config_mtime
+    config_path = _get_config_path()
+    with _config_lock(config_path):
+        config = _read_config(config_path)
+        repair_skill_positions(config)
+        branches = config.setdefault("branches", {})
+        existing_skills = config.setdefault("skills", [])
+        existing_ids = {skill["id"] for skill in existing_skills}
+
+        if key in branches:
+            raise ValueError(f"Branch '{key}' already exists.")
+
+        new_ids = [skill.get("id") for skill in skills]
+        if any(not skill_id for skill_id in new_ids):
+            raise ValueError("Every skill requires an ID.")
+        if len(new_ids) != len(set(new_ids)):
+            raise ValueError("Skill IDs must be unique within the request.")
+        duplicate_ids = sorted(existing_ids.intersection(new_ids))
+        if duplicate_ids:
+            raise ValueError(
+                f"Skill IDs already exist: {', '.join(duplicate_ids)}."
+            )
+
+        allowed_prerequisites = existing_ids.union(new_ids)
+        branches[key] = {"color": color, "pale_color": pale_color}
+        normalized_skills = []
+        for skill_data in skills:
+            prerequisites = skill_data.get("prerequisites", [])
+            unknown = sorted(set(prerequisites) - allowed_prerequisites)
+            if unknown:
+                raise ValueError(
+                    f"Unknown prerequisites for '{skill_data['id']}': "
+                    f"{', '.join(unknown)}."
+                )
+            normalized_skill = {
+                "id": skill_data["id"],
+                "name": skill_data.get("name", ""),
+                "description": skill_data.get("description", ""),
+                "branch": key,
+                "prerequisites": prerequisites,
+                "related": skill_data.get("related", []),
+                "execution_order": _skill_order(skill_data),
+            }
+            requested_position = _skill_position(skill_data)
+            occupied = _occupied_positions(config)
+            if (
+                requested_position is not None
+                and _position_is_free(requested_position, occupied)
+            ):
+                x, y = requested_position
+            else:
+                x, y = allocate_skill_position(
+                    config,
+                    normalized_skill,
+                    occupied_positions=occupied,
+                )
+            normalized_skill["x"] = x
+            normalized_skill["y"] = y
+            normalized_skills.append(normalized_skill)
+            existing_skills.append(normalized_skill)
+
+        validate_no_cycles(config)
+        _save_config_unlocked(config_path, config)
+        _tree_config = config
+        _tree_config_mtime = os.path.getmtime(config_path)
+
+    return {
+        "branch": {"key": key, "color": color, "pale_color": pale_color},
+        "skills": normalized_skills,
+    }
 
 
 def create_branch(key: str, color: str, pale_color: str) -> Dict[str, Any]:

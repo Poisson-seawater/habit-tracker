@@ -1,0 +1,4 @@
+interface:
+  display_name: "Habit Tracker Query"
+  short_description: "Consulter le Habit Tracker à distance"
+  default_prompt: "Use $habit-tracker-query to show my current goals."

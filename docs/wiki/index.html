@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script>(function(){try{var t=localStorage.getItem('pwdoc-theme');if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
-  <title>Accueil — Habit Tracker RPG</title>
+  <script>(function(){try{var k='pwdoc-theme',t=localStorage.getItem(k);if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>Habit Tracker RPG — documentation</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -14,8 +14,8 @@
   <header class="masthead" id="top">
     <div class="masthead__inner">
       <div class="masthead__brand">
-        <p class="masthead__title"><a href="index.html">Habit Tracker RPG</a></p>
-        <p class="masthead__subtitle">Documentation — utilisateur · vendeur · dev (sans lire le code)</p>
+        <p class="masthead__title"><a href="#/">Habit Tracker RPG</a></p>
+        <p class="masthead__subtitle">Documentation — comprendre le projet sans lire le code</p>
       </div>
       <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false" aria-label="Basculer entre thème clair et sombre">
         <span class="theme-toggle__icon" aria-hidden="true">🌙</span>
@@ -27,107 +27,48 @@
   <div class="layout">
     <nav class="sidenav" aria-label="Navigation de la documentation">
       <ul>
-        <li><a href="index.html" aria-current="page">Accueil</a></li>
-        <li><a href="onboarding.html">Démarrer</a></li>
-        <li><a href="regles-et-variables.html">Règles &amp; variables</a></li>
+        <li><a href="#/">Accueil</a></li>
+        <li><a href="#/onboarding">Démarrer</a></li>
+        <li><a href="#/regles-et-variables">Règles &amp; variables</a></li>
         <li><a href="mindmap.html" target="_blank" rel="noopener">Carte mentale ↗</a></li>
       </ul>
       <p class="sidenav__heading">Concepts</p>
       <ul>
-        <li><a href="perfect-day.html">Perfect Day</a></li>
-        <li><a href="habitudes.html">Habitudes (Quêtes)</a></li>
-        <li><a href="objectifs.html">Objectifs</a></li>
-        <li><a href="softskills.html">Softskills</a></li>
-        <li><a href="primes-todo.html">Primes (Todos)</a></li>
-        <li><a href="no-todo.html">No-Todo</a></li>
-        <li><a href="templates-de-jour.html">Templates de jour</a></li>
-        <li><a href="stats-xp-niveau-or.html">Stats, XP, niveau &amp; or</a></li>
-        <li><a href="boutique-recompenses.html">Boutique de Récompenses</a></li>
+        <li><a href="#/perfect-day">Perfect Day</a></li>
+        <li><a href="#/habitudes">Habitudes (Quêtes)</a></li>
+        <li><a href="#/objectifs">Objectifs</a></li>
+        <li><a href="#/softskills">Softskills</a></li>
+        <li><a href="#/recap-3-3-3">Recap 3-3-3</a></li>
+        <li><a href="#/primes-todo">Primes (Todos)</a></li>
+        <li><a href="#/no-todo">No-Todo</a></li>
+        <li><a href="#/templates-de-jour">Templates de jour</a></li>
+        <li><a href="#/stats-xp-niveau-or">Stats, XP, niveau &amp; or</a></li>
+        <li><a href="#/boutique-recompenses">Boutique de Récompenses</a></li>
+      </ul>
+      <p class="sidenav__heading">Avancé</p>
+      <ul>
+        <li><a href="#/telecommande-ia">Télécommande IA</a></li>
       </ul>
     </nav>
 
     <main class="content">
-      <article class="prose">
-        <h1>Habit Tracker RPG</h1>
-        <p class="intro">Un système gamifié de suivi d'habitudes, inspiré des RPG et auto-hébergé. On logge ses actions via un bot Telegram, un prompt ou le site web. Le but : tenir des objectifs long terme en restant assidu chaque jour.</p>
-
-        <h2 id="vue-d-ensemble">Vue d'ensemble</h2>
-        <div class="mindmap-wrap">
-          <div class="markmap">
-            <script type="text/template">
----
-markmap:
-  colorFreezeLevel: 2
-  initialExpandLevel: 3
----
-
-# Habit Tracker RPG
-
-## [Accueil](index.html)
-- Pourquoi le projet + 3 workflows
-## [Démarrer](onboarding.html)
-- Mise en route guidée, pas à pas
-## [Règles & variables](regles-et-variables.html)
-- Commandes, variables, interactions
-## Concepts
-### [Perfect Day](perfect-day.html)
-- Tous les seuils atteints → +5 XP et streak
-### [Habitudes (Quêtes)](habitudes.html)
-- Actions récurrentes qui nourrissent les stats
-### [Objectifs](objectifs.html)
-- Sous-étapes → Or permanent
-### [Softskills](softskills.html)
-- Arbre de compétences + test de succès
-### [Primes (Todos)](primes-todo.html)
-- Tâches du jour : stats + XP direct
-### [No-Todo](no-todo.html)
-- Règles à ne pas enfreindre (/fail)
-### [Templates de jour](templates-de-jour.html)
-- semaine / weekend / recovery / sick → seuils
-### [Stats, XP, niveau & or](stats-xp-niveau-or.html)
-- 12 stats éphémères, XP/niveau, Or
-## [Boutique & Allostasie](boutique-recompenses.html)
-- Achat de récompenses, Allostasie Daily/Weekly
-            </script>
-          </div>
-        </div>
-        <p class="mindmap-hint">Carte interactive — clique un nœud pour ouvrir la page, molette pour zoomer. <a href="mindmap.html" target="_blank" rel="noopener">Ouvrir en plein écran ↗</a></p>
-
-        <h2 id="usage-normal">Usage normal</h2>
-        <p><em>« Une app de suivi d'habitudes, d'accord. Mais concrètement, qu'est-ce que je fais de ma journée ? »</em></p>
-        <p>Une petite boucle, toujours la même. Au fil de la journée, tu valides tes <a href="habitudes.html">habitudes</a> au moment où tu les fais. Si elle est binaire : <code>/done &lt;habitude&gt;</code>. Si elle se mesure (30&nbsp;min, 5&nbsp;km) : <code>/log &lt;habitude&gt; &lt;valeur&gt;</code>. Tu coches aussi tes <a href="primes-todo.html">primes</a>, les tâches prévues pour aujourd'hui.</p>
-        <p>À l'inverse, tu as peut-être des <a href="no-todo.html">No-Todo</a> : des règles que tu t'engages à ne pas enfreindre. Si tu craques, tu le déclares avec <code>/fail</code>, et ça se voit dans ton bilan.</p>
-        <p>Chaque validation fait monter tes 12 <a href="stats-xp-niveau-or.html">stats</a> du jour. Donc oui, ça te donne des points. Et <code>/status</code> te dit à tout moment ce qu'il te reste pour atteindre les seuils de ton <a href="templates-de-jour.html">template</a> du jour.</p>
-        <p>Quand toutes les stats cibles passent leur seuil, c'est un <a href="perfect-day.html">Perfect Day</a>. À la clé : +5&nbsp;XP, et ta série continue. C'est la récompense de la journée.</p>
-        <p>Puis, à 23h59, la journée se fige. Le bot publie le bilan de la guilde dans le groupe. Le lendemain, tes stats repartent de zéro — page blanche.</p>
-        <p>Tes grands projets, eux, avancent en parallèle, sur leur propre écran. Chaque sous-étape d'<a href="objectifs.html">objectif</a> que tu coches te rapporte de l'Or. Le quotidien entretient la régularité ; les objectifs marquent la vraie progression.</p>
-
-        <h2 id="cas-particuliers">Cas particuliers</h2>
-        <p>Deux inquiétudes reviennent toujours, et elles sont légitimes.</p>
-        <p><strong>« Mes amis vont voir tout ce que je note ? »</strong> Tu n'as pas forcément envie que le groupe sache que ta to-do du jour, c'est « acheter un cadeau à ma blonde ». Ni que tu entraînes ton chinois en secret. Pas de souci : une <a href="habitudes.html">habitude</a> marquée privée (<code>is_private</code>) compte pour ton <a href="perfect-day.html">Perfect Day</a>, mais reste masquée du recap public — juste comptée dans un total. Et dès que tu as posté une fois dans le groupe, tu peux parler au bot en message privé. Du coup, tu logges ce que tu veux sans rien étaler.</p>
-        <p><strong>« Et un jour où c'est la catastrophe parce que je suis malade ? »</strong> Tu ne vas pas casser ta série juste parce que ton corps a lâché. C'est à ça que servent les <a href="templates-de-jour.html">templates de jour</a>. Bascule en <code>sick</code> ou <code>recovery</code> : les seuils baissent, donc une journée au ralenti reste réussissable. Et si c'est juste une habitude précise qui saute, <code>/skip &lt;habitude&gt; raison: &lt;texte&gt;</code> l'excuse pour aujourd'hui sans casser ton streak. La raison est obligatoire — c'est un garde-fou honnête.</p>
-
-        <h2 id="nouvel-usager">Nouvel usager</h2>
-        <p>Convaincu ? Reste à configurer ton compte. Une page dédiée te prend par la main, étape par étape, avec un exemple concret du début à la fin. <a href="onboarding.html">Démarrer la mise en route guidée</a>.</p>
-
-        <h2 id="trois-publics">Trois publics</h2>
-        <ul>
-          <li><strong>Utilisateur</strong> : lis <a href="#usage-normal">Usage normal</a>, puis <a href="#nouvel-usager">Nouvel usager</a> pour te lancer.</li>
-          <li><strong>Vendeur</strong> : l'objectif en haut de page, plus la boucle détaillée dans <a href="regles-et-variables.html">Règles &amp; variables</a>.</li>
-          <li><strong>Dev (sans lire le code)</strong> : <a href="regles-et-variables.html">Règles &amp; variables</a> donne tout le modèle mental du système.</li>
-        </ul>
-      </article>
+      <article class="prose" id="doc-article" aria-live="polite"></article>
     </main>
   </div>
 
   <footer class="site-footer">
     <div class="site-footer__inner">
-      <span>Documentation Habit Tracker RPG · état au 2026-06-04.</span>
+      <span>Documentation Habit Tracker RPG · état au 2026-06-13.</span>
       <a href="#top">↑ Haut de page</a>
     </div>
   </footer>
 
-  <script src="https://cdn.jsdelivr.net/npm/markmap-autoloader@0.18"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.18"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.18/dist/browser/index.iife.js"></script>
+  <script src="assets/diagrams.js"></script>
+  <script src="assets/render.js"></script>
   <script src="assets/theme.js"></script>
 </body>
 </html>

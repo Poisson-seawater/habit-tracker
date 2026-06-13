@@ -98,6 +98,15 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
 - **Empreinte mémoire** : on tourne sur un Pi à 40/35 Mo par service. Éviter les grosses
   libs et de tout garder en mémoire.
 
+## Télécommande IA
+
+Le plugin local `habit-tracker-control` permet à un agent de consulter et modifier
+l'instance distante sans MCP. Avant de modifier ce mécanisme, lire :
+
+- [docs/notes/habit-tracker-control-plugin.md](./docs/notes/habit-tracker-control-plugin.md)
+- [docs/notes/database-v9-remote-operations.md](./docs/notes/database-v9-remote-operations.md)
+- [docs/adr/002-plugin-habit-tracker-control.md](./docs/adr/002-plugin-habit-tracker-control.md)
+
 ## Ne PAS modifier sans discussion
 
 - **Le schéma DB** (`backend/src/database/models.py`) : le bot, l'API, le front et des

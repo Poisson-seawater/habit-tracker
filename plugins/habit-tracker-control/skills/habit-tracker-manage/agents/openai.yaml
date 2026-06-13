@@ -1,0 +1,4 @@
+interface:
+  display_name: "Habit Tracker Manage"
+  short_description: "Planifier les changements structurels du tracker"
+  default_prompt: "Use $habit-tracker-manage to add a new softskill branch."

@@ -214,3 +214,31 @@ class Reward(Base):
     user = relationship("User", back_populates="rewards")
     required_goal = relationship("Goal")
 
+
+class RemoteOperation(Base):
+    __tablename__ = "remote_operations"
+    __table_args__ = (
+        UniqueConstraint("user_id", "idempotency_key", name="uix_remote_operation_key"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    idempotency_key = Column(String(100), nullable=False)
+    request_hash = Column(String(64), nullable=False)
+    method = Column(String(10), nullable=False)
+    path = Column(String(255), nullable=False)
+    status = Column(String(20), nullable=False, default="in_progress")
+    http_status = Column(Integer, nullable=True)
+    response_body = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.now, nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=datetime.datetime.now,
+        onupdate=datetime.datetime.now,
+        nullable=False,
+    )

@@ -1,11 +1,12 @@
 import datetime
+import json
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict
 from pydantic import BaseModel, Field
 
 from src.database.session import get_db
-from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, Goal, SubStep, GoalSubStepLink, NoTodo, UserSoftskillProgress, Reward
+from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, Goal, SubStep, GoalSubStepLink, NoTodo, UserSoftskillProgress, Reward, RemoteOperation
 from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_12_STATS, DEFAULT_THRESHOLDS
 from src.services import softskill_service
 
@@ -60,6 +61,11 @@ class GoalCreate(BaseModel):
     title: str
     description: Optional[str] = None
 
+
+class GoalWithSubstepsCreate(GoalCreate):
+    substeps: List["SubStepCreate"] = Field(default_factory=list)
+
+
 class SubStepCreate(BaseModel):
     title: str
     description: Optional[str] = None
@@ -97,6 +103,21 @@ class BranchUpdate(BaseModel):
     new_key: str
     color: str
     pale_color: str
+
+
+class BranchSkillConfig(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    prerequisites: List[str] = Field(default_factory=list)
+    related: List[str] = Field(default_factory=list)
+    x: Optional[int] = Field(None, ge=0)
+    y: Optional[int] = Field(None, ge=0)
+    execution_order: int = 1
+
+
+class BranchWithSkillsCreate(BranchConfig):
+    skills: List[BranchSkillConfig]
 
 
 class RewardCreate(BaseModel):
@@ -145,6 +166,9 @@ class SkillUpdate(BaseModel):
 class PinsUpdate(BaseModel):
     pinned_substeps: List[int] = []
     pinned_softskills: List[str] = []
+
+
+GoalWithSubstepsCreate.model_rebuild()
 
 
 # --- Multi-User Dependency ---
@@ -207,6 +231,52 @@ def validate_habit_payload(payload: "HabitCreate"):
 
 
 # --- Users & Profile Route ---
+
+
+@router.get("/capabilities")
+def get_capabilities():
+    return {
+        "protocol_version": 1,
+        "idempotency": {
+            "header": "Idempotency-Key",
+            "recovery_endpoint": "/api/v1/remote-operations/{key}",
+        },
+        "atomic_operations": [
+            "goal_with_substeps",
+            "softskill_branch_with_skills",
+        ],
+    }
+
+
+@router.get("/remote-operations/{idempotency_key}")
+def get_remote_operation(
+    idempotency_key: str,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    operation = (
+        db.query(RemoteOperation)
+        .filter_by(user_id=user_id, idempotency_key=idempotency_key)
+        .first()
+    )
+    if not operation:
+        raise HTTPException(status_code=404, detail="Remote operation not found.")
+    response = None
+    if operation.response_body:
+        try:
+            response = json.loads(operation.response_body)
+        except ValueError:
+            response = operation.response_body
+    return {
+        "idempotency_key": operation.idempotency_key,
+        "status": operation.status,
+        "http_status": operation.http_status,
+        "method": operation.method,
+        "path": operation.path,
+        "response": response,
+        "created_at": operation.created_at.isoformat(),
+        "updated_at": operation.updated_at.isoformat(),
+    }
 
 @router.get("/users")
 def get_users(db: Session = Depends(get_db)):
@@ -456,6 +526,60 @@ def create_goal(payload: GoalCreate, db: Session = Depends(get_db), user_id: int
             "title": goal.title,
             "description": goal.description
         }
+    }
+
+
+@router.post("/goals/with-substeps", status_code=201)
+def create_goal_with_substeps(
+    payload: GoalWithSubstepsCreate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    for substep_payload in payload.substeps:
+        for stat in substep_payload.stats_json:
+            _validate_stat_name(stat)
+
+    goal = Goal(
+        user_id=user_id,
+        title=payload.title,
+        description=payload.description,
+    )
+    db.add(goal)
+    db.flush()
+
+    created_substeps = []
+    for substep_payload in payload.substeps:
+        substep = SubStep(
+            user_id=user_id,
+            title=substep_payload.title,
+            description=substep_payload.description,
+            gold_reward=substep_payload.gold_reward,
+            stats_json=substep_payload.stats_json,
+            execution_order=substep_payload.execution_order,
+        )
+        db.add(substep)
+        db.flush()
+        db.add(GoalSubStepLink(goal_id=goal.id, substep_id=substep.id))
+        created_substeps.append(
+            {
+                "id": substep.id,
+                "title": substep.title,
+                "description": substep.description or "",
+                "gold_reward": substep.gold_reward,
+                "stats": substep.stats_json or [],
+                "execution_order": substep.execution_order,
+            }
+        )
+
+    db.commit()
+    return {
+        "status": "success",
+        "goal": {
+            "id": goal.id,
+            "title": goal.title,
+            "description": goal.description,
+            "substeps": created_substeps,
+        },
     }
 
 @router.delete("/goals/{goal_id}")
@@ -1227,6 +1351,19 @@ def toggle_softskill_completion(softskill_id: str, payload: SoftskillCompleteTog
 def api_create_branch(payload: BranchConfig):
     try:
         return softskill_service.create_branch(payload.key, payload.color, payload.pale_color)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/softskills/branches-with-skills", status_code=201)
+def api_create_branch_with_skills(payload: BranchWithSkillsCreate):
+    try:
+        return softskill_service.create_branch_with_skills(
+            payload.key,
+            payload.color,
+            payload.pale_color,
+            [skill.model_dump() for skill in payload.skills],
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

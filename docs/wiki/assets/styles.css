@@ -170,7 +170,8 @@ h3 { font-size: 1.12rem; margin: 1.5rem 0 0.4rem; scroll-margin-top: 1.5rem; }
 p, ul, ol { margin: 0.7rem 0; }
 li { margin: 0.25rem 0; }
 
-.intro {
+.intro,
+.prose > h1 + p {            /* 1er paragraphe après le titre = chapô, stylé tout seul */
   font-size: 1.22rem;
   line-height: 1.5;
   color: var(--ink);
@@ -185,6 +186,31 @@ code {
   border-radius: 4px;
   color: var(--ink);
 }
+
+/* Blocs de code (``` … ``` en Markdown) */
+pre {
+  background: var(--soft);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+pre.mermaid { background: none; border: none; padding: 0; }
+
+/* Citation Markdown (> …) = encart, même look que .note ci-dessous */
+blockquote {
+  border-left: 4px solid var(--primary);
+  background: var(--note-bg);
+  padding: 0.75rem 1rem;
+  margin: 1.25rem 0;
+  border-radius: 0 6px 6px 0;
+}
+blockquote > :first-child { margin-top: 0; }
+blockquote > :last-child { margin-bottom: 0; }
 
 /* ---------- Tables (style USWDS) ---------- */
 table {
@@ -212,6 +238,16 @@ tbody tr:nth-child(even) { background: var(--soft-2); }
   border-radius: 0 6px 6px 0;
 }
 .note p { margin: 0.25rem 0; }
+
+/* Message affiché si la doc est ouverte sans serveur (file://) ou page absente */
+.doc-error {
+  border-left: 4px solid #b50909;
+  background: var(--note-bg);
+  padding: 1rem 1.1rem;
+  border-radius: 0 6px 6px 0;
+}
+.doc-error h2 { border: none; margin-top: 0; }
+.doc-error pre { margin: 0.75rem 0; }
 
 /* ---------- Mindmap (intégré) ---------- */
 .mindmap-wrap {

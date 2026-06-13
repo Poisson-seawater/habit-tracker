@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from src.database.seed import init_db
+from src.api.idempotency import IdempotencyMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,6 +26,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+app.add_middleware(IdempotencyMiddleware)
 
 # Configure CORS
 app.add_middleware(
