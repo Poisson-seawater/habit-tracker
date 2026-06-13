@@ -3,7 +3,7 @@ import re
 import html
 import asyncio
 import datetime
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo, BotCommand
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 
 from src.config import TELEGRAM_BOT_TOKEN, TELEGRAM_GROUP_ID, TELEGRAM_WEB_APP_URL
@@ -1152,6 +1152,31 @@ async def main():
     application.add_handler(CallbackQueryHandler(handle_callback))
 
     await application.initialize()
+
+    # Define and register bot commands for Telegram autocomplete
+    commands = [
+        BotCommand("done", "Valider une habitude binaire (oui/non)"),
+        BotCommand("log", "Enregistrer une habitude quantitative (ex: /log lecture 30)"),
+        BotCommand("skip", "Passer une habitude pour aujourd'hui (sans casser le streak)"),
+        BotCommand("status", "Afficher ton résumé et statut de la journée"),
+        BotCommand("template", "Changer le type de journée (Perfect Day template)"),
+        BotCommand("liste", "Lister tes todos, habitudes ou no-todos"),
+        BotCommand("add", "Ajouter un todo, un no-todo ou une habitude"),
+        BotCommand("add_habit", "Créer une nouvelle habitude (binaire ou quantitative)"),
+        BotCommand("fail", "Signaler la transgression d'une règle No-Todo"),
+        BotCommand("shop", "Consulter les récompenses de la boutique"),
+        BotCommand("buy", "Acheter un item ou valider une allostasie"),
+        BotCommand("motivation", "Afficher tes objectifs de vie à long terme"),
+        BotCommand("softskill", "Gérer et valider tes softskills"),
+        BotCommand("app", "Ouvrir l'application Web/Mini App"),
+        BotCommand("aide", "Afficher la liste d'aide et des commandes")
+    ]
+    try:
+        await application.bot.set_my_commands(commands)
+        print("Telegram bot autocomplete commands registered successfully.")
+    except Exception as e:
+        print(f"Failed to register Telegram bot autocomplete commands: {e}")
+
     await application.start()
 
     # Start the daily recap scheduler
