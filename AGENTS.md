@@ -4,9 +4,7 @@ shell commands, and other important information, read the current plan:
 [specs/007-recap-3-3-3/plan.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/specs/007-recap-3-3-3/plan.md)
 
 **CRITICAL RULE FOR COMMANDS:**
-Whenever you add, modify, or delete any Telegram Bot commands in the code, you MUST:
-1. Update the `COMMANDS-INDEX.md` document at the root of the project to ensure the command index is always accurate and up-to-date.
-2. Register or update the command inside the `BotCommand` list within the `main()` function of `backend/src/bot/listener.py` so that it appears in Telegram's autocomplete list when typing `/`.
+Whenever you add, modify, or delete any Telegram Bot commands in the code, you MUST update the `COMMANDS-INDEX.md` document at the root of the project to ensure the command index is always accurate and up-to-date.
 <!-- SPECKIT END -->
 
 # Guide projet — Habit RPG Tracker
@@ -96,7 +94,7 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
 - **Logique métier** (scoring, stats, XP, streaks) : dans `services/`, jamais dans les routes.
 - **Front** : étendre `app.js` en réutilisant le wrapper `fetch` et le système d'onglets
   existant. Pas de framework, pas de build step.
-- **Commande bot ajoutée / modifiée** : mettre à jour `COMMANDS-INDEX.md` (règle dure) **ET** l'enregistrer/la mettre à jour dans la liste `BotCommand` de la fonction `main()` de `backend/src/bot/listener.py` pour qu'elle s'affiche dans l'auto-complétion de l'application Telegram.
+- **Commande bot ajoutée / modifiée** : mettre à jour `COMMANDS-INDEX.md` (règle dure).
 - **Empreinte mémoire** : on tourne sur un Pi à 40/35 Mo par service. Éviter les grosses
   libs et de tout garder en mémoire.
 
