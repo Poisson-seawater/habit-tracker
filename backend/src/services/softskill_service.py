@@ -10,7 +10,7 @@ Handles:
 import json
 import logging
 import os
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,176 @@ logger = logging.getLogger(__name__)
 # ---- Configuration Loading & Validation ----
 
 _tree_config: Optional[Dict[str, Any]] = None
+
+LAYOUT_X_ORIGIN = 100
+LAYOUT_Y_ORIGIN = 80
+LAYOUT_X_STEP = 200
+LAYOUT_Y_STEP = 140
+LAYOUT_NODE_WIDTH = 100
+LAYOUT_NODE_HEIGHT = 112
+LAYOUT_HORIZONTAL_PADDING = 40
+LAYOUT_VERTICAL_PADDING = 20
+
+
+def _skill_order(skill: Dict[str, Any]) -> int:
+    try:
+        return max(1, int(skill.get("execution_order", 1)))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _skill_position(skill: Dict[str, Any]) -> Optional[Tuple[int, int]]:
+    try:
+        x = int(skill.get("x"))
+        y = int(skill.get("y"))
+    except (TypeError, ValueError):
+        return None
+    if x <= 0 or y <= 0:
+        return None
+    return x, y
+
+
+def _positions_overlap(
+    first: Tuple[int, int], second: Tuple[int, int]
+) -> bool:
+    return (
+        abs(first[0] - second[0])
+        < LAYOUT_NODE_WIDTH + LAYOUT_HORIZONTAL_PADDING
+        and abs(first[1] - second[1])
+        < LAYOUT_NODE_HEIGHT + LAYOUT_VERTICAL_PADDING
+    )
+
+
+def _position_is_free(
+    position: Tuple[int, int],
+    occupied_positions: List[Tuple[int, int]],
+) -> bool:
+    return all(
+        not _positions_overlap(position, occupied)
+        for occupied in occupied_positions
+    )
+
+
+def _occupied_positions(
+    config: Dict[str, Any],
+    exclude_skill_id: Optional[str] = None,
+) -> List[Tuple[int, int]]:
+    positions = []
+    for skill in config.get("skills", []):
+        if skill.get("id") == exclude_skill_id:
+            continue
+        position = _skill_position(skill)
+        if position is not None:
+            positions.append(position)
+    return positions
+
+
+def _median_x(positions: List[Tuple[int, int]]) -> int:
+    values = sorted(position[0] for position in positions)
+    return values[len(values) // 2]
+
+
+def _new_branch_anchor_x(
+    occupied_positions: List[Tuple[int, int]],
+) -> int:
+    if not occupied_positions:
+        return LAYOUT_X_ORIGIN
+    max_x = max(position[0] for position in occupied_positions)
+    steps = ((max_x - LAYOUT_X_ORIGIN) // LAYOUT_X_STEP) + 1
+    return LAYOUT_X_ORIGIN + max(1, steps) * LAYOUT_X_STEP
+
+
+def _branch_anchor_x(
+    config: Dict[str, Any],
+    skill_data: Dict[str, Any],
+    occupied_positions: List[Tuple[int, int]],
+    exclude_skill_id: Optional[str] = None,
+) -> int:
+    branch = skill_data.get("branch")
+    prerequisites = set(skill_data.get("prerequisites", []))
+    same_branch_prerequisites = []
+    branch_positions = []
+
+    for skill in config.get("skills", []):
+        if skill.get("id") == exclude_skill_id:
+            continue
+        position = _skill_position(skill)
+        if position is None or position not in occupied_positions:
+            continue
+        if skill.get("branch") != branch:
+            continue
+        branch_positions.append(position)
+        if skill.get("id") in prerequisites:
+            same_branch_prerequisites.append(position)
+
+    if same_branch_prerequisites:
+        return _median_x(same_branch_prerequisites)
+    if branch_positions:
+        return _median_x(branch_positions)
+    return _new_branch_anchor_x(occupied_positions)
+
+
+def allocate_skill_position(
+    config: Dict[str, Any],
+    skill_data: Dict[str, Any],
+    *,
+    occupied_positions: Optional[List[Tuple[int, int]]] = None,
+    exclude_skill_id: Optional[str] = None,
+) -> Tuple[int, int]:
+    """Return the nearest free layout slot for a softskill."""
+    occupied = (
+        list(occupied_positions)
+        if occupied_positions is not None
+        else _occupied_positions(config, exclude_skill_id)
+    )
+    base_x = _branch_anchor_x(
+        config,
+        skill_data,
+        occupied,
+        exclude_skill_id,
+    )
+    y = LAYOUT_Y_ORIGIN + (_skill_order(skill_data) - 1) * LAYOUT_Y_STEP
+
+    radius = 0
+    while True:
+        offsets = [0] if radius == 0 else [radius, -radius]
+        for offset in offsets:
+            x = base_x + offset * LAYOUT_X_STEP
+            if x < LAYOUT_X_ORIGIN:
+                continue
+            candidate = (x, y)
+            if _position_is_free(candidate, occupied):
+                return candidate
+        radius += 1
+
+
+def repair_skill_positions(config: Dict[str, Any]) -> bool:
+    """Repair missing, zero, or overlapping positions without moving valid nodes."""
+    occupied = []
+    pending = []
+    changed = False
+
+    for skill in config.get("skills", []):
+        position = _skill_position(skill)
+        if position is not None and _position_is_free(position, occupied):
+            occupied.append(position)
+        else:
+            pending.append(skill)
+
+    for skill in pending:
+        x, y = allocate_skill_position(
+            config,
+            skill,
+            occupied_positions=occupied,
+            exclude_skill_id=skill.get("id"),
+        )
+        if skill.get("x") != x or skill.get("y") != y:
+            skill["x"] = x
+            skill["y"] = y
+            changed = True
+        occupied.append((x, y))
+
+    return changed
 
 
 def _get_config_path() -> str:
@@ -49,6 +219,9 @@ def load_tree_config(force_reload: bool = False) -> Dict[str, Any]:
 
     # Validate on load
     validate_no_cycles(_tree_config)
+    if repair_skill_positions(_tree_config):
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(_tree_config, f, indent=2, ensure_ascii=False)
     return _tree_config
 
 
@@ -100,6 +273,7 @@ def save_tree_config(config: Dict[str, Any]) -> None:
     Updates the cached config.
     """
     global _tree_config
+    repair_skill_positions(config)
     validate_no_cycles(config)
     config_path = _get_config_path()
     with open(config_path, "w", encoding="utf-8") as f:
@@ -197,10 +371,23 @@ def create_skill(skill_data: Dict[str, Any]) -> Dict[str, Any]:
         "branch": branch,
         "prerequisites": skill_data.get("prerequisites", []),
         "related": skill_data.get("related", []),
-        "x": int(skill_data.get("x", 0)),
-        "y": int(skill_data.get("y", 0)),
-        "execution_order": int(skill_data.get("execution_order", 1))
+        "execution_order": _skill_order(skill_data),
     }
+    requested_position = _skill_position(skill_data)
+    occupied = _occupied_positions(config)
+    if (
+        requested_position is not None
+        and _position_is_free(requested_position, occupied)
+    ):
+        x, y = requested_position
+    else:
+        x, y = allocate_skill_position(
+            config,
+            new_skill,
+            occupied_positions=occupied,
+        )
+    new_skill["x"] = x
+    new_skill["y"] = y
 
     skills.append(new_skill)
     config["skills"] = skills
@@ -227,16 +414,54 @@ def update_skill(skill_id: str, skill_data: Dict[str, Any]) -> Dict[str, Any]:
     if branch not in config.get("branches", {}):
         raise ValueError(f"Branch '{branch}' does not exist.")
 
-    skills[skill_idx].update({
+    current_skill = skills[skill_idx]
+    old_branch = current_skill.get("branch")
+    old_order = _skill_order(current_skill)
+    updated_skill = {
+        **current_skill,
         "name": skill_data.get("name", ""),
         "description": skill_data.get("description", ""),
         "branch": branch,
         "prerequisites": skill_data.get("prerequisites", []),
         "related": skill_data.get("related", []),
-        "x": int(skill_data.get("x", 0)),
-        "y": int(skill_data.get("y", 0)),
-        "execution_order": int(skill_data.get("execution_order", 1))
-    })
+        "execution_order": _skill_order(skill_data),
+    }
+
+    occupied = _occupied_positions(config, exclude_skill_id=skill_id)
+    requested_position = _skill_position(skill_data)
+    current_position = _skill_position(current_skill)
+    structure_changed = (
+        branch != old_branch
+        or updated_skill["execution_order"] != old_order
+    )
+
+    if requested_position is not None:
+        if _position_is_free(requested_position, occupied):
+            x, y = requested_position
+        else:
+            x, y = allocate_skill_position(
+                config,
+                updated_skill,
+                occupied_positions=occupied,
+                exclude_skill_id=skill_id,
+            )
+    elif (
+        structure_changed
+        or current_position is None
+        or not _position_is_free(current_position, occupied)
+    ):
+        x, y = allocate_skill_position(
+            config,
+            updated_skill,
+            occupied_positions=occupied,
+            exclude_skill_id=skill_id,
+        )
+    else:
+        x, y = current_position
+
+    updated_skill["x"] = x
+    updated_skill["y"] = y
+    skills[skill_idx] = updated_skill
 
     config["skills"] = skills
     save_tree_config(config)

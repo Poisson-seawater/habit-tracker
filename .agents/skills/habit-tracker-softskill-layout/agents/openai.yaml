@@ -1,0 +1,4 @@
+interface:
+  display_name: "Habit Tracker Softskill Layout"
+  short_description: "Recall and extend softskill auto-layout"
+  default_prompt: "Use $habit-tracker-softskill-layout to inspect or modify the Habit Tracker softskill placement logic safely."

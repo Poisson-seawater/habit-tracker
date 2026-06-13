@@ -124,10 +124,10 @@ class SkillConfig(BaseModel):
     name: str
     description: str
     branch: str
-    prerequisites: List[str] = []
-    related: List[str] = []
-    x: Optional[int] = 0
-    y: Optional[int] = 0
+    prerequisites: List[str] = Field(default_factory=list)
+    related: List[str] = Field(default_factory=list)
+    x: Optional[int] = Field(None, ge=0)
+    y: Optional[int] = Field(None, ge=0)
     execution_order: Optional[int] = 1
 
 
@@ -135,10 +135,10 @@ class SkillUpdate(BaseModel):
     name: str
     description: str
     branch: str
-    prerequisites: List[str] = []
-    related: List[str] = []
-    x: Optional[int] = 0
-    y: Optional[int] = 0
+    prerequisites: List[str] = Field(default_factory=list)
+    related: List[str] = Field(default_factory=list)
+    x: Optional[int] = Field(None, ge=0)
+    y: Optional[int] = Field(None, ge=0)
     execution_order: Optional[int] = 1
 
 
@@ -1402,4 +1402,3 @@ def purchase_reward_endpoint(reward_id: int, db: Session = Depends(get_db), user
     """
     from src.services.reward_service import purchase_reward
     return purchase_reward(db, user_id, reward_id)
-

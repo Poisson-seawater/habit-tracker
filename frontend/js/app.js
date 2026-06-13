@@ -2266,7 +2266,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "Content-Type": "application/json",
             "X-User-ID": localStorage.getItem("user_id") || "1"
           },
-          body: JSON.stringify({ name, description: desc, branch, prerequisites: prereqs, related, x: 0, y: 0, execution_order: order })
+          body: JSON.stringify({ name, description: desc, branch, prerequisites: prereqs, related, execution_order: order })
         });
         if (!resp.ok) {
           const err = await resp.json();
@@ -2337,7 +2337,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "Content-Type": "application/json",
             "X-User-ID": localStorage.getItem("user_id") || "1"
           },
-          body: JSON.stringify({ id: skillId, name, description: desc, branch, prerequisites: prereqs, related, x: 0, y: 0, execution_order: order })
+          body: JSON.stringify({ id: skillId, name, description: desc, branch, prerequisites: prereqs, related, execution_order: order })
         });
         if (!resp.ok) {
           const err = await resp.json();

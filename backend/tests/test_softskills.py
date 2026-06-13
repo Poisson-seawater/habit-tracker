@@ -8,7 +8,12 @@ import os
 import pytest
 import tempfile
 
-from src.services.softskill_service import validate_no_cycles, load_tree_config
+from src.services.softskill_service import (
+    _positions_overlap,
+    load_tree_config,
+    repair_skill_positions,
+    validate_no_cycles,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -38,7 +43,7 @@ def mock_config_file(monkeypatch, tmp_path):
                 "branch": "communication",
                 "prerequisites": ["ecoute"],
                 "related": [],
-                "x": 200,
+                "x": 300,
                 "y": 100
             }
         ]
@@ -140,6 +145,90 @@ class TestConfigLoading:
         for branch_name, branch_data in config["branches"].items():
             assert "color" in branch_data, f"Branch '{branch_name}' missing 'color'"
             assert "pale_color" in branch_data, f"Branch '{branch_name}' missing 'pale_color'"
+
+    def test_load_repairs_zero_and_overlapping_positions(
+        self, mock_config_file
+    ):
+        config = json.loads(mock_config_file.read_text(encoding="utf-8"))
+        config["skills"].extend(
+            [
+                {
+                    "id": "zero",
+                    "name": "Zero",
+                    "description": "",
+                    "branch": "leadership",
+                    "prerequisites": [],
+                    "related": [],
+                    "x": 0,
+                    "y": 0,
+                    "execution_order": 1,
+                },
+                {
+                    "id": "duplicate",
+                    "name": "Duplicate",
+                    "description": "",
+                    "branch": "communication",
+                    "prerequisites": [],
+                    "related": [],
+                    "x": 100,
+                    "y": 100,
+                    "execution_order": 1,
+                },
+            ]
+        )
+        mock_config_file.write_text(
+            json.dumps(config, indent=2),
+            encoding="utf-8",
+        )
+
+        repaired = load_tree_config(force_reload=True)
+        positions = {
+            skill["id"]: (skill["x"], skill["y"])
+            for skill in repaired["skills"]
+        }
+
+        assert positions["ecoute"] == (100, 100)
+        assert positions["zero"] != (0, 0)
+        assert positions["duplicate"] != (100, 100)
+        all_positions = list(positions.values())
+        for index, position in enumerate(all_positions):
+            for other in all_positions[index + 1:]:
+                assert not _positions_overlap(position, other)
+
+        persisted = json.loads(mock_config_file.read_text(encoding="utf-8"))
+        assert all(
+            skill["x"] > 0 and skill["y"] > 0
+            for skill in persisted["skills"]
+        )
+
+    def test_dynamic_layout_has_no_fifty_skill_limit(self):
+        config = {
+            "branches": {
+                "growth": {"color": "#123456", "pale_color": "#abcdef"}
+            },
+            "skills": [
+                {
+                    "id": f"skill_{index}",
+                    "name": f"Skill {index}",
+                    "description": "",
+                    "branch": "growth",
+                    "prerequisites": [],
+                    "related": [],
+                    "x": 0,
+                    "y": 0,
+                    "execution_order": 1,
+                }
+                for index in range(55)
+            ],
+        }
+
+        assert repair_skill_positions(config) is True
+        positions = [
+            (skill["x"], skill["y"])
+            for skill in config["skills"]
+        ]
+        assert len(set(positions)) == 55
+        assert all(x > 0 and y > 0 for x, y in positions)
 
 
 # ---- Route Tests (using FastAPI TestClient) ----
@@ -349,4 +438,56 @@ class TestSoftskillRoutes:
         assert response.status_code == 200
         assert response.json()["deleted_skill"] == "testskill"
 
+    def test_skill_coordinates_are_allocated_and_preserved(self, client):
+        response = client.post(
+            "/api/v1/softskills/skills",
+            json={
+                "id": "auto_skill",
+                "name": "Auto Skill",
+                "description": "",
+                "branch": "communication",
+                "prerequisites": ["ecoute"],
+                "related": [],
+                "execution_order": 2,
+            },
+        )
+        assert response.status_code == 201
+        created = response.json()
+        original_position = (created["x"], created["y"])
+        assert created["x"] > 0
+        assert created["y"] == 220
+
+        response = client.put(
+            "/api/v1/softskills/skills/auto_skill",
+            json={
+                "name": "Auto Skill Renamed",
+                "description": "Updated",
+                "branch": "communication",
+                "prerequisites": ["ecoute"],
+                "related": [],
+                "execution_order": 2,
+            },
+        )
+        assert response.status_code == 200
+        unchanged = response.json()
+        assert (unchanged["x"], unchanged["y"]) == original_position
+
+        response = client.put(
+            "/api/v1/softskills/skills/auto_skill",
+            json={
+                "name": "Auto Skill Renamed",
+                "description": "Updated",
+                "branch": "communication",
+                "prerequisites": ["ecoute"],
+                "related": [],
+                "execution_order": 3,
+            },
+        )
+        assert response.status_code == 200
+        repositioned = response.json()
+        assert repositioned["y"] == 360
+        assert (repositioned["x"], repositioned["y"]) != original_position
+
+        response = client.delete("/api/v1/softskills/skills/auto_skill")
+        assert response.status_code == 200
 
