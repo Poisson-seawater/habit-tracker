@@ -59,6 +59,16 @@ def test_parse_help_aliases_aide():
     assert parse_command("/aide") == {"command": "aide"}
     assert parse_command("/help") == {"command": "aide"}
 
+def test_parse_buy_success_with_args():
+    result = parse_command("/buy Netflix")
+    assert result["command"] == "buy"
+    assert result["reward_name"] == "Netflix"
+
+def test_parse_buy_success_no_args():
+    result = parse_command("/buy")
+    assert result["command"] == "buy"
+    assert result["reward_name"] is None
+
 def test_parse_unknown_command():
     with pytest.raises(ParserError) as exc_info:
         parse_command("/unknown")

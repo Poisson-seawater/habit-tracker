@@ -13,6 +13,7 @@ from src.bot.parser import parse_command, ParserError
 from src.services.score_service import calculate_daily_score, update_streaks, DEFAULT_THRESHOLDS
 from src.bot.scheduler import start_scheduler
 from src.services.reward_service import check_reward_lock, purchase_reward, is_allostasis_available
+from src.services.softskill_service import load_tree_config, create_skill, get_user_progress, toggle_completion
 from fastapi import HTTPException
 
 # Mapping stats to their French display labels
@@ -159,9 +160,10 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     text = update.message.text.strip()
-    # Plain text is normally ignored, EXCEPT when an /add flow is awaiting a title.
+    # Plain text is normally ignored, EXCEPT when an /add flow is awaiting a title or softskill creation.
     pending = context.user_data.get("pending_add")
-    if not text.startswith("/") and not pending:
+    pending_ss = context.user_data.get("pending_ss_create")
+    if not text.startswith("/") and not pending and not pending_ss:
         return
 
     chat = update.effective_chat
@@ -197,6 +199,103 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 context.user_data.pop("pending_add", None)
                 await update.message.reply_text(reply, parse_mode="HTML")
                 return
+
+        # Multi-step softskill creation flow
+        if pending_ss:
+            if text.startswith("/"):
+                # A new command aborts the pending flow; fall through to normal routing.
+                context.user_data.pop("pending_ss_create", None)
+            else:
+                step = pending_ss.get("step")
+                branch = pending_ss.get("branch")
+                
+                if step == 1:
+                    skill_id = text.strip().lower().replace(" ", "_")
+                    if not skill_id:
+                        await update.message.reply_text("❌ L'ID ne peut pas être vide. Veuillez entrer un identifiant valide (ex: negociation_active).")
+                        db.close()
+                        return
+                    config = load_tree_config()
+                    if any(s["id"] == skill_id for s in config.get("skills", [])):
+                        await update.message.reply_text(f"❌ Un softskill avec l'ID '{skill_id}' existe déjà. Veuillez en entrer un autre.")
+                        db.close()
+                        return
+                    
+                    pending_ss["id"] = skill_id
+                    pending_ss["step"] = 2
+                    context.user_data["pending_ss_create"] = pending_ss
+                    await update.message.reply_text(
+                        f"ID retenu : <code>{html.escape(skill_id)}</code>\n\n"
+                        f"✏️ Étape 2/4 : Entrez le <b>nom</b> du softskill (ex: Négociation Active).",
+                        parse_mode="HTML"
+                    )
+                    db.close()
+                    return
+                    
+                elif step == 2:
+                    name = text.strip()
+                    if not name:
+                        await update.message.reply_text("❌ Le nom ne peut pas être vide. Veuillez entrer un nom valide.")
+                        db.close()
+                        return
+                    pending_ss["name"] = name
+                    pending_ss["step"] = 3
+                    context.user_data["pending_ss_create"] = pending_ss
+                    await update.message.reply_text(
+                        f"Nom retenu : <b>{html.escape(name)}</b>\n\n"
+                        f"✏️ Étape 3/4 : Entrez la <b>description</b> du softskill.",
+                        parse_mode="HTML"
+                    )
+                    db.close()
+                    return
+                    
+                elif step == 3:
+                    description = text.strip()
+                    pending_ss["description"] = description
+                    pending_ss["step"] = 4
+                    context.user_data["pending_ss_create"] = pending_ss
+                    await update.message.reply_text(
+                        "Description retenue.\n\n"
+                        "✏️ Étape 4/4 : Entrez l'<b>ordre d'exécution</b> (un nombre entier >= 1, ex: 1, 2, 3).",
+                        parse_mode="HTML"
+                    )
+                    db.close()
+                    return
+                    
+                elif step == 4:
+                    try:
+                        execution_order = int(text.strip())
+                        if execution_order < 1:
+                            raise ValueError()
+                    except ValueError:
+                        await update.message.reply_text("❌ Ordre invalide. Veuillez entrer un nombre entier supérieur ou égal à 1.")
+                        db.close()
+                        return
+                    
+                    try:
+                        new_skill = create_skill({
+                            "id": pending_ss["id"],
+                            "name": pending_ss["name"],
+                            "description": pending_ss["description"],
+                            "branch": branch,
+                            "execution_order": execution_order
+                        })
+                        context.user_data.pop("pending_ss_create", None)
+                        await update.message.reply_text(
+                            f"✅ <b>Softskill créé avec succès !</b>\n\n"
+                            f"• <b>ID</b> : <code>{new_skill['id']}</code>\n"
+                            f"• <b>Nom</b> : {html.escape(new_skill['name'])}\n"
+                            f"• <b>Description</b> : {html.escape(new_skill['description'])}\n"
+                            f"• <b>Branche</b> : {html.escape(new_skill['branch'])}\n"
+                            f"• <b>Ordre</b> : {new_skill['execution_order']}\n"
+                            f"• <b>Position</b> : (x={new_skill['x']}, y={new_skill['y']})",
+                            parse_mode="HTML"
+                        )
+                    except Exception as e:
+                        context.user_data.pop("pending_ss_create", None)
+                        await update.message.reply_text(f"❌ Erreur lors de la création du softskill : {e}")
+                    db.close()
+                    return
 
         # Parse command
         try:
@@ -629,6 +728,23 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif cmd == "buy":
             reward_name = parsed["reward_name"]
+            if reward_name is None:
+                keyboard = [
+                    [
+                        InlineKeyboardButton("🔄 Allostasie Day", callback_data="buy_cat:allostasis_daily"),
+                        InlineKeyboardButton("📅 Allostasie Week", callback_data="buy_cat:allostasis_weekly")
+                    ],
+                    [
+                        InlineKeyboardButton("💎 Shop Basic", callback_data="buy_cat:regular")
+                    ]
+                ]
+                await update.message.reply_text(
+                    "🛒 <b>Boutique — Choisissez une catégorie :</b>",
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="HTML"
+                )
+                return
+
             matches = db.query(Reward).filter(
                 Reward.user_id == user.id,
                 Reward.title.ilike(f"%{reward_name}%")
@@ -664,6 +780,29 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(f"⚠️ {he.detail}")
             except Exception as e:
                 await update.message.reply_text(f"❌ Erreur lors de l'achat : {e}")
+
+        elif cmd == "softskill":
+            config = load_tree_config()
+            branches = config.get("branches", {})
+            if not branches:
+                await update.message.reply_text("Aucune branche de softskills configurée dans le système.")
+                return
+            
+            keyboard = []
+            row = []
+            for b_key in branches.keys():
+                row.append(InlineKeyboardButton(b_key, callback_data=f"ss_branch:{b_key}"))
+                if len(row) == 2:
+                    keyboard.append(row)
+                    row = []
+            if row:
+                keyboard.append(row)
+                
+            await update.message.reply_text(
+                "🧠 <b>Arbre des Softskills</b>\nChoisissez une catégorie de compétence :",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="HTML"
+            )
 
         elif cmd == "aide":
             keyboard = [
@@ -709,6 +848,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "<b>/shop</b> [filtre] — Affiche les récompenses de la boutique\n"
             "<b>/buy</b> [nom] — Achète une récompense de la boutique\n"
             "<b>/motivation</b> — Liste tes objectifs à long terme\n"
+            "<b>/softskill</b> (alias <b>/skills</b>) — Gère tes softskills (branches, création, validation)\n"
             "<b>/app</b> — Ouvre le dashboard en Mini App Telegram\n"
             "<b>/aide</b> (alias <b>/help</b>) — Affiche ce menu d'aide"
         )
@@ -740,6 +880,160 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(prompt)
         return
 
+    # --- Softskill callback actions ------------------------------------------
+    if data.startswith("ss_"):
+        db = SessionLocal()
+        try:
+            user = _resolve_user(db, query.from_user)
+            
+            if data == "ss_back_main":
+                config = load_tree_config()
+                branches = config.get("branches", {})
+                keyboard = []
+                row = []
+                for b_key in branches.keys():
+                    row.append(InlineKeyboardButton(b_key, callback_data=f"ss_branch:{b_key}"))
+                    if len(row) == 2:
+                        keyboard.append(row)
+                        row = []
+                if row:
+                    keyboard.append(row)
+                await query.edit_message_text(
+                    "🧠 <b>Arbre des Softskills</b>\nChoisissez une catégorie de compétence :",
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="HTML"
+                )
+                
+            elif data.startswith("ss_branch:"):
+                branch_key = data.split(":", 1)[1]
+                config = load_tree_config()
+                skills = [s for s in config.get("skills", []) if s.get("branch") == branch_key]
+                progress = get_user_progress(db, user.id)
+                
+                lines = [f"🧠 <b>Branche : {html.escape(branch_key)}</b>\n"]
+                if not skills:
+                    lines.append("Aucun softskill dans cette branche.")
+                else:
+                    # Sort by execution_order
+                    skills.sort(key=lambda s: s.get("execution_order", 1))
+                    for s in skills:
+                        prog = progress.get(s["id"], {})
+                        status = "✅ Complété" if prog.get("completed") else "⏳ En cours"
+                        lines.append(f"• <b>{html.escape(s['name'])}</b> (Ordre: {s.get('execution_order')}) - <i>{status}</i>")
+                        if s.get("description"):
+                            lines.append(f"  <i>{html.escape(s['description'])}</i>")
+                            
+                keyboard = [
+                    [
+                        InlineKeyboardButton("➕ Ajouter un Softskill", callback_data=f"ss_add_select:{branch_key}"),
+                        InlineKeyboardButton("✅ Valider un Softskill", callback_data=f"ss_val_select:{branch_key}")
+                    ],
+                    [
+                        InlineKeyboardButton("⬅️ Retour", callback_data="ss_back_main")
+                    ]
+                ]
+                await query.edit_message_text(
+                    "\n".join(lines),
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="HTML"
+                )
+                
+            elif data.startswith("ss_add_select:"):
+                branch_key = data.split(":", 1)[1]
+                context.user_data["pending_ss_create"] = {"step": 1, "branch": branch_key}
+                await query.message.reply_text(
+                    f"➕ <b>Création d'un Softskill dans {html.escape(branch_key)}</b>\n\n"
+                    f"✏️ Étape 1/4 : Entrez l'identifiant unique (ID) du softskill (en minuscules, sans espace, ex: <code>ecoute_active</code>)."
+                )
+                
+            elif data.startswith("ss_val_select:"):
+                branch_key = data.split(":", 1)[1]
+                config = load_tree_config()
+                skills = [s for s in config.get("skills", []) if s.get("branch") == branch_key]
+                progress = get_user_progress(db, user.id)
+                
+                keyboard = []
+                for s in skills:
+                    prog = progress.get(s["id"], {})
+                    status_emoji = "✅" if prog.get("completed") else "⏳"
+                    keyboard.append([InlineKeyboardButton(f"{status_emoji} {s['name']}", callback_data=f"ss_test_val:{s['id']}")])
+                    
+                keyboard.append([InlineKeyboardButton("⬅️ Retour", callback_data=f"ss_branch:{branch_key}")])
+                
+                await query.edit_message_text(
+                    f"✅ <b>Validation — {html.escape(branch_key)}</b>\nChoisissez le softskill à valider :",
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="HTML"
+                )
+                
+            elif data.startswith("ss_test_val:"):
+                skill_id = data.split(":", 1)[1]
+                config = load_tree_config()
+                skill = next((s for s in config.get("skills", []) if s["id"] == skill_id), None)
+                if not skill:
+                    await query.edit_message_text("❌ Softskill introuvable.")
+                    db.close()
+                    return
+                    
+                progress = get_user_progress(db, user.id)
+                prog = progress.get(skill_id, {})
+                test_text = prog.get("success_criteria_test") or "Aucun critère/test de validation défini pour ce softskill."
+                
+                lines = [
+                    f"📋 <b>Validation — {html.escape(skill['name'])}</b>\n",
+                    f"<b>Description</b> : <i>{html.escape(skill.get('description', 'Aucune description.'))}</i>\n",
+                    f"<b>Critères / Test de validation</b> :",
+                    f"<pre>{html.escape(test_text)}</pre>\n",
+                    "Voulez-vous valider ce softskill ?"
+                ]
+                
+                keyboard = [
+                    [
+                        InlineKeyboardButton("✅ Valider", callback_data=f"ss_confirm_val:{skill_id}"),
+                        InlineKeyboardButton("❌ Annuler", callback_data=f"ss_branch:{skill['branch']}")
+                    ]
+                ]
+                
+                await query.edit_message_text(
+                    "\n".join(lines),
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="HTML"
+                )
+                
+            elif data.startswith("ss_confirm_val:"):
+                skill_id = data.split(":", 1)[1]
+                config = load_tree_config()
+                skill = next((s for s in config.get("skills", []) if s["id"] == skill_id), None)
+                if not skill:
+                    await query.edit_message_text("❌ Softskill introuvable.")
+                    db.close()
+                    return
+                    
+                res = toggle_completion(db, user.id, skill_id, True)
+                if "error" in res:
+                    await query.edit_message_text(
+                        f"⚠️ <b>Impossible de valider :</b>\n{html.escape(res['error'])}\n\n"
+                        f"Vous devez d'abord compléter les prérequis.",
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("⬅️ Retour", callback_data=f"ss_branch:{skill['branch']}")
+                        ]]),
+                        parse_mode="HTML"
+                    )
+                else:
+                    await query.edit_message_text(
+                        f"🎉 <b>Félicitations !</b>\nLe softskill <b>{html.escape(skill['name'])}</b> a été validé avec succès !",
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("⬅️ Retour à la branche", callback_data=f"ss_branch:{skill['branch']}")
+                        ]]),
+                        parse_mode="HTML"
+                    )
+        except Exception as e:
+            print(f"Error handling softskill callback {data}: {e}")
+            await query.message.reply_text(f"❌ Une erreur est survenue : {e}")
+        finally:
+            db.close()
+        return
+
     # --- Data-backed buttons (need a DB session + the user) ------------------
     if data.startswith("liste:") or data.startswith("setday:"):
         db = SessionLocal()
@@ -753,6 +1047,92 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             print(f"Error handling callback {data}: {e}")
             await query.message.reply_text(f"❌ Une erreur est survenue : {e}")
+        finally:
+            db.close()
+        return
+
+    if data.startswith("buy_cat:") or data.startswith("buy_item:"):
+        db = SessionLocal()
+        try:
+            user = _resolve_user(db, query.from_user)
+            if data.startswith("buy_cat:"):
+                category = data.split(":", 1)[1]
+                
+                # Fetch all rewards for this user and this category
+                rewards = db.query(Reward).filter_by(user_id=user.id, category=category).all()
+                
+                available_rewards = []
+                for r in rewards:
+                    # Check locks
+                    unlocked, _ = check_reward_lock(db, user.id, r)
+                    if not unlocked:
+                        continue
+                    
+                    # Check category specific availability
+                    if category in ["allostasis_daily", "allostasis_weekly"]:
+                        if not is_allostasis_available(r):
+                            continue
+                    else: # regular
+                        # Check one-time limit
+                        if r.is_one_time and r.purchased_count > 0:
+                            continue
+                        # Check gold limit
+                        if user.gold < r.gold_cost:
+                            continue
+                    
+                    available_rewards.append(r)
+                
+                category_label = "Allostasie Day" if category == "allostasis_daily" else "Allostasie Week" if category == "allostasis_weekly" else "Boutique Classique"
+                
+                if not available_rewards:
+                    await query.edit_message_text(
+                        f"❌ Aucun item disponible ou achetable dans la catégorie <b>{category_label}</b>.",
+                        parse_mode="HTML"
+                    )
+                    return
+                
+                # Construct inline keyboard buttons for available rewards
+                keyboard = []
+                for r in available_rewards:
+                    if category in ["allostasis_daily", "allostasis_weekly"]:
+                        btn_text = f"✨ {r.title}"
+                    else:
+                        btn_text = f"💰 {r.title} ({r.gold_cost} Or)"
+                    keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"buy_item:{r.id}")])
+                
+                await query.edit_message_text(
+                    f"🛒 <b>Items disponibles — {category_label} :</b>\nSélectionnez un item à acheter ou valider :",
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="HTML"
+                )
+            else: # buy_item
+                reward_id = int(data.split(":", 1)[1])
+                reward_to_buy = db.query(Reward).filter_by(id=reward_id, user_id=user.id).first()
+                
+                if not reward_to_buy:
+                    await query.edit_message_text("❌ Récompense introuvable.")
+                    return
+                    
+                # Perform purchase
+                res = purchase_reward(db, user.id, reward_to_buy.id)
+                if reward_to_buy.category in ["allostasis_daily", "allostasis_weekly"]:
+                    msg = (
+                        f"✅ Allostasie validée ! Vous avez validé <b>{html.escape(reward_to_buy.title)}</b>.\n"
+                        f"Solde actuel : 💰 <b>{res['new_gold']} Or</b>."
+                    )
+                else:
+                    msg = (
+                        f"💸 Achat réussi ! Vous avez acheté <b>{html.escape(reward_to_buy.title)}</b> pour 💰 <b>{res['gold_spent']} Or</b>.\n"
+                        f"Nouveau solde : 💰 <b>{res['new_gold']} Or</b>."
+                    )
+                
+                await query.edit_message_text(msg, parse_mode="HTML")
+                
+        except HTTPException as he:
+            await query.edit_message_text(f"⚠️ {he.detail}")
+        except Exception as e:
+            print(f"Error handling callback {data}: {e}")
+            await query.edit_message_text(f"❌ Une erreur est survenue : {e}")
         finally:
             db.close()
         return
