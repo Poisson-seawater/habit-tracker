@@ -8,22 +8,16 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from src.config import TELEGRAM_BOT_TOKEN
 from src.database.session import SessionLocal
 from src.database.models import User, Habit, HabitLog, DailyScore, Streak, Todo
-from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_12_STATS
+from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_6_STATS
 from src.services.reward_service import get_allostasis_purchases_on_date
 
 STAT_LABELS = {
-    "force": "Force 💪",
-    "endurance": "Endurance 🏃‍♂️",
-    "mobilite": "Mobilité 🧘‍♂️",
-    "discipline": "Discipline ⚔️",
-    "creativite": "Créativité 🎨",
-    "connaissance": "Connaissance 📚",
-    "sociabilite": "Sociabilité 🤝",
-    "sante_mentale": "Santé Mentale 🧠",
+    "forme_physique": "Forme Physique 💪",
+    "sante": "Santé 🧠",
+    "social": "Social 🤝",
     "finance": "Finance 💰",
-    "organisation": "Organisation 📂",
-    "spiritualite": "Spiritualité 🌌",
-    "repos": "Repos 💤"
+    "apprendre": "Apprendre 📚",
+    "discipline": "Discipline ⚔️"
 }
 
 async def publish_daily_recap():
@@ -121,7 +115,7 @@ async def publish_daily_recap():
 
             # Format stat progression lines
             stat_earned_parts = []
-            for stat in ALL_12_STATS:
+            for stat in ALL_6_STATS:
                 val = score.actual_stats.get(stat, 0)
                 if val > 0:
                     label = STAT_LABELS.get(stat, stat.capitalize())

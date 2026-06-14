@@ -265,18 +265,12 @@ body {
 }
 
 /* Specific HSL tints for stats */
-.stat-force .stat-progress-bar { background: linear-gradient(90deg, #f87171, #ef4444); }
-.stat-endurance .stat-progress-bar { background: linear-gradient(90deg, #fb923c, #f97316); }
-.stat-mobilite .stat-progress-bar { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
-.stat-discipline .stat-progress-bar { background: linear-gradient(90deg, #a78bfa, #8b5cf6); }
-.stat-creativite .stat-progress-bar { background: linear-gradient(90deg, #ec4899, #db2777); }
-.stat-connaissance .stat-progress-bar { background: linear-gradient(90deg, #60a5fa, #3b82f6); }
-.stat-sociabilite .stat-progress-bar { background: linear-gradient(90deg, #2dd4bf, #0d9488); }
-.stat-sante_mentale .stat-progress-bar { background: linear-gradient(90deg, #34d399, #10b981); }
+.stat-forme_physique .stat-progress-bar { background: linear-gradient(90deg, #f87171, #ef4444); }
+.stat-sante .stat-progress-bar { background: linear-gradient(90deg, #34d399, #10b981); }
+.stat-social .stat-progress-bar { background: linear-gradient(90deg, #2dd4bf, #0d9488); }
 .stat-finance .stat-progress-bar { background: linear-gradient(90deg, #a3e635, #84cc16); }
-.stat-organisation .stat-progress-bar { background: linear-gradient(90deg, #818cf8, #4f46e5); }
-.stat-spiritualite .stat-progress-bar { background: linear-gradient(90deg, #c084fc, #9333ea); }
-.stat-repos .stat-progress-bar { background: linear-gradient(90deg, #f472b6, #e11d48); }
+.stat-apprendre .stat-progress-bar { background: linear-gradient(90deg, #60a5fa, #3b82f6); }
+.stat-discipline .stat-progress-bar { background: linear-gradient(90deg, #a78bfa, #8b5cf6); }
 
 /* Quests (Habits) list */
 .quests-panel {

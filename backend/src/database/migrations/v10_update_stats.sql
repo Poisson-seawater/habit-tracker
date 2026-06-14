@@ -1,0 +1,7 @@
+-- Migration: 12 stats to 6 stats
+-- This migration maps force, endurance, mobilite -> forme_physique;
+-- sante_mentale, repos, spiritualite -> sante; sociabilite -> social;
+-- finance -> finance; creativite, connaissance -> apprendre;
+-- discipline, organisation -> discipline.
+-- Due to complexity of JSON migration in SQLite, the migration is performed using
+-- the Python script: backend/src/database/migrations/v10_migrate_stats.py

@@ -2,17 +2,15 @@ import datetime
 from sqlalchemy.orm import Session
 from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo
 
-ALL_12_STATS = [
-    "force", "endurance", "mobilite", "discipline", "creativite", 
-    "connaissance", "sociabilite", "sante_mentale", "finance", 
-    "organisation", "spiritualite", "repos"
+ALL_6_STATS = [
+    "forme_physique", "sante", "social", "finance", "apprendre", "discipline"
 ]
 
 DEFAULT_THRESHOLDS = {
-    "week": {"discipline": 8, "organisation": 3, "creativite": 3, "connaissance": 3},
-    "weekend": {"repos": 8, "sociabilite": 4, "creativite": 3},
-    "recup": {"repos": 5, "sante_mentale": 3},
-    "malade": {"repos": 3}
+    "week": {"discipline": 11, "apprendre": 6},
+    "weekend": {"sante": 8, "social": 4, "apprendre": 3},
+    "recup": {"sante": 8},
+    "malade": {"sante": 3}
 }
 
 def calculate_daily_score(db: Session, user_id: int, date: datetime.date, template_name: str = None) -> DailyScore:
@@ -48,7 +46,7 @@ def calculate_daily_score(db: Session, user_id: int, date: datetime.date, templa
         HabitLog.timestamp <= end_dt
     ).all()
 
-    actual_stats = {stat: 0 for stat in ALL_12_STATS}
+    actual_stats = {stat: 0 for stat in ALL_6_STATS}
     
     # Group logs by habit
     logs_by_habit = {}
@@ -61,7 +59,7 @@ def calculate_daily_score(db: Session, user_id: int, date: datetime.date, templa
         if not habit or not habit.is_active:
             continue
             
-        habit_stats = {stat: 0 for stat in ALL_12_STATS}
+        habit_stats = {stat: 0 for stat in ALL_6_STATS}
         
         if habit.type == "binary":
             # For binary habits, award points once

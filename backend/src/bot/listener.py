@@ -16,20 +16,13 @@ from src.services.reward_service import check_reward_lock, purchase_reward, is_a
 from src.services.softskill_service import load_tree_config, create_skill, get_user_progress, toggle_completion
 from fastapi import HTTPException
 
-# Mapping stats to their French display labels
 STAT_LABELS = {
-    "force": "Force 💪",
-    "endurance": "Endurance 🏃‍♂️",
-    "mobilite": "Mobilité 🧘‍♂️",
-    "discipline": "Discipline ⚔️",
-    "creativite": "Créativité 🎨",
-    "connaissance": "Connaissance 📚",
-    "sociabilite": "Sociabilité 🤝",
-    "sante_mentale": "Santé Mentale 🧠",
+    "forme_physique": "Forme Physique 💪",
+    "sante": "Santé 🧠",
+    "social": "Social 🤝",
     "finance": "Finance 💰",
-    "organisation": "Organisation 📂",
-    "spiritualite": "Spiritualité 🌌",
-    "repos": "Repos 💤"
+    "apprendre": "Apprendre 📚",
+    "discipline": "Discipline ⚔️"
 }
 
 def format_stat_rewards(point_rewards: dict) -> str:

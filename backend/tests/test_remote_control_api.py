@@ -147,7 +147,7 @@ def test_goal_with_substeps_is_created_together(client):
                 {
                     "title": "Obtenir un passeport",
                     "gold_reward": 50,
-                    "stats_json": ["organisation"],
+                    "stats_json": ["discipline"],
                 },
                 {
                     "title": "Créer un budget",

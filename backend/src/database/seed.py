@@ -39,19 +39,19 @@ def seed_db():
             templates_data = [
                 {
                     "template_name": "week",
-                    "thresholds_json": {"discipline": 8, "organisation": 3, "creativite": 3, "connaissance": 3}
+                    "thresholds_json": {"discipline": 11, "apprendre": 6}
                 },
                 {
                     "template_name": "weekend",
-                    "thresholds_json": {"repos": 8, "sociabilite": 4, "creativite": 3}
+                    "thresholds_json": {"sante": 8, "social": 4, "apprendre": 3}
                 },
                 {
                     "template_name": "recup",
-                    "thresholds_json": {"repos": 5, "sante_mentale": 3}
+                    "thresholds_json": {"sante": 8}
                 },
                 {
                     "template_name": "malade",
-                    "thresholds_json": {"repos": 3}
+                    "thresholds_json": {"sante": 3}
                 }
             ]
             for t_info in templates_data:
@@ -75,7 +75,7 @@ def seed_db():
                 "is_private": False,
                 "is_reportable": False,
                 "is_mandatory": True,
-                "point_rewards": {"discipline": 2, "organisation": 1},
+                "point_rewards": {"discipline": 3},
                 "daily_cap": None,
                 "unit": None,
                 "is_active": True
@@ -91,7 +91,7 @@ def seed_db():
                 "is_private": False,
                 "is_reportable": True,
                 "is_mandatory": False,
-                "point_rewards": {"creativite": 5, "discipline": 2, "connaissance": 3},
+                "point_rewards": {"apprendre": 8, "discipline": 2},
                 "daily_cap": 8,
                 "unit": "min",
                 "is_active": True
@@ -107,7 +107,7 @@ def seed_db():
                 "is_private": False,
                 "is_reportable": True,
                 "is_mandatory": False,
-                "point_rewards": {"creativite": 5, "discipline": 2},
+                "point_rewards": {"apprendre": 5, "discipline": 2},
                 "daily_cap": None,
                 "unit": None,
                 "is_active": True
@@ -123,7 +123,7 @@ def seed_db():
                 "is_private": False,
                 "is_reportable": True,
                 "is_mandatory": False,
-                "point_rewards": {"force": 8, "endurance": 5, "mobilite": 3},
+                "point_rewards": {"forme_physique": 16},
                 "daily_cap": 15,
                 "unit": "km",
                 "is_active": True
@@ -139,7 +139,7 @@ def seed_db():
                 "is_private": True,
                 "is_reportable": False,
                 "is_mandatory": False,
-                "point_rewards": {"sante_mentale": 3, "repos": 2},
+                "point_rewards": {"sante": 5},
                 "daily_cap": None,
                 "unit": None,
                 "is_active": True
@@ -184,15 +184,15 @@ def seed_db():
         # 5. Seed SubSteps for Gabriel (User 1)
         substeps_data = [
             {"id": 1, "user_id": 1, "title": "Avoir 500k en actif", "gold_reward": 500, "stats_json": ["finance"], "description": "Accumuler 500k d'actifs nets"},
-            {"id": 2, "user_id": 1, "title": "Acheter un immeuble locatif", "gold_reward": 300, "stats_json": ["finance", "organisation"], "description": "Trouver et acquérir un premier bien de rendement"},
-            {"id": 3, "user_id": 1, "title": "Trouver un bon avocat", "gold_reward": 100, "stats_json": ["discipline", "organisation"], "description": "Réseauter pour s'entourer d'un expert juridique"},
+            {"id": 2, "user_id": 1, "title": "Acheter un immeuble locatif", "gold_reward": 300, "stats_json": ["finance", "discipline"], "description": "Trouver et acquérir un premier bien de rendement"},
+            {"id": 3, "user_id": 1, "title": "Trouver un bon avocat", "gold_reward": 100, "stats_json": ["discipline"], "description": "Réseauter pour s'entourer d'un expert juridique"},
             {"id": 4, "user_id": 1, "title": "Avoir de l'argent", "gold_reward": 150, "stats_json": ["finance"], "description": "Constituer une épargne de voyage"},
-            {"id": 5, "user_id": 1, "title": "Avoir un passeport", "gold_reward": 50, "stats_json": ["organisation"], "description": "Faire les démarches à la mairie"},
-            {"id": 6, "user_id": 1, "title": "Créer une feuille de budget", "gold_reward": 75, "stats_json": ["finance", "organisation"], "description": "Suivre ses dépenses mensuelles"},
+            {"id": 5, "user_id": 1, "title": "Avoir un passeport", "gold_reward": 50, "stats_json": ["discipline"], "description": "Faire les démarches à la mairie"},
+            {"id": 6, "user_id": 1, "title": "Créer une feuille de budget", "gold_reward": 75, "stats_json": ["finance", "discipline"], "description": "Suivre ses dépenses mensuelles"},
             {"id": 7, "user_id": 1, "title": "Achat assurance vie", "gold_reward": 100, "stats_json": ["finance"], "description": "Sécuriser un contrat d'assurance vie"},
             {"id": 8, "user_id": 1, "title": "Avoir une entrée d'argent stable", "gold_reward": 200, "stats_json": ["finance"], "description": "Garantir un flux financier mensuel régulier"},
-            {"id": 9, "user_id": 1, "title": "Trouver une femme", "gold_reward": 150, "stats_json": ["sociabilite"], "description": "Rencontrer sa partenaire de vie idéale"},
-            {"id": 10, "user_id": 1, "title": "La marier", "gold_reward": 250, "stats_json": ["sociabilite", "spiritualite"], "description": "Célébrer notre union"}
+            {"id": 9, "user_id": 1, "title": "Trouver une femme", "gold_reward": 150, "stats_json": ["social"], "description": "Rencontrer sa partenaire de vie idéale"},
+            {"id": 10, "user_id": 1, "title": "La marier", "gold_reward": 250, "stats_json": ["social", "sante"], "description": "Célébrer notre union"}
         ]
         for s_info in substeps_data:
             substep = SubStep(
@@ -234,14 +234,14 @@ def seed_db():
             {
                 "user_id": 1,
                 "title": "⚔️ Dompter le Dragon de Fer (Séance Jambes)",
-                "stat_reward_1": "force",
+                "stat_reward_1": "forme_physique",
                 "points_reward_1": 16,
                 "xp_reward": 20
             },
             {
                 "user_id": 1,
                 "title": "📚 Décoder les Runes (Lire 20 pages de doc)",
-                "stat_reward_1": "connaissance",
+                "stat_reward_1": "apprendre",
                 "points_reward_1": 3,
                 "xp_reward": 10
             },

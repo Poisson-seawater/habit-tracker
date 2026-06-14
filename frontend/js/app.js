@@ -78,18 +78,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 12 RPG Stats helper mapping
   const STAT_LABELS = {
-    "force": "Force 💪",
-    "endurance": "Endurance 🏃‍♂️",
-    "mobilite": "Mobilité 🧘‍♂️",
-    "discipline": "Discipline ⚔️",
-    "creativite": "Créativité 🎨",
-    "connaissance": "Connaissance 📚",
-    "sociabilite": "Sociabilité 🤝",
-    "sante_mentale": "Santé Mentale 🧠",
+    "forme_physique": "Forme Physique 💪",
+    "sante": "Santé 🧠",
+    "social": "Social 🤝",
     "finance": "Finance 💰",
-    "organisation": "Organisation 📂",
-    "spiritualite": "Spiritualité 🌌",
-    "repos": "Repos 💤"
+    "apprendre": "Apprendre 📚",
+    "discipline": "Discipline ⚔️"
   };
 
   // Helper to format stat list for rewards description
@@ -99,7 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .join(", ");
   }
 
-  const substepStatsDropdowns = ["substep-stat-1", "substep-stat-2", "edit-substep-stat-1", "edit-substep-stat-2", "new-quest-stat-1"];
+  const substepStatsDropdowns = ["substep-stat-1", "substep-stat-2", "edit-substep-stat-1", "edit-substep-stat-2", "new-quest-stat-1", "new-bounty-stat-1", "new-bounty-stat-2"];
   substepStatsDropdowns.forEach(id => {
     const el = document.getElementById(id);
     if (el) {

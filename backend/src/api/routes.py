@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from src.database.session import get_db
 from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, Goal, SubStep, GoalSubStepLink, NoTodo, UserSoftskillProgress, Reward, RemoteOperation
-from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_12_STATS, DEFAULT_THRESHOLDS
+from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_6_STATS, DEFAULT_THRESHOLDS
 from src.services import softskill_service
 
 router = APIRouter()
@@ -194,11 +194,11 @@ VALID_FREQUENCIES = {"daily", "weekly", "custom"}
 
 
 def _validate_stat_name(stat_name: Optional[str]):
-    """Reject a stat name that is not one of the 12 canonical stats. None is allowed."""
-    if stat_name and stat_name not in ALL_12_STATS:
+    """Reject a stat name that is not one of the 6 canonical stats. None is allowed."""
+    if stat_name and stat_name not in ALL_6_STATS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown stat '{stat_name}'. Valid stats: {', '.join(ALL_12_STATS)}"
+            detail=f"Unknown stat '{stat_name}'. Valid stats: {', '.join(ALL_6_STATS)}"
         )
 
 
@@ -221,10 +221,10 @@ def validate_habit_payload(payload: "HabitCreate"):
     if not payload.point_rewards:
         raise HTTPException(status_code=400, detail="point_rewards must not be empty.")
     for stat in payload.point_rewards.keys():
-        if stat not in ALL_12_STATS:
+        if stat not in ALL_6_STATS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unknown stat '{stat}' in point_rewards. Valid stats: {', '.join(ALL_12_STATS)}"
+                detail=f"Unknown stat '{stat}' in point_rewards. Valid stats: {', '.join(ALL_6_STATS)}"
             )
     if payload.type == "quantitative" and not payload.unit:
         raise HTTPException(status_code=400, detail="A quantitative habit requires a 'unit'.")
@@ -821,7 +821,7 @@ def get_daily_stats_potentials(db: Session = Depends(get_db), user_id: int = Dep
     """
     habits = db.query(Habit).filter_by(user_id=user_id, is_active=True).all()
     day_names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-    potentials = {day: {stat: 0 for stat in ALL_12_STATS} for day in day_names}
+    potentials = {day: {stat: 0 for stat in ALL_6_STATS} for day in day_names}
     
     for h in habits:
         scheduled_days = [int(d.strip()) for d in h.scheduled_days.split(",") if d.strip().isdigit()]

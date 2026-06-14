@@ -57,9 +57,24 @@
       color: var(--accent-gold);
       background: rgba(245, 158, 11, 0.1);
       border: 1px solid rgba(245, 158, 11, 0.2);
-      padding: 6px 14px;
-      border-radius: 10px;
+      padding: 8px 20px;
+      border-radius: 12px;
       box-shadow: 0 0 10px var(--accent-gold-glow);
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .user-quick-stats.nav-tab:hover {
+      border-color: var(--accent-gold);
+      box-shadow: 0 0 15px var(--accent-gold-glow);
+    }
+    .user-quick-stats.nav-tab.active {
+      background: linear-gradient(135deg, var(--accent-gold), var(--accent-purple));
+      color: var(--text-primary);
+      border-color: transparent;
+      box-shadow: 0 4px 12px var(--accent-gold-glow);
     }
     
     /* Tab Visibility */
@@ -800,13 +815,12 @@
         <button class="nav-tab" data-tab="goals-tab">🏆 Objectifs & Graphes</button>
         <button class="nav-tab" data-tab="softskills-tab">🌳 Softskills</button>
         <button class="nav-tab" data-tab="notodo-tab">🚫 NO To-Do</button>
-        <button class="nav-tab" data-tab="rewards-tab">🏪 Boutique</button>
         <button class="nav-tab" data-tab="settings-tab">⚙️ Perfect Days</button>
         <a href="/docs/index.html" class="nav-tab" target="_blank" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">📖 Docs</a>
       </div>
-      <div class="user-quick-stats">
-        <span class="user-gold-balance" id="top-gold-val">💰 0 Gold</span>
-      </div>
+      <button class="nav-tab user-quick-stats" data-tab="rewards-tab">
+        <span class="user-gold-balance" id="top-gold-val">💰 0 Gold</span> 🛒
+      </button>
     </nav>
 
     <!-- ============================================== -->
@@ -823,7 +837,6 @@
         <div class="profile-info">
           <div class="name-talent-row">
             <h1 id="char-name">Gabriel</h1>
-            <span class="talent-badge" id="top-gold-badge">💰 <span id="char-gold-val">0</span> Gold</span>
           </div>
           <div class="class-title" id="char-class">Aventurier d'Élite</div>
           <div class="xp-bar-container" title="Progression d'XP vers le prochain niveau (XP exponentielle)">
@@ -1003,18 +1016,6 @@
                   <label for="new-bounty-stat-1">Stat liée 1</label>
                   <select id="new-bounty-stat-1" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
                     <option value="">Aucune</option>
-                    <option value="force">Force 💪</option>
-                    <option value="endurance">Endurance 🏃‍♂️</option>
-                    <option value="mobilite">Mobilité 🧘‍♂️</option>
-                    <option value="discipline">Discipline ⚔️</option>
-                    <option value="creativite">Créativité 🎨</option>
-                    <option value="connaissance">Connaissance 📚</option>
-                    <option value="sociabilite">Sociabilité 🤝</option>
-                    <option value="sante_mentale">Santé Mentale 🧠</option>
-                    <option value="finance">Finance 💰</option>
-                    <option value="organisation">Organisation 📂</option>
-                    <option value="spiritualite">Spiritualité 🌌</option>
-                    <option value="repos">Repos 💤</option>
                   </select>
                 </div>
               </div>
@@ -1028,18 +1029,6 @@
                   <label for="new-bounty-stat-2">Stat liée 2</label>
                   <select id="new-bounty-stat-2" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
                     <option value="">Aucune</option>
-                    <option value="force">Force 💪</option>
-                    <option value="endurance">Endurance 🏃‍♂️</option>
-                    <option value="mobilite">Mobilité 🧘‍♂️</option>
-                    <option value="discipline">Discipline ⚔️</option>
-                    <option value="creativite">Créativité 🎨</option>
-                    <option value="connaissance">Connaissance 📚</option>
-                    <option value="sociabilite">Sociabilité 🤝</option>
-                    <option value="sante_mentale">Santé Mentale 🧠</option>
-                    <option value="finance">Finance 💰</option>
-                    <option value="organisation">Organisation 📂</option>
-                    <option value="spiritualite">Spiritualité 🌌</option>
-                    <option value="repos">Repos 💤</option>
                   </select>
                 </div>
               </div>

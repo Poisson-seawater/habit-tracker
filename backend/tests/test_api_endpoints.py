@@ -48,7 +48,7 @@ def setup_test_db():
         t2 = PerfectDayTemplate(
             user_id=1,
             template_name="weekend",
-            thresholds_json={"repos": 5}
+            thresholds_json={"sante": 5}
         )
         db.add_all([t1, t2])
         
@@ -210,7 +210,7 @@ def test_goals_and_substeps_crud():
         "title": "Trouver un SUPER avocat",
         "description": "Engager le meilleur avocat de la ville",
         "gold_reward": 300,
-        "stats_json": ["discipline", "organisation"],
+        "stats_json": ["discipline"],
         "blocked_by_ids": []
     })
     assert response.status_code == 200
@@ -319,7 +319,7 @@ def test_create_habit_quantitative_requires_unit():
     response = client.post("/api/v1/habits", json={
         "name": "habit_no_unit",
         "type": "quantitative",
-        "point_rewards": {"force": 2}
+        "point_rewards": {"forme_physique": 2}
     })
     assert response.status_code == 400
     assert "unit" in response.json()["detail"]
@@ -330,7 +330,7 @@ def test_create_habit_valid_still_passes():
         "type": "quantitative",
         "unit": "rep",
         "daily_cap": 100,
-        "point_rewards": {"force": 3}
+        "point_rewards": {"forme_physique": 3}
     })
     assert response.status_code == 201
     assert response.json()["status"] == "success"
