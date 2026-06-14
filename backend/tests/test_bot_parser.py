@@ -51,10 +51,6 @@ def test_parse_set_day_success():
     assert result["command"] == "set-day"
     assert result["template_name"] == "sick"
 
-def test_parse_app_success():
-    result = parse_command("/app")
-    assert result["command"] == "app"
-
 def test_parse_help_aliases_aide():
     assert parse_command("/aide") == {"command": "aide"}
     assert parse_command("/help") == {"command": "aide"}
@@ -73,3 +69,13 @@ def test_parse_unknown_command():
     with pytest.raises(ParserError) as exc_info:
         parse_command("/unknown")
     assert "Commande inconnue" in str(exc_info.value)
+
+def test_parse_command_with_bot_username():
+    result = parse_command("/shop@MyHabitRPGTrackerBot")
+    assert result["command"] == "shop"
+    assert result["filter"] == "toutes"
+    
+    result2 = parse_command("/buy@MyHabitRPGTrackerBot Netflix")
+    assert result2["command"] == "buy"
+    assert result2["reward_name"] == "Netflix"
+

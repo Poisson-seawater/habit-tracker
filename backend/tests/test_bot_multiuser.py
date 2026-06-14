@@ -153,32 +153,6 @@ async def test_bot_command_user_isolation(db_session):
     assert gabriel_score is None
 
 @pytest.mark.asyncio
-async def test_bot_app_command_returns_web_app_button(db_session, monkeypatch):
-    monkeypatch.setattr("src.bot.listener.TELEGRAM_WEB_APP_URL", "https://example.com/mini-app/")
-
-    update = MagicMock()
-    update.message = MagicMock()
-    update.message.text = "/app"
-    update.effective_chat.id = 111
-
-    from_user = MagicMock()
-    from_user.username = "Gabriel"
-    from_user.first_name = "Gabriel"
-    from_user.id = 111
-    update.message.from_user = from_user
-
-    reply_mock = AsyncMock()
-    update.message.reply_text = reply_mock
-    context = MagicMock()
-
-    await route_command(update, context)
-
-    reply_mock.assert_called_once()
-    _, kwargs = reply_mock.call_args
-    keyboard_button = kwargs["reply_markup"].inline_keyboard[0][0]
-    assert keyboard_button.web_app.url == "https://example.com/mini-app/"
-
-@pytest.mark.asyncio
 async def test_bot_help_alias_matches_aide(db_session):
     async def call_help_command(text):
         update = MagicMock()

@@ -60,7 +60,7 @@ PYTHONPATH=backend .venv/bin/pytest backend/tests
 ```
 
 Mini App Telegram : exposer l'API en HTTPS, mettre l'URL publique `/mini-app/` dans
-`TELEGRAM_WEB_APP_URL`, puis envoyer `/app` au bot.
+`TELEGRAM_WEB_APP_URL`, puis utiliser le menu d'aide (`/aide`) pour l'ouvrir.
 
 ---
 

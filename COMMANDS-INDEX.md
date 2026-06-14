@@ -26,7 +26,6 @@ Ce document centralise toutes les commandes disponibles pour le bot Telegram.
 | `/buy` | `[nom_recompense]` *(optionnel)* | Permet d'acheter une récompense ou valider une activité d'allostasie. Sans argument : affiche 3 boutons (Allostasie Day / Allostasie Week / Shop Basic) et n'affiche que ce qui est disponible ou abordable. | `/buy` ou `/buy Netflix` |
 | `/motivation` | *(aucun)* | Liste tes objectifs à long terme pour garder le cap. | `/motivation` |
 | `/softskill` *(alias `/softskills`, `/skills`)* | *(aucun)* | Ouvre le menu de gestion des softskills. Affiche les branches, permet d'ajouter un softskill ou de valider un test de softskill. | `/softskill` |
-| `/app` | *(aucun)* | Affiche un bouton pour ouvrir le dashboard en Mini App Telegram. Requiert `TELEGRAM_WEB_APP_URL` configuré avec une URL HTTPS publique vers `/mini-app/`. | `/app` |
 
 ---
 

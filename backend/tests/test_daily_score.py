@@ -32,6 +32,7 @@ def db_session():
         # 1. routine_matin: binary, daily, rewards discipline: 2
         h1 = Habit(
             id=1,
+            user_id=1,
             name="routine_matin",
             type="binary",
             frequency="daily",
@@ -42,6 +43,7 @@ def db_session():
         # 2. lecture: quantitative, daily, unit min, rewards discipline: 2 (cap 3)
         h2 = Habit(
             id=2,
+            user_id=1,
             name="lecture",
             type="quantitative",
             frequency="daily",
@@ -54,6 +56,7 @@ def db_session():
         # 3. musculation: binary, daily, rewards force: 6
         h3 = Habit(
             id=3,
+            user_id=1,
             name="musculation",
             type="binary",
             frequency="daily",

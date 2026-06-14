@@ -112,7 +112,7 @@ Displays the help menu with interactive buttons.
   ```
   Clicking "Liste des commandes" returns (HTML-formatted) the full command list
   (`/done`, `/log`, `/skip`, `/status`, `/set-day`, `/liste`, `/add`, `/add_habit`,
-  `/fail`, `/motivation`, `/app`, `/aide`, `/help`).
+  `/fail`, `/motivation`, `/aide`, `/help`).
 
 ---
 
