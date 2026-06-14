@@ -27,4 +27,11 @@ Pour récompenser la constance et vous motiver à installer des habitudes sur le
 - **Seuil des 30 jours (Adoption initiale) :** Atteindre un streak de 30 jours consécutifs sur une habitude déclenche une célébration visuelle et vous octroie **+100 XP** et **+50 Or**.
 - **Seuil des 90 jours (Ancrage définitif) :** Atteindre un streak de 90 jours consécutifs déclenche une célébration majeure et vous octroie **+300 XP** et **+150 Or**.
 
-*Note : Un `/skip` validé par le bot Telegram permet de suspendre temporairement une habitude pour un motif valable sans casser votre streak en cours.*
+### Comment fonctionne le streak d'une habitude ?
+
+Le streak (votre série de succès consécutifs) est géré selon les règles suivantes :
+
+* **Progression (+1) :** Chaque fois que vous validez l'habitude (`/done` ou `/log`) un jour où elle est planifiée, votre streak augmente de 1.
+* **Gel (Pause) :** Si vous ne pouvez pas faire l'habitude un jour où elle est due, vous pouvez utiliser la commande `/skip <habitude> raison: <texte>`. Votre streak est mis en pause (il ne retombe pas à 0, mais n'augmente pas non plus).
+* **Réinitialisation (0) :** Si l'habitude est planifiée aujourd'hui et que vous ne la faites pas (et ne la skippez pas avec `/skip`), **votre streak retombe immédiatement à 0**.
+* **Jours non-planifiés :** Les jours où l'habitude n'est pas planifiée (par exemple, les jours de repos prévus dans son planning) n'ont aucun impact : le streak ne progresse pas et ne se brise pas.
