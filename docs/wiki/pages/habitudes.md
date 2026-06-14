@@ -20,3 +20,11 @@ Chaque habitude attribue des points à une ou plusieurs [stats](#/stats-xp-nivea
 ## Séparées des objectifs
 
 Les habitudes et les [objectifs](#/objectifs) sont **séparés** : faire des habitudes ne valide pas tout seul une sous-étape d'objectif. Le lien est d'**intention** — la régularité construite par les habitudes rend les objectifs atteignables.
+
+## Paliers d'ancrage (30J / 90J)
+
+Pour récompenser la constance et vous motiver à installer des habitudes sur le long terme, le jeu intègre des paliers de continuité (streaks) :
+- **Seuil des 30 jours (Adoption initiale) :** Atteindre un streak de 30 jours consécutifs sur une habitude déclenche une célébration visuelle et vous octroie **+100 XP** et **+50 Or**.
+- **Seuil des 90 jours (Ancrage définitif) :** Atteindre un streak de 90 jours consécutifs déclenche une célébration majeure et vous octroie **+300 XP** et **+150 Or**.
+
+*Note : Un `/skip` validé par le bot Telegram permet de suspendre temporairement une habitude pour un motif valable sans casser votre streak en cours.*
