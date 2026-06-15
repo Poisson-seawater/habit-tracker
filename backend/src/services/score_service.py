@@ -61,14 +61,22 @@ def calculate_daily_score(db: Session, user_id: int, date: datetime.date, templa
             
         habit_stats = {stat: 0 for stat in ALL_6_STATS}
         
+        has_target = habit.daily_target is not None and habit.daily_target > 1
+
         if habit.type == "binary":
-            # For binary habits, award points once
-            if any(l.log_type == "done" for l in habit_logs):
+            # For binary habits, award points once — unless a daily_target is set,
+            # in which case each validation counts (extra reps = extra XP, capped by daily_cap).
+            done_count = sum(1 for l in habit_logs if l.log_type == "done")
+            if done_count > 0:
+                reps = done_count if has_target else 1
                 for stat, val in habit.point_rewards.items():
                     stat_key = stat.lower()
                     if stat_key in actual_stats:
-                        habit_stats[stat_key] = val
-                        
+                        habit_stats[stat_key] = val * reps
+                if has_target and habit.daily_cap is not None:
+                    for stat in habit_stats:
+                        habit_stats[stat] = min(habit_stats[stat], habit.daily_cap)
+
         elif habit.type == "quantitative":
             # For quantitative habits, sum and apply daily cap
             for log in habit_logs:

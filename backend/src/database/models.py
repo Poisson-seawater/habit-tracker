@@ -45,6 +45,7 @@ class Habit(Base):
     is_mandatory = Column(Boolean, default=False)
     point_rewards = Column(JSON, nullable=False)  # dict mapping stats e.g. {"discipline": 2, "force": 3}
     daily_cap = Column(Integer, nullable=True)  # Cap on points for quantitative habits
+    daily_target = Column(Integer, nullable=True)  # Cible de répétitions/jour (affichage X/N) ; None = 1
     unit = Column(String, nullable=True)  # Unit e.g. "min", "km"
     is_active = Column(Boolean, default=True)
     deactivated_at = Column(DateTime, nullable=True)

@@ -61,7 +61,7 @@ pour que tenir ses habitudes soit motivant plutôt que pénible.
 - **Gamification des seuils d'ancrage (30J / 90J)** : FAIT
   - **Objectif** : Valoriser le passage des paliers de formation d'une habitude (30 jours pour l'adoption initiale, 90 jours pour l'ancrage définitif).
   - **Gain** : Maintenir l'engagement à long terme en évitant le découragement après les premiers jours de streak. Offrir un sentiment de progression psychologique clair (ex: évolution visuelle ou titre honorifique de l'habitude).
-- **Règle d'initialisation des 7x7 (Démarrage rapide)** :
+- **Règle d'initialisation des 7x7 (Démarrage rapide)** — ⚠️ analyse & décision : [`docs/notes/7x7-reflex-drills-analysis.md`](./docs/notes/7x7-reflex-drills-analysis.md) (prémisse à moitié mythe, risque de sur-ingénierie, MVP minimal proposé) :
   - **Objectif** : Conditionner rapidement le cerveau à un nouveau comportement durant la phase critique de départ en exigeant 7 répétitions quotidiennes pendant les 7 premiers jours.
   - **Gain** : Vaincre la friction de démarrage et créer un automatisme fort dès la première semaine via une sur-activation temporaire mais intense.
 - **Planification quotidienne 3-3-3** :

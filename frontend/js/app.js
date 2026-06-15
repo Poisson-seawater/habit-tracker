@@ -234,11 +234,16 @@ document.addEventListener("DOMContentLoaded", () => {
         const questItem = document.createElement("div");
         questItem.className = "quest-item";
 
+        const hasTarget = habit.daily_target && habit.daily_target > 1;
+        const todayCount = habit.today_count || 0;
+        const targetReached = hasTarget && todayCount >= habit.daily_target;
         const isPeriodic = habit.frequency === "weekly" || habit.frequency === "monthly";
-        const isCompleted = isPeriodic ? (habit.completed_this_period || false) : completedIds.includes(habit.id);
+        // Targeted habits never lock: extra reps keep giving XP (e.g. 3/2).
+        const isCompleted = hasTarget ? false : (isPeriodic ? (habit.completed_this_period || false) : completedIds.includes(habit.id));
         const privateLock = habit.is_private ? " 🔒" : "";
         const rewards = formatPointRewards(habit.point_rewards);
         const freqBadge = freqLabels[habit.frequency] ? `<span style="font-size:0.7rem;padding:2px 6px;border-radius:8px;background:rgba(255,255,255,0.08);color:var(--text-muted);margin-left:6px;">${freqLabels[habit.frequency]}</span>` : "";
+        const targetBadge = hasTarget ? `<span style="font-size:0.7rem;padding:2px 6px;border-radius:8px;background:${targetReached ? 'rgba(34,197,94,0.22)' : 'rgba(99,102,241,0.18)'};color:var(--text-primary);margin-left:6px;">${todayCount}/${habit.daily_target}${targetReached ? ' ✅' : ''}</span>` : "";
 
         let buttonHTML = "";
         if (isCompleted) {
@@ -253,7 +258,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         questItem.innerHTML = `
           <div class="quest-details" data-id="${habit.id}" style="cursor: pointer;">
-            <span class="quest-name">${habit.name}${privateLock}${freqBadge}</span>
+            <span class="quest-name">${habit.name}${privateLock}${freqBadge}${targetBadge}</span>
             <span class="quest-desc">${habit.description || ''}</span>
             <span class="quest-reward-tag">Récompense : ${rewards}</span>
           </div>
@@ -1382,6 +1387,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("edit-quest-name").value      = habit.name;
     document.getElementById("edit-quest-desc").value      = habit.description || "";
     document.getElementById("edit-quest-unit").value      = habit.unit || "";
+    document.getElementById("edit-quest-target").value    = habit.daily_target || "";
     editFreqSelect.value = habit.frequency || "daily";
 
     // Show/hide day checkboxes
@@ -1418,12 +1424,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const checked = Array.from(editDaysGroup.querySelectorAll("input:checked")).map(cb => cb.value);
       scheduled_days = checked.length > 0 ? checked.join(",") : "0,1,2,3,4,5,6";
     }
+    const editTargetRaw = parseInt(document.getElementById("edit-quest-target").value);
     const body = {
       name:           document.getElementById("edit-quest-name").value.trim(),
       description:    document.getElementById("edit-quest-desc").value.trim(),
       unit:           document.getElementById("edit-quest-unit").value.trim() || null,
       frequency,
       scheduled_days,
+      daily_target:   editTargetRaw > 1 ? editTargetRaw : 1,  // 1 = pas de cible (exclude_none empêche de remettre null)
     };
     try {
       const r = await fetch(`${API_BASE}/habits/${id}`, {
@@ -1550,6 +1558,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const unit = document.getElementById("new-quest-unit").value.trim();
         const stat1 = document.getElementById("new-quest-stat-1").value || null;
         const pts1 = parseInt(document.getElementById("new-quest-points-1").value) || 0;
+        const targetRaw = parseInt(document.getElementById("new-quest-target").value);
+        const daily_target = targetRaw > 1 ? targetRaw : null;
         const frequency = freqSelect ? freqSelect.value : "daily";
 
         let scheduled_days = "0,1,2,3,4,5,6";
@@ -1580,6 +1590,7 @@ document.addEventListener("DOMContentLoaded", () => {
               point_rewards: point_rewards,
               frequency: frequency,
               scheduled_days: scheduled_days,
+              daily_target: daily_target,
             })
           });
 
@@ -1594,6 +1605,7 @@ document.addEventListener("DOMContentLoaded", () => {
           document.getElementById("new-quest-stat-1").value = "";
           document.getElementById("new-quest-points-1").value = "5";
           document.getElementById("new-quest-unit").value = "";
+          document.getElementById("new-quest-target").value = "";
           if (freqSelect) freqSelect.value = "daily";
           if (daysGroup) { daysGroup.style.display = "none"; daysGroup.querySelectorAll("input").forEach(cb => cb.checked = false); }
           

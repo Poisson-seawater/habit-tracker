@@ -12,7 +12,7 @@ Ce document centralise toutes les commandes disponibles pour le bot Telegram.
 
 | Commande | Arguments | Description | Exemple |
 |----------|-----------|-------------|---------|
-| `/done` | `[nom_habitude]` | Valide une habitude **binaire** (faite / pas faite). Refuse si déjà faite aujourd'hui ou si l'habitude est quantitative. | `/done routine_matin` |
+| `/done` | `[nom_habitude]` | Valide une habitude **binaire** (faite / pas faite). Refuse si déjà faite aujourd'hui (sauf si l'habitude a une **cible/jour** : on peut alors valider plusieurs fois, la réponse affiche `X/N` et chaque validation rapporte son XP) ou si l'habitude est quantitative. | `/done routine_matin` |
 | `/log` | `[nom_habitude] [valeur][unité]` | Enregistre une habitude **quantitative** avec une mesure. Vérifie que l'unité correspond. | `/log lecture 30min` |
 | `/skip` | `[nom_habitude] raison: [texte]` | Saute une habitude pour aujourd'hui **sans casser le streak**. La raison est obligatoire. | `/skip nage raison: fatigue extreme` |
 | `/status` | *(aucun)* | Affiche le statut du jour : Perfect Day ou non, seuils, streak, or, niveau/XP, quêtes faites / skippées / restantes, et No-Todos échoués. | `/status` |

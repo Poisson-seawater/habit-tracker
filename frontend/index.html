@@ -988,6 +988,11 @@
                 </div>
               </div>
 
+              <div class="form-group">
+                <label>Cible/jour (optionnel)</label>
+                <input type="number" id="new-quest-target" min="1" placeholder="ex: 2 — affiche X/N, chaque validation = XP" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
+              </div>
+
               <button class="quest-action-btn" id="submit-quest-btn" type="button" style="padding: 10px;">Forger la Quête</button>
             </div>
 
@@ -1554,6 +1559,10 @@
         <label>Unité (si quantitatif)</label>
         <input type="text" id="edit-quest-unit" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
       </div>
+    </div>
+    <div class="form-group">
+      <label>Cible/jour (optionnel — affiche X/N)</label>
+      <input type="number" id="edit-quest-target" min="1" placeholder="ex: 2" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
     </div>
     <div class="form-group" id="edit-scheduled-days-group" style="display:none;">
       <label>Jours</label>

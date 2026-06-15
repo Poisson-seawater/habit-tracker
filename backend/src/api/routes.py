@@ -32,6 +32,7 @@ class HabitCreate(BaseModel):
     is_mandatory: Optional[bool] = False
     point_rewards: Dict[str, int]
     daily_cap: Optional[int] = None
+    daily_target: Optional[int] = None
     unit: Optional[str] = None
 
 class TemplateOverride(BaseModel):
@@ -856,7 +857,8 @@ def create_log(payload: LogCreate, db: Session = Depends(get_db), user_id: int =
             raise HTTPException(status_code=400, detail="Binary habit logs must be 'done' or 'skip'")
 
     today = datetime.date.today()
-    if habit.type == "binary" and payload.log_type == "done":
+    has_target = habit.daily_target is not None and habit.daily_target > 1
+    if habit.type == "binary" and payload.log_type == "done" and not has_target:
         start_dt = datetime.datetime.combine(today, datetime.time.min)
         end_dt = datetime.datetime.combine(today, datetime.time.max)
         existing = db.query(HabitLog).filter(
@@ -1083,6 +1085,20 @@ def get_habits(db: Session = Depends(get_db), user_id: int = Depends(get_current
     today = datetime.date.today()
     week_start = datetime.datetime.combine(today - datetime.timedelta(days=today.weekday()), datetime.time.min)
     month_start = datetime.datetime.combine(today.replace(day=1), datetime.time.min)
+
+    # Count today's validations per habit (for the "X/N" display on targeted habits)
+    day_start = datetime.datetime.combine(today, datetime.time.min)
+    day_end = datetime.datetime.combine(today, datetime.time.max)
+    today_logs = db.query(HabitLog).filter(
+        HabitLog.user_id == user_id,
+        HabitLog.log_type.in_(["done", "log"]),
+        HabitLog.timestamp >= day_start,
+        HabitLog.timestamp <= day_end,
+    ).all()
+    today_count_by_habit = {}
+    for log in today_logs:
+        today_count_by_habit[log.habit_id] = today_count_by_habit.get(log.habit_id, 0) + 1
+
     result = []
     for h in habits:
         completed_this_period = False
@@ -1107,9 +1123,11 @@ def get_habits(db: Session = Depends(get_db), user_id: int = Depends(get_current
             "is_mandatory": h.is_mandatory,
             "point_rewards": h.point_rewards,
             "daily_cap": h.daily_cap,
+            "daily_target": h.daily_target,
             "unit": h.unit,
             "is_active": h.is_active,
             "completed_this_period": completed_this_period,
+            "today_count": today_count_by_habit.get(h.id, 0),
         })
     return result
 
@@ -1122,6 +1140,7 @@ class HabitUpdate(BaseModel):
     unit: Optional[str] = None
     point_rewards: Optional[Dict[str, int]] = None
     daily_cap: Optional[int] = None
+    daily_target: Optional[int] = None
     is_mandatory: Optional[bool] = None
     is_private: Optional[bool] = None
     is_reportable: Optional[bool] = None
@@ -1271,6 +1290,7 @@ def create_habit(payload: HabitCreate, db: Session = Depends(get_db), user_id: i
         is_mandatory=payload.is_mandatory,
         point_rewards=payload.point_rewards,
         daily_cap=payload.daily_cap,
+        daily_target=payload.daily_target,
         unit=payload.unit,
         is_active=True
     )

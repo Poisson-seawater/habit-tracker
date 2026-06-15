@@ -289,20 +289,21 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" est quantitative. Utilisez : /log {habit_name} [valeur][unité]")
                 return
 
-            # Check if already logged today
             today = datetime.date.today()
             start_dt = datetime.datetime.combine(today, datetime.time.min)
             end_dt = datetime.datetime.combine(today, datetime.time.max)
-            
-            existing = db.query(HabitLog).filter(
+            has_target = habit.daily_target is not None and habit.daily_target > 1
+
+            done_today = db.query(HabitLog).filter(
                 HabitLog.user_id == user.id,
                 HabitLog.habit_id == habit.id,
                 HabitLog.log_type == "done",
                 HabitLog.timestamp >= start_dt,
                 HabitLog.timestamp <= end_dt
-            ).first()
+            ).count()
 
-            if existing:
+            # Without a daily target, a binary habit is done at most once per day.
+            if done_today and not has_target:
                 await update.message.reply_text(f"🎯 L'habitude \"{habit_name}\" a déjà été complétée aujourd'hui !")
                 return
 
@@ -319,8 +320,9 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             update_streaks(db, user_id=user.id, date=today)
 
             rewards_str = format_stat_rewards(habit.point_rewards)
+            target_str = f" ({done_today + 1}/{habit.daily_target})" if has_target else ""
             await update.message.reply_text(
-                f"✅ {username} a complété la routine \"{habit_name}\" !\n"
+                f"✅ {username} a complété la routine \"{habit_name}\"{target_str} !\n"
                 f"✨ Stats obtenues : {rewards_str}"
             )
 

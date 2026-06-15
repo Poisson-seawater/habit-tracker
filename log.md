@@ -3,6 +3,24 @@
 > Une entrée par session / push, anti-chronologique. Rédigé par `/doc-sync` avant push.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-06-14 — feat(habits): cible de répétitions/jour (daily_target) — affichage X/N
+
+- Nouvelle option **Cible/jour** (`daily_target`) sur une habitude : quand elle est définie (> 1), chaque validation compte et rapporte son XP (pas de pénalité à 1 fois, `n+1` = XP en plus, dépassement `3/2` permis), et le recap Telegram + la tuile du dashboard affichent `X/N`. `daily_cap` reste respecté. Les habitudes sans cible sont inchangées.
+- Backend : colonne `daily_target` (`models.py`) + migration `v11_habit_daily_target.sql` ; `score_service.py` (binaire à cible → XP par validation, cap appliqué) ; `routes.py` (`HabitCreate`/`HabitUpdate`, `create_habit`, `get_habits` expose `daily_target` + `today_count`, `/logs` ne bloque plus le 2ᵉ `done` binaire si cible) ; `scheduler.py` (recap groupé par habitude, ligne `Nom X/N`).
+- Bot : `/done` autorise la re-validation et affiche `X/N` pour une habitude à cible → `COMMANDS-INDEX.md` mis à jour (règle dure).
+- Front : champ « Cible/jour » (formulaires création + édition), badge `X/N` (vert si atteint), bouton qui reste actif pour permettre le dépassement.
+- Vérif : 113 tests existants OK + 5 nouveaux (`test_habit_daily_target.py`) ; smoke test API bout-en-bout (créer cible 2 → 3 logs acceptés → `today_count=3`, discipline=15) ; migration appliquée aux DB locales et à la DB du conteneur Docker (`ALTER TABLE habits ADD COLUMN daily_target INTEGER`). **Pi : migration à appliquer côté hôte** (`docker compose exec`), ne jamais utiliser `down -v`.
+- Docs : log.md ✔ · COMMANDS-INDEX.md ✔ · VISION.md — · docs/wiki à régénérer (affichage X/N) ⏳
+- Commit : branche `codex/fix-docs-serving` → merge `master`
+
+## 2026-06-14 — docs(notes): cadrage de la feature 7x7 (reflex drills) — décision de ne pas sur-ingénierer
+
+- Session de brainstorm sur la feature **7x7** (option sur un softskill épinglé au Recap 3-3-3 : un micro-réflexe à répéter ~7×/jour pendant 7 jours, déclenché par DM Telegram).
+- **Décision** : ne pas construire le moteur complet (random scheduler restart-safe + callbacks inline + throttling) — prémisse « 7×7 crée un réflexe » à moitié mythe, risque de sur-ingénierie sur un Pi 40 Mo. Si poursuite, uniquement via un MVP minimal testé 1 semaine sur soi.
+- Memo d'analyse complet (prémisse science, mismatch modèle softskill vs habit, réalité du scheduler mono-cron, fatigue de notif, questions de design ouvertes) : `docs/notes/7x7-reflex-drills-analysis.md`.
+- Docs : log.md ✔ · VISION.md ✔ (lien ajouté au bullet 7x7, ligne ~64) · docs/notes/7x7-reflex-drills-analysis.md (nouveau) ✔ · docs/wiki — (rien d'implémenté) · COMMANDS-INDEX.md —
+- Commit : non commité (analyse, aucun changement de code)
+
 ## 2026-06-14 — docs(wiki): diagnostic et résolution du serving de la documentation sur le Pi
 
 - **Diagnostic de la documentation sur le Pi** : Résolution du problème d'accès aux pages de documentation (`/docs`) sur la Raspberry Pi. Le fichier `docker-compose.yml` étant marqué `skip-worktree` pour conserver les réglages par-machine, la définition du volume `- ./docs/wiki:/app/docs/wiki:ro` n'était pas synchronisée sur la Pi. Sans ce montage, le dossier `/app/docs/wiki` n'existait pas dans le conteneur `api`, empêchant FastAPI de monter la route statique `/docs` et causant une erreur JSON `{"detail": "Not Found"}`.

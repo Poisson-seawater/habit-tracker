@@ -74,20 +74,31 @@ async def publish_daily_recap():
             public_actions = []
             private_completed_count = 0
 
+            # Group today's logs by habit so targeted habits show a single "X/N" line
+            logs_by_habit = {}
             for log in logs:
-                habit = db.query(Habit).filter_by(id=log.habit_id, user_id=user.id).first()
+                logs_by_habit.setdefault(log.habit_id, []).append(log)
+
+            for habit_id, h_logs in logs_by_habit.items():
+                habit = db.query(Habit).filter_by(id=habit_id, user_id=user.id).first()
                 if not habit:
                     continue
-                
-                if log.log_type in ["done", "log"]:
+
+                done_logs = [l for l in h_logs if l.log_type in ["done", "log"]]
+                has_target = habit.daily_target is not None and habit.daily_target > 1
+
+                if done_logs:
                     if habit.is_private:
-                        private_completed_count += 1
+                        private_completed_count += len(done_logs)
+                    elif has_target:
+                        public_actions.append(f"{html.escape(habit.name)} {len(done_logs)}/{habit.daily_target} ✅")
                     else:
-                        if log.log_type == "done":
-                            public_actions.append(f"{html.escape(habit.name)} ✅")
-                        else:
-                            public_actions.append(f"{html.escape(habit.name)} ({log.amount}{html.escape(log.unit or '')})")
-                elif log.log_type == "skip":
+                        for log in done_logs:
+                            if log.log_type == "done":
+                                public_actions.append(f"{html.escape(habit.name)} ✅")
+                            else:
+                                public_actions.append(f"{html.escape(habit.name)} ({log.amount}{html.escape(log.unit or '')})")
+                elif any(l.log_type == "skip" for l in h_logs):
                     if habit.is_private:
                         public_actions.append("Chose secrète 🔒 (skippée ⏭️)")
                     else:
