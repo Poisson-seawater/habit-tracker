@@ -84,6 +84,10 @@ class SubStepUpdate(BaseModel):
 class SubStepLinkRequest(BaseModel):
     goal_id: int
     substep_id: int
+    execution_order: Optional[int] = 1
+
+class SubStepReorderRequest(BaseModel):
+    execution_order: int
 
 
 class SoftskillTestUpdate(BaseModel):
@@ -115,6 +119,7 @@ class BranchSkillConfig(BaseModel):
     x: Optional[int] = Field(None, ge=0)
     y: Optional[int] = Field(None, ge=0)
     execution_order: int = 1
+    success_criteria_test: Optional[str] = ""
 
 
 class BranchWithSkillsCreate(BranchConfig):
@@ -151,6 +156,7 @@ class SkillConfig(BaseModel):
     x: Optional[int] = Field(None, ge=0)
     y: Optional[int] = Field(None, ge=0)
     execution_order: Optional[int] = 1
+    success_criteria_test: Optional[str] = ""
 
 
 class SkillUpdate(BaseModel):
@@ -162,6 +168,7 @@ class SkillUpdate(BaseModel):
     x: Optional[int] = Field(None, ge=0)
     y: Optional[int] = Field(None, ge=0)
     execution_order: Optional[int] = 1
+    success_criteria_test: Optional[str] = ""
 
 
 class PinsUpdate(BaseModel):
@@ -477,6 +484,8 @@ def get_status(db: Session = Depends(get_db), user_id: int = Depends(get_current
 def get_goals(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     """
     List all goals with their substeps and graph dependencies.
+    execution_order is now read from GoalSubStepLink (per-goal ordering).
+    Each substep also includes linked_goals: list of other goals it belongs to.
     """
     goals = db.query(Goal).filter_by(user_id=user_id).all()
     result = []
@@ -485,6 +494,15 @@ def get_goals(db: Session = Depends(get_db), user_id: int = Depends(get_current_
         substeps_list = []
         for link in g.substep_links:
             s = link.substep
+            # Find all OTHER goals this substep is linked to
+            other_goals = []
+            for other_link in s.goal_links:
+                if other_link.goal_id != g.id:
+                    other_goal = other_link.goal
+                    other_goals.append({
+                        "id": other_goal.id,
+                        "title": other_goal.title
+                    })
             substeps_list.append({
                 "id": s.id,
                 "title": s.title,
@@ -493,7 +511,8 @@ def get_goals(db: Session = Depends(get_db), user_id: int = Depends(get_current_
                 "completed": s.completed,
                 "completed_at": s.completed_at.isoformat() if s.completed_at else None,
                 "stats": s.stats_json or [],
-                "execution_order": s.execution_order
+                "execution_order": link.execution_order,
+                "linked_goals": other_goals
             })
             
         result.append({
@@ -560,7 +579,7 @@ def create_goal_with_substeps(
         )
         db.add(substep)
         db.flush()
-        db.add(GoalSubStepLink(goal_id=goal.id, substep_id=substep.id))
+        db.add(GoalSubStepLink(goal_id=goal.id, substep_id=substep.id, execution_order=substep_payload.execution_order))
         created_substeps.append(
             {
                 "id": substep.id,
@@ -638,8 +657,8 @@ def create_substep(goal_id: int, payload: SubStepCreate, db: Session = Depends(g
     db.add(substep)
     db.flush()  # Generate substep ID
 
-    # Link to Goal
-    link = GoalSubStepLink(goal_id=goal_id, substep_id=substep.id)
+    # Link to Goal with per-goal execution_order
+    link = GoalSubStepLink(goal_id=goal_id, substep_id=substep.id, execution_order=payload.execution_order)
     db.add(link)
 
 
@@ -663,6 +682,7 @@ def create_substep(goal_id: int, payload: SubStepCreate, db: Session = Depends(g
 def link_substep_to_goal(payload: SubStepLinkRequest, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     """
     Link an existing substep to another goal (shared substep relation).
+    Supports per-goal execution_order.
     """
     goal = db.query(Goal).filter_by(id=payload.goal_id, user_id=user_id).first()
     substep = db.query(SubStep).filter_by(id=payload.substep_id, user_id=user_id).first()
@@ -674,7 +694,7 @@ def link_substep_to_goal(payload: SubStepLinkRequest, db: Session = Depends(get_
     if existing_link:
         return {"status": "already_linked"}
         
-    link = GoalSubStepLink(goal_id=goal.id, substep_id=substep.id)
+    link = GoalSubStepLink(goal_id=goal.id, substep_id=substep.id, execution_order=payload.execution_order)
     db.add(link)
     db.commit()
     return {"status": "success"}
@@ -684,7 +704,8 @@ def link_substep_to_goal(payload: SubStepLinkRequest, db: Session = Depends(get_
 @router.put("/substeps/{substep_id}")
 def update_substep(substep_id: int, payload: SubStepUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     """
-    Update a substep's title, description, gold reward, target stats, and blocker dependencies.
+    Update a substep's title, description, gold reward, target stats.
+    Also propagates execution_order to all GoalSubStepLinks for this substep.
     """
     substep = db.query(SubStep).filter_by(id=substep_id, user_id=user_id).first()
     if not substep:
@@ -695,8 +716,10 @@ def update_substep(substep_id: int, payload: SubStepUpdate, db: Session = Depend
     substep.gold_reward = payload.gold_reward
     substep.stats_json = payload.stats_json
     substep.execution_order = payload.execution_order
-    
 
+    # Also update execution_order on all links (global fallback)
+    for link in substep.goal_links:
+        link.execution_order = payload.execution_order
                 
     db.commit()
     db.refresh(substep)
@@ -711,6 +734,36 @@ def update_substep(substep_id: int, payload: SubStepUpdate, db: Session = Depend
             "stats": substep.stats_json,
             "execution_order": substep.execution_order
         }
+    }
+
+@router.put("/goals/{goal_id}/substeps/{substep_id}/reorder")
+def reorder_substep_in_goal(
+    goal_id: int,
+    substep_id: int,
+    payload: SubStepReorderRequest,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """
+    Change the execution_order of a substep within a specific goal only.
+    Does NOT affect the substep's order in other goals.
+    """
+    link = db.query(GoalSubStepLink).join(Goal).filter(
+        GoalSubStepLink.goal_id == goal_id,
+        GoalSubStepLink.substep_id == substep_id,
+        Goal.user_id == user_id
+    ).first()
+    if not link:
+        raise HTTPException(status_code=404, detail="Goal-substep link not found")
+    
+    link.execution_order = payload.execution_order
+    db.commit()
+    
+    return {
+        "status": "success",
+        "goal_id": goal_id,
+        "substep_id": substep_id,
+        "execution_order": link.execution_order
     }
 
 @router.delete("/substeps/{substep_id}")

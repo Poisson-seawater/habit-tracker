@@ -23,11 +23,17 @@
       "name": "Écoute Active",
       "description": "Capacité à écouter attentivement sans interrompre et à reformuler.",
       "branch": "communication",
-      "prerequisites": [],
-      "related": [],
+      "prerequisites": [
+        "discipline_perso"
+      ],
+      "related": [
+        "vocabulaire",
+        "anti_timidite"
+      ],
       "x": 100,
       "y": 80,
-      "execution_order": 1
+      "execution_order": 1,
+      "success_criteria_test": "laisser les autres personnes parler sans pense a ce aue je veux dire"
     },
     {
       "id": "vocabulaire",
@@ -45,7 +51,9 @@
       "name": "Articulation Claire",
       "description": "Prononcer et structurer ses phrases de manière fluide et compréhensible.",
       "branch": "communication",
-      "prerequisites": ["vocabulaire"],
+      "prerequisites": [
+        "vocabulaire"
+      ],
       "related": [],
       "x": 300,
       "y": 220,
@@ -56,8 +64,13 @@
       "name": "Art Oratoire",
       "description": "Prendre la parole en public de manière structurée et captivante.",
       "branch": "communication",
-      "prerequisites": ["ecoute", "articulation"],
-      "related": ["vente"],
+      "prerequisites": [
+        "ecoute",
+        "articulation"
+      ],
+      "related": [
+        "vente"
+      ],
       "x": 200,
       "y": 360,
       "execution_order": 3
@@ -67,8 +80,12 @@
       "name": "Vente & Persuasion",
       "description": "Capacité à convaincre, négocier et présenter de la valeur.",
       "branch": "communication",
-      "prerequisites": ["ecoute"],
-      "related": ["orateur"],
+      "prerequisites": [
+        "ecoute"
+      ],
+      "related": [
+        "orateur"
+      ],
       "x": 500,
       "y": 220,
       "execution_order": 2
@@ -79,7 +96,9 @@
       "description": "Croire en ses capacités et agir sans hésitation excessive.",
       "branch": "leadership",
       "prerequisites": [],
-      "related": ["anti_timidite"],
+      "related": [
+        "anti_timidite"
+      ],
       "x": 700,
       "y": 80,
       "execution_order": 1
@@ -89,8 +108,12 @@
       "name": "Vaincre la Timidité",
       "description": "Réduire l'anxiété sociale et s'exprimer librement en groupe.",
       "branch": "leadership",
-      "prerequisites": ["confiance"],
-      "related": ["orateur"],
+      "prerequisites": [
+        "confiance"
+      ],
+      "related": [
+        "orateur"
+      ],
       "x": 700,
       "y": 220,
       "execution_order": 2
@@ -122,8 +145,12 @@
       "name": "Focus & Concentration",
       "description": "Capacité à travailler en profondeur sans distractions.",
       "branch": "productivite",
-      "prerequisites": ["discipline_perso"],
-      "related": ["gestion_stress"],
+      "prerequisites": [
+        "discipline_perso"
+      ],
+      "related": [
+        "gestion_stress"
+      ],
       "x": 900,
       "y": 420,
       "execution_order": 2

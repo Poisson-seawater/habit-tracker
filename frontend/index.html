@@ -1134,6 +1134,10 @@
               <label for="substep-title-input">Titre de la Sous-étape</label>
               <input type="text" id="substep-title-input" placeholder="ex: Avoir 500k en actif" required>
             </div>
+            <div class="form-group">
+              <label for="substep-desc-input">Description</label>
+              <input type="text" id="substep-desc-input" placeholder="ex: Accumuler des actifs nets">
+            </div>
             <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
               <div class="form-group">
                 <label for="substep-gold-input">Or (Gold)</label>
@@ -1398,9 +1402,9 @@
         <div id="softskill-detail-status" style="font-size: 0.85rem; font-weight: 600;"></div>
         <hr style="border-color: var(--border-glass); margin: 0.5rem 0;">
         <div class="form-group">
-          <label for="softskill-test-input" style="font-size: 0.85rem; color: var(--accent-gold); font-weight: 600;">🎯 Mon Test de Succès</label>
-          <textarea id="softskill-test-input" rows="3" placeholder="ex: Parler à 10 inconnus sans stress" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary); outline: none; font-size: 0.85rem; resize: vertical; width: 100%; box-sizing: border-box;"></textarea>
-          <button id="save-softskill-test-btn" class="quest-action-btn" style="margin-top: 0.5rem; padding: 8px; width: 100%;">💾 Sauvegarder le Test</button>
+          <label for="softskill-test-input" style="font-size: 0.85rem; color: var(--accent-gold); font-weight: 600;">🎯 Critère de validation</label>
+          <textarea id="softskill-test-input" rows="3" readonly style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary); outline: none; font-size: 0.85rem; resize: none; width: 100%; box-sizing: border-box; cursor: default;"></textarea>
+          <button id="save-softskill-test-btn" class="quest-action-btn" style="display: none; margin-top: 0.5rem; padding: 8px; width: 100%;">💾 Sauvegarder le Test</button>
         </div>
         <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
           <button id="toggle-softskill-complete-btn" class="quest-action-btn submit-btn" style="padding: 10px; flex: 1;">✅ Compléter</button>
@@ -1424,16 +1428,26 @@
           <select id="edit-softskill-branch" required></select>
         </div>
         <div class="form-group">
-          <label>Prérequis (dépendances)</label>
-          <div id="edit-softskill-prereqs-container" style="max-height: 120px; overflow-y: auto; padding: 8px; border: 1px solid var(--border-glass); border-radius: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <label style="margin: 0;">Prérequis (dépendances)</label>
+            <button type="button" id="add-edit-prereq-btn" class="quest-action-btn" style="padding: 2px 8px; font-size: 0.8rem; margin: 0; width: auto; min-width: auto; height: auto;">➕</button>
+          </div>
+          <div id="edit-softskill-prereqs-container" style="max-height: 150px; overflow-y: auto; padding: 8px; border: 1px solid var(--border-glass); border-radius: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
         </div>
         <div class="form-group">
-          <label>Compétences Liées (liaisons secondaires)</label>
-          <div id="edit-softskill-related-container" style="max-height: 120px; overflow-y: auto; padding: 8px; border: 1px solid var(--border-glass); border-radius: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <label style="margin: 0;">En relation avec</label>
+            <button type="button" id="add-edit-related-btn" class="quest-action-btn" style="padding: 2px 8px; font-size: 0.8rem; margin: 0; width: auto; min-width: auto; height: auto;">➕</button>
+          </div>
+          <div id="edit-softskill-related-container" style="max-height: 150px; overflow-y: auto; padding: 8px; border: 1px solid var(--border-glass); border-radius: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
         </div>
         <div class="form-group">
           <label>Ordre d'exécution</label>
           <input type="number" id="edit-softskill-execution-order" min="1" value="1" required style="padding: 6px;">
+        </div>
+        <div class="form-group">
+          <label>Critère de validation (ex: Parler à 10 inconnus sans stress)</label>
+          <textarea id="edit-softskill-validation-criterion" rows="3" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary); outline: none; font-size: 0.9rem; resize: vertical; width: 100%; box-sizing: border-box;" placeholder="Définissez le test de succès par défaut pour cette compétence..."></textarea>
         </div>
         <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
           <button type="submit" class="quest-action-btn submit-btn" style="flex: 2; padding: 12px;">💾 Enregistrer</button>
@@ -1461,16 +1475,26 @@
           <select id="create-softskill-branch" required></select>
         </div>
         <div class="form-group">
-          <label>Prérequis (dépendances)</label>
-          <div id="create-softskill-prereqs-container" style="max-height: 120px; overflow-y: auto; padding: 8px; border: 1px solid var(--border-glass); border-radius: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <label style="margin: 0;">Prérequis (dépendances)</label>
+            <button type="button" id="add-create-prereq-btn" class="quest-action-btn" style="padding: 2px 8px; font-size: 0.8rem; margin: 0; width: auto; min-width: auto; height: auto;">➕</button>
+          </div>
+          <div id="create-softskill-prereqs-container" style="max-height: 150px; overflow-y: auto; padding: 8px; border: 1px solid var(--border-glass); border-radius: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
         </div>
         <div class="form-group">
-          <label>Compétences Liées (liaisons secondaires)</label>
-          <div id="create-softskill-related-container" style="max-height: 120px; overflow-y: auto; padding: 8px; border: 1px solid var(--border-glass); border-radius: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <label style="margin: 0;">En relation avec</label>
+            <button type="button" id="add-create-related-btn" class="quest-action-btn" style="padding: 2px 8px; font-size: 0.8rem; margin: 0; width: auto; min-width: auto; height: auto;">➕</button>
+          </div>
+          <div id="create-softskill-related-container" style="max-height: 150px; overflow-y: auto; padding: 8px; border: 1px solid var(--border-glass); border-radius: 8px; display: flex; flex-direction: column; gap: 4px;"></div>
         </div>
         <div class="form-group">
           <label>Ordre d'exécution</label>
           <input type="number" id="create-softskill-execution-order" min="1" value="1" required style="padding: 6px;">
+        </div>
+        <div class="form-group">
+          <label>Critère de validation (ex: Parler à 10 inconnus sans stress)</label>
+          <textarea id="create-softskill-validation-criterion" rows="3" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary); outline: none; font-size: 0.9rem; resize: vertical; width: 100%; box-sizing: border-box;" placeholder="Définissez le test de succès par défaut pour cette compétence..."></textarea>
         </div>
         <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
           <button type="submit" class="quest-action-btn submit-btn" style="flex: 2; padding: 12px;">✨ Forger la compétence</button>

@@ -1164,6 +1164,7 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     const goalId = document.getElementById("substep-goal-select").value;
     const title = document.getElementById("substep-title-input").value.trim();
+    const desc = document.getElementById("substep-desc-input").value.trim();
     const gold = parseInt(document.getElementById("substep-gold-input").value) || 0;
     const order = parseInt(document.getElementById("substep-order-input").value) || 1;
     
@@ -1178,6 +1179,7 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title,
+          description: desc,
           gold_reward: gold,
           stats_json: stats,
           execution_order: order
@@ -1732,30 +1734,145 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function populateSkillCheckboxes(containerId, activeSkillId, checkedIds) {
+  function addDependencyRow(containerId, activeSkillId, selectedSkillId = "") {
     const container = document.getElementById(containerId);
     if (!container || !softskillsData) return;
+
+    const row = document.createElement("div");
+    row.className = "dependency-row";
+    row.style.display = "flex";
+    row.style.gap = "0.5rem";
+    row.style.alignItems = "center";
+    row.style.width = "100%";
+
+    let activeBranch = "";
+    if (containerId.includes("edit")) {
+      const branchEl = document.getElementById("edit-softskill-branch");
+      if (branchEl) activeBranch = branchEl.value;
+    } else if (containerId.includes("create")) {
+      const branchEl = document.getElementById("create-softskill-branch");
+      if (branchEl) activeBranch = branchEl.value;
+    }
+
+    // Branch select
+    const branchSelect = document.createElement("select");
+    branchSelect.style.flex = "1";
+    branchSelect.style.padding = "6px 10px";
+    branchSelect.style.background = "rgba(255,255,255,0.03)";
+    branchSelect.style.border = "1px solid var(--border-glass)";
+    branchSelect.style.borderRadius = "8px";
+    branchSelect.style.color = "var(--text-primary)";
+    branchSelect.style.outline = "none";
+    branchSelect.style.fontSize = "0.85rem";
+
+    const defaultOpt = document.createElement("option");
+    defaultOpt.value = "";
+    defaultOpt.textContent = "-- Catégorie --";
+    defaultOpt.style.background = "#18181b";
+    branchSelect.appendChild(defaultOpt);
+
+    const branches = Object.keys(softskillsData.branches || {});
+    branches.forEach(branchKey => {
+      if (containerId.includes("prereqs") && branchKey === activeBranch) {
+        return;
+      }
+      if (containerId.includes("related") && branchKey === activeBranch) {
+        return;
+      }
+      const opt = document.createElement("option");
+      opt.value = branchKey;
+      opt.textContent = branchKey;
+      opt.style.background = "#18181b";
+      branchSelect.appendChild(opt);
+    });
+
+    // Skill select
+    const skillSelect = document.createElement("select");
+    skillSelect.className = "skill-select";
+    skillSelect.style.flex = "1";
+    skillSelect.style.padding = "6px 10px";
+    skillSelect.style.background = "rgba(255,255,255,0.03)";
+    skillSelect.style.border = "1px solid var(--border-glass)";
+    skillSelect.style.borderRadius = "8px";
+    skillSelect.style.color = "var(--text-primary)";
+    skillSelect.style.outline = "none";
+    skillSelect.style.fontSize = "0.85rem";
+    skillSelect.style.display = "none";
+
+    const defaultSkillOpt = document.createElement("option");
+    defaultSkillOpt.value = "";
+    defaultSkillOpt.textContent = "-- Compétence --";
+    defaultSkillOpt.style.background = "#18181b";
+    skillSelect.appendChild(defaultSkillOpt);
+
+    // Delete button
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.textContent = "🗑️";
+    deleteBtn.style.background = "rgba(239, 68, 68, 0.15)";
+    deleteBtn.style.border = "1px solid rgba(239, 68, 68, 0.3)";
+    deleteBtn.style.borderRadius = "8px";
+    deleteBtn.style.color = "#ef4444";
+    deleteBtn.style.cursor = "pointer";
+    deleteBtn.style.padding = "6px 10px";
+    deleteBtn.style.fontSize = "0.85rem";
+    deleteBtn.style.height = "100%";
+    deleteBtn.onclick = () => row.remove();
+
+    row.appendChild(branchSelect);
+    row.appendChild(skillSelect);
+    row.appendChild(deleteBtn);
+    container.appendChild(row);
+
+    // Helper to populate skills select based on branch
+    function populateSkills(branchKey, selectVal = "") {
+      skillSelect.innerHTML = "";
+      const defaultOpt = document.createElement("option");
+      defaultOpt.value = "";
+      defaultOpt.textContent = "-- Compétence --";
+      defaultOpt.style.background = "#18181b";
+      skillSelect.appendChild(defaultOpt);
+
+      if (!branchKey) {
+        skillSelect.style.display = "none";
+        return;
+      }
+
+      const filtered = (softskillsData.skills || []).filter(
+        s => s.branch === branchKey && s.id !== activeSkillId
+      );
+
+      filtered.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.id;
+        opt.textContent = s.name;
+        opt.style.background = "#18181b";
+        if (s.id === selectVal) opt.selected = true;
+        skillSelect.appendChild(opt);
+      });
+
+      skillSelect.style.display = "block";
+    }
+
+    branchSelect.addEventListener("change", (e) => {
+      populateSkills(e.target.value);
+    });
+
+    if (selectedSkillId) {
+      const matchingSkill = (softskillsData.skills || []).find(s => s.id === selectedSkillId);
+      if (matchingSkill) {
+        branchSelect.value = matchingSkill.branch;
+        populateSkills(matchingSkill.branch, selectedSkillId);
+      }
+    }
+  }
+
+  function populateSkillDependencies(containerId, activeSkillId, selectedIds) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
     container.innerHTML = "";
-    (softskillsData.skills || []).forEach(skill => {
-      if (skill.id === activeSkillId) return; // Cannot depend on itself
-      const label = document.createElement("label");
-      label.style.marginTop = "0";
-      label.style.display = "flex";
-      label.style.alignItems = "center";
-      label.style.gap = "0.5rem";
-      label.style.fontSize = "0.8rem";
-      
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.value = skill.id;
-      if (checkedIds.includes(skill.id)) cb.checked = true;
-      
-      const text = document.createElement("span");
-      text.textContent = skill.name;
-      
-      label.appendChild(cb);
-      label.appendChild(text);
-      container.appendChild(label);
+    selectedIds.forEach(id => {
+      addDependencyRow(containerId, activeSkillId, id);
     });
   }
 
@@ -2082,8 +2199,8 @@ document.addEventListener("DOMContentLoaded", () => {
           document.getElementById("edit-softskill-name").value = skill.name;
           document.getElementById("edit-softskill-desc").value = skill.description;
           populateBranchSelect("edit-softskill-branch", skill.branch);
-          populateSkillCheckboxes("edit-softskill-prereqs-container", skill.id, skill.prerequisites || []);
-          populateSkillCheckboxes("edit-softskill-related-container", skill.id, skill.related || []);
+          populateSkillDependencies("edit-softskill-prereqs-container", skill.id, skill.prerequisites || []);
+          populateSkillDependencies("edit-softskill-related-container", skill.id, skill.related || []);
           document.getElementById("edit-softskill-execution-order").value = skill.execution_order || 1;
         }
       });
@@ -2147,7 +2264,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return s ? s.name : rid;
     });
     document.getElementById("softskill-detail-related").innerHTML = relatedNames.length > 0
-      ? `<strong>Liés :</strong> ${relatedNames.join(", ")}`
+      ? `<strong>En relation avec :</strong> ${relatedNames.join(", ")}`
       : "";
 
     const statusEl = document.getElementById("softskill-detail-status");
@@ -2187,9 +2304,10 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("edit-softskill-name").value = skill.name;
         document.getElementById("edit-softskill-desc").value = skill.description;
         populateBranchSelect("edit-softskill-branch", skill.branch);
-        populateSkillCheckboxes("edit-softskill-prereqs-container", skill.id, skill.prerequisites || []);
-        populateSkillCheckboxes("edit-softskill-related-container", skill.id, skill.related || []);
+        populateSkillDependencies("edit-softskill-prereqs-container", skill.id, skill.prerequisites || []);
+        populateSkillDependencies("edit-softskill-related-container", skill.id, skill.related || []);
         document.getElementById("edit-softskill-execution-order").value = skill.execution_order || 1;
+        document.getElementById("edit-softskill-validation-criterion").value = skill.success_criteria_test || "";
       };
     }
   }
@@ -2245,9 +2363,41 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("create-softskill-name").value = "";
       document.getElementById("create-softskill-desc").value = "";
       populateBranchSelect("create-softskill-branch", activeBranchKey || "");
-      populateSkillCheckboxes("create-softskill-prereqs-container", "", []);
-      populateSkillCheckboxes("create-softskill-related-container", "", []);
+      populateSkillDependencies("create-softskill-prereqs-container", "", []);
+      populateSkillDependencies("create-softskill-related-container", "", []);
       document.getElementById("create-softskill-execution-order").value = "1";
+      document.getElementById("create-softskill-validation-criterion").value = "";
+    });
+  }
+
+  // Bind plus buttons for dynamic dependency rows
+  const addEditPrereqBtn = document.getElementById("add-edit-prereq-btn");
+  if (addEditPrereqBtn) {
+    addEditPrereqBtn.addEventListener("click", () => {
+      const activeSkillId = document.getElementById("edit-softskill-id-hidden").value;
+      addDependencyRow("edit-softskill-prereqs-container", activeSkillId);
+    });
+  }
+
+  const addEditRelatedBtn = document.getElementById("add-edit-related-btn");
+  if (addEditRelatedBtn) {
+    addEditRelatedBtn.addEventListener("click", () => {
+      const activeSkillId = document.getElementById("edit-softskill-id-hidden").value;
+      addDependencyRow("edit-softskill-related-container", activeSkillId);
+    });
+  }
+
+  const addCreatePrereqBtn = document.getElementById("add-create-prereq-btn");
+  if (addCreatePrereqBtn) {
+    addCreatePrereqBtn.addEventListener("click", () => {
+      addDependencyRow("create-softskill-prereqs-container", "");
+    });
+  }
+
+  const addCreateRelatedBtn = document.getElementById("add-create-related-btn");
+  if (addCreateRelatedBtn) {
+    addCreateRelatedBtn.addEventListener("click", () => {
+      addDependencyRow("create-softskill-related-container", "");
     });
   }
 
@@ -2261,9 +2411,42 @@ document.addEventListener("DOMContentLoaded", () => {
       const desc = document.getElementById("edit-softskill-desc").value.trim();
       const branch = document.getElementById("edit-softskill-branch").value;
       const order = parseInt(document.getElementById("edit-softskill-execution-order").value) || 1;
+      const validationCriterion = document.getElementById("edit-softskill-validation-criterion").value.trim();
 
-      const prereqs = Array.from(document.querySelectorAll("#edit-softskill-prereqs-container input:checked")).map(cb => cb.value);
-      const related = Array.from(document.querySelectorAll("#edit-softskill-related-container input:checked")).map(cb => cb.value);
+      const prereqs = Array.from(document.querySelectorAll("#edit-softskill-prereqs-container .skill-select"))
+        .map(select => select.value)
+        .filter(val => val !== "");
+      const related = Array.from(document.querySelectorAll("#edit-softskill-related-container .skill-select"))
+        .map(select => select.value)
+        .filter(val => val !== "");
+
+      // Check that prerequisites are not in the same branch
+      const sameBranchPrereqs = prereqs.filter(pid => {
+        const s = (softskillsData.skills || []).find(sk => sk.id === pid);
+        return s && s.branch === branch;
+      });
+      if (sameBranchPrereqs.length > 0) {
+        const invalidNames = sameBranchPrereqs.map(pid => {
+          const s = (softskillsData.skills || []).find(sk => sk.id === pid);
+          return s ? s.name : pid;
+        }).join(", ");
+        showToast(`Impossible d'enregistrer : la compétence prérequise "${invalidNames}" ne peut pas être dans la même branche (${branch}).`, true);
+        return;
+      }
+
+      // Check that related skills are not in the same branch
+      const sameBranchRelated = related.filter(rid => {
+        const s = (softskillsData.skills || []).find(sk => sk.id === rid);
+        return s && s.branch === branch;
+      });
+      if (sameBranchRelated.length > 0) {
+        const invalidNames = sameBranchRelated.map(rid => {
+          const s = (softskillsData.skills || []).find(sk => sk.id === rid);
+          return s ? s.name : rid;
+        }).join(", ");
+        showToast(`Impossible d'enregistrer : la compétence "${invalidNames}" est dans la même branche (${branch}) que la compétence en cours d'édition.`, true);
+        return;
+      }
 
       try {
         const resp = await fetch(`${API_BASE}/softskills/skills/${skillId}`, {
@@ -2272,7 +2455,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "Content-Type": "application/json",
             "X-User-ID": localStorage.getItem("user_id") || "1"
           },
-          body: JSON.stringify({ name, description: desc, branch, prerequisites: prereqs, related, execution_order: order })
+          body: JSON.stringify({ name, description: desc, branch, prerequisites: prereqs, related, execution_order: order, success_criteria_test: validationCriterion })
         });
         if (!resp.ok) {
           const err = await resp.json();
@@ -2318,6 +2501,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const desc = document.getElementById("create-softskill-desc").value.trim();
       const branch = document.getElementById("create-softskill-branch").value;
       const order = parseInt(document.getElementById("create-softskill-execution-order").value) || 1;
+      const validationCriterion = document.getElementById("create-softskill-validation-criterion").value.trim();
       
       // Auto-generate unique slug ID
       const skillId = name
@@ -2333,8 +2517,40 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       
-      const prereqs = Array.from(document.querySelectorAll("#create-softskill-prereqs-container input:checked")).map(cb => cb.value);
-      const related = Array.from(document.querySelectorAll("#create-softskill-related-container input:checked")).map(cb => cb.value);
+      const prereqs = Array.from(document.querySelectorAll("#create-softskill-prereqs-container .skill-select"))
+        .map(select => select.value)
+        .filter(val => val !== "");
+      const related = Array.from(document.querySelectorAll("#create-softskill-related-container .skill-select"))
+        .map(select => select.value)
+        .filter(val => val !== "");
+
+      // Check that prerequisites are not in the same branch
+      const sameBranchPrereqs = prereqs.filter(pid => {
+        const s = (softskillsData.skills || []).find(sk => sk.id === pid);
+        return s && s.branch === branch;
+      });
+      if (sameBranchPrereqs.length > 0) {
+        const invalidNames = sameBranchPrereqs.map(pid => {
+          const s = (softskillsData.skills || []).find(sk => sk.id === pid);
+          return s ? s.name : pid;
+        }).join(", ");
+        showToast(`Impossible de forger : la compétence prérequise "${invalidNames}" ne peut pas être dans la même branche (${branch}).`, true);
+        return;
+      }
+
+      // Check that related skills are not in the same branch
+      const sameBranchRelated = related.filter(rid => {
+        const s = (softskillsData.skills || []).find(sk => sk.id === rid);
+        return s && s.branch === branch;
+      });
+      if (sameBranchRelated.length > 0) {
+        const invalidNames = sameBranchRelated.map(rid => {
+          const s = (softskillsData.skills || []).find(sk => sk.id === rid);
+          return s ? s.name : rid;
+        }).join(", ");
+        showToast(`Impossible de forger : la compétence "${invalidNames}" est dans la même branche (${branch}) que la compétence en cours de création.`, true);
+        return;
+      }
       
       try {
         const resp = await fetch(`${API_BASE}/softskills/skills`, {
@@ -2343,7 +2559,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "Content-Type": "application/json",
             "X-User-ID": localStorage.getItem("user_id") || "1"
           },
-          body: JSON.stringify({ id: skillId, name, description: desc, branch, prerequisites: prereqs, related, execution_order: order })
+          body: JSON.stringify({ id: skillId, name, description: desc, branch, prerequisites: prereqs, related, execution_order: order, success_criteria_test: validationCriterion })
         });
         if (!resp.ok) {
           const err = await resp.json();

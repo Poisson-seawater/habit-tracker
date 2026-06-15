@@ -176,6 +176,7 @@ class GoalSubStepLink(Base):
     id = Column(Integer, primary_key=True, index=True)
     goal_id = Column(Integer, ForeignKey("goals.id", ondelete="CASCADE"), nullable=False)
     substep_id = Column(Integer, ForeignKey("substeps.id", ondelete="CASCADE"), nullable=False)
+    execution_order = Column(Integer, default=1)  # Per-goal ordering for this substep
 
     goal = relationship("Goal", back_populates="substep_links")
     substep = relationship("SubStep", back_populates="goal_links")

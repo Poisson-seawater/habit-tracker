@@ -14,7 +14,10 @@ import tempfile
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Tuple
 
-import fcntl
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 
 from sqlalchemy.orm import Session
 
@@ -229,11 +232,13 @@ def _config_lock(config_path: str):
     lock_path = f"{config_path}.lock"
     os.makedirs(os.path.dirname(lock_path) or ".", exist_ok=True)
     with open(lock_path, "a", encoding="utf-8") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        if fcntl is not None:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
         try:
             yield
         finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            if fcntl is not None:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def _read_config(config_path: str) -> Dict[str, Any]:
@@ -381,6 +386,12 @@ def create_branch_with_skills(
             )
 
         allowed_prerequisites = existing_ids.union(new_ids)
+        
+        # Build map of all skills (existing + new ones) to check branches
+        full_skill_branch_map = {s["id"]: s.get("branch") for s in existing_skills}
+        for new_id in new_ids:
+            full_skill_branch_map[new_id] = key
+
         branches[key] = {"color": color, "pale_color": pale_color}
         normalized_skills = []
         for skill_data in skills:
@@ -391,14 +402,31 @@ def create_branch_with_skills(
                     f"Unknown prerequisites for '{skill_data['id']}': "
                     f"{', '.join(unknown)}."
                 )
+
+            for prereq_id in prerequisites:
+                prereq_branch = full_skill_branch_map.get(prereq_id)
+                if prereq_branch == key:
+                    raise ValueError(
+                        f"Skill '{skill_data['id']}' cannot have prerequisite '{prereq_id}' from the same branch '{key}'."
+                    )
+
+            related = skill_data.get("related", [])
+            for rel_id in related:
+                rel_branch = full_skill_branch_map.get(rel_id)
+                if rel_branch == key:
+                    raise ValueError(
+                        f"Skill '{skill_data['id']}' cannot be related to '{rel_id}' of the same branch '{key}'."
+                    )
+
             normalized_skill = {
                 "id": skill_data["id"],
                 "name": skill_data.get("name", ""),
                 "description": skill_data.get("description", ""),
                 "branch": key,
                 "prerequisites": prerequisites,
-                "related": skill_data.get("related", []),
+                "related": related,
                 "execution_order": _skill_order(skill_data),
+                "success_criteria_test": skill_data.get("success_criteria_test", ""),
             }
             requested_position = _skill_position(skill_data)
             occupied = _occupied_positions(config)
@@ -512,14 +540,28 @@ def create_skill(skill_data: Dict[str, Any]) -> Dict[str, Any]:
     if branch not in config.get("branches", {}):
         raise ValueError(f"Branch '{branch}' does not exist.")
 
+    related = skill_data.get("related", [])
+    prerequisites = skill_data.get("prerequisites", [])
+    skill_map = {s["id"]: s for s in skills}
+    for prereq_id in prerequisites:
+        prereq_skill = skill_map.get(prereq_id)
+        if prereq_skill and prereq_skill.get("branch") == branch:
+            raise ValueError(f"Skill '{skill_id}' cannot have prerequisite '{prereq_id}' from the same branch '{branch}'.")
+
+    for rel_id in related:
+        rel_skill = skill_map.get(rel_id)
+        if rel_skill and rel_skill.get("branch") == branch:
+            raise ValueError(f"A skill cannot be related to another skill of the same branch ('{rel_skill['name']}' belongs to '{branch}').")
+
     new_skill = {
         "id": skill_id,
         "name": skill_data.get("name", ""),
         "description": skill_data.get("description", ""),
         "branch": branch,
-        "prerequisites": skill_data.get("prerequisites", []),
-        "related": skill_data.get("related", []),
+        "prerequisites": prerequisites,
+        "related": related,
         "execution_order": _skill_order(skill_data),
+        "success_criteria_test": skill_data.get("success_criteria_test", ""),
     }
     requested_position = _skill_position(skill_data)
     occupied = _occupied_positions(config)
@@ -565,14 +607,29 @@ def update_skill(skill_id: str, skill_data: Dict[str, Any]) -> Dict[str, Any]:
     current_skill = skills[skill_idx]
     old_branch = current_skill.get("branch")
     old_order = _skill_order(current_skill)
+
+    related = skill_data.get("related", [])
+    prerequisites = skill_data.get("prerequisites", [])
+    skill_map = {s["id"]: s for s in skills if s["id"] != skill_id}
+    for prereq_id in prerequisites:
+        prereq_skill = skill_map.get(prereq_id)
+        if prereq_skill and prereq_skill.get("branch") == branch:
+            raise ValueError(f"Skill '{skill_id}' cannot have prerequisite '{prereq_id}' from the same branch '{branch}'.")
+
+    for rel_id in related:
+        rel_skill = skill_map.get(rel_id)
+        if rel_skill and rel_skill.get("branch") == branch:
+            raise ValueError(f"A skill cannot be related to another skill of the same branch ('{rel_skill['name']}' belongs to '{branch}').")
+
     updated_skill = {
         **current_skill,
         "name": skill_data.get("name", ""),
         "description": skill_data.get("description", ""),
         "branch": branch,
-        "prerequisites": skill_data.get("prerequisites", []),
-        "related": skill_data.get("related", []),
+        "prerequisites": prerequisites,
+        "related": related,
         "execution_order": _skill_order(skill_data),
+        "success_criteria_test": skill_data.get("success_criteria_test", ""),
     }
 
     occupied = _occupied_positions(config, exclude_skill_id=skill_id)
@@ -685,6 +742,8 @@ def get_tree_with_progress(db: Session, user_id: int) -> Dict[str, Any]:
             "completed": False,
             "updated_at": None,
         })
+        if not skill_progress.get("success_criteria_test") and skill.get("success_criteria_test"):
+            skill_progress = {**skill_progress, "success_criteria_test": skill.get("success_criteria_test")}
         skills_out.append({**skill, "progress": skill_progress})
 
     return {
@@ -739,15 +798,26 @@ def toggle_completion(
 
     # Check prerequisites if completing
     if completed:
+        progress = get_user_progress(db, user_id)
         prereqs = skill.get("prerequisites", [])
         if prereqs:
-            progress = get_user_progress(db, user_id)
             for prereq_id in prereqs:
                 prereq_progress = progress.get(prereq_id, {})
                 if not prereq_progress.get("completed", False):
                     prereq_name = skill_map.get(prereq_id, {}).get("name", prereq_id)
                     return {
                         "error": f"Cannot unlock '{skill['name']}': Prerequisite '{prereq_name}' is not completed."
+                    }
+
+        # Implicit prerequisites: same-branch skills of lower levels
+        skill_branch = skill.get("branch")
+        skill_order = _skill_order(skill)
+        for s in config.get("skills", []):
+            if s.get("branch") == skill_branch and _skill_order(s) < skill_order:
+                prereq_progress = progress.get(s["id"], {})
+                if not prereq_progress.get("completed", False):
+                    return {
+                        "error": f"Cannot unlock '{skill['name']}': Vous devez d'abord valider toutes les compétences de niveau inférieur de la même branche ('{s['name']}' n'est pas complétée)."
                     }
 
     row = (

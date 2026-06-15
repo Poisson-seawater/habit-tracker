@@ -20,7 +20,7 @@ def db_session():
         week_template = PerfectDayTemplate(
             user_id=1,
             template_name="week",
-            thresholds_json={"discipline": 8, "force": 10}
+            thresholds_json={"discipline": 8, "forme_physique": 10}
         )
         session.add(week_template)
 
@@ -53,7 +53,7 @@ def db_session():
             unit="min",
             is_active=True
         )
-        # 3. musculation: binary, daily, rewards force: 6
+        # 3. musculation: binary, daily, rewards forme_physique: 6
         h3 = Habit(
             id=3,
             user_id=1,
@@ -61,7 +61,7 @@ def db_session():
             type="binary",
             frequency="daily",
             scheduled_days="0,1,2,3,4,5,6",
-            point_rewards={"force": 6},
+            point_rewards={"forme_physique": 6},
             is_active=True
         )
         session.add_all([h1, h2, h3])
@@ -84,10 +84,10 @@ def test_daily_score_calculation_incomplete(db_session):
 def test_daily_score_calculation_perfect_day(db_session):
     today = datetime.date.today()
     
-    # Log routine_matin (+2 discipline), musculation (+6 force)
-    # And we log a Todo (+6 force, +6 discipline) to hit:
+    # Log routine_matin (+2 discipline), musculation (+6 forme_physique)
+    # And we log a Todo (+6 forme_physique, +6 discipline) to hit:
     # discipline: 2 + 6 = 8 (seuil = 8)
-    # force: 6 + 6 = 12 (seuil = 10)
+    # forme_physique: 6 + 6 = 12 (seuil = 10)
     log1 = HabitLog(user_id=1, habit_id=1, log_type="done", timestamp=datetime.datetime.now())
     log2 = HabitLog(user_id=1, habit_id=3, log_type="done", timestamp=datetime.datetime.now())
     todo = Todo(
@@ -96,7 +96,7 @@ def test_daily_score_calculation_perfect_day(db_session):
         xp_reward=20, 
         is_completed=True, 
         completed_at=datetime.datetime.now(), 
-        stat_reward_1="force", 
+        stat_reward_1="forme_physique", 
         points_reward_1=6, 
         stat_reward_2="discipline", 
         points_reward_2=6
@@ -111,7 +111,7 @@ def test_daily_score_calculation_perfect_day(db_session):
     # Then status is Perfect
     assert score.status == "Perfect"
     assert score.actual_stats["discipline"] == 8
-    assert score.actual_stats["force"] == 12
+    assert score.actual_stats["forme_physique"] == 12
 
 def test_streak_increment_on_perfect_day(db_session):
     today = datetime.date.today()

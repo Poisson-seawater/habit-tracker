@@ -40,3 +40,6 @@ if DATABASE_URL.startswith("sqlite://") and not DATABASE_URL.startswith("sqlite:
         DATABASE_URL = f"sqlite:////{db_path}"
     else:
         DATABASE_URL = f"sqlite:///{db_path}"
+
+# Timezone Configuration
+TIMEZONE = os.getenv("TIMEZONE", "America/New_York")

@@ -293,6 +293,10 @@ def init_db():
     Use seed_db() directly (manually) for a full destructive reset.
     """
     Base.metadata.create_all(bind=engine)
+
+    # Run lightweight migrations for existing databases
+    _run_migrations()
+
     db = SessionLocal()
     try:
         already_seeded = db.query(User).first() is not None
@@ -307,5 +311,34 @@ def init_db():
     seed_db()
 
 
+def _run_migrations():
+    """
+    Run idempotent ALTER-based migrations for schema changes that
+    create_all() cannot handle on existing tables.
+    """
+    from sqlalchemy import text, inspect
+    db = SessionLocal()
+    try:
+        inspector = inspect(engine)
+        # v12: Add execution_order to goal_substep_links
+        if "goal_substep_links" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("goal_substep_links")]
+            if "execution_order" not in columns:
+                print("Running migration v12: adding execution_order to goal_substep_links...")
+                db.execute(text("ALTER TABLE goal_substep_links ADD COLUMN execution_order INTEGER DEFAULT 1"))
+                db.execute(text(
+                    "UPDATE goal_substep_links SET execution_order = "
+                    "(SELECT execution_order FROM substeps WHERE substeps.id = goal_substep_links.substep_id)"
+                ))
+                db.commit()
+                print("Migration v12 applied successfully.")
+    except Exception as e:
+        db.rollback()
+        print(f"Migration error (non-fatal): {e}")
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     seed_db()
+

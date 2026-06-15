@@ -377,7 +377,23 @@ class TestSoftskillRoutes:
 
     def test_skill_crud_endpoints(self, client):
         """Test creating, updating, and deleting a skill node."""
-        # 1. Create skill with default order
+        # Create prerequisite skill in leadership first
+        response = client.post(
+            "/api/v1/softskills/skills",
+            json={
+                "id": "leaderskill",
+                "name": "Leader Skill",
+                "description": "Desc",
+                "branch": "leadership",
+                "prerequisites": [],
+                "related": [],
+                "x": 100,
+                "y": 100
+            }
+        )
+        assert response.status_code == 201
+
+        # 1. Create skill with default order and success criteria test
         response = client.post(
             "/api/v1/softskills/skills",
             json={
@@ -385,25 +401,35 @@ class TestSoftskillRoutes:
                 "name": "Test Skill",
                 "description": "Description",
                 "branch": "communication",
-                "prerequisites": ["ecoute"],
+                "prerequisites": ["leaderskill"],
                 "related": [],
                 "x": 300,
-                "y": 200
+                "y": 200,
+                "success_criteria_test": "Valider 5 appels de prospection"
             }
         )
         assert response.status_code == 201
         data = response.json()
         assert data["id"] == "testskill"
-        assert "ecoute" in data["prerequisites"]
+        assert "leaderskill" in data["prerequisites"]
         assert data["execution_order"] == 1  # default value
+        assert data["success_criteria_test"] == "Valider 5 appels de prospection"
+
+        # 1b. Check that get_softskills returns the static success criteria test as progress fallback
+        response = client.get("/api/v1/softskills", headers={"X-User-ID": "1"})
+        assert response.status_code == 200
+        tree_data = response.json()
+        target_skill = next((s for s in tree_data["skills"] if s["id"] == "testskill"), None)
+        assert target_skill is not None
+        assert target_skill["progress"]["success_criteria_test"] == "Valider 5 appels de prospection"
 
         # 2. Update skill with cycle (should return 400)
         response = client.put(
-            "/api/v1/softskills/skills/ecoute",
+            "/api/v1/softskills/skills/leaderskill",
             json={
-                "name": "Écoute Active",
-                "description": "Savoir écouter autrui.",
-                "branch": "communication",
+                "name": "Leader Skill Mod",
+                "description": "Desc Mod",
+                "branch": "leadership",
                 "prerequisites": ["testskill"],
                 "related": [],
                 "x": 100,
@@ -413,7 +439,7 @@ class TestSoftskillRoutes:
         )
         assert response.status_code == 400
 
-        # 3. Update skill normally, modifying order
+        # 3. Update skill normally, modifying order and success criteria test
         response = client.put(
             "/api/v1/softskills/skills/testskill",
             json={
@@ -424,7 +450,8 @@ class TestSoftskillRoutes:
                 "related": [],
                 "x": 350,
                 "y": 250,
-                "execution_order": 3
+                "execution_order": 3,
+                "success_criteria_test": "Valider 10 appels"
             }
         )
         assert response.status_code == 200
@@ -432,11 +459,151 @@ class TestSoftskillRoutes:
         assert data["name"] == "Test Skill Mod"
         assert data["x"] == 350
         assert data["execution_order"] == 3
+        assert data["success_criteria_test"] == "Valider 10 appels"
+
+        # 3b. Verify get_softskills has the updated fallback
+        response = client.get("/api/v1/softskills", headers={"X-User-ID": "1"})
+        assert response.status_code == 200
+        tree_data = response.json()
+        target_skill = next((s for s in tree_data["skills"] if s["id"] == "testskill"), None)
+        assert target_skill is not None
+        assert target_skill["progress"]["success_criteria_test"] == "Valider 10 appels"
 
         # 4. Delete skill
         response = client.delete("/api/v1/softskills/skills/testskill")
         assert response.status_code == 200
         assert response.json()["deleted_skill"] == "testskill"
+
+        response = client.delete("/api/v1/softskills/skills/leaderskill")
+        assert response.status_code == 200
+
+    def test_related_skill_same_branch_fails(self, client):
+        """Creating or updating a skill to relate it to a skill in the same branch should return 400."""
+        # 1. Try to create a skill with a related skill from the same branch ("ecoute" is in "communication")
+        response = client.post(
+            "/api/v1/softskills/skills",
+            json={
+                "id": "invalid_rel",
+                "name": "Invalid Relation Skill",
+                "description": "Description",
+                "branch": "communication",
+                "prerequisites": [],
+                "related": ["ecoute"],
+                "x": 300,
+                "y": 200
+            }
+        )
+        assert response.status_code == 400
+        assert "same branch" in response.json()["detail"]
+
+        # 2. Try to update a skill to relate it to a skill in the same branch
+        # First, create it validly (related to "confiance" which is in "leadership")
+        response = client.post(
+            "/api/v1/softskills/skills",
+            json={
+                "id": "valid_then_invalid",
+                "name": "Valid Then Invalid",
+                "description": "Description",
+                "branch": "communication",
+                "prerequisites": [],
+                "related": ["confiance"],
+                "x": 300,
+                "y": 200
+            }
+        )
+        assert response.status_code == 201
+
+        # Now update it to relate to "ecoute" (same branch "communication")
+        response = client.put(
+            "/api/v1/softskills/skills/valid_then_invalid",
+            json={
+                "name": "Valid Then Invalid Mod",
+                "description": "Description",
+                "branch": "communication",
+                "prerequisites": [],
+                "related": ["ecoute"],
+                "x": 300,
+                "y": 200
+            }
+        )
+        assert response.status_code == 400
+        assert "same branch" in response.json()["detail"]
+
+        # Cleanup
+        client.delete("/api/v1/softskills/skills/valid_then_invalid")
+
+    def test_prerequisite_same_branch_fails(self, client):
+        """Creating or updating a skill to have a prerequisite in the same branch should return 400."""
+        # 1. Try to create a skill in "communication" with prerequisite in "communication" ("ecoute")
+        response = client.post(
+            "/api/v1/softskills/skills",
+            json={
+                "id": "same_branch_prereq",
+                "name": "Same Branch Prereq",
+                "description": "Description",
+                "branch": "communication",
+                "prerequisites": ["ecoute"],
+                "related": [],
+                "x": 300,
+                "y": 200
+            }
+        )
+        assert response.status_code == 400
+        assert "same branch" in response.json()["detail"]
+
+    def test_implicit_level_completion_rule(self, client):
+        """Unlocking a higher-level skill requires completing all lower-level same-branch skills."""
+        # 1. Create a level 2 skill in communication
+        response = client.post(
+            "/api/v1/softskills/skills",
+            json={
+                "id": "lvl2_skill",
+                "name": "Level 2 Skill",
+                "description": "Description",
+                "branch": "communication",
+                "prerequisites": [],
+                "related": [],
+                "x": 300,
+                "y": 200,
+                "execution_order": 2
+            }
+        )
+        assert response.status_code == 201
+
+        # 2. Try to complete it (lvl 1 skills "ecoute" and "orateur" in communication are not completed yet)
+        response = client.post(
+            "/api/v1/softskills/lvl2_skill/complete",
+            headers={"X-User-ID": "1"},
+            json={"completed": True}
+        )
+        assert response.status_code == 400
+        assert "niveau inférieur" in response.json()["detail"]
+
+        # 3. Complete all level 1 skills (orateur depends on ecoute, so we must complete ecoute first)
+        response = client.post(
+            "/api/v1/softskills/ecoute/complete",
+            headers={"X-User-ID": "1"},
+            json={"completed": True}
+        )
+        assert response.status_code == 200
+
+        response = client.post(
+            "/api/v1/softskills/orateur/complete",
+            headers={"X-User-ID": "1"},
+            json={"completed": True}
+        )
+        assert response.status_code == 200
+
+        # 4. Now completing the level 2 skill should succeed!
+        response = client.post(
+            "/api/v1/softskills/lvl2_skill/complete",
+            headers={"X-User-ID": "1"},
+            json={"completed": True}
+        )
+        assert response.status_code == 200
+
+        # Cleanup
+        client.delete("/api/v1/softskills/skills/lvl2_skill")
 
     def test_skill_coordinates_are_allocated_and_preserved(self, client):
         response = client.post(
@@ -446,7 +613,7 @@ class TestSoftskillRoutes:
                 "name": "Auto Skill",
                 "description": "",
                 "branch": "communication",
-                "prerequisites": ["ecoute"],
+                "prerequisites": [],
                 "related": [],
                 "execution_order": 2,
             },
@@ -463,7 +630,7 @@ class TestSoftskillRoutes:
                 "name": "Auto Skill Renamed",
                 "description": "Updated",
                 "branch": "communication",
-                "prerequisites": ["ecoute"],
+                "prerequisites": [],
                 "related": [],
                 "execution_order": 2,
             },
@@ -478,7 +645,7 @@ class TestSoftskillRoutes:
                 "name": "Auto Skill Renamed",
                 "description": "Updated",
                 "branch": "communication",
-                "prerequisites": ["ecoute"],
+                "prerequisites": [],
                 "related": [],
                 "execution_order": 3,
             },
@@ -490,4 +657,3 @@ class TestSoftskillRoutes:
 
         response = client.delete("/api/v1/softskills/skills/auto_skill")
         assert response.status_code == 200
-
