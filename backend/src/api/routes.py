@@ -493,7 +493,11 @@ def get_goals(db: Session = Depends(get_db), user_id: int = Depends(get_current_
                 "completed": s.completed,
                 "completed_at": s.completed_at.isoformat() if s.completed_at else None,
                 "stats": s.stats_json or [],
-                "execution_order": s.execution_order
+                "execution_order": s.execution_order,
+                "linked_goals": [
+                    {"id": gl.goal.id, "title": gl.goal.title}
+                    for gl in s.goal_links if gl.goal_id != g.id
+                ]
             })
             
         result.append({
