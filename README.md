@@ -8,7 +8,7 @@ Habit tracker auto-hébergé façon RPG + système de responsabilité, tournant 
 
 ## 👥 Collaboration & développement
 
-Projet perso à deux frères. Avant de contribuer, lire :
+Projet perso. Avant de contribuer, lire :
 
 - 🎯 **[VISION.md](./VISION.md)** — pourquoi ce projet existe, qui il vise, ce qu'il n'est pas.
 - 🤖 **[CLAUDE.md](./CLAUDE.md)** — conventions et règles pour Claude Code / agents (symlink vers `AGENTS.md`).
