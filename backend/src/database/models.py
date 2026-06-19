@@ -172,6 +172,9 @@ class SubStep(Base):
 
 class GoalSubStepLink(Base):
     __tablename__ = "goal_substep_links"
+    __table_args__ = (
+        UniqueConstraint("goal_id", "substep_id", name="uix_goal_substep"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     goal_id = Column(Integer, ForeignKey("goals.id", ondelete="CASCADE"), nullable=False)
