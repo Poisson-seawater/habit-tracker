@@ -4,6 +4,72 @@ Habit tracker auto-hébergé façon RPG + système de responsabilité, tournant 
 
 ---
 
+#### bug hunting
+
+1. PULL MODIFICATION FAIT SUR ORDI
+2. lancer toutes les prompts manquant
+3. pull de la pie
+4. test IA interaction direct sur le site web ! par modification http ???
+5. rerun test de stockage pour optimisation du code !
+
+
+objectif:
+- [x] quand je lis un objectif ex avoir 500k en actif a objectif faire le tour du monde, je ne vois pas cet objectif s'afficher dans faire le tour du monde. comme cela ce fait dans softskill.
+- [x] description apparais des que je batit la sous-etapes  ! pas uniquement dans edit.
+
+softskill:
+- [x] etre capable de delete un softskill
+- [x] Compétences Liées (liaisons secondaires) c'est quoi  ?
+- [x] quand je ✨ Forger une compétence, pouvoir ecrire la description ET son critere de validation aussi !
+- [x] revoir les liens entre les skills
+- [ ] revoir les couleurs quand c'est valider et non !
+
+Add stat caché = life experience / personal lore -> option yes  /no sur des objectifs. 
+
+message: 
+- log vide permet de sélectionner to do ou habit puis de sélectionner habit de son choix
+
+overall: 
+- cleaner sur cellphone
+
+
+
+aight so tu as fait de la merde ! je ne peux plus chagner l'étapes d;un sous objectifs ! aucun changement de place visuel ! ET apres avoir changer etape 1 pour 2, létape redevient 1 des que l'edit du sous-objecrifs est terminer
+
+
+
+##### prompts list
+
+**telegram**: 
+A la fin de la journés, donc 21h30, le message de recap dois afficher les to do et les habit faite ! ainsi que les no-to-do de failure fait !
+
+La commande /log me permet de selectionner une habitude ou une to do par bouton ! 1. donne le choix entre habitude ou bouton. 2. liste les habitudes/ boutons et je clique sur celui que je log. 
+
+**objectifs**
+dans les paramètre d'un sous-objectif, on peux cocher une case life lore. Quand un sous-objectifs life lore est réaliser. Alors il apparais dans les stats du jours. Le jour peux voir son life lore quand il clique sur son image de profil.
+
+**skills**
+OUTPUT: better ux. Les skills ont la meme logique par branche que les objectifs et refonte visuel.
+Context: un sous-objectifs peuvent s'afficher dans plusieurs objectifs. Les skills aussi peuvent apparaitre dans plusieur branche.
+Si skill fait, alors background change de couleur pour etre le meme que celui de la bordure (pas de verts).
+La vue global, 
+
+
+**not to-do**
+je veux etre capable de delete un non to do
+
+
+**esthetique**
+Le rendu est propre sur ordi, mais tres moche des qu'on est sur telephone. Creer moi 2 maquettes: telephone et tablette afin quon verifie ensemble le visuel ! 
+
+
+
+#### last prompt
+double check database, code with 1 outputs in mind.
+consume as little RAM as possible.
+
+what can be optimize  ? database ? code librairie ? 
+
 ## 🎯 Vision & Philosophie
 
 ### Pourquoi ce projet existe
