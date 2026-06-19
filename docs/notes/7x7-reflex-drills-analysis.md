@@ -3,7 +3,7 @@
 > Statut : **idée cadrée, non implémentée.** Conclusion de la session de brainstorm du 2026-06-14.
 > Verdict court : le mécanisme vaut le coup pour une **catégorie étroite** de comportements, mais
 > l'implémenter « en grand » serait du **sur-ingénierie** au service d'une prémisse à moitié mythe.
-> Référence Vision : [VISION.md → Règle d'initialisation des 7x7](../../VISION.md).
+> Référence Vision : [README.md → Vision & Philosophie](../../README.md).
 
 ## 1. L'idée de départ
 

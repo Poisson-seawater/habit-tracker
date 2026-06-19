@@ -56,7 +56,7 @@ docs(readme): add local setup section
 ## Avant de commencer une feature : créer une issue
 
 1. Ouvrir une **issue GitHub** décrivant **le quoi** et **le pourquoi** (pas le comment).
-2. Pour une vraie feature produit, vérifier qu'elle colle à [`VISION.md`](./VISION.md).
+2. Pour une vraie feature produit, vérifier qu'elle colle à la vision décrite dans [`README.md`](./README.md).
 3. Créer la branche `feat/...` liée à l'issue.
 4. Coder, ouvrir la PR, lier l'issue (`Closes #12`).
 

@@ -10,7 +10,7 @@ Whenever you add, modify, or delete any Telegram Bot commands in the code, you M
 # Guide projet — Habit RPG Tracker
 
 > Ce fichier guide les agents (Claude Code, Codex…). `CLAUDE.md` est un **symlink** vers ce fichier.
-> Contexte produit → [VISION.md](./VISION.md). Workflow de contribution → [CONTRIBUTING.md](./CONTRIBUTING.md).
+> Contexte produit & Vision → [README.md](./README.md). Workflow de contribution → [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Stack
 

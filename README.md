@@ -1,8 +1,49 @@
 # Habit RPG Tracker
 
-Habit tracker auto-hébergé façon RPG + système de responsabilité, tournant sur un
-**Raspberry Pi 5**. Un bot Telegram et un dashboard web analytique partagent une même base
-**SQLite** locale et rapide.
+Habit tracker auto-hébergé façon RPG + système de responsabilité, tournant sur un **Raspberry Pi 5**. Un bot Telegram et un dashboard web analytique partagent une même base **SQLite** locale et rapide.
+
+---
+
+## 🎯 Vision & Philosophie
+
+### Pourquoi ce projet existe
+
+Un habit tracker auto-hébergé, façon RPG, construit pour notre usage perso afin de se tenir mutuellement responsables de nos habitudes quotidiennes, avec un système de points, de stats, de streaks et de « journées parfaites ». Le pilotage se fait soit par le **bot Telegram**, les **skills LLM** ou le **dashboard web**.
+
+L'idée de base : transformer la discipline quotidienne en jeu (XP, niveaux, or, quêtes) pour que tenir ses habitudes soit motivant plutôt que pénible.
+
+### Public cible
+
+- Amis et réseau proche.
+- Usage **quotidien** : logger ses habitudes, voir son statut du jour, suivre ses streaks.
+- Non développeurs.
+
+### Ce que le projet N'EST PAS
+
+- **Pas un SaaS.** Aucune intention de vendre, d'héberger pour des tiers, ni de scaler.
+- **Pas multi-tenant.** « Multi-utilisateur » = nous deux, sur une seule instance, une seule DB SQLite. Pas d'organisations, de rôles, de facturation.
+- **Pas une app publique.** Tourne derrière notre réseau / tunnel. Pas de hardening niveau prod publique (CORS ouvert, auth par simple header `X-User-ID`).
+- **Pas une plateforme générique.** Tout est personnalisé pour nos besoins.
+
+### Non-goals explicites
+
+- Pas d'inscription publique ni d'onboarding grand public.
+- Pas de paiement, d'abonnement, de plan freemium.
+- Pas de support multi-DB (Postgres, MySQL…) — SQLite suffit pour deux personnes.
+- Pas de scaling horizontal, de microservices, de Kubernetes.
+- Pas de mobile natif — le bot Telegram + la Mini App couvrent le besoin mobile.
+- Pas d'i18n complète — FR/EN au fil de l'eau, sans framework de traduction.
+- Pas d'optimisation pour des milliers d'utilisateurs : on optimise pour la **RAM du Pi**, pas pour la charge.
+
+### Pistes futures (non engagées)
+
+> Idées issues du cahier des charges initial, conservées ici en attendant d'être éventuellement cadrées dans `specs/`. Rien de tout ça n'est décidé.
+
+- **V3 — intégrations externes** : calendrier employeur, app de todo externe, API professionnelles.
+- **Fin d'objectif par cumul de succès** (ex. 180 succès ≈ 6 mois), statuts abandonné / terminé.
+- **Planification quotidienne 3-3-3** : 3 objectifs majeurs, 3 tâches courtes, 3 tâches de maintenance.
+- **Régulation de la charge cognitive** : limiter les projets et habitudes actifs simultanément.
+- **Système de Punitions** : actions compensatoires constructives face à l'échec d'engagements.
 
 ---
 
@@ -10,7 +51,7 @@ Habit tracker auto-hébergé façon RPG + système de responsabilité, tournant 
 
 Projet perso. Avant de contribuer, lire :
 
-- 🎯 **[VISION.md](./VISION.md)** — pourquoi ce projet existe, qui il vise, ce qu'il n'est pas.
+- 🎯 **[Vision & Philosophie](#-vision--philosophie)** — pourquoi ce projet existe, qui il vise, ce qu'il n'est pas (section ci-dessus).
 - 🤖 **[CLAUDE.md](./CLAUDE.md)** — conventions et règles pour Claude Code / agents (symlink vers `AGENTS.md`).
 - 🌿 **[CONTRIBUTING.md](./CONTRIBUTING.md)** — branches, PRs, format des commits.
 - 🗺️ **[ROADMAP.md](./ROADMAP.md)** — ce qui reste à faire.
