@@ -1919,7 +1919,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function scrollToSkillNode(skillId) {
-    const node = document.querySelector(`.softskill-node[data-id="${skillId}"]`);
+    const node = document.querySelector(`.hex-wrapper[data-id="${skillId}"], .softskill-node[data-id="${skillId}"]`);
     if (node) {
       node.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
       node.style.transform = "scale(1.15)";
@@ -2110,7 +2110,7 @@ document.addEventListener("DOMContentLoaded", () => {
               const pY = parent.y + 56;
               const parentBranchColor = (branches[parent.branch] || {}).color || "#8b5cf6";
               const lineCompleted = (s.progress && s.progress.completed) && (parent.progress && parent.progress.completed);
-              const strokeColor = lineCompleted ? "var(--accent-green)" : (s.progress && s.progress.completed ? parentBranchColor : "rgba(255, 255, 255, 0.15)");
+              const strokeColor = lineCompleted ? parentBranchColor : (s.progress && s.progress.completed ? parentBranchColor : "rgba(255, 255, 255, 0.15)");
               const strokeWidth = lineCompleted ? 3 : 2;
               
               svgLines += `<line x1="${pX}" y1="${pY}" x2="${sX}" y2="${sY}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
