@@ -28,7 +28,7 @@ def parse_command(text: str) -> dict:
         
     elif cmd == "/log":
         if not args_str:
-            raise ParserError("Usage : /log [nom_habitude] [valeur][unité]\nExemple : /log lecture 30min")
+            return {"command": "log", "habit_name": None, "value": None, "unit": None}
             
         log_parts = args_str.split(maxsplit=1)
         if len(log_parts) < 2:

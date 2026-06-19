@@ -10,7 +10,7 @@ from src.config import TELEGRAM_BOT_TOKEN, TELEGRAM_GROUP_ID
 from src.database.session import SessionLocal
 from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, NoTodo, Reward
 from src.bot.parser import parse_command, ParserError
-from src.services.score_service import calculate_daily_score, update_streaks, DEFAULT_THRESHOLDS
+from src.services.score_service import calculate_daily_score, update_streaks, DEFAULT_THRESHOLDS, add_user_xp
 from src.bot.scheduler import start_scheduler
 from src.services.reward_service import check_reward_lock, purchase_reward, is_allostasis_available
 from src.services.softskill_service import load_tree_config, create_skill, get_user_progress, toggle_completion
@@ -132,10 +132,11 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     text = update.message.text.strip()
-    # Plain text is normally ignored, EXCEPT when an /add flow is awaiting a title or softskill creation.
+    # Plain text is normally ignored, EXCEPT when an /add flow, softskill flow, or /log flow is awaiting input.
     pending = context.user_data.get("pending_add")
     pending_ss = context.user_data.get("pending_ss_create")
-    if not text.startswith("/") and not pending and not pending_ss:
+    pending_log = context.user_data.get("pending_log_habit_id")
+    if not text.startswith("/") and not pending and not pending_ss and not pending_log:
         return
 
     chat = update.effective_chat
@@ -160,6 +161,64 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Resolve active user from the message sender
         user = _resolve_user(db, update.message.from_user)
         username = user.username
+
+        # Multi-step /log flow: a previous button choice is awaiting a typed value.
+        if pending_log:
+            if text.startswith("/"):
+                # A new command aborts the pending flow; fall through to normal routing.
+                context.user_data.pop("pending_log_habit_id", None)
+            else:
+                habit = db.query(Habit).filter_by(id=pending_log, user_id=user.id, is_active=True).first()
+                if not habit:
+                    await update.message.reply_text("❌ L'habitude n'existe plus ou n'est plus active. Action annulée.")
+                    context.user_data.pop("pending_log_habit_id", None)
+                    db.close()
+                    return
+
+                # Parse the value and unit. The user typed something like: "30min" or "30 min" or just "30".
+                match = re.match(r"^(\d+)\s*([a-zA-Z]*)$", text)
+                if not match:
+                    await update.message.reply_text(
+                        f"❌ Format invalide. L'habitude attend une valeur numérique, par exemple : 30 ou 30{habit.unit or ''}. Veuillez réessayer."
+                    )
+                    db.close()
+                    return
+
+                val = int(match.group(1))
+                unit = match.group(2).strip()
+
+                if habit.unit and unit and unit.lower() != habit.unit.lower():
+                    await update.message.reply_text(f"❌ L'habitude attend l'unité \"{habit.unit}\" (ex : {val}{habit.unit}). Veuillez réessayer.")
+                    db.close()
+                    return
+
+                resolved_unit = unit or habit.unit or ""
+
+                log = HabitLog(
+                    user_id=user.id,
+                    habit_id=habit.id,
+                    log_type="log",
+                    amount=val,
+                    unit=resolved_unit
+                )
+                db.add(log)
+                db.commit()
+
+                today = datetime.date.today()
+                score = calculate_daily_score(db, user_id=user.id, date=today)
+                update_streaks(db, user_id=user.id, date=today)
+
+                rewards_str = format_stat_rewards(habit.point_rewards)
+                cap_info = f" (Cap journalier : {habit.daily_cap}pts)" if habit.daily_cap else ""
+
+                context.user_data.pop("pending_log_habit_id", None)
+                await update.message.reply_text(
+                    f"📚 {username} a loggé {val}{resolved_unit} pour la quête \"{html.escape(habit.name)}\" !\n"
+                    f"✨ Stats obtenues : {rewards_str}{cap_info}",
+                    parse_mode="HTML"
+                )
+                db.close()
+                return
 
         # Multi-step /add flow: a previous button choice is awaiting a typed title.
         if pending:
@@ -331,6 +390,19 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             val = parsed["value"]
             unit = parsed["unit"]
 
+            if habit_name is None:
+                keyboard = [
+                    [
+                        InlineKeyboardButton("🎯 Habitude", callback_data="log_select:habit"),
+                        InlineKeyboardButton("📝 Todo", callback_data="log_select:todo")
+                    ]
+                ]
+                await update.message.reply_text(
+                    "Qu'est-ce que tu veux logger ?",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return
+
             habit = db.query(Habit).filter_by(name=habit_name, user_id=user.id, is_active=True).first()
             if not habit:
                 await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" n'existe pas ou n'est pas active.")
@@ -362,8 +434,9 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             cap_info = f" (Cap journalier : {habit.daily_cap}pts)" if habit.daily_cap else ""
 
             await update.message.reply_text(
-                f"📚 {username} a loggé {val}{unit} pour la quête \"{habit_name}\" !\n"
-                f"✨ Stats obtenues : {rewards_str}{cap_info}"
+                f"📚 {username} a loggé {val}{unit} pour la quête \"{html.escape(habit.name)}\" !\n"
+                f"✨ Stats obtenues : {rewards_str}{cap_info}",
+                parse_mode="HTML"
             )
 
         elif cmd == "skip":
@@ -996,6 +1069,139 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
         except Exception as e:
             print(f"Error handling softskill callback {data}: {e}")
+            await query.message.reply_text(f"❌ Une erreur est survenue : {e}")
+        finally:
+            db.close()
+        return
+
+    # --- Interactive log buttons ----------------------------------------------
+    if data.startswith("log_select:") or data.startswith("log_habit:") or data.startswith("log_todo:"):
+        db = SessionLocal()
+        try:
+            user = _resolve_user(db, query.from_user)
+            if data.startswith("log_select:"):
+                choice = data.split(":", 1)[1]
+                if choice == "habit":
+                    # Fetch active habits ordered by ID
+                    habits = db.query(Habit).filter_by(user_id=user.id, is_active=True).order_by(Habit.id).all()
+                    if not habits:
+                        await query.edit_message_text("❌ Tu n'as pas d'habitude active.")
+                        db.close()
+                        return
+                    
+                    keyboard = []
+                    for h in habits:
+                        emoji = "📊" if h.type == "quantitative" else "✅"
+                        unit_str = f" ({h.unit})" if h.unit else ""
+                        keyboard.append([InlineKeyboardButton(f"{emoji} {h.name}{unit_str}", callback_data=f"log_habit:{h.id}")])
+                    
+                    await query.edit_message_text(
+                        "🎯 <b>Choisis une habitude à logger :</b>",
+                        reply_markup=InlineKeyboardMarkup(keyboard),
+                        parse_mode="HTML"
+                    )
+                else:  # todo
+                    todos = db.query(Todo).filter_by(user_id=user.id, is_completed=False).order_by(Todo.id).all()
+                    if not todos:
+                        await query.edit_message_text("❌ Tu n'as pas de Todo en attente.")
+                        db.close()
+                        return
+                    
+                    keyboard = []
+                    for t in todos:
+                        keyboard.append([InlineKeyboardButton(f"📝 {t.title} (+{t.xp_reward} XP)", callback_data=f"log_todo:{t.id}")])
+                    
+                    await query.edit_message_text(
+                        "📝 <b>Choisis un Todo à compléter :</b>",
+                        reply_markup=InlineKeyboardMarkup(keyboard),
+                        parse_mode="HTML"
+                    )
+            elif data.startswith("log_habit:"):
+                habit_id = int(data.split(":", 1)[1])
+                habit = db.query(Habit).filter_by(id=habit_id, user_id=user.id, is_active=True).first()
+                if not habit:
+                    await query.edit_message_text("❌ Habitude introuvable ou inactive.")
+                    db.close()
+                    return
+                
+                if habit.type == "binary":
+                    # Log immediately
+                    today = datetime.date.today()
+                    start_dt = datetime.datetime.combine(today, datetime.time.min)
+                    end_dt = datetime.datetime.combine(today, datetime.time.max)
+                    has_target = habit.daily_target is not None and habit.daily_target > 1
+
+                    done_today = db.query(HabitLog).filter(
+                        HabitLog.user_id == user.id,
+                        HabitLog.habit_id == habit.id,
+                        HabitLog.log_type == "done",
+                        HabitLog.timestamp >= start_dt,
+                        HabitLog.timestamp <= end_dt
+                    ).count()
+
+                    if done_today and not has_target:
+                        await query.edit_message_text(f"🎯 L'habitude \"{html.escape(habit.name)}\" a déjà été complétée aujourd'hui !")
+                        db.close()
+                        return
+
+                    log = HabitLog(
+                        user_id=user.id,
+                        habit_id=habit.id,
+                        log_type="done"
+                    )
+                    db.add(log)
+                    db.commit()
+
+                    score = calculate_daily_score(db, user_id=user.id, date=today)
+                    update_streaks(db, user_id=user.id, date=today)
+
+                    rewards_str = format_stat_rewards(habit.point_rewards)
+                    target_str = f" ({done_today + 1}/{habit.daily_target})" if has_target else ""
+                    await query.edit_message_text(
+                        f"✅ <b>{user.username}</b> a complété la routine \"{html.escape(habit.name)}\"{target_str} !\n"
+                        f"✨ Stats obtenues : {rewards_str}",
+                        parse_mode="HTML"
+                    )
+                else:  # quantitative
+                    context.user_data["pending_log_habit_id"] = habit.id
+                    unit_prompt = f" (ex: 30{habit.unit or ''})" if habit.unit else " (ex: 30)"
+                    await query.edit_message_text(
+                        f"✏️ Envoie la valeur pour l'habitude <b>{html.escape(habit.name)}</b>{unit_prompt} :",
+                        parse_mode="HTML"
+                    )
+            elif data.startswith("log_todo:"):
+                todo_id = int(data.split(":", 1)[1])
+                todo = db.query(Todo).filter_by(id=todo_id, user_id=user.id).first()
+                if not todo:
+                    await query.edit_message_text("❌ Todo introuvable.")
+                    db.close()
+                    return
+                if todo.is_completed:
+                    await query.edit_message_text("❌ Todo déjà complété.")
+                    db.close()
+                    return
+
+                todo.is_completed = True
+                todo.completed_at = datetime.datetime.now()
+                
+                # Award permanent XP
+                levels_gained = add_user_xp(user, todo.xp_reward)
+                
+                # Recalculate daily scores to instantly add Todo stats points
+                today = datetime.date.today()
+                calculate_daily_score(db, user_id=user.id, date=today)
+                update_streaks(db, user_id=user.id, date=today)
+                
+                db.commit()
+
+                level_info = f"\n🎉 Passage au niveau {user.level} !" if levels_gained else ""
+                await query.edit_message_text(
+                    f"✅ Todo complété : <b>{html.escape(todo.title)}</b> !\n"
+                    f"⭐ +{todo.xp_reward} XP (Nouveau total : {user.xp} XP){level_info}",
+                    parse_mode="HTML"
+                )
+        except Exception as e:
+            print(f"Error handling log callback {data}: {e}")
             await query.message.reply_text(f"❌ Une erreur est survenue : {e}")
         finally:
             db.close()

@@ -13,7 +13,7 @@ Ce document centralise toutes les commandes disponibles pour le bot Telegram.
 | Commande | Arguments | Description | Exemple |
 |----------|-----------|-------------|---------|
 | `/done` | `[nom_habitude]` | Valide une habitude **binaire** (faite / pas faite). Refuse si déjà faite aujourd'hui (sauf si l'habitude a une **cible/jour** : on peut alors valider plusieurs fois, la réponse affiche `X/N` et chaque validation rapporte son XP) ou si l'habitude est quantitative. | `/done routine_matin` |
-| `/log` | `[nom_habitude] [valeur][unité]` | Enregistre une habitude **quantitative** avec une mesure. Vérifie que l'unité correspond. | `/log lecture 30min` |
+| `/log` | `[nom_habitude] [valeur][unité]` *(optionnel)* | Enregistre une habitude **quantitative** avec une mesure. **Sans argument : affiche un choix par bouton (Habitude/Todo) pour logger.** | `/log` ou `/log lecture 30min` |
 | `/skip` | `[nom_habitude] raison: [texte]` | Saute une habitude pour aujourd'hui **sans casser le streak**. La raison est obligatoire. | `/skip nage raison: fatigue extreme` |
 | `/status` | *(aucun)* | Affiche le statut du jour : Perfect Day ou non, seuils, streak, or, niveau/XP, quêtes faites / skippées / restantes, et No-Todos échoués. | `/status` |
 | `/set-day` *(alias `/template`)* | `[nom_template]` *(optionnel)* | Change le « type de journée » et réajuste les seuils. Templates : `semaine`, `weekend`, `recovery`, `sick`. **Sans argument : affiche 4 boutons de choix.** | `/set-day` ou `/template sick` |
