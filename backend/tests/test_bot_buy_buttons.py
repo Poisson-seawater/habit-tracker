@@ -8,6 +8,7 @@ from src.database.session import Base
 from src.database.models import User, Reward
 from src.bot.listener import route_command, handle_callback
 
+
 @pytest.fixture
 def db_session(monkeypatch):
     # Use an in-memory SQLite database
@@ -18,7 +19,9 @@ def db_session(monkeypatch):
 
     try:
         # Seed Gabriel (User ID 1)
-        gabriel = User(id=1, username="Gabriel", chat_id="111", xp=100, level=2, gold=40)
+        gabriel = User(
+            id=1, username="Gabriel", chat_id="111", xp=100, level=2, gold=40
+        )
         session.add(gabriel)
 
         # Seed rewards
@@ -29,7 +32,7 @@ def db_session(monkeypatch):
             title="TV Show 25m",
             category="allostasis_daily",
             gold_cost=0,
-            purchased_count=0
+            purchased_count=0,
         )
         session.add(r1)
 
@@ -41,7 +44,7 @@ def db_session(monkeypatch):
             category="allostasis_daily",
             gold_cost=0,
             purchased_count=1,
-            last_purchased_at=datetime.datetime.now()
+            last_purchased_at=datetime.datetime.now(),
         )
         session.add(r2)
 
@@ -52,7 +55,7 @@ def db_session(monkeypatch):
             title="Expensive Reward",
             category="regular",
             gold_cost=50,
-            purchased_count=0
+            purchased_count=0,
         )
         session.add(r3)
 
@@ -63,7 +66,7 @@ def db_session(monkeypatch):
             title="Affordable Reward",
             category="regular",
             gold_cost=30,
-            purchased_count=0
+            purchased_count=0,
         )
         session.add(r4)
 
@@ -77,13 +80,14 @@ def db_session(monkeypatch):
     finally:
         session.close()
 
+
 @pytest.mark.asyncio
 async def test_buy_command_without_args_shows_categories(db_session):
     update = MagicMock()
     update.message = MagicMock()
     update.message.text = "/buy"
     update.effective_chat.id = 111
-    
+
     from_user = MagicMock()
     from_user.username = "Gabriel"
     from_user.id = 111
@@ -98,7 +102,7 @@ async def test_buy_command_without_args_shows_categories(db_session):
     reply_mock.assert_called_once()
     args, kwargs = reply_mock.call_args
     assert "Boutique — Choisissez une catégorie" in args[0]
-    
+
     reply_markup = kwargs["reply_markup"]
     buttons = reply_markup.inline_keyboard
     # Should have 2 rows:
@@ -111,6 +115,7 @@ async def test_buy_command_without_args_shows_categories(db_session):
     assert buttons[0][1].callback_data == "buy_cat:allostasis_weekly"
     assert buttons[1][0].text == "💎 Shop Basic"
     assert buttons[1][0].callback_data == "buy_cat:regular"
+
 
 @pytest.mark.asyncio
 async def test_callback_buy_category_allostasis_daily(db_session):
@@ -133,13 +138,14 @@ async def test_callback_buy_category_allostasis_daily(db_session):
     edit_mock.assert_called_once()
     args, kwargs = edit_mock.call_args
     assert "Items disponibles — Allostasie Day" in args[0]
-    
+
     reply_markup = kwargs["reply_markup"]
     buttons = reply_markup.inline_keyboard
     # Only r1 ("TV Show 25m") is available (r2 already redeemed today)
     assert len(buttons) == 1
     assert buttons[0][0].text == "✨ TV Show 25m"
     assert buttons[0][0].callback_data == "buy_item:1"
+
 
 @pytest.mark.asyncio
 async def test_callback_buy_category_regular(db_session):
@@ -162,13 +168,14 @@ async def test_callback_buy_category_regular(db_session):
     edit_mock.assert_called_once()
     args, kwargs = edit_mock.call_args
     assert "Items disponibles — Boutique Classique" in args[0]
-    
+
     reply_markup = kwargs["reply_markup"]
     buttons = reply_markup.inline_keyboard
     # Only r4 ("Affordable Reward") is available because user only has 40 gold and r3 costs 50
     assert len(buttons) == 1
     assert buttons[0][0].text == "💰 Affordable Reward (30 Or)"
     assert buttons[0][0].callback_data == "buy_item:4"
+
 
 @pytest.mark.asyncio
 async def test_callback_buy_item_allostasis_success(db_session):
@@ -198,6 +205,7 @@ async def test_callback_buy_item_allostasis_success(db_session):
     assert r1.purchased_count == 1
     assert r1.last_purchased_at is not None
 
+
 @pytest.mark.asyncio
 async def test_callback_buy_item_regular_success(db_session):
     update = MagicMock()
@@ -220,7 +228,7 @@ async def test_callback_buy_item_regular_success(db_session):
     args, _ = edit_mock.call_args
     assert "Achat réussi !" in args[0]
     assert "Affordable Reward" in args[0]
-    assert "10 Or" in args[0] # 40 - 30 = 10
+    assert "10 Or" in args[0]  # 40 - 30 = 10
 
     # Verify state in DB
     r4 = db_session.query(Reward).filter_by(id=4).first()

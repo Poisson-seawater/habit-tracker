@@ -1,14 +1,24 @@
 import os
 import datetime
 from src.database.session import SessionLocal, engine, Base
-from src.database.models import User, Habit, PerfectDayTemplate, Todo, Goal, SubStep, GoalSubStepLink, NoTodo
+from src.database.models import (
+    User,
+    Habit,
+    PerfectDayTemplate,
+    Todo,
+    Goal,
+    SubStep,
+    GoalSubStepLink,
+    NoTodo,
+)
+
 
 def seed_db():
     # Drop all tables first to get a clean, updated schema for V2
     Base.metadata.drop_all(bind=engine)
     # Re-create all tables
     Base.metadata.create_all(bind=engine)
-    
+
     db = SessionLocal()
     try:
         # 1. Seed Users
@@ -19,7 +29,7 @@ def seed_db():
                 "chat_id": os.getenv("TELEGRAM_DEFAULT_USER_ID"),
                 "xp": 0,
                 "level": 1,
-                "gold": 0
+                "gold": 0,
             }
         ]
         for u_info in users_data:
@@ -29,7 +39,7 @@ def seed_db():
                 chat_id=str(u_info["chat_id"]) if u_info["chat_id"] else None,
                 xp=u_info["xp"],
                 level=u_info["level"],
-                gold=u_info["gold"]
+                gold=u_info["gold"],
             )
             db.add(user)
         db.flush()  # Make sure users are created to get foreign keys
@@ -39,26 +49,20 @@ def seed_db():
             templates_data = [
                 {
                     "template_name": "week",
-                    "thresholds_json": {"discipline": 11, "apprendre": 6}
+                    "thresholds_json": {"discipline": 11, "apprendre": 6},
                 },
                 {
                     "template_name": "weekend",
-                    "thresholds_json": {"sante": 8, "social": 4, "apprendre": 3}
+                    "thresholds_json": {"sante": 8, "social": 4, "apprendre": 3},
                 },
-                {
-                    "template_name": "recup",
-                    "thresholds_json": {"sante": 8}
-                },
-                {
-                    "template_name": "malade",
-                    "thresholds_json": {"sante": 3}
-                }
+                {"template_name": "recup", "thresholds_json": {"sante": 8}},
+                {"template_name": "malade", "thresholds_json": {"sante": 3}},
             ]
             for t_info in templates_data:
                 template = PerfectDayTemplate(
                     user_id=user_id,
                     template_name=t_info["template_name"],
-                    thresholds_json=t_info["thresholds_json"]
+                    thresholds_json=t_info["thresholds_json"],
                 )
                 db.add(template)
 
@@ -78,7 +82,7 @@ def seed_db():
                 "point_rewards": {"discipline": 3},
                 "daily_cap": None,
                 "unit": None,
-                "is_active": True
+                "is_active": True,
             },
             {
                 "id": 2,
@@ -94,7 +98,7 @@ def seed_db():
                 "point_rewards": {"apprendre": 8, "discipline": 2},
                 "daily_cap": 8,
                 "unit": "min",
-                "is_active": True
+                "is_active": True,
             },
             {
                 "id": 3,
@@ -110,7 +114,7 @@ def seed_db():
                 "point_rewards": {"apprendre": 5, "discipline": 2},
                 "daily_cap": None,
                 "unit": None,
-                "is_active": True
+                "is_active": True,
             },
             {
                 "id": 4,
@@ -126,7 +130,7 @@ def seed_db():
                 "point_rewards": {"forme_physique": 16},
                 "daily_cap": 15,
                 "unit": "km",
-                "is_active": True
+                "is_active": True,
             },
             {
                 "id": 5,
@@ -142,8 +146,8 @@ def seed_db():
                 "point_rewards": {"sante": 5},
                 "daily_cap": None,
                 "unit": None,
-                "is_active": True
-            }
+                "is_active": True,
+            },
         ]
         for h_info in habits_data:
             habit = Habit(
@@ -161,38 +165,123 @@ def seed_db():
                 point_rewards=h_info["point_rewards"],
                 daily_cap=h_info["daily_cap"],
                 unit=h_info["unit"],
-                is_active=h_info["is_active"]
+                is_active=h_info["is_active"],
             )
             db.add(habit)
 
         # 4. Seed Goals (Objectifs Long Terme) for Gabriel (User 1)
         goals_data = [
-            {"id": 1, "user_id": 1, "title": "Devenir Millionnaire", "description": "Atteindre la liberté financière absolue"},
-            {"id": 2, "user_id": 1, "title": "Faire le tour du monde", "description": "Explorer toutes les merveilles de la Terre"},
-            {"id": 3, "user_id": 1, "title": "Avoir des enfants", "description": "Fonder une famille aimante et stable"}
+            {
+                "id": 1,
+                "user_id": 1,
+                "title": "Devenir Millionnaire",
+                "description": "Atteindre la liberté financière absolue",
+            },
+            {
+                "id": 2,
+                "user_id": 1,
+                "title": "Faire le tour du monde",
+                "description": "Explorer toutes les merveilles de la Terre",
+            },
+            {
+                "id": 3,
+                "user_id": 1,
+                "title": "Avoir des enfants",
+                "description": "Fonder une famille aimante et stable",
+            },
         ]
         for g_info in goals_data:
             goal = Goal(
                 id=g_info["id"],
                 user_id=g_info["user_id"],
                 title=g_info["title"],
-                description=g_info["description"]
+                description=g_info["description"],
             )
             db.add(goal)
         db.flush()
 
         # 5. Seed SubSteps for Gabriel (User 1)
         substeps_data = [
-            {"id": 1, "user_id": 1, "title": "Avoir 500k en actif", "gold_reward": 500, "stats_json": ["finance"], "description": "Accumuler 500k d'actifs nets"},
-            {"id": 2, "user_id": 1, "title": "Acheter un immeuble locatif", "gold_reward": 300, "stats_json": ["finance", "discipline"], "description": "Trouver et acquérir un premier bien de rendement"},
-            {"id": 3, "user_id": 1, "title": "Trouver un bon avocat", "gold_reward": 100, "stats_json": ["discipline"], "description": "Réseauter pour s'entourer d'un expert juridique"},
-            {"id": 4, "user_id": 1, "title": "Avoir de l'argent", "gold_reward": 150, "stats_json": ["finance"], "description": "Constituer une épargne de voyage"},
-            {"id": 5, "user_id": 1, "title": "Avoir un passeport", "gold_reward": 50, "stats_json": ["discipline"], "description": "Faire les démarches à la mairie"},
-            {"id": 6, "user_id": 1, "title": "Créer une feuille de budget", "gold_reward": 75, "stats_json": ["finance", "discipline"], "description": "Suivre ses dépenses mensuelles"},
-            {"id": 7, "user_id": 1, "title": "Achat assurance vie", "gold_reward": 100, "stats_json": ["finance"], "description": "Sécuriser un contrat d'assurance vie"},
-            {"id": 8, "user_id": 1, "title": "Avoir une entrée d'argent stable", "gold_reward": 200, "stats_json": ["finance"], "description": "Garantir un flux financier mensuel régulier"},
-            {"id": 9, "user_id": 1, "title": "Trouver une femme", "gold_reward": 150, "stats_json": ["social"], "description": "Rencontrer sa partenaire de vie idéale"},
-            {"id": 10, "user_id": 1, "title": "La marier", "gold_reward": 250, "stats_json": ["social", "sante"], "description": "Célébrer notre union"}
+            {
+                "id": 1,
+                "user_id": 1,
+                "title": "Avoir 500k en actif",
+                "gold_reward": 500,
+                "stats_json": ["finance"],
+                "description": "Accumuler 500k d'actifs nets",
+            },
+            {
+                "id": 2,
+                "user_id": 1,
+                "title": "Acheter un immeuble locatif",
+                "gold_reward": 300,
+                "stats_json": ["finance", "discipline"],
+                "description": "Trouver et acquérir un premier bien de rendement",
+            },
+            {
+                "id": 3,
+                "user_id": 1,
+                "title": "Trouver un bon avocat",
+                "gold_reward": 100,
+                "stats_json": ["discipline"],
+                "description": "Réseauter pour s'entourer d'un expert juridique",
+            },
+            {
+                "id": 4,
+                "user_id": 1,
+                "title": "Avoir de l'argent",
+                "gold_reward": 150,
+                "stats_json": ["finance"],
+                "description": "Constituer une épargne de voyage",
+            },
+            {
+                "id": 5,
+                "user_id": 1,
+                "title": "Avoir un passeport",
+                "gold_reward": 50,
+                "stats_json": ["discipline"],
+                "description": "Faire les démarches à la mairie",
+            },
+            {
+                "id": 6,
+                "user_id": 1,
+                "title": "Créer une feuille de budget",
+                "gold_reward": 75,
+                "stats_json": ["finance", "discipline"],
+                "description": "Suivre ses dépenses mensuelles",
+            },
+            {
+                "id": 7,
+                "user_id": 1,
+                "title": "Achat assurance vie",
+                "gold_reward": 100,
+                "stats_json": ["finance"],
+                "description": "Sécuriser un contrat d'assurance vie",
+            },
+            {
+                "id": 8,
+                "user_id": 1,
+                "title": "Avoir une entrée d'argent stable",
+                "gold_reward": 200,
+                "stats_json": ["finance"],
+                "description": "Garantir un flux financier mensuel régulier",
+            },
+            {
+                "id": 9,
+                "user_id": 1,
+                "title": "Trouver une femme",
+                "gold_reward": 150,
+                "stats_json": ["social"],
+                "description": "Rencontrer sa partenaire de vie idéale",
+            },
+            {
+                "id": 10,
+                "user_id": 1,
+                "title": "La marier",
+                "gold_reward": 250,
+                "stats_json": ["social", "sante"],
+                "description": "Célébrer notre union",
+            },
         ]
         for s_info in substeps_data:
             substep = SubStep(
@@ -201,7 +290,7 @@ def seed_db():
                 title=s_info["title"],
                 description=s_info["description"],
                 gold_reward=s_info["gold_reward"],
-                stats_json=s_info["stats_json"]
+                stats_json=s_info["stats_json"],
             )
             db.add(substep)
         db.flush()
@@ -220,12 +309,11 @@ def seed_db():
             # Avoir des enfants -> Argent stable, Trouver femme, Marier
             {"goal_id": 3, "substep_id": 8},
             {"goal_id": 3, "substep_id": 9},
-            {"goal_id": 3, "substep_id": 10}
+            {"goal_id": 3, "substep_id": 10},
         ]
         for l_info in links_data:
             link = GoalSubStepLink(
-                goal_id=l_info["goal_id"],
-                substep_id=l_info["substep_id"]
+                goal_id=l_info["goal_id"], substep_id=l_info["substep_id"]
             )
             db.add(link)
 
@@ -236,14 +324,14 @@ def seed_db():
                 "title": "⚔️ Dompter le Dragon de Fer (Séance Jambes)",
                 "stat_reward_1": "forme_physique",
                 "points_reward_1": 16,
-                "xp_reward": 20
+                "xp_reward": 20,
             },
             {
                 "user_id": 1,
                 "title": "📚 Décoder les Runes (Lire 20 pages de doc)",
                 "stat_reward_1": "apprendre",
                 "points_reward_1": 3,
-                "xp_reward": 10
+                "xp_reward": 10,
             },
         ]
         for t_info in todos_data:
@@ -252,10 +340,10 @@ def seed_db():
                 title=t_info["title"],
                 stat_reward_1=t_info["stat_reward_1"],
                 points_reward_1=t_info["points_reward_1"],
-                xp_reward=t_info["xp_reward"]
+                xp_reward=t_info["xp_reward"],
             )
             db.add(todo)
-            
+
         # 9. Seed NoTodos
         gabriel_notodos = [
             "Scroller sur les réseaux sociaux le matin",
@@ -263,19 +351,16 @@ def seed_db():
             "Manger de la junk food en semaine",
             "Se plaindre sans chercher de solution",
             "Boire de l'alcool en semaine",
-            "Regarder la TV avant de dormir"
+            "Regarder la TV avant de dormir",
         ]
-        
+
         notodos_data = []
         for t in gabriel_notodos:
             notodos_data.append({"user_id": 1, "title": t})
         for n_info in notodos_data:
-            notodo = NoTodo(
-                user_id=n_info["user_id"],
-                title=n_info["title"]
-            )
+            notodo = NoTodo(user_id=n_info["user_id"], title=n_info["title"])
             db.add(notodo)
-                
+
         db.commit()
         print("Database V2 seeding completed successfully.")
     except Exception as e:
@@ -284,6 +369,7 @@ def seed_db():
         raise e
     finally:
         db.close()
+
 
 def init_db():
     """
@@ -317,6 +403,7 @@ def _run_migrations():
     create_all() cannot handle on existing tables.
     """
     from sqlalchemy import text, inspect
+
     db = SessionLocal()
     try:
         inspector = inspect(engine)
@@ -324,21 +411,33 @@ def _run_migrations():
         if "goal_substep_links" in inspector.get_table_names():
             columns = [c["name"] for c in inspector.get_columns("goal_substep_links")]
             if "execution_order" not in columns:
-                print("Running migration v12: adding execution_order to goal_substep_links...")
-                db.execute(text("ALTER TABLE goal_substep_links ADD COLUMN execution_order INTEGER DEFAULT 1"))
-                db.execute(text(
-                    "UPDATE goal_substep_links SET execution_order = "
-                    "(SELECT execution_order FROM substeps WHERE substeps.id = goal_substep_links.substep_id)"
-                ))
+                print(
+                    "Running migration v12: adding execution_order to goal_substep_links..."
+                )
+                db.execute(
+                    text(
+                        "ALTER TABLE goal_substep_links ADD COLUMN execution_order INTEGER DEFAULT 1"
+                    )
+                )
+                db.execute(
+                    text(
+                        "UPDATE goal_substep_links SET execution_order = "
+                        "(SELECT execution_order FROM substeps WHERE substeps.id = goal_substep_links.substep_id)"
+                    )
+                )
                 db.commit()
                 print("Migration v12 applied successfully.")
-        
+
         # v13: Add is_life_lore to substeps
         if "substeps" in inspector.get_table_names():
             columns = [c["name"] for c in inspector.get_columns("substeps")]
             if "is_life_lore" not in columns:
                 print("Running migration v13: adding is_life_lore to substeps...")
-                db.execute(text("ALTER TABLE substeps ADD COLUMN is_life_lore BOOLEAN DEFAULT 0"))
+                db.execute(
+                    text(
+                        "ALTER TABLE substeps ADD COLUMN is_life_lore BOOLEAN DEFAULT 0"
+                    )
+                )
                 db.commit()
                 print("Migration v13 applied successfully.")
     except Exception as e:
@@ -350,4 +449,3 @@ def _run_migrations():
 
 if __name__ == "__main__":
     seed_db()
-

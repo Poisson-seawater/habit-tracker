@@ -3,9 +3,14 @@ import shutil
 import datetime
 import glob
 
-def rotate_backups(db_path: str = "/data/habit_tracker.db", backup_dir: str = "/data/backups", max_backups: int = 5):
+
+def rotate_backups(
+    db_path: str = "/data/habit_tracker.db",
+    backup_dir: str = "/data/backups",
+    max_backups: int = 5,
+):
     """
-    Creates a timestamped backup of the SQLite database file and rotates older backups, 
+    Creates a timestamped backup of the SQLite database file and rotates older backups,
     preserving only the latest `max_backups` copies to prevent disk saturation.
     """
     # Fallback to local paths if in local dev
@@ -19,7 +24,7 @@ def rotate_backups(db_path: str = "/data/habit_tracker.db", backup_dir: str = "/
         return False
 
     os.makedirs(backup_dir, exist_ok=True)
-    
+
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_filename = f"habit_tracker_backup_{timestamp}.db"
     dest_path = os.path.join(backup_dir, backup_filename)
@@ -34,7 +39,7 @@ def rotate_backups(db_path: str = "/data/habit_tracker.db", backup_dir: str = "/
     # Perform rotation (keep only latest max_backups)
     backup_pattern = os.path.join(backup_dir, "habit_tracker_backup_*.db")
     existing_backups = glob.glob(backup_pattern)
-    
+
     # Sort backups by modification time (oldest first)
     existing_backups.sort(key=os.path.getmtime)
 
@@ -45,9 +50,12 @@ def rotate_backups(db_path: str = "/data/habit_tracker.db", backup_dir: str = "/
                 os.remove(old_backup)
                 print(f"Backup Rotation: Deleted obsolete backup file '{old_backup}'")
             except Exception as e:
-                print(f"Backup Rotation Error: Failed to remove old file '{old_backup}': {e}")
+                print(
+                    f"Backup Rotation Error: Failed to remove old file '{old_backup}': {e}"
+                )
 
     return True
+
 
 if __name__ == "__main__":
     rotate_backups()

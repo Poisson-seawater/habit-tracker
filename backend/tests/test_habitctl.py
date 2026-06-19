@@ -6,8 +6,7 @@ import pytest
 
 
 SCRIPT_PATH = (
-    Path(__file__).parents[2]
-    / "plugins/habit-tracker-control/scripts/habitctl.py"
+    Path(__file__).parents[2] / "plugins/habit-tracker-control/scripts/habitctl.py"
 )
 spec = importlib.util.spec_from_file_location("habitctl", SCRIPT_PATH)
 habitctl = importlib.util.module_from_spec(spec)
@@ -51,17 +50,13 @@ class ResolutionClient:
                 {
                     "id": 1,
                     "title": "Tour du monde",
-                    "substeps": [
-                        {"id": 2, "title": "Obtenir un passeport"}
-                    ],
+                    "substeps": [{"id": 2, "title": "Obtenir un passeport"}],
                 }
             ]
         if path == "/api/v1/softskills":
             return {
                 "branches": {"communication": {}},
-                "skills": [
-                    {"id": "ecoute", "name": "Écoute active"}
-                ],
+                "skills": [{"id": "ecoute", "name": "Écoute active"}],
             }
         raise AssertionError(path)
 
@@ -85,8 +80,7 @@ class ConfigureClient:
 def test_normalization_and_ambiguity():
     items = [{"title": "Karaoké"}, {"title": "Karaoké avancé"}]
     assert (
-        habitctl.resolve_one(items, "karaoke", "title", "skill")["title"]
-        == "Karaoké"
+        habitctl.resolve_one(items, "karaoke", "title", "skill")["title"] == "Karaoké"
     )
     with pytest.raises(habitctl.HabitCtlError, match="Ambiguous"):
         habitctl.resolve_one(items, "kara", "title", "skill")
@@ -190,12 +184,8 @@ def test_apply_writes_once_and_replays_local_result(monkeypatch, tmp_path):
             data='{"title":"Devenir millionnaire"}',
         )
     )
-    applied = habitctl.command_apply(
-        SimpleNamespace(plan_id=planned["plan_id"])
-    )
-    replayed = habitctl.command_apply(
-        SimpleNamespace(plan_id=planned["plan_id"])
-    )
+    applied = habitctl.command_apply(SimpleNamespace(plan_id=planned["plan_id"]))
+    replayed = habitctl.command_apply(SimpleNamespace(plan_id=planned["plan_id"]))
 
     assert applied["status"] == "applied"
     assert replayed["status"] == "already_applied"
@@ -278,9 +268,7 @@ def test_protocol_mismatch_reports_versions():
         habitctl.validate_protocol({"protocol_version": 2})
 
 
-def test_configure_does_not_write_when_capabilities_are_missing(
-    monkeypatch, tmp_path
-):
+def test_configure_does_not_write_when_capabilities_are_missing(monkeypatch, tmp_path):
     config_path = tmp_path / "config.json"
     client = ConfigureClient(
         error=habitctl.ApiError(
@@ -304,9 +292,7 @@ def test_configure_does_not_write_when_capabilities_are_missing(
     assert not config_path.exists()
 
 
-def test_configure_does_not_write_on_protocol_mismatch(
-    monkeypatch, tmp_path
-):
+def test_configure_does_not_write_on_protocol_mismatch(monkeypatch, tmp_path):
     config_path = tmp_path / "config.json"
     client = ConfigureClient(capabilities={"protocol_version": 2})
     monkeypatch.setenv("HABIT_TRACKER_CONFIG", str(config_path))

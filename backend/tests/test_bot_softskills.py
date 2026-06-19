@@ -11,6 +11,7 @@ from src.database.session import Base
 from src.database.models import User, UserSoftskillProgress
 from src.bot.listener import route_command, handle_callback
 
+
 @pytest.fixture
 def db_session(monkeypatch):
     # Use an in-memory SQLite database
@@ -21,7 +22,9 @@ def db_session(monkeypatch):
 
     try:
         # Seed Gabriel (User ID 1)
-        gabriel = User(id=1, username="Gabriel", chat_id="111", xp=100, level=2, gold=40)
+        gabriel = User(
+            id=1, username="Gabriel", chat_id="111", xp=100, level=2, gold=40
+        )
         session.add(gabriel)
 
         # Seed progress for a test skill
@@ -30,7 +33,7 @@ def db_session(monkeypatch):
             softskill_id="active_listening",
             success_criteria_test="Ecouter sans interrompre pendant 5 minutes.",
             completed=False,
-            current_level=0
+            current_level=0,
         )
         session.add(progress)
         session.commit()
@@ -39,7 +42,7 @@ def db_session(monkeypatch):
         mock_tree = {
             "branches": {
                 "Communication": {"color": "#ff0000", "pale_color": "#ffcccc"},
-                "Leadership": {"color": "#00ff00", "pale_color": "#ccffcc"}
+                "Leadership": {"color": "#00ff00", "pale_color": "#ccffcc"},
             },
             "skills": [
                 {
@@ -51,9 +54,9 @@ def db_session(monkeypatch):
                     "related": [],
                     "execution_order": 1,
                     "x": 100,
-                    "y": 80
+                    "y": 80,
                 }
-            ]
+            ],
         }
 
         # Create temporary config file and mock it
@@ -61,7 +64,9 @@ def db_session(monkeypatch):
         with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
             json.dump(mock_tree, f)
 
-        monkeypatch.setattr("src.services.softskill_service._get_config_path", lambda: tmp_path)
+        monkeypatch.setattr(
+            "src.services.softskill_service._get_config_path", lambda: tmp_path
+        )
 
         # Monkeypatch DB session and configs in listener.py
         monkeypatch.setattr("src.bot.listener.SessionLocal", lambda: session)
@@ -73,13 +78,14 @@ def db_session(monkeypatch):
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
 
+
 @pytest.mark.asyncio
 async def test_softskill_command_shows_branches(db_session):
     update = MagicMock()
     update.message = MagicMock()
     update.message.text = "/softskill"
     update.effective_chat.id = 111
-    
+
     from_user = MagicMock()
     from_user.username = "Gabriel"
     from_user.id = 111
@@ -94,7 +100,7 @@ async def test_softskill_command_shows_branches(db_session):
     reply_mock.assert_called_once()
     args, kwargs = reply_mock.call_args
     assert "Arbre des Softskills" in args[0]
-    
+
     reply_markup = kwargs["reply_markup"]
     buttons = reply_markup.inline_keyboard
     assert len(buttons) == 1
@@ -102,6 +108,7 @@ async def test_softskill_command_shows_branches(db_session):
     assert buttons[0][0].callback_data == "ss_branch:Communication"
     assert buttons[0][1].text == "Leadership"
     assert buttons[0][1].callback_data == "ss_branch:Leadership"
+
 
 @pytest.mark.asyncio
 async def test_callback_ss_branch(db_session):
@@ -137,6 +144,7 @@ async def test_callback_ss_branch(db_session):
     assert buttons[0][1].text == "✅ Valider un Softskill"
     assert buttons[0][1].callback_data == "ss_val_select:Communication"
 
+
 @pytest.mark.asyncio
 async def test_callback_ss_add_select_starts_wizard(db_session):
     update = MagicMock()
@@ -159,7 +167,11 @@ async def test_callback_ss_add_select_starts_wizard(db_session):
 
     reply_mock.assert_called_once()
     assert "Étape 1/4" in reply_mock.call_args[0][0]
-    assert context.user_data["pending_ss_create"] == {"step": 1, "branch": "Communication"}
+    assert context.user_data["pending_ss_create"] == {
+        "step": 1,
+        "branch": "Communication",
+    }
+
 
 @pytest.mark.asyncio
 async def test_route_command_wizard_steps(db_session):
@@ -196,13 +208,16 @@ async def test_route_command_wizard_steps(db_session):
     # Step 3: Description
     reply = await send_msg("Négocier des accords")
     assert "Étape 4/4" in reply
-    assert context.user_data["pending_ss_create"]["description"] == "Négocier des accords"
+    assert (
+        context.user_data["pending_ss_create"]["description"] == "Négocier des accords"
+    )
     assert context.user_data["pending_ss_create"]["step"] == 4
 
     # Step 4: Execution Order
     reply = await send_msg("2")
     assert "Softskill créé avec succès" in reply
     assert "pending_ss_create" not in context.user_data
+
 
 @pytest.mark.asyncio
 async def test_callback_ss_val_select(db_session):
@@ -226,12 +241,13 @@ async def test_callback_ss_val_select(db_session):
 
     edit_mock.assert_called_once()
     assert "Validation — Communication" in edit_mock.call_args[0][0]
-    
+
     reply_markup = edit_mock.call_args[1]["reply_markup"]
     buttons = reply_markup.inline_keyboard
     assert len(buttons) == 2
     assert buttons[0][0].text == "⏳ Écoute Active"
     assert buttons[0][0].callback_data == "ss_test_val:active_listening"
+
 
 @pytest.mark.asyncio
 async def test_callback_ss_test_val(db_session):
@@ -265,6 +281,7 @@ async def test_callback_ss_test_val(db_session):
     assert buttons[0][1].text == "❌ Annuler"
     assert buttons[0][1].callback_data == "ss_branch:Communication"
 
+
 @pytest.mark.asyncio
 async def test_callback_ss_confirm_val_success(db_session):
     update = MagicMock()
@@ -289,5 +306,9 @@ async def test_callback_ss_confirm_val_success(db_session):
     assert "validé avec succès" in edit_mock.call_args[0][0]
 
     # Verify progress in DB
-    progress = db_session.query(UserSoftskillProgress).filter_by(user_id=1, softskill_id="active_listening").first()
+    progress = (
+        db_session.query(UserSoftskillProgress)
+        .filter_by(user_id=1, softskill_id="active_listening")
+        .first()
+    )
     assert progress.completed is True

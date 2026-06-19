@@ -151,3 +151,16 @@ Thumbs.db
 !.env.example
 data/
 backend/data/
+!backend/src/data/
+
+# SQLite databases (runtime + tests) — jamais versionnées
+*.db
+
+# Lock files runtime (softskills_tree.json.lock créé par flock)
+*.json.lock
+
+# Mini App Telegram — prototype de test, ne va pas sur la Pi
+frontend/mini-app/
+
+# Localhost development overrides
+frontend/css/local-override.css

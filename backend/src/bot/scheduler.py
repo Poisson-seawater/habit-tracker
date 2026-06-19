@@ -7,8 +7,22 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.config import TELEGRAM_BOT_TOKEN
 from src.database.session import SessionLocal
-from src.database.models import User, Habit, HabitLog, DailyScore, Streak, Todo, NoTodo, SubStep
-from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_6_STATS
+from src.database.models import (
+    User,
+    Habit,
+    HabitLog,
+    DailyScore,
+    Streak,
+    Todo,
+    NoTodo,
+    SubStep,
+)
+from src.services.score_service import (
+    calculate_daily_score,
+    update_streaks,
+    add_user_xp,
+    ALL_6_STATS,
+)
 from src.services.reward_service import get_allostasis_purchases_on_date
 
 STAT_LABELS = {
@@ -17,8 +31,9 @@ STAT_LABELS = {
     "social": "Social 🤝",
     "finance": "Finance 💰",
     "apprendre": "Apprendre 📚",
-    "discipline": "Discipline ⚔️"
+    "discipline": "Discipline ⚔️",
 }
+
 
 async def publish_daily_recap():
     """
@@ -35,7 +50,7 @@ async def publish_daily_recap():
     print("Scheduler: Starting 21:30 daily RPG guild recap publisher...")
     bot = Bot(token=TELEGRAM_BOT_TOKEN)
     db = SessionLocal()
-    
+
     try:
         users = db.query(User).all()
         if not users:
@@ -44,6 +59,7 @@ async def publish_daily_recap():
 
         import zoneinfo
         from src.config import TIMEZONE
+
         tz = zoneinfo.ZoneInfo(TIMEZONE)
         today = datetime.datetime.now(tz).date()
         user_blocks = []
@@ -65,11 +81,15 @@ async def publish_daily_recap():
             # 3. Get today's logs and split by public / private
             start_dt = datetime.datetime.combine(today, datetime.time.min)
             end_dt = datetime.datetime.combine(today, datetime.time.max)
-            logs = db.query(HabitLog).filter(
-                HabitLog.user_id == user.id,
-                HabitLog.timestamp >= start_dt,
-                HabitLog.timestamp <= end_dt
-            ).all()
+            logs = (
+                db.query(HabitLog)
+                .filter(
+                    HabitLog.user_id == user.id,
+                    HabitLog.timestamp >= start_dt,
+                    HabitLog.timestamp <= end_dt,
+                )
+                .all()
+            )
 
             completed_habits = []
             skipped_habits = []
@@ -92,13 +112,17 @@ async def publish_daily_recap():
                     if habit.is_private:
                         private_completed_count += len(done_logs)
                     elif has_target:
-                        completed_habits.append(f"{html.escape(habit.name)} {len(done_logs)}/{habit.daily_target} ✅")
+                        completed_habits.append(
+                            f"{html.escape(habit.name)} {len(done_logs)}/{habit.daily_target} ✅"
+                        )
                     else:
                         for log in done_logs:
                             if log.log_type == "done":
                                 completed_habits.append(f"{html.escape(habit.name)} ✅")
                             else:
-                                completed_habits.append(f"{html.escape(habit.name)} ({log.amount}{html.escape(log.unit or '')})")
+                                completed_habits.append(
+                                    f"{html.escape(habit.name)} ({log.amount}{html.escape(log.unit or '')})"
+                                )
                 elif any(l.log_type == "skip" for l in h_logs):
                     if habit.is_private:
                         skipped_habits.append("Chose secrète 🔒 (skippée ⏭️)")
@@ -106,28 +130,40 @@ async def publish_daily_recap():
                         skipped_habits.append(f"{html.escape(habit.name)} (skippé ⏭️)")
 
             # Check completed Todos today
-            completed_todos = db.query(Todo).filter(
-                Todo.user_id == user.id,
-                Todo.is_completed == True,
-                Todo.completed_at >= start_dt,
-                Todo.completed_at <= end_dt
-            ).all()
+            completed_todos = (
+                db.query(Todo)
+                .filter(
+                    Todo.user_id == user.id,
+                    Todo.is_completed == True,
+                    Todo.completed_at >= start_dt,
+                    Todo.completed_at <= end_dt,
+                )
+                .all()
+            )
             completed_todos_list = []
             for t in completed_todos:
                 completed_todos_list.append(f"{html.escape(t.title)} 🌟")
 
             # Check failed NoTodos today
-            failed_notodos = db.query(NoTodo).filter(
-                NoTodo.user_id == user.id,
-                NoTodo.failed_at >= start_dt,
-                NoTodo.failed_at <= end_dt
-            ).all()
+            failed_notodos = (
+                db.query(NoTodo)
+                .filter(
+                    NoTodo.user_id == user.id,
+                    NoTodo.failed_at >= start_dt,
+                    NoTodo.failed_at <= end_dt,
+                )
+                .all()
+            )
             failed_notodos_list = []
             for n in failed_notodos:
                 failed_notodos_list.append(f"{html.escape(n.title)} 🚫")
 
             # 4. Format streaks
-            perf_streak = db.query(Streak).filter_by(user_id=user.id, streak_type="Perfect").first()
+            perf_streak = (
+                db.query(Streak)
+                .filter_by(user_id=user.id, streak_type="Perfect")
+                .first()
+            )
             perf_streak_val = perf_streak.current_streak if perf_streak else 0
 
             # Determine daily status string
@@ -145,10 +181,14 @@ async def publish_daily_recap():
                     label_short = label.split(" ")[0] if " " in label else label
                     stat_earned_parts.append(f"{label_short} +{val}")
 
-            stat_progression_str = ", ".join(stat_earned_parts) if stat_earned_parts else "Aucune stat"
+            stat_progression_str = (
+                ", ".join(stat_earned_parts) if stat_earned_parts else "Aucune stat"
+            )
 
             # Level up notification text
-            lvl_info = f" (LEVEL UP! Nouveau niveau: {user.level} 🎉)" if levels_gained else ""
+            lvl_info = (
+                f" (LEVEL UP! Nouveau niveau: {user.level} 🎉)" if levels_gained else ""
+            )
 
             # 5. Construct user block
             habits_str = ", ".join(completed_habits) if completed_habits else "Aucune"
@@ -158,28 +198,46 @@ async def publish_daily_recap():
                 else:
                     habits_str += f" (+{private_completed_count} privées 🔒)"
 
-            skipped_line = f"\n⏭️ <b>Habitudes skippées :</b> {', '.join(skipped_habits)}" if skipped_habits else ""
-            todos_str = ", ".join(completed_todos_list) if completed_todos_list else "Aucun"
-            failed_notodos_str = ", ".join(failed_notodos_list) if failed_notodos_list else "Aucun"
+            skipped_line = (
+                f"\n⏭️ <b>Habitudes skippées :</b> {', '.join(skipped_habits)}"
+                if skipped_habits
+                else ""
+            )
+            todos_str = (
+                ", ".join(completed_todos_list) if completed_todos_list else "Aucun"
+            )
+            failed_notodos_str = (
+                ", ".join(failed_notodos_list) if failed_notodos_list else "Aucun"
+            )
 
             # Check completed Life Lore subgoals today
-            completed_life_lore = db.query(SubStep).filter(
-                SubStep.user_id == user.id,
-                SubStep.is_life_lore == True,
-                SubStep.completed == True,
-                SubStep.completed_at >= start_dt,
-                SubStep.completed_at <= end_dt
-            ).all()
+            completed_life_lore = (
+                db.query(SubStep)
+                .filter(
+                    SubStep.user_id == user.id,
+                    SubStep.is_life_lore == True,
+                    SubStep.completed == True,
+                    SubStep.completed_at >= start_dt,
+                    SubStep.completed_at <= end_dt,
+                )
+                .all()
+            )
             completed_life_lore_list = []
             for s in completed_life_lore:
                 completed_life_lore_list.append(f"{html.escape(s.title)} 📖")
-            life_lore_str = ", ".join(completed_life_lore_list) if completed_life_lore_list else "Aucun"
+            life_lore_str = (
+                ", ".join(completed_life_lore_list)
+                if completed_life_lore_list
+                else "Aucun"
+            )
 
             # Fetch today's redeemed allostasis rewards
             allostasis_purchased = get_allostasis_purchases_on_date(db, user.id, today)
             allostasis_line = ""
             if allostasis_purchased:
-                allostasis_items_str = ", ".join(f"{html.escape(r.title)} ✅" for r in allostasis_purchased)
+                allostasis_items_str = ", ".join(
+                    f"{html.escape(r.title)} ✅" for r in allostasis_purchased
+                )
                 allostasis_line = f"\n🧠 <b>Allostasie :</b> {allostasis_items_str}"
 
             user_block = (
@@ -203,13 +261,16 @@ async def publish_daily_recap():
         if group_chat_id:
             guild_msg = (
                 f"🔔 <b>BILAN DE LA GUILDE — {today.strftime('%d/%m/%Y')}</b> ⚔\n"
-                f"━━━━━━━━━━━━━━━━━━━\n\n"
-                + "\n\n".join(user_blocks) + "\n\n"
+                f"━━━━━━━━━━━━━━━━━━━\n\n" + "\n\n".join(user_blocks) + "\n\n"
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"💪 Demain est une nouvelle journée d'entraînement. Soyez prêts !"
             )
-            await bot.send_message(chat_id=group_chat_id, text=guild_msg, parse_mode="HTML")
-            print(f"Scheduler: Successfully broadcast daily guild recap to group chat ID {group_chat_id}")
+            await bot.send_message(
+                chat_id=group_chat_id, text=guild_msg, parse_mode="HTML"
+            )
+            print(
+                f"Scheduler: Successfully broadcast daily guild recap to group chat ID {group_chat_id}"
+            )
         else:
             # Fallback to individual DMs
             for chat_id, report_str in individual_reports.items():
@@ -230,14 +291,17 @@ async def publish_daily_recap():
     finally:
         db.close()
 
+
 def start_scheduler():
     import zoneinfo
     from src.config import TIMEZONE
+
     tz = zoneinfo.ZoneInfo(TIMEZONE)
     scheduler = AsyncIOScheduler(timezone=tz)
-    scheduler.add_job(publish_daily_recap, 'cron', hour=21, minute=30)
+    scheduler.add_job(publish_daily_recap, "cron", hour=21, minute=30)
     scheduler.start()
     print(f"Scheduler: Daily RPG recap scheduled at 21:30 in timezone {TIMEZONE}.")
+
 
 if __name__ == "__main__":
     asyncio.run(publish_daily_recap())

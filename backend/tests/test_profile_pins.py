@@ -14,12 +14,14 @@ TEST_DATABASE_URL = f"sqlite:///{TEST_DB_FILE}"
 engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 def override_get_db():
     db = TestingSessionLocal()
     try:
         yield db
     finally:
         db.close()
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_test_db():
@@ -29,10 +31,10 @@ def setup_test_db():
             os.remove(TEST_DB_FILE)
         except OSError:
             pass
-        
+
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
-    
+
     try:
         # Seed default user Gabriel
         u = User(id=1, username="Gabriel", chat_id="111", xp=0, level=1, gold=100)
@@ -40,21 +42,23 @@ def setup_test_db():
         db.commit()
     finally:
         db.close()
-        
+
     yield
-    
+
     if get_db in app.dependency_overrides:
         del app.dependency_overrides[get_db]
-        
+
     if os.path.exists(TEST_DB_FILE):
         try:
             os.remove(TEST_DB_FILE)
         except OSError:
             pass
 
+
 @pytest.fixture
 def client():
     return TestClient(app)
+
 
 def test_profile_pins_flow(client):
     # 1. Fetch initial profile pins (should be empty lists)
@@ -67,11 +71,10 @@ def test_profile_pins_flow(client):
     assert data["pinned_softskills"] == []
 
     # 2. Update profile pins
-    payload = {
-        "pinned_substeps": [42, 43],
-        "pinned_softskills": ["focus", "lecture"]
-    }
-    response = client.put("/api/v1/profile/pins", json=payload, headers={"X-User-ID": "1"})
+    payload = {"pinned_substeps": [42, 43], "pinned_softskills": ["focus", "lecture"]}
+    response = client.put(
+        "/api/v1/profile/pins", json=payload, headers={"X-User-ID": "1"}
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"

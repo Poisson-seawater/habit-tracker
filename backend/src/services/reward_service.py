@@ -9,6 +9,7 @@ from src.services.softskill_service import load_tree_config
 
 logger = logging.getLogger(__name__)
 
+
 def get_softskill_name(skill_id: str) -> str:
     try:
         config = load_tree_config()
@@ -19,7 +20,10 @@ def get_softskill_name(skill_id: str) -> str:
         logger.error(f"Error loading softskill name for {skill_id}: {e}")
     return skill_id
 
-def check_reward_lock(db: Session, user_id: int, reward: Reward) -> Tuple[bool, Optional[str]]:
+
+def check_reward_lock(
+    db: Session, user_id: int, reward: Reward
+) -> Tuple[bool, Optional[str]]:
     """
     Checks if a reward is locked.
     Returns (unlocked: bool, lock_reason: Optional[str])
@@ -28,7 +32,10 @@ def check_reward_lock(db: Session, user_id: int, reward: Reward) -> Tuple[bool, 
     if reward.required_softskill_id:
         # Check if the skill exists in config first. If it does not exist, consider requirement satisfied
         config = load_tree_config()
-        skill_exists = any(s.get("id") == reward.required_softskill_id for s in config.get("skills", []))
+        skill_exists = any(
+            s.get("id") == reward.required_softskill_id
+            for s in config.get("skills", [])
+        )
         if skill_exists:
             progress = (
                 db.query(UserSoftskillProgress)
@@ -41,7 +48,11 @@ def check_reward_lock(db: Session, user_id: int, reward: Reward) -> Tuple[bool, 
 
     # 2. Check goal requirement
     if reward.required_goal_id:
-        goal = db.query(Goal).filter_by(id=reward.required_goal_id, user_id=user_id).first()
+        goal = (
+            db.query(Goal)
+            .filter_by(id=reward.required_goal_id, user_id=user_id)
+            .first()
+        )
         if not goal:
             # Goal was deleted (clean cascade logic - though DB should set NULL, just in case)
             return True, None
@@ -49,6 +60,7 @@ def check_reward_lock(db: Session, user_id: int, reward: Reward) -> Tuple[bool, 
             return False, f"Nécessite l'objectif '{goal.title}' complété."
 
     return True, None
+
 
 def is_allostasis_available(reward: Reward) -> bool:
     """
@@ -76,6 +88,7 @@ def is_allostasis_available(reward: Reward) -> bool:
 
     return True
 
+
 def purchase_reward(db: Session, user_id: int, reward_id: int) -> dict:
     """
     Executes a purchase of a reward using user gold in an ACID transaction.
@@ -92,23 +105,29 @@ def purchase_reward(db: Session, user_id: int, reward_id: int) -> dict:
     # 1. Check locks
     unlocked, reason = check_reward_lock(db, user_id, reward)
     if not unlocked:
-        raise HTTPException(status_code=400, detail=f"La récompense est verrouillée : {reason}")
+        raise HTTPException(
+            status_code=400, detail=f"La récompense est verrouillée : {reason}"
+        )
 
     # 2. Check allostasis availability
     if reward.category in ("allostasis_daily", "allostasis_weekly"):
         if not is_allostasis_available(reward):
             raise HTTPException(
                 status_code=400,
-                detail="Cet item d'allostasie a déjà été validé pour cette période."
+                detail="Cet item d'allostasie a déjà été validé pour cette période.",
             )
     else:
         # 3. Check one-time purchase for regular rewards
         if reward.is_one_time and reward.purchased_count > 0:
-            raise HTTPException(status_code=400, detail="Cette récompense unique a déjà été achetée.")
+            raise HTTPException(
+                status_code=400, detail="Cette récompense unique a déjà été achetée."
+            )
 
         # 4. Check gold
         if user.gold < reward.gold_cost:
-            raise HTTPException(status_code=400, detail="Or insuffisant pour acheter cette récompense.")
+            raise HTTPException(
+                status_code=400, detail="Or insuffisant pour acheter cette récompense."
+            )
 
         # Deduct gold only for regular rewards
         user.gold -= reward.gold_cost
@@ -124,26 +143,29 @@ def purchase_reward(db: Session, user_id: int, reward_id: int) -> dict:
         "gold_spent": reward.gold_cost if reward.category == "regular" else 0,
         "new_gold": user.gold,
         "purchased_count": reward.purchased_count,
-        "last_purchased_at": reward.last_purchased_at.isoformat() if reward.last_purchased_at else None
+        "last_purchased_at": (
+            reward.last_purchased_at.isoformat() if reward.last_purchased_at else None
+        ),
     }
 
 
-def get_allostasis_purchases_on_date(db: Session, user_id: int, date: datetime.date) -> list[Reward]:
+def get_allostasis_purchases_on_date(
+    db: Session, user_id: int, date: datetime.date
+) -> list[Reward]:
     """
     Fetches allostasis items (category in ['allostasis_daily', 'allostasis_weekly'])
     that were purchased by a user on a specific date.
     """
     start_dt = datetime.datetime.combine(date, datetime.time.min)
     end_dt = datetime.datetime.combine(date, datetime.time.max)
-    
+
     return (
         db.query(Reward)
         .filter(
             Reward.user_id == user_id,
             Reward.category.in_(["allostasis_daily", "allostasis_weekly"]),
             Reward.last_purchased_at >= start_dt,
-            Reward.last_purchased_at <= end_dt
+            Reward.last_purchased_at <= end_dt,
         )
         .all()
     )
-

@@ -28,7 +28,9 @@ def configure_static_serving(app: FastAPI):
         try:
             files = os.listdir(docs_dir)
             if files:
-                app.mount("/docs", StaticFiles(directory=docs_dir, html=True), name="docs")
+                app.mount(
+                    "/docs", StaticFiles(directory=docs_dir, html=True), name="docs"
+                )
                 print(
                     f"Static Serving: Successfully mounted docs from "
                     f"'{docs_dir}' at '/docs'"
@@ -55,7 +57,9 @@ def configure_static_serving(app: FastAPI):
         try:
             files = os.listdir(frontend_dir)
             if files:
-                app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
+                app.mount(
+                    "/", StaticFiles(directory=frontend_dir, html=True), name="frontend"
+                )
                 print(
                     "Static Serving: Successfully mounted frontend static assets "
                     f"from '{frontend_dir}'"

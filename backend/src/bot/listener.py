@@ -4,16 +4,47 @@ import html
 import asyncio
 import datetime
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
-from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler
+from telegram.ext import (
+    Application,
+    MessageHandler,
+    filters,
+    ContextTypes,
+    CallbackQueryHandler,
+)
 
 from src.config import TELEGRAM_BOT_TOKEN, TELEGRAM_GROUP_ID
 from src.database.session import SessionLocal
-from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, NoTodo, Reward, SubStep
+from src.database.models import (
+    User,
+    Habit,
+    HabitLog,
+    PerfectDayTemplate,
+    DailyScore,
+    Streak,
+    Todo,
+    NoTodo,
+    Reward,
+    SubStep,
+)
 from src.bot.parser import parse_command, ParserError
-from src.services.score_service import calculate_daily_score, update_streaks, DEFAULT_THRESHOLDS, add_user_xp
+from src.services.score_service import (
+    calculate_daily_score,
+    update_streaks,
+    DEFAULT_THRESHOLDS,
+    add_user_xp,
+)
 from src.bot.scheduler import start_scheduler
-from src.services.reward_service import check_reward_lock, purchase_reward, is_allostasis_available
-from src.services.softskill_service import load_tree_config, create_skill, get_user_progress, toggle_completion
+from src.services.reward_service import (
+    check_reward_lock,
+    purchase_reward,
+    is_allostasis_available,
+)
+from src.services.softskill_service import (
+    load_tree_config,
+    create_skill,
+    get_user_progress,
+    toggle_completion,
+)
 from fastapi import HTTPException
 
 STAT_LABELS = {
@@ -22,8 +53,9 @@ STAT_LABELS = {
     "social": "Social 🤝",
     "finance": "Finance 💰",
     "apprendre": "Apprendre 📚",
-    "discipline": "Discipline ⚔️"
+    "discipline": "Discipline ⚔️",
 }
+
 
 def format_stat_rewards(point_rewards: dict) -> str:
     parts = []
@@ -31,6 +63,7 @@ def format_stat_rewards(point_rewards: dict) -> str:
         label = STAT_LABELS.get(stat.lower(), stat.capitalize())
         parts.append(f"+{val} {label}")
     return ", ".join(parts)
+
 
 # Maps the words a user can type for /set-day to the internal template keys.
 # The button flow passes the internal keys (week/weekend/recup/malade) directly.
@@ -45,7 +78,6 @@ TEMPLATE_WORD_MAP = {
 }
 
 
-
 def _resolve_user(db, from_user) -> User:
     """Look up (or create) the User row for a Telegram sender. Shared by the
     command router and the inline-button callback handler."""
@@ -57,13 +89,16 @@ def _resolve_user(db, from_user) -> User:
         user = db.query(User).filter_by(username=telegram_username).first()
 
     if not user:
-        user = User(username=telegram_username, chat_id=user_chat_id, xp=0, level=1, gold=0)
+        user = User(
+            username=telegram_username, chat_id=user_chat_id, xp=0, level=1, gold=0
+        )
         db.add(user)
         db.commit()
     elif user.chat_id != user_chat_id:
         user.chat_id = user_chat_id
         db.commit()
     return user
+
 
 def _render_liste(db, user_id: int, l_type: str) -> str:
     """HTML text for one of the three lists. Used by typed /liste and the buttons."""
@@ -87,15 +122,19 @@ def _render_liste(db, user_id: int, l_type: str) -> str:
         return "<b>Liste des No-Todos :</b>\n" + "\n".join(lines)
     return "Type de liste inconnu."
 
+
 def _apply_set_day(db, user_id: int, db_template_name: str) -> str:
     """Apply a day template (internal key), recalc score & streaks, return confirmation."""
     today = datetime.date.today()
-    score = calculate_daily_score(db, user_id=user_id, date=today, template_name=db_template_name)
+    score = calculate_daily_score(
+        db, user_id=user_id, date=today, template_name=db_template_name
+    )
     update_streaks(db, user_id=user_id, date=today)
     return (
-        f"🩹 Template de journée mis à jour vers : \"{score.template_used.upper()}\".\n"
+        f'🩹 Template de journée mis à jour vers : "{score.template_used.upper()}".\n'
         f"✨ Les seuils de points ont été réajustés pour aujourd'hui !"
     )
+
 
 def _create_pending_item(db, user: User, pending: str, title: str) -> str:
     """Create the item chosen via /add buttons, from the title the user typed."""
@@ -111,21 +150,34 @@ def _create_pending_item(db, user: User, pending: str, title: str) -> str:
         db.commit()
         return f"🚫 No-Todo ajouté : {html.escape(title)}"
     if pending == "habit_binary":
-        db.add(Habit(user_id=user.id, name=title, type="binary", point_rewards={"discipline": 1}))
+        db.add(
+            Habit(
+                user_id=user.id,
+                name=title,
+                type="binary",
+                point_rewards={"discipline": 1},
+            )
+        )
         db.commit()
         return f"✨ Habitude créée : {html.escape(title)} (binary)"
     if pending == "habit_quant":
         parts = title.split(maxsplit=1)
         name = parts[0]
         unit = parts[1].strip() if len(parts) > 1 else ""
-        db.add(Habit(
-            user_id=user.id, name=name, type="quantitative",
-            unit=unit or None, point_rewards={"discipline": 1},
-        ))
+        db.add(
+            Habit(
+                user_id=user.id,
+                name=name,
+                type="quantitative",
+                unit=unit or None,
+                point_rewards={"discipline": 1},
+            )
+        )
         db.commit()
         unit_str = f" — unité : {html.escape(unit)}" if unit else " (sans unité)"
         return f"✨ Habitude quantitative créée : {html.escape(name)}{unit_str}"
     return "❌ Action inconnue — annulée."
+
 
 async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
@@ -168,9 +220,15 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # A new command aborts the pending flow; fall through to normal routing.
                 context.user_data.pop("pending_log_habit_id", None)
             else:
-                habit = db.query(Habit).filter_by(id=pending_log, user_id=user.id, is_active=True).first()
+                habit = (
+                    db.query(Habit)
+                    .filter_by(id=pending_log, user_id=user.id, is_active=True)
+                    .first()
+                )
                 if not habit:
-                    await update.message.reply_text("❌ L'habitude n'existe plus ou n'est plus active. Action annulée.")
+                    await update.message.reply_text(
+                        "❌ L'habitude n'existe plus ou n'est plus active. Action annulée."
+                    )
                     context.user_data.pop("pending_log_habit_id", None)
                     db.close()
                     return
@@ -188,7 +246,9 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 unit = match.group(2).strip()
 
                 if habit.unit and unit and unit.lower() != habit.unit.lower():
-                    await update.message.reply_text(f"❌ L'habitude attend l'unité \"{habit.unit}\" (ex : {val}{habit.unit}). Veuillez réessayer.")
+                    await update.message.reply_text(
+                        f"❌ L'habitude attend l'unité \"{habit.unit}\" (ex : {val}{habit.unit}). Veuillez réessayer."
+                    )
                     db.close()
                     return
 
@@ -199,7 +259,7 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     habit_id=habit.id,
                     log_type="log",
                     amount=val,
-                    unit=resolved_unit
+                    unit=resolved_unit,
                 )
                 db.add(log)
                 db.commit()
@@ -209,13 +269,17 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 update_streaks(db, user_id=user.id, date=today)
 
                 rewards_str = format_stat_rewards(habit.point_rewards)
-                cap_info = f" (Cap journalier : {habit.daily_cap}pts)" if habit.daily_cap else ""
+                cap_info = (
+                    f" (Cap journalier : {habit.daily_cap}pts)"
+                    if habit.daily_cap
+                    else ""
+                )
 
                 context.user_data.pop("pending_log_habit_id", None)
                 await update.message.reply_text(
-                    f"📚 {username} a loggé {val}{resolved_unit} pour la quête \"{html.escape(habit.name)}\" !\n"
+                    f'📚 {username} a loggé {val}{resolved_unit} pour la quête "{html.escape(habit.name)}" !\n'
                     f"✨ Stats obtenues : {rewards_str}{cap_info}",
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
                 db.close()
                 return
@@ -239,34 +303,40 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 step = pending_ss.get("step")
                 branch = pending_ss.get("branch")
-                
+
                 if step == 1:
                     skill_id = text.strip().lower().replace(" ", "_")
                     if not skill_id:
-                        await update.message.reply_text("❌ L'ID ne peut pas être vide. Veuillez entrer un identifiant valide (ex: negociation_active).")
+                        await update.message.reply_text(
+                            "❌ L'ID ne peut pas être vide. Veuillez entrer un identifiant valide (ex: negociation_active)."
+                        )
                         db.close()
                         return
                     config = load_tree_config()
                     if any(s["id"] == skill_id for s in config.get("skills", [])):
-                        await update.message.reply_text(f"❌ Un softskill avec l'ID '{skill_id}' existe déjà. Veuillez en entrer un autre.")
+                        await update.message.reply_text(
+                            f"❌ Un softskill avec l'ID '{skill_id}' existe déjà. Veuillez en entrer un autre."
+                        )
                         db.close()
                         return
-                    
+
                     pending_ss["id"] = skill_id
                     pending_ss["step"] = 2
                     context.user_data["pending_ss_create"] = pending_ss
                     await update.message.reply_text(
                         f"ID retenu : <code>{html.escape(skill_id)}</code>\n\n"
                         f"✏️ Étape 2/4 : Entrez le <b>nom</b> du softskill (ex: Négociation Active).",
-                        parse_mode="HTML"
+                        parse_mode="HTML",
                     )
                     db.close()
                     return
-                    
+
                 elif step == 2:
                     name = text.strip()
                     if not name:
-                        await update.message.reply_text("❌ Le nom ne peut pas être vide. Veuillez entrer un nom valide.")
+                        await update.message.reply_text(
+                            "❌ Le nom ne peut pas être vide. Veuillez entrer un nom valide."
+                        )
                         db.close()
                         return
                     pending_ss["name"] = name
@@ -275,11 +345,11 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await update.message.reply_text(
                         f"Nom retenu : <b>{html.escape(name)}</b>\n\n"
                         f"✏️ Étape 3/4 : Entrez la <b>description</b> du softskill.",
-                        parse_mode="HTML"
+                        parse_mode="HTML",
                     )
                     db.close()
                     return
-                    
+
                 elif step == 3:
                     description = text.strip()
                     pending_ss["description"] = description
@@ -288,29 +358,33 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await update.message.reply_text(
                         "Description retenue.\n\n"
                         "✏️ Étape 4/4 : Entrez l'<b>ordre d'exécution</b> (un nombre entier >= 1, ex: 1, 2, 3).",
-                        parse_mode="HTML"
+                        parse_mode="HTML",
                     )
                     db.close()
                     return
-                    
+
                 elif step == 4:
                     try:
                         execution_order = int(text.strip())
                         if execution_order < 1:
                             raise ValueError()
                     except ValueError:
-                        await update.message.reply_text("❌ Ordre invalide. Veuillez entrer un nombre entier supérieur ou égal à 1.")
+                        await update.message.reply_text(
+                            "❌ Ordre invalide. Veuillez entrer un nombre entier supérieur ou égal à 1."
+                        )
                         db.close()
                         return
-                    
+
                     try:
-                        new_skill = create_skill({
-                            "id": pending_ss["id"],
-                            "name": pending_ss["name"],
-                            "description": pending_ss["description"],
-                            "branch": branch,
-                            "execution_order": execution_order
-                        })
+                        new_skill = create_skill(
+                            {
+                                "id": pending_ss["id"],
+                                "name": pending_ss["name"],
+                                "description": pending_ss["description"],
+                                "branch": branch,
+                                "execution_order": execution_order,
+                            }
+                        )
                         context.user_data.pop("pending_ss_create", None)
                         await update.message.reply_text(
                             f"✅ <b>Softskill créé avec succès !</b>\n\n"
@@ -320,11 +394,13 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             f"• <b>Branche</b> : {html.escape(new_skill['branch'])}\n"
                             f"• <b>Ordre</b> : {new_skill['execution_order']}\n"
                             f"• <b>Position</b> : (x={new_skill['x']}, y={new_skill['y']})",
-                            parse_mode="HTML"
+                            parse_mode="HTML",
                         )
                     except Exception as e:
                         context.user_data.pop("pending_ss_create", None)
-                        await update.message.reply_text(f"❌ Erreur lors de la création du softskill : {e}")
+                        await update.message.reply_text(
+                            f"❌ Erreur lors de la création du softskill : {e}"
+                        )
                     db.close()
                     return
 
@@ -339,13 +415,21 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if cmd == "done":
             habit_name = parsed["habit_name"]
-            habit = db.query(Habit).filter_by(name=habit_name, user_id=user.id, is_active=True).first()
+            habit = (
+                db.query(Habit)
+                .filter_by(name=habit_name, user_id=user.id, is_active=True)
+                .first()
+            )
             if not habit:
-                await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" n'existe pas ou n'est pas active.")
+                await update.message.reply_text(
+                    f"❌ L'habitude \"{habit_name}\" n'existe pas ou n'est pas active."
+                )
                 return
 
             if habit.type != "binary":
-                await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" est quantitative. Utilisez : /log {habit_name} [valeur][unité]")
+                await update.message.reply_text(
+                    f'❌ L\'habitude "{habit_name}" est quantitative. Utilisez : /log {habit_name} [valeur][unité]'
+                )
                 return
 
             today = datetime.date.today()
@@ -353,24 +437,26 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             end_dt = datetime.datetime.combine(today, datetime.time.max)
             has_target = habit.daily_target is not None and habit.daily_target > 1
 
-            done_today = db.query(HabitLog).filter(
-                HabitLog.user_id == user.id,
-                HabitLog.habit_id == habit.id,
-                HabitLog.log_type == "done",
-                HabitLog.timestamp >= start_dt,
-                HabitLog.timestamp <= end_dt
-            ).count()
+            done_today = (
+                db.query(HabitLog)
+                .filter(
+                    HabitLog.user_id == user.id,
+                    HabitLog.habit_id == habit.id,
+                    HabitLog.log_type == "done",
+                    HabitLog.timestamp >= start_dt,
+                    HabitLog.timestamp <= end_dt,
+                )
+                .count()
+            )
 
             # Without a daily target, a binary habit is done at most once per day.
             if done_today and not has_target:
-                await update.message.reply_text(f"🎯 L'habitude \"{habit_name}\" a déjà été complétée aujourd'hui !")
+                await update.message.reply_text(
+                    f"🎯 L'habitude \"{habit_name}\" a déjà été complétée aujourd'hui !"
+                )
                 return
 
-            log = HabitLog(
-                user_id=user.id,
-                habit_id=habit.id,
-                log_type="done"
-            )
+            log = HabitLog(user_id=user.id, habit_id=habit.id, log_type="done")
             db.add(log)
             db.commit()
 
@@ -379,9 +465,11 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             update_streaks(db, user_id=user.id, date=today)
 
             rewards_str = format_stat_rewards(habit.point_rewards)
-            target_str = f" ({done_today + 1}/{habit.daily_target})" if has_target else ""
+            target_str = (
+                f" ({done_today + 1}/{habit.daily_target})" if has_target else ""
+            )
             await update.message.reply_text(
-                f"✅ {username} a complété la routine \"{habit_name}\"{target_str} !\n"
+                f'✅ {username} a complété la routine "{habit_name}"{target_str} !\n'
                 f"✨ Stats obtenues : {rewards_str}"
             )
 
@@ -393,27 +481,41 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if habit_name is None:
                 keyboard = [
                     [
-                        InlineKeyboardButton("🎯 Habitude", callback_data="log_select:habit"),
-                        InlineKeyboardButton("📝 Todo", callback_data="log_select:todo")
+                        InlineKeyboardButton(
+                            "🎯 Habitude", callback_data="log_select:habit"
+                        ),
+                        InlineKeyboardButton(
+                            "📝 Todo", callback_data="log_select:todo"
+                        ),
                     ]
                 ]
                 await update.message.reply_text(
                     "Qu'est-ce que tu veux logger ?",
-                    reply_markup=InlineKeyboardMarkup(keyboard)
+                    reply_markup=InlineKeyboardMarkup(keyboard),
                 )
                 return
 
-            habit = db.query(Habit).filter_by(name=habit_name, user_id=user.id, is_active=True).first()
+            habit = (
+                db.query(Habit)
+                .filter_by(name=habit_name, user_id=user.id, is_active=True)
+                .first()
+            )
             if not habit:
-                await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" n'existe pas ou n'est pas active.")
+                await update.message.reply_text(
+                    f"❌ L'habitude \"{habit_name}\" n'existe pas ou n'est pas active."
+                )
                 return
 
             if habit.type != "quantitative":
-                await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" est binaire. Utilisez : /done {habit_name}")
+                await update.message.reply_text(
+                    f'❌ L\'habitude "{habit_name}" est binaire. Utilisez : /done {habit_name}'
+                )
                 return
 
             if habit.unit and unit.lower() != habit.unit.lower():
-                await update.message.reply_text(f"❌ L'habitude attend l'unité \"{habit.unit}\" (ex : /log {habit_name} {val}{habit.unit})")
+                await update.message.reply_text(
+                    f"❌ L'habitude attend l'unité \"{habit.unit}\" (ex : /log {habit_name} {val}{habit.unit})"
+                )
                 return
 
             log = HabitLog(
@@ -421,7 +523,7 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 habit_id=habit.id,
                 log_type="log",
                 amount=val,
-                unit=unit
+                unit=unit,
             )
             db.add(log)
             db.commit()
@@ -431,28 +533,33 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             update_streaks(db, user_id=user.id, date=today)
 
             rewards_str = format_stat_rewards(habit.point_rewards)
-            cap_info = f" (Cap journalier : {habit.daily_cap}pts)" if habit.daily_cap else ""
+            cap_info = (
+                f" (Cap journalier : {habit.daily_cap}pts)" if habit.daily_cap else ""
+            )
 
             await update.message.reply_text(
-                f"📚 {username} a loggé {val}{unit} pour la quête \"{html.escape(habit.name)}\" !\n"
+                f'📚 {username} a loggé {val}{unit} pour la quête "{html.escape(habit.name)}" !\n'
                 f"✨ Stats obtenues : {rewards_str}{cap_info}",
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
 
         elif cmd == "skip":
             habit_name = parsed["habit_name"]
             reason = parsed["reason"]
 
-            habit = db.query(Habit).filter_by(name=habit_name, user_id=user.id, is_active=True).first()
+            habit = (
+                db.query(Habit)
+                .filter_by(name=habit_name, user_id=user.id, is_active=True)
+                .first()
+            )
             if not habit:
-                await update.message.reply_text(f"❌ L'habitude \"{habit_name}\" n'existe pas ou n'est pas active.")
+                await update.message.reply_text(
+                    f"❌ L'habitude \"{habit_name}\" n'existe pas ou n'est pas active."
+                )
                 return
 
             log = HabitLog(
-                user_id=user.id,
-                habit_id=habit.id,
-                log_type="skip",
-                reason=reason
+                user_id=user.id, habit_id=habit.id, log_type="skip", reason=reason
             )
             db.add(log)
             db.commit()
@@ -462,102 +569,158 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             update_streaks(db, user_id=user.id, date=today)
 
             await update.message.reply_text(
-                f"⏭️ {username} a skippé la tâche \"{habit_name}\" pour aujourd'hui.\n"
+                f'⏭️ {username} a skippé la tâche "{habit_name}" pour aujourd\'hui.\n'
                 f"📝 Raison : {reason} (Le streak est préservé !)"
             )
 
         elif cmd == "fail":
             notodo_name = parsed["notodo_name"]
-            notodo = db.query(NoTodo).filter(NoTodo.user_id == user.id, NoTodo.title.ilike(f"%{notodo_name}%")).first()
-            
+            notodo = (
+                db.query(NoTodo)
+                .filter(
+                    NoTodo.user_id == user.id, NoTodo.title.ilike(f"%{notodo_name}%")
+                )
+                .first()
+            )
+
             if not notodo:
-                await update.message.reply_text(f"❌ La règle No-Todo \"{notodo_name}\" n'existe pas. Utilisez /liste notodo pour vérifier vos règles.")
+                await update.message.reply_text(
+                    f'❌ La règle No-Todo "{notodo_name}" n\'existe pas. Utilisez /liste notodo pour vérifier vos règles.'
+                )
                 return
-                
+
             notodo.failed_at = datetime.datetime.now()
             db.commit()
-            
-            await update.message.reply_text(f"⚠️ Aïe ! {username} a transgressé la règle No-Todo : \"{notodo.title}\".\nC'est noté pour aujourd'hui. Reprenez-vous !")
+
+            await update.message.reply_text(
+                f"⚠️ Aïe ! {username} a transgressé la règle No-Todo : \"{notodo.title}\".\nC'est noté pour aujourd'hui. Reprenez-vous !"
+            )
 
         elif cmd == "status":
             today = datetime.date.today()
             score = calculate_daily_score(db, user_id=user.id, date=today)
-            
-            # Fetch custom thresholds or defaults
-            custom_template = db.query(PerfectDayTemplate).filter_by(user_id=user.id, template_name=score.template_used).first()
-            thresholds = custom_template.thresholds_json if custom_template else DEFAULT_THRESHOLDS.get(score.template_used, {})
 
-            perf_status = "🟩 Validé !" if score.status == "Perfect" else "🟥 En cours..."
+            # Fetch custom thresholds or defaults
+            custom_template = (
+                db.query(PerfectDayTemplate)
+                .filter_by(user_id=user.id, template_name=score.template_used)
+                .first()
+            )
+            thresholds = (
+                custom_template.thresholds_json
+                if custom_template
+                else DEFAULT_THRESHOLDS.get(score.template_used, {})
+            )
+
+            perf_status = (
+                "🟩 Validé !" if score.status == "Perfect" else "🟥 En cours..."
+            )
 
             perf_details = []
             for stat, thresh in thresholds.items():
                 actual = score.actual_stats.get(stat.lower(), 0)
-                perf_details.append(f"{STAT_LABELS.get(stat.lower(), stat)} : {actual}/{thresh}")
+                perf_details.append(
+                    f"{STAT_LABELS.get(stat.lower(), stat)} : {actual}/{thresh}"
+                )
 
             # Get completed habits list
             start_dt = datetime.datetime.combine(today, datetime.time.min)
             end_dt = datetime.datetime.combine(today, datetime.time.max)
-            today_logs = db.query(HabitLog).filter(
-                HabitLog.user_id == user.id,
-                HabitLog.timestamp >= start_dt,
-                HabitLog.timestamp <= end_dt
-            ).all()
+            today_logs = (
+                db.query(HabitLog)
+                .filter(
+                    HabitLog.user_id == user.id,
+                    HabitLog.timestamp >= start_dt,
+                    HabitLog.timestamp <= end_dt,
+                )
+                .all()
+            )
 
             completed_lines = []
             skipped_lines = []
             logged_habit_ids = set()
 
             for log_entry in today_logs:
-                habit = db.query(Habit).filter_by(id=log_entry.habit_id, user_id=user.id).first()
+                habit = (
+                    db.query(Habit)
+                    .filter_by(id=log_entry.habit_id, user_id=user.id)
+                    .first()
+                )
                 if not habit:
                     continue
                 logged_habit_ids.add(habit.id)
-                display_name = "Chose secrète 🔒" if habit.is_private else html.escape(habit.name)
+                display_name = (
+                    "Chose secrète 🔒" if habit.is_private else html.escape(habit.name)
+                )
 
                 if log_entry.log_type == "done":
                     completed_lines.append(f"- {display_name} (done)")
                 elif log_entry.log_type == "log":
-                    completed_lines.append(f"- {display_name} ({log_entry.amount}{log_entry.unit})")
+                    completed_lines.append(
+                        f"- {display_name} ({log_entry.amount}{log_entry.unit})"
+                    )
                 elif log_entry.log_type == "skip":
-                    skipped_lines.append(f"- {display_name} (skippé, raison : {html.escape(log_entry.reason or '')})")
+                    skipped_lines.append(
+                        f"- {display_name} (skippé, raison : {html.escape(log_entry.reason or '')})"
+                    )
 
             # Get completed Todos for today
-            completed_todos = db.query(Todo).filter(
-                Todo.user_id == user.id,
-                Todo.is_completed == True,
-                Todo.completed_at >= start_dt,
-                Todo.completed_at <= end_dt
-            ).all()
+            completed_todos = (
+                db.query(Todo)
+                .filter(
+                    Todo.user_id == user.id,
+                    Todo.is_completed == True,
+                    Todo.completed_at >= start_dt,
+                    Todo.completed_at <= end_dt,
+                )
+                .all()
+            )
             for t in completed_todos:
-                completed_lines.append(f"- Todo : {html.escape(t.title)} (+{t.xp_reward} XP)")
+                completed_lines.append(
+                    f"- Todo : {html.escape(t.title)} (+{t.xp_reward} XP)"
+                )
 
             # Get completed Life Lore subgoals for today
-            completed_life_lore = db.query(SubStep).filter(
-                SubStep.user_id == user.id,
-                SubStep.is_life_lore == True,
-                SubStep.completed == True,
-                SubStep.completed_at >= start_dt,
-                SubStep.completed_at <= end_dt
-            ).all()
+            completed_life_lore = (
+                db.query(SubStep)
+                .filter(
+                    SubStep.user_id == user.id,
+                    SubStep.is_life_lore == True,
+                    SubStep.completed == True,
+                    SubStep.completed_at >= start_dt,
+                    SubStep.completed_at <= end_dt,
+                )
+                .all()
+            )
             for s in completed_life_lore:
                 completed_lines.append(f"- 📖 Life Lore : {html.escape(s.title)}")
 
             # Get remaining scheduled habits
             weekday = today.weekday()
             model_day_idx = (weekday + 1) % 7
-            all_habits = db.query(Habit).filter_by(user_id=user.id, is_active=True).all()
-            
+            all_habits = (
+                db.query(Habit).filter_by(user_id=user.id, is_active=True).all()
+            )
+
             remaining_lines = []
             for habit in all_habits:
-                scheduled = str(model_day_idx) in [day.strip() for day in habit.scheduled_days.split(",")]
+                scheduled = str(model_day_idx) in [
+                    day.strip() for day in habit.scheduled_days.split(",")
+                ]
                 if not scheduled or habit.id in logged_habit_ids:
                     continue
-                display_name = "Chose secrète 🔒" if habit.is_private else html.escape(habit.name)
+                display_name = (
+                    "Chose secrète 🔒" if habit.is_private else html.escape(habit.name)
+                )
                 desc = "quantitative" if habit.type == "quantitative" else "binary"
                 remaining_lines.append(f"- {display_name} ({desc})")
 
             # Streaks
-            perf_streak = db.query(Streak).filter_by(user_id=user.id, streak_type="Perfect").first()
+            perf_streak = (
+                db.query(Streak)
+                .filter_by(user_id=user.id, streak_type="Perfect")
+                .first()
+            )
             perf_streak_val = perf_streak.current_streak if perf_streak else 0
 
             msg = (
@@ -570,27 +733,39 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             # Get failed NoTodos for today
-            failed_notodos = db.query(NoTodo).filter(
-                NoTodo.user_id == user.id,
-                NoTodo.failed_at >= start_dt,
-                NoTodo.failed_at <= end_dt
-            ).all()
-            
+            failed_notodos = (
+                db.query(NoTodo)
+                .filter(
+                    NoTodo.user_id == user.id,
+                    NoTodo.failed_at >= start_dt,
+                    NoTodo.failed_at <= end_dt,
+                )
+                .all()
+            )
+
             failed_notodo_lines = []
             for n in failed_notodos:
                 failed_notodo_lines.append(f"- 🚫 {html.escape(n.title)}")
 
             if completed_lines:
-                msg += "<b>Quêtes accomplies :</b>\n" + "\n".join(completed_lines) + "\n\n"
+                msg += (
+                    "<b>Quêtes accomplies :</b>\n" + "\n".join(completed_lines) + "\n\n"
+                )
             if skipped_lines:
                 msg += "<b>Quêtes skippées :</b>\n" + "\n".join(skipped_lines) + "\n\n"
             if remaining_lines:
-                msg += "<b>Quêtes restantes :</b>\n" + "\n".join(remaining_lines) + "\n\n"
+                msg += (
+                    "<b>Quêtes restantes :</b>\n" + "\n".join(remaining_lines) + "\n\n"
+                )
             else:
                 msg += "🎉 Toutes les quêtes d'aujourd'hui sont terminées !\n\n"
-                
+
             if failed_notodo_lines:
-                msg += "<b>Règles No-Todo brisées aujourd'hui :</b>\n" + "\n".join(failed_notodo_lines) + "\n"
+                msg += (
+                    "<b>Règles No-Todo brisées aujourd'hui :</b>\n"
+                    + "\n".join(failed_notodo_lines)
+                    + "\n"
+                )
 
             await update.message.reply_text(msg, parse_mode="HTML")
 
@@ -598,10 +773,18 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             t_name = parsed["template_name"]
             if t_name is None:
                 keyboard = [
-                    [InlineKeyboardButton("📅 Semaine", callback_data="setday:week"),
-                     InlineKeyboardButton("🌴 Weekend", callback_data="setday:weekend")],
-                    [InlineKeyboardButton("🛟 Recovery", callback_data="setday:recup"),
-                     InlineKeyboardButton("🤒 Sick", callback_data="setday:malade")],
+                    [
+                        InlineKeyboardButton("📅 Semaine", callback_data="setday:week"),
+                        InlineKeyboardButton(
+                            "🌴 Weekend", callback_data="setday:weekend"
+                        ),
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            "🛟 Recovery", callback_data="setday:recup"
+                        ),
+                        InlineKeyboardButton("🤒 Sick", callback_data="setday:malade"),
+                    ],
                 ]
                 await update.message.reply_text(
                     "Quel type de journée veux-tu ?",
@@ -621,30 +804,48 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif cmd == "liste":
             l_type = parsed["type"]
             if l_type is None:
-                keyboard = [[
-                    InlineKeyboardButton("📝 Todos", callback_data="liste:todo"),
-                    InlineKeyboardButton("🎯 Habitudes", callback_data="liste:habit"),
-                    InlineKeyboardButton("🚫 No-Todos", callback_data="liste:notodo"),
-                ]]
+                keyboard = [
+                    [
+                        InlineKeyboardButton("📝 Todos", callback_data="liste:todo"),
+                        InlineKeyboardButton(
+                            "🎯 Habitudes", callback_data="liste:habit"
+                        ),
+                        InlineKeyboardButton(
+                            "🚫 No-Todos", callback_data="liste:notodo"
+                        ),
+                    ]
+                ]
                 await update.message.reply_text(
                     "Quelle liste afficher ?",
                     reply_markup=InlineKeyboardMarkup(keyboard),
                 )
             else:
-                await update.message.reply_text(_render_liste(db, user.id, l_type), parse_mode="HTML")
+                await update.message.reply_text(
+                    _render_liste(db, user.id, l_type), parse_mode="HTML"
+                )
 
         elif cmd == "motivation":
             from src.database.models import Goal
+
             goals = db.query(Goal).filter_by(user_id=user.id, completed=False).all()
             if not goals:
-                await update.message.reply_text("Tu n'as pas encore d'objectifs en cours. Utilise le tableau de bord pour en définir !")
+                await update.message.reply_text(
+                    "Tu n'as pas encore d'objectifs en cours. Utilise le tableau de bord pour en définir !"
+                )
             else:
                 lines = []
                 for g in goals:
-                    desc = f" - <i>{html.escape(g.description)}</i>" if g.description else ""
+                    desc = (
+                        f" - <i>{html.escape(g.description)}</i>"
+                        if g.description
+                        else ""
+                    )
                     lines.append(f"🌟 <b>{html.escape(g.title)}</b>{desc}")
-                
-                msg = f"🔥 <b>Objectifs de {html.escape(username)}</b> 🔥\nNe perds pas le cap :\n\n" + "\n".join(lines)
+
+                msg = (
+                    f"🔥 <b>Objectifs de {html.escape(username)}</b> 🔥\nNe perds pas le cap :\n\n"
+                    + "\n".join(lines)
+                )
                 await update.message.reply_text(msg, parse_mode="HTML")
 
         elif cmd == "add":
@@ -652,8 +853,10 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             title = parsed["title"]
             if a_type is None:
                 keyboard = [
-                    [InlineKeyboardButton("📝 Todo", callback_data="add:todo"),
-                     InlineKeyboardButton("🚫 No-Todo", callback_data="add:notodo")],
+                    [
+                        InlineKeyboardButton("📝 Todo", callback_data="add:todo"),
+                        InlineKeyboardButton("🚫 No-Todo", callback_data="add:notodo"),
+                    ],
                     [InlineKeyboardButton("🎯 Habitude", callback_data="add:habit")],
                 ]
                 await update.message.reply_text(
@@ -686,57 +889,66 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             h_type = parsed["habit_type"]
             title = parsed["title"]
             unit = parsed.get("unit", "")
-            
+
             # Default points for habit creation via bot
             default_points = {"discipline": 1}
             habit_type_db = "binary" if h_type == "binary" else "quantitative"
-            
+
             habit = Habit(
                 user_id=user.id,
                 name=title,
                 type=habit_type_db,
                 point_rewards=default_points,
-                unit=unit if habit_type_db == "quantitative" else None
+                unit=unit if habit_type_db == "quantitative" else None,
             )
             db.add(habit)
             db.commit()
-            
-            await update.message.reply_text(f"✨ Habitude créée : {title} ({habit_type_db})")
+
+            await update.message.reply_text(
+                f"✨ Habitude créée : {title} ({habit_type_db})"
+            )
 
         elif cmd == "shop":
             filter_val = parsed.get("filter", "toutes")
             rewards = db.query(Reward).filter_by(user_id=user.id).all()
-            
+
             if not rewards:
-                await update.message.reply_text("🏪 La boutique est vide. Créez des récompenses sur le dashboard !")
+                await update.message.reply_text(
+                    "🏪 La boutique est vide. Créez des récompenses sur le dashboard !"
+                )
                 return
 
             daily_items = []
             weekly_items = []
             regular_items = []
-            
+
             for r in rewards:
                 unlocked, reason = check_reward_lock(db, user.id, r)
-                
+
                 is_available = True
                 if r.category in ["allostasis_daily", "allostasis_weekly"]:
                     is_available = is_allostasis_available(r)
-                    
+
                 is_owned = r.is_one_time and r.purchased_count > 0
-                
+
                 # Apply filters
                 if filter_val in ["dispos", "unlocked"]:
                     if not unlocked:
                         continue
                     if is_owned:
                         continue
-                    if r.category in ["allostasis_daily", "allostasis_weekly"] and not is_available:
+                    if (
+                        r.category in ["allostasis_daily", "allostasis_weekly"]
+                        and not is_available
+                    ):
                         continue
                 if filter_val in ["verrouillees", "locked"] and unlocked:
                     continue
-                    
-                desc_str = f" - <i>{html.escape(r.description)}</i>" if r.description else ""
-                
+
+                desc_str = (
+                    f" - <i>{html.escape(r.description)}</i>" if r.description else ""
+                )
+
                 if r.category in ["allostasis_daily", "allostasis_weekly"]:
                     if not unlocked:
                         status = f" [🔒 Verrouillé: {reason}]"
@@ -758,27 +970,35 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         status = " [🛒 Achetable]"
                     line = f"• <b>{html.escape(r.title)}</b>{desc_str}\n  Prix: 💰 <b>{r.gold_cost} Or</b>{status}"
                     regular_items.append(line)
-                    
-            lines = [f"🏪 <b>Boutique de {username}</b> (Solde : 💰 <b>{user.gold} Or</b>)\n"]
-            
+
+            lines = [
+                f"🏪 <b>Boutique de {username}</b> (Solde : 💰 <b>{user.gold} Or</b>)\n"
+            ]
+
             if daily_items:
                 lines.append("🔄 <b>Allostasie Daily :</b>")
                 lines.extend(daily_items)
                 lines.append("")
-                
+
             if weekly_items:
                 lines.append("📅 <b>Allostasie Weekly :</b>")
                 lines.extend(weekly_items)
                 lines.append("")
-                
+
             if regular_items:
                 lines.append("💎 <b>Récompenses Classiques :</b>")
                 lines.extend(regular_items)
 
-            if len(daily_items) == 0 and len(weekly_items) == 0 and len(regular_items) == 0:
-                await update.message.reply_text("Aucune récompense ne correspond à ce filtre.")
+            if (
+                len(daily_items) == 0
+                and len(weekly_items) == 0
+                and len(regular_items) == 0
+            ):
+                await update.message.reply_text(
+                    "Aucune récompense ne correspond à ce filtre."
+                )
                 return
-                
+
             await update.message.reply_text("\n".join(lines).strip(), parse_mode="HTML")
 
         elif cmd == "buy":
@@ -786,36 +1006,49 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if reward_name is None:
                 keyboard = [
                     [
-                        InlineKeyboardButton("🔄 Allostasie Day", callback_data="buy_cat:allostasis_daily"),
-                        InlineKeyboardButton("📅 Allostasie Week", callback_data="buy_cat:allostasis_weekly")
+                        InlineKeyboardButton(
+                            "🔄 Allostasie Day",
+                            callback_data="buy_cat:allostasis_daily",
+                        ),
+                        InlineKeyboardButton(
+                            "📅 Allostasie Week",
+                            callback_data="buy_cat:allostasis_weekly",
+                        ),
                     ],
                     [
-                        InlineKeyboardButton("💎 Shop Basic", callback_data="buy_cat:regular")
-                    ]
+                        InlineKeyboardButton(
+                            "💎 Shop Basic", callback_data="buy_cat:regular"
+                        )
+                    ],
                 ]
                 await update.message.reply_text(
                     "🛒 <b>Boutique — Choisissez une catégorie :</b>",
                     reply_markup=InlineKeyboardMarkup(keyboard),
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
                 return
 
-            matches = db.query(Reward).filter(
-                Reward.user_id == user.id,
-                Reward.title.ilike(f"%{reward_name}%")
-            ).all()
-            
+            matches = (
+                db.query(Reward)
+                .filter(
+                    Reward.user_id == user.id, Reward.title.ilike(f"%{reward_name}%")
+                )
+                .all()
+            )
+
             if not matches:
-                await update.message.reply_text(f"❌ Aucune récompense ne correspond à \"{reward_name}\".")
+                await update.message.reply_text(
+                    f'❌ Aucune récompense ne correspond à "{reward_name}".'
+                )
                 return
-                
+
             if len(matches) > 1:
-                options_str = ", ".join(f"\"{r.title}\"" for r in matches)
+                options_str = ", ".join(f'"{r.title}"' for r in matches)
                 await update.message.reply_text(
                     f"❌ Plusieurs récompenses correspondent : {options_str}. Soyez plus précis."
                 )
                 return
-                
+
             reward_to_buy = matches[0]
             try:
                 res = purchase_reward(db, user.id, reward_to_buy.id)
@@ -823,13 +1056,13 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await update.message.reply_text(
                         f"✅ Allostasie validée ! Vous avez validé <b>{html.escape(reward_to_buy.title)}</b>.\n"
                         f"Solde actuel : 💰 <b>{res['new_gold']} Or</b>.",
-                        parse_mode="HTML"
+                        parse_mode="HTML",
                     )
                 else:
                     await update.message.reply_text(
                         f"💸 Achat réussi ! Vous avez acheté <b>{html.escape(reward_to_buy.title)}</b> pour 💰 <b>{res['gold_spent']} Or</b>.\n"
                         f"Nouveau solde : 💰 <b>{res['new_gold']} Or</b>.",
-                        parse_mode="HTML"
+                        parse_mode="HTML",
                     )
             except HTTPException as he:
                 await update.message.reply_text(f"⚠️ {he.detail}")
@@ -840,38 +1073,49 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             config = load_tree_config()
             branches = config.get("branches", {})
             if not branches:
-                await update.message.reply_text("Aucune branche de softskills configurée dans le système.")
+                await update.message.reply_text(
+                    "Aucune branche de softskills configurée dans le système."
+                )
                 return
-            
+
             keyboard = []
             row = []
             for b_key in branches.keys():
-                row.append(InlineKeyboardButton(b_key, callback_data=f"ss_branch:{b_key}"))
+                row.append(
+                    InlineKeyboardButton(b_key, callback_data=f"ss_branch:{b_key}")
+                )
                 if len(row) == 2:
                     keyboard.append(row)
                     row = []
             if row:
                 keyboard.append(row)
-                
+
             await update.message.reply_text(
                 "🧠 <b>Arbre des Softskills</b>\nChoisissez une catégorie de compétence :",
                 reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
 
         elif cmd == "aide":
             keyboard = [
                 [InlineKeyboardButton("Aide Documentation", callback_data="help_doc")],
-                [InlineKeyboardButton("Liste des commandes", callback_data="help_cmds")]
+                [
+                    InlineKeyboardButton(
+                        "Liste des commandes", callback_data="help_cmds"
+                    )
+                ],
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text("Besoin d'aide ? Choisissez une option :", reply_markup=reply_markup)
+            await update.message.reply_text(
+                "Besoin d'aide ? Choisissez une option :", reply_markup=reply_markup
+            )
 
     except Exception as e:
         print(f"Error executing command router: {e}")
         await update.message.reply_text(f"❌ Une erreur interne est survenue : {e}")
     finally:
         db.close()
+
 
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -908,10 +1152,16 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- /add flow: type choice ---------------------------------------------
     if data == "add:habit":
-        keyboard = [[
-            InlineKeyboardButton("✅ Oui/Non (binaire)", callback_data="addhabit:binary"),
-            InlineKeyboardButton("📊 Quantitatif (log)", callback_data="addhabit:quant"),
-        ]]
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "✅ Oui/Non (binaire)", callback_data="addhabit:binary"
+                ),
+                InlineKeyboardButton(
+                    "📊 Quantitatif (log)", callback_data="addhabit:quant"
+                ),
+            ]
+        ]
         await query.message.reply_text(
             "Quel type d'habitude ?",
             reply_markup=InlineKeyboardMarkup(keyboard),
@@ -923,7 +1173,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "add:todo": ("todo", "✏️ Envoie le titre du Todo."),
         "add:notodo": ("notodo", "✏️ Envoie le titre de la règle No-Todo."),
         "addhabit:binary": ("habit_binary", "✏️ Envoie le nom de l'habitude (Oui/Non)."),
-        "addhabit:quant": ("habit_quant", "✏️ Envoie : nom unité — ex : lecture min (l'unité est optionnelle)."),
+        "addhabit:quant": (
+            "habit_quant",
+            "✏️ Envoie : nom unité — ex : lecture min (l'unité est optionnelle).",
+        ),
     }
     if data in pending_prompts:
         state, prompt = pending_prompts[data]
@@ -936,14 +1189,16 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db = SessionLocal()
         try:
             user = _resolve_user(db, query.from_user)
-            
+
             if data == "ss_back_main":
                 config = load_tree_config()
                 branches = config.get("branches", {})
                 keyboard = []
                 row = []
                 for b_key in branches.keys():
-                    row.append(InlineKeyboardButton(b_key, callback_data=f"ss_branch:{b_key}"))
+                    row.append(
+                        InlineKeyboardButton(b_key, callback_data=f"ss_branch:{b_key}")
+                    )
                     if len(row) == 2:
                         keyboard.append(row)
                         row = []
@@ -952,15 +1207,17 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.edit_message_text(
                     "🧠 <b>Arbre des Softskills</b>\nChoisissez une catégorie de compétence :",
                     reply_markup=InlineKeyboardMarkup(keyboard),
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
-                
+
             elif data.startswith("ss_branch:"):
                 branch_key = data.split(":", 1)[1]
                 config = load_tree_config()
-                skills = [s for s in config.get("skills", []) if s.get("branch") == branch_key]
+                skills = [
+                    s for s in config.get("skills", []) if s.get("branch") == branch_key
+                ]
                 progress = get_user_progress(db, user.id)
-                
+
                 lines = [f"🧠 <b>Branche : {html.escape(branch_key)}</b>\n"]
                 if not skills:
                     lines.append("Aucun softskill dans cette branche.")
@@ -969,114 +1226,165 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     skills.sort(key=lambda s: s.get("execution_order", 1))
                     for s in skills:
                         prog = progress.get(s["id"], {})
-                        status = "✅ Complété" if prog.get("completed") else "⏳ En cours"
-                        lines.append(f"• <b>{html.escape(s['name'])}</b> (Ordre: {s.get('execution_order')}) - <i>{status}</i>")
+                        status = (
+                            "✅ Complété" if prog.get("completed") else "⏳ En cours"
+                        )
+                        lines.append(
+                            f"• <b>{html.escape(s['name'])}</b> (Ordre: {s.get('execution_order')}) - <i>{status}</i>"
+                        )
                         if s.get("description"):
                             lines.append(f"  <i>{html.escape(s['description'])}</i>")
-                            
+
                 keyboard = [
                     [
-                        InlineKeyboardButton("➕ Ajouter un Softskill", callback_data=f"ss_add_select:{branch_key}"),
-                        InlineKeyboardButton("✅ Valider un Softskill", callback_data=f"ss_val_select:{branch_key}")
+                        InlineKeyboardButton(
+                            "➕ Ajouter un Softskill",
+                            callback_data=f"ss_add_select:{branch_key}",
+                        ),
+                        InlineKeyboardButton(
+                            "✅ Valider un Softskill",
+                            callback_data=f"ss_val_select:{branch_key}",
+                        ),
                     ],
-                    [
-                        InlineKeyboardButton("⬅️ Retour", callback_data="ss_back_main")
-                    ]
+                    [InlineKeyboardButton("⬅️ Retour", callback_data="ss_back_main")],
                 ]
                 await query.edit_message_text(
                     "\n".join(lines),
                     reply_markup=InlineKeyboardMarkup(keyboard),
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
-                
+
             elif data.startswith("ss_add_select:"):
                 branch_key = data.split(":", 1)[1]
-                context.user_data["pending_ss_create"] = {"step": 1, "branch": branch_key}
+                context.user_data["pending_ss_create"] = {
+                    "step": 1,
+                    "branch": branch_key,
+                }
                 await query.message.reply_text(
                     f"➕ <b>Création d'un Softskill dans {html.escape(branch_key)}</b>\n\n"
                     f"✏️ Étape 1/4 : Entrez l'identifiant unique (ID) du softskill (en minuscules, sans espace, ex: <code>ecoute_active</code>)."
                 )
-                
+
             elif data.startswith("ss_val_select:"):
                 branch_key = data.split(":", 1)[1]
                 config = load_tree_config()
-                skills = [s for s in config.get("skills", []) if s.get("branch") == branch_key]
+                skills = [
+                    s for s in config.get("skills", []) if s.get("branch") == branch_key
+                ]
                 progress = get_user_progress(db, user.id)
-                
+
                 keyboard = []
                 for s in skills:
                     prog = progress.get(s["id"], {})
                     status_emoji = "✅" if prog.get("completed") else "⏳"
-                    keyboard.append([InlineKeyboardButton(f"{status_emoji} {s['name']}", callback_data=f"ss_test_val:{s['id']}")])
-                    
-                keyboard.append([InlineKeyboardButton("⬅️ Retour", callback_data=f"ss_branch:{branch_key}")])
-                
+                    keyboard.append(
+                        [
+                            InlineKeyboardButton(
+                                f"{status_emoji} {s['name']}",
+                                callback_data=f"ss_test_val:{s['id']}",
+                            )
+                        ]
+                    )
+
+                keyboard.append(
+                    [
+                        InlineKeyboardButton(
+                            "⬅️ Retour", callback_data=f"ss_branch:{branch_key}"
+                        )
+                    ]
+                )
+
                 await query.edit_message_text(
                     f"✅ <b>Validation — {html.escape(branch_key)}</b>\nChoisissez le softskill à valider :",
                     reply_markup=InlineKeyboardMarkup(keyboard),
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
-                
+
             elif data.startswith("ss_test_val:"):
                 skill_id = data.split(":", 1)[1]
                 config = load_tree_config()
-                skill = next((s for s in config.get("skills", []) if s["id"] == skill_id), None)
+                skill = next(
+                    (s for s in config.get("skills", []) if s["id"] == skill_id), None
+                )
                 if not skill:
                     await query.edit_message_text("❌ Softskill introuvable.")
                     db.close()
                     return
-                    
+
                 progress = get_user_progress(db, user.id)
                 prog = progress.get(skill_id, {})
-                test_text = prog.get("success_criteria_test") or "Aucun critère/test de validation défini pour ce softskill."
-                
+                test_text = (
+                    prog.get("success_criteria_test")
+                    or "Aucun critère/test de validation défini pour ce softskill."
+                )
+
                 lines = [
                     f"📋 <b>Validation — {html.escape(skill['name'])}</b>\n",
                     f"<b>Description</b> : <i>{html.escape(skill.get('description', 'Aucune description.'))}</i>\n",
                     f"<b>Critères / Test de validation</b> :",
                     f"<pre>{html.escape(test_text)}</pre>\n",
-                    "Voulez-vous valider ce softskill ?"
+                    "Voulez-vous valider ce softskill ?",
                 ]
-                
+
                 keyboard = [
                     [
-                        InlineKeyboardButton("✅ Valider", callback_data=f"ss_confirm_val:{skill_id}"),
-                        InlineKeyboardButton("❌ Annuler", callback_data=f"ss_branch:{skill['branch']}")
+                        InlineKeyboardButton(
+                            "✅ Valider", callback_data=f"ss_confirm_val:{skill_id}"
+                        ),
+                        InlineKeyboardButton(
+                            "❌ Annuler", callback_data=f"ss_branch:{skill['branch']}"
+                        ),
                     ]
                 ]
-                
+
                 await query.edit_message_text(
                     "\n".join(lines),
                     reply_markup=InlineKeyboardMarkup(keyboard),
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
-                
+
             elif data.startswith("ss_confirm_val:"):
                 skill_id = data.split(":", 1)[1]
                 config = load_tree_config()
-                skill = next((s for s in config.get("skills", []) if s["id"] == skill_id), None)
+                skill = next(
+                    (s for s in config.get("skills", []) if s["id"] == skill_id), None
+                )
                 if not skill:
                     await query.edit_message_text("❌ Softskill introuvable.")
                     db.close()
                     return
-                    
+
                 res = toggle_completion(db, user.id, skill_id, True)
                 if "error" in res:
                     await query.edit_message_text(
                         f"⚠️ <b>Impossible de valider :</b>\n{html.escape(res['error'])}\n\n"
                         f"Vous devez d'abord compléter les prérequis.",
-                        reply_markup=InlineKeyboardMarkup([[
-                            InlineKeyboardButton("⬅️ Retour", callback_data=f"ss_branch:{skill['branch']}")
-                        ]]),
-                        parse_mode="HTML"
+                        reply_markup=InlineKeyboardMarkup(
+                            [
+                                [
+                                    InlineKeyboardButton(
+                                        "⬅️ Retour",
+                                        callback_data=f"ss_branch:{skill['branch']}",
+                                    )
+                                ]
+                            ]
+                        ),
+                        parse_mode="HTML",
                     )
                 else:
                     await query.edit_message_text(
                         f"🎉 <b>Félicitations !</b>\nLe softskill <b>{html.escape(skill['name'])}</b> a été validé avec succès !",
-                        reply_markup=InlineKeyboardMarkup([[
-                            InlineKeyboardButton("⬅️ Retour à la branche", callback_data=f"ss_branch:{skill['branch']}")
-                        ]]),
-                        parse_mode="HTML"
+                        reply_markup=InlineKeyboardMarkup(
+                            [
+                                [
+                                    InlineKeyboardButton(
+                                        "⬅️ Retour à la branche",
+                                        callback_data=f"ss_branch:{skill['branch']}",
+                                    )
+                                ]
+                            ]
+                        ),
+                        parse_mode="HTML",
                     )
         except Exception as e:
             print(f"Error handling softskill callback {data}: {e}")
@@ -1086,7 +1394,11 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # --- Interactive log buttons ----------------------------------------------
-    if data.startswith("log_select:") or data.startswith("log_habit:") or data.startswith("log_todo:"):
+    if (
+        data.startswith("log_select:")
+        or data.startswith("log_habit:")
+        or data.startswith("log_todo:")
+    ):
         db = SessionLocal()
         try:
             user = _resolve_user(db, query.from_user)
@@ -1094,72 +1406,110 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 choice = data.split(":", 1)[1]
                 if choice == "habit":
                     # Fetch active habits ordered by ID
-                    habits = db.query(Habit).filter_by(user_id=user.id, is_active=True).order_by(Habit.id).all()
+                    habits = (
+                        db.query(Habit)
+                        .filter_by(user_id=user.id, is_active=True)
+                        .order_by(Habit.id)
+                        .all()
+                    )
                     if not habits:
-                        await query.edit_message_text("❌ Tu n'as pas d'habitude active.")
+                        await query.edit_message_text(
+                            "❌ Tu n'as pas d'habitude active."
+                        )
                         db.close()
                         return
-                    
+
                     keyboard = []
                     for h in habits:
                         emoji = "📊" if h.type == "quantitative" else "✅"
                         unit_str = f" ({h.unit})" if h.unit else ""
-                        keyboard.append([InlineKeyboardButton(f"{emoji} {h.name}{unit_str}", callback_data=f"log_habit:{h.id}")])
-                    
+                        keyboard.append(
+                            [
+                                InlineKeyboardButton(
+                                    f"{emoji} {h.name}{unit_str}",
+                                    callback_data=f"log_habit:{h.id}",
+                                )
+                            ]
+                        )
+
                     await query.edit_message_text(
                         "🎯 <b>Choisis une habitude à logger :</b>",
                         reply_markup=InlineKeyboardMarkup(keyboard),
-                        parse_mode="HTML"
+                        parse_mode="HTML",
                     )
                 else:  # todo
-                    todos = db.query(Todo).filter_by(user_id=user.id, is_completed=False).order_by(Todo.id).all()
+                    todos = (
+                        db.query(Todo)
+                        .filter_by(user_id=user.id, is_completed=False)
+                        .order_by(Todo.id)
+                        .all()
+                    )
                     if not todos:
-                        await query.edit_message_text("❌ Tu n'as pas de Todo en attente.")
+                        await query.edit_message_text(
+                            "❌ Tu n'as pas de Todo en attente."
+                        )
                         db.close()
                         return
-                    
+
                     keyboard = []
                     for t in todos:
-                        keyboard.append([InlineKeyboardButton(f"📝 {t.title} (+{t.xp_reward} XP)", callback_data=f"log_todo:{t.id}")])
-                    
+                        keyboard.append(
+                            [
+                                InlineKeyboardButton(
+                                    f"📝 {t.title} (+{t.xp_reward} XP)",
+                                    callback_data=f"log_todo:{t.id}",
+                                )
+                            ]
+                        )
+
                     await query.edit_message_text(
                         "📝 <b>Choisis un Todo à compléter :</b>",
                         reply_markup=InlineKeyboardMarkup(keyboard),
-                        parse_mode="HTML"
+                        parse_mode="HTML",
                     )
             elif data.startswith("log_habit:"):
                 habit_id = int(data.split(":", 1)[1])
-                habit = db.query(Habit).filter_by(id=habit_id, user_id=user.id, is_active=True).first()
+                habit = (
+                    db.query(Habit)
+                    .filter_by(id=habit_id, user_id=user.id, is_active=True)
+                    .first()
+                )
                 if not habit:
-                    await query.edit_message_text("❌ Habitude introuvable ou inactive.")
+                    await query.edit_message_text(
+                        "❌ Habitude introuvable ou inactive."
+                    )
                     db.close()
                     return
-                
+
                 if habit.type == "binary":
                     # Log immediately
                     today = datetime.date.today()
                     start_dt = datetime.datetime.combine(today, datetime.time.min)
                     end_dt = datetime.datetime.combine(today, datetime.time.max)
-                    has_target = habit.daily_target is not None and habit.daily_target > 1
+                    has_target = (
+                        habit.daily_target is not None and habit.daily_target > 1
+                    )
 
-                    done_today = db.query(HabitLog).filter(
-                        HabitLog.user_id == user.id,
-                        HabitLog.habit_id == habit.id,
-                        HabitLog.log_type == "done",
-                        HabitLog.timestamp >= start_dt,
-                        HabitLog.timestamp <= end_dt
-                    ).count()
+                    done_today = (
+                        db.query(HabitLog)
+                        .filter(
+                            HabitLog.user_id == user.id,
+                            HabitLog.habit_id == habit.id,
+                            HabitLog.log_type == "done",
+                            HabitLog.timestamp >= start_dt,
+                            HabitLog.timestamp <= end_dt,
+                        )
+                        .count()
+                    )
 
                     if done_today and not has_target:
-                        await query.edit_message_text(f"🎯 L'habitude \"{html.escape(habit.name)}\" a déjà été complétée aujourd'hui !")
+                        await query.edit_message_text(
+                            f"🎯 L'habitude \"{html.escape(habit.name)}\" a déjà été complétée aujourd'hui !"
+                        )
                         db.close()
                         return
 
-                    log = HabitLog(
-                        user_id=user.id,
-                        habit_id=habit.id,
-                        log_type="done"
-                    )
+                    log = HabitLog(user_id=user.id, habit_id=habit.id, log_type="done")
                     db.add(log)
                     db.commit()
 
@@ -1167,18 +1517,24 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     update_streaks(db, user_id=user.id, date=today)
 
                     rewards_str = format_stat_rewards(habit.point_rewards)
-                    target_str = f" ({done_today + 1}/{habit.daily_target})" if has_target else ""
+                    target_str = (
+                        f" ({done_today + 1}/{habit.daily_target})"
+                        if has_target
+                        else ""
+                    )
                     await query.edit_message_text(
-                        f"✅ <b>{user.username}</b> a complété la routine \"{html.escape(habit.name)}\"{target_str} !\n"
+                        f'✅ <b>{user.username}</b> a complété la routine "{html.escape(habit.name)}"{target_str} !\n'
                         f"✨ Stats obtenues : {rewards_str}",
-                        parse_mode="HTML"
+                        parse_mode="HTML",
                     )
                 else:  # quantitative
                     context.user_data["pending_log_habit_id"] = habit.id
-                    unit_prompt = f" (ex: 30{habit.unit or ''})" if habit.unit else " (ex: 30)"
+                    unit_prompt = (
+                        f" (ex: 30{habit.unit or ''})" if habit.unit else " (ex: 30)"
+                    )
                     await query.edit_message_text(
                         f"✏️ Envoie la valeur pour l'habitude <b>{html.escape(habit.name)}</b>{unit_prompt} :",
-                        parse_mode="HTML"
+                        parse_mode="HTML",
                     )
             elif data.startswith("log_todo:"):
                 todo_id = int(data.split(":", 1)[1])
@@ -1194,22 +1550,24 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
                 todo.is_completed = True
                 todo.completed_at = datetime.datetime.now()
-                
+
                 # Award permanent XP
                 levels_gained = add_user_xp(user, todo.xp_reward)
-                
+
                 # Recalculate daily scores to instantly add Todo stats points
                 today = datetime.date.today()
                 calculate_daily_score(db, user_id=user.id, date=today)
                 update_streaks(db, user_id=user.id, date=today)
-                
+
                 db.commit()
 
-                level_info = f"\n🎉 Passage au niveau {user.level} !" if levels_gained else ""
+                level_info = (
+                    f"\n🎉 Passage au niveau {user.level} !" if levels_gained else ""
+                )
                 await query.edit_message_text(
                     f"✅ Todo complété : <b>{html.escape(todo.title)}</b> !\n"
                     f"⭐ +{todo.xp_reward} XP (Nouveau total : {user.xp} XP){level_info}",
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
         except Exception as e:
             print(f"Error handling log callback {data}: {e}")
@@ -1225,7 +1583,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user = _resolve_user(db, query.from_user)
             key = data.split(":", 1)[1]
             if data.startswith("liste:"):
-                await query.message.reply_text(_render_liste(db, user.id, key), parse_mode="HTML")
+                await query.message.reply_text(
+                    _render_liste(db, user.id, key), parse_mode="HTML"
+                )
             else:
                 await query.message.reply_text(_apply_set_day(db, user.id, key))
         except Exception as e:
@@ -1241,40 +1601,50 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user = _resolve_user(db, query.from_user)
             if data.startswith("buy_cat:"):
                 category = data.split(":", 1)[1]
-                
+
                 # Fetch all rewards for this user and this category
-                rewards = db.query(Reward).filter_by(user_id=user.id, category=category).all()
-                
+                rewards = (
+                    db.query(Reward).filter_by(user_id=user.id, category=category).all()
+                )
+
                 available_rewards = []
                 for r in rewards:
                     # Check locks
                     unlocked, _ = check_reward_lock(db, user.id, r)
                     if not unlocked:
                         continue
-                    
+
                     # Check category specific availability
                     if category in ["allostasis_daily", "allostasis_weekly"]:
                         if not is_allostasis_available(r):
                             continue
-                    else: # regular
+                    else:  # regular
                         # Check one-time limit
                         if r.is_one_time and r.purchased_count > 0:
                             continue
                         # Check gold limit
                         if user.gold < r.gold_cost:
                             continue
-                    
+
                     available_rewards.append(r)
-                
-                category_label = "Allostasie Day" if category == "allostasis_daily" else "Allostasie Week" if category == "allostasis_weekly" else "Boutique Classique"
-                
+
+                category_label = (
+                    "Allostasie Day"
+                    if category == "allostasis_daily"
+                    else (
+                        "Allostasie Week"
+                        if category == "allostasis_weekly"
+                        else "Boutique Classique"
+                    )
+                )
+
                 if not available_rewards:
                     await query.edit_message_text(
                         f"❌ Aucun item disponible ou achetable dans la catégorie <b>{category_label}</b>.",
-                        parse_mode="HTML"
+                        parse_mode="HTML",
                     )
                     return
-                
+
                 # Construct inline keyboard buttons for available rewards
                 keyboard = []
                 for r in available_rewards:
@@ -1282,21 +1652,29 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         btn_text = f"✨ {r.title}"
                     else:
                         btn_text = f"💰 {r.title} ({r.gold_cost} Or)"
-                    keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"buy_item:{r.id}")])
-                
+                    keyboard.append(
+                        [
+                            InlineKeyboardButton(
+                                btn_text, callback_data=f"buy_item:{r.id}"
+                            )
+                        ]
+                    )
+
                 await query.edit_message_text(
                     f"🛒 <b>Items disponibles — {category_label} :</b>\nSélectionnez un item à acheter ou valider :",
                     reply_markup=InlineKeyboardMarkup(keyboard),
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
-            else: # buy_item
+            else:  # buy_item
                 reward_id = int(data.split(":", 1)[1])
-                reward_to_buy = db.query(Reward).filter_by(id=reward_id, user_id=user.id).first()
-                
+                reward_to_buy = (
+                    db.query(Reward).filter_by(id=reward_id, user_id=user.id).first()
+                )
+
                 if not reward_to_buy:
                     await query.edit_message_text("❌ Récompense introuvable.")
                     return
-                    
+
                 # Perform purchase
                 res = purchase_reward(db, user.id, reward_to_buy.id)
                 if reward_to_buy.category in ["allostasis_daily", "allostasis_weekly"]:
@@ -1309,9 +1687,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         f"💸 Achat réussi ! Vous avez acheté <b>{html.escape(reward_to_buy.title)}</b> pour 💰 <b>{res['gold_spent']} Or</b>.\n"
                         f"Nouveau solde : 💰 <b>{res['new_gold']} Or</b>."
                     )
-                
+
                 await query.edit_message_text(msg, parse_mode="HTML")
-                
+
         except HTTPException as he:
             await query.edit_message_text(f"⚠️ {he.detail}")
         except Exception as e:
@@ -1320,6 +1698,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         finally:
             db.close()
         return
+
 
 async def main():
     if not TELEGRAM_BOT_TOKEN:
@@ -1331,8 +1710,12 @@ async def main():
     print(f"Starting Telegram Bot polling listener on Group ID: {TELEGRAM_GROUP_ID}...")
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    application.add_handler(MessageHandler(filters.TEXT & filters.ChatType.GROUPS, route_command))
-    application.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, route_command))
+    application.add_handler(
+        MessageHandler(filters.TEXT & filters.ChatType.GROUPS, route_command)
+    )
+    application.add_handler(
+        MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, route_command)
+    )
     application.add_handler(CallbackQueryHandler(handle_callback))
 
     await application.initialize()
@@ -1340,19 +1723,25 @@ async def main():
     # Define and register bot commands for Telegram autocomplete
     commands = [
         BotCommand("done", "Valider une habitude binaire (oui/non)"),
-        BotCommand("log", "Enregistrer une habitude quantitative (ex: /log lecture 30)"),
-        BotCommand("skip", "Passer une habitude pour aujourd'hui (sans casser le streak)"),
+        BotCommand(
+            "log", "Enregistrer une habitude quantitative (ex: /log lecture 30)"
+        ),
+        BotCommand(
+            "skip", "Passer une habitude pour aujourd'hui (sans casser le streak)"
+        ),
         BotCommand("status", "Afficher ton résumé et statut de la journée"),
         BotCommand("template", "Changer le type de journée (Perfect Day template)"),
         BotCommand("liste", "Lister tes todos, habitudes ou no-todos"),
         BotCommand("add", "Ajouter un todo, un no-todo ou une habitude"),
-        BotCommand("add_habit", "Créer une nouvelle habitude (binaire ou quantitative)"),
+        BotCommand(
+            "add_habit", "Créer une nouvelle habitude (binaire ou quantitative)"
+        ),
         BotCommand("fail", "Signaler la transgression d'une règle No-Todo"),
         BotCommand("shop", "Consulter les récompenses de la boutique"),
         BotCommand("buy", "Acheter un item ou valider une allostasie"),
         BotCommand("motivation", "Afficher tes objectifs de vie à long terme"),
         BotCommand("softskill", "Gérer et valider tes softskills"),
-        BotCommand("aide", "Afficher la liste d'aide et des commandes")
+        BotCommand("aide", "Afficher la liste d'aide et des commandes"),
     ]
     try:
         await application.bot.set_my_commands(commands)
@@ -1377,6 +1766,7 @@ async def main():
         await application.updater.stop()
         await application.stop()
         await application.shutdown()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -4,8 +4,8 @@
   "private": true,
   "description": "Local habit tracking app prototype.",
   "scripts": {
-    "start": "powershell -Command \"$env:PYTHONPATH='backend'; .venv/Scripts/uvicorn src.main:app --host 127.0.0.1 --port 5000\"",
-    "dev": "powershell -Command \"$env:PYTHONPATH='backend'; .venv/Scripts/uvicorn src.main:app --host 127.0.0.1 --port 5000 --reload\"",
-    "check": "node --check app/main.js"
+    "start": "PYTHONPATH=backend .venv/bin/uvicorn src.main:app --host 127.0.0.1 --port 5000",
+    "dev": "PYTHONPATH=backend .venv/bin/uvicorn src.main:app --host 127.0.0.1 --port 5000 --reload",
+    "check": "node --check frontend/js/app.js"
   }
 }

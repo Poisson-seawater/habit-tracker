@@ -1,0 +1,7 @@
+# Dépendances de dev / CI uniquement.
+# NON installées dans les images Docker du Pi (Dockerfiles n'utilisent que requirements.txt).
+-r requirements.txt
+
+pytest==8.1.1
+pytest-asyncio==0.23.5
+black==24.10.0

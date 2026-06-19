@@ -40,7 +40,8 @@ backend/
       session.py       # engine + get_db()
       seed.py          # init_db() idempotent + seeders
       backup.py        # rotation des snapshots SQLite
-      migrations/      # migrations SQL manuelles (vN_*.sql)
+      migrations/      # v9_remote_operations.sql : référence SQL à appliquer à la main
+                       #   (le schéma vivant est créé par create_all + _run_migrations())
     services/
       score_service.py # logique métier (scores, stats, XP, streaks)
   tests/               # pytest (test_*.py)
@@ -89,8 +90,10 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
 - **Nouvelle route** : l'ajouter dans `backend/src/api/routes.py`, avec son schéma
   Pydantic en haut du fichier, sous le préfixe `/api/v1`, en suivant les conventions
   ci-dessus. Récupérer l'utilisateur via le header `X-User-ID`.
-- **Nouveau champ DB** : modifier `models.py` **et** écrire une migration SQL dans
-  `database/migrations/` (migrations manuelles, pas d'Alembic).
+- **Nouveau champ DB** : modifier `models.py` **et** ajouter un `ALTER` idempotent dans
+  `_run_migrations()` de `database/seed.py` (vérifier la colonne via `inspect()` avant de
+  l'ajouter). C'est le seul mécanisme exécuté au démarrage — `create_all()` ne modifie pas
+  les tables existantes, et les `.sql` ne sont **pas** lus automatiquement. Pas d'Alembic.
 - **Logique métier** (scoring, stats, XP, streaks) : dans `services/`, jamais dans les routes.
 - **Front** : étendre `app.js` en réutilisant le wrapper `fetch` et le système d'onglets
   existant. Pas de framework, pas de build step.

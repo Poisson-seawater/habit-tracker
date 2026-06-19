@@ -21,18 +21,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Installer les dépendances back
+      - name: Installer les dépendances back (runtime + dev)
         run: |
           python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
+          pip install -r backend/requirements-dev.txt
 
       - name: Lint (black, configuré dans backend/pyproject.toml)
-        # Advisoire pour l'instant : le code n'est pas encore 100 % black-clean.
-        # Passer en bloquant (retirer continue-on-error) une fois le formatage stabilisé.
-        continue-on-error: true
-        run: |
-          pip install black
-          black --check backend/
+        run: black --check backend/
 
       - name: Tests (pytest)
         env:

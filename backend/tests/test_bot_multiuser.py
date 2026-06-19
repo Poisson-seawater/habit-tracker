@@ -8,6 +8,7 @@ from src.database.session import Base
 from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore
 from src.bot.listener import route_command
 
+
 @pytest.fixture
 def db_session(monkeypatch):
     # Use an in-memory SQLite database
@@ -19,9 +20,7 @@ def db_session(monkeypatch):
     try:
         # Seed test templates
         semaine = PerfectDayTemplate(
-            user_id=1,
-            template_name="week",
-            thresholds_json={"discipline": 2}
+            user_id=1, template_name="week", thresholds_json={"discipline": 2}
         )
         session.add(semaine)
 
@@ -34,37 +33,41 @@ def db_session(monkeypatch):
             frequency="daily",
             scheduled_days="0,1,2,3,4,5,6",
             point_rewards={"discipline": 2},
-            is_active=True
+            is_active=True,
         )
         session.add(h)
 
         # Seed Gabriel (User ID 1)
-        gabriel = User(id=1, username="Gabriel", chat_id="111", xp=105, level=2, gold=100)
+        gabriel = User(
+            id=1, username="Gabriel", chat_id="111", xp=105, level=2, gold=100
+        )
         session.add(gabriel)
         session.commit()
 
         # Monkeypatch the SessionLocal inside listener.py to return this test session
         monkeypatch.setattr("src.bot.listener.SessionLocal", lambda: session)
         monkeypatch.setattr("src.bot.listener.TELEGRAM_GROUP_ID", "")
-        
+
         # Mock datetime module in listener.py to return the local "today" — the day boundary
         # follows system local time, consistent with how event timestamps are now stored.
         import datetime as real_datetime
+
         class MockDateClass:
             @staticmethod
             def today():
                 return real_datetime.date.today()
-                
+
         class MockDatetimeModule:
             date = MockDateClass
             datetime = real_datetime.datetime
             time = real_datetime.time
-            
+
         monkeypatch.setattr("src.bot.listener.datetime", MockDatetimeModule)
 
         yield session
     finally:
         session.close()
+
 
 @pytest.mark.asyncio
 async def test_bot_auto_registers_new_user(db_session):
@@ -73,7 +76,7 @@ async def test_bot_auto_registers_new_user(db_session):
     update.message = MagicMock()
     update.message.text = "/status"
     update.effective_chat.id = 222
-    
+
     from_user = MagicMock()
     from_user.username = "Jeanne"
     from_user.id = 222
@@ -101,6 +104,7 @@ async def test_bot_auto_registers_new_user(db_session):
     assert "Jeanne" in args[0]
     assert "Statut de la journée" in args[0]
 
+
 @pytest.mark.asyncio
 async def test_bot_command_user_isolation(db_session):
     # Ensure Jeanne exists
@@ -117,7 +121,7 @@ async def test_bot_command_user_isolation(db_session):
         frequency="daily",
         scheduled_days="0,1,2,3,4,5,6",
         point_rewards={"discipline": 2},
-        is_active=True
+        is_active=True,
     )
     db_session.add(jeanne_habit)
     db_session.commit()
@@ -127,12 +131,12 @@ async def test_bot_command_user_isolation(db_session):
     update.message = MagicMock()
     update.message.text = "/done routine_matin"
     update.effective_chat.id = 222
-    
+
     from_user = MagicMock()
     from_user.username = "Jeanne"
     from_user.id = 222
     update.message.from_user = from_user
-    
+
     update.message.reply_text = AsyncMock()
     context = MagicMock()
 
@@ -151,6 +155,7 @@ async def test_bot_command_user_isolation(db_session):
     assert jeanne_score is not None
     assert jeanne_score.actual_stats.get("discipline", 0) == 2
     assert gabriel_score is None
+
 
 @pytest.mark.asyncio
 async def test_bot_help_alias_matches_aide(db_session):
@@ -177,4 +182,7 @@ async def test_bot_help_alias_matches_aide(db_session):
     help_args, help_kwargs = await call_help_command("/help")
 
     assert help_args[0] == aide_args[0]
-    assert help_kwargs["reply_markup"].inline_keyboard == aide_kwargs["reply_markup"].inline_keyboard
+    assert (
+        help_kwargs["reply_markup"].inline_keyboard
+        == aide_kwargs["reply_markup"].inline_keyboard
+    )

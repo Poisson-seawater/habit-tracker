@@ -147,9 +147,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             db.close()
 
     @staticmethod
-    def _existing_response(
-        operation: RemoteOperation, request_hash: str
-    ) -> Response:
+    def _existing_response(operation: RemoteOperation, request_hash: str) -> Response:
         if operation.request_hash != request_hash:
             return _conflict(
                 "This idempotency key was already used with a different request.",

@@ -14,12 +14,8 @@ from src.services import softskill_service
 
 TEST_DB_FILE = "backend/tests/.test_remote_control.db"
 TEST_DATABASE_URL = f"sqlite:///{TEST_DB_FILE}"
-engine = create_engine(
-    TEST_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-TestingSessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=engine
-)
+engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def override_get_db():
@@ -54,13 +50,9 @@ def setup(monkeypatch, tmp_path):
         ),
         encoding="utf-8",
     )
-    monkeypatch.setattr(
-        softskill_service, "_get_config_path", lambda: str(config_path)
-    )
+    monkeypatch.setattr(softskill_service, "_get_config_path", lambda: str(config_path))
     softskill_service._tree_config = None
-    monkeypatch.setattr(
-        "src.api.idempotency.SessionLocal", TestingSessionLocal
-    )
+    monkeypatch.setattr("src.api.idempotency.SessionLocal", TestingSessionLocal)
     app.dependency_overrides[get_db] = override_get_db
     yield
     app.dependency_overrides.pop(get_db, None)
@@ -214,13 +206,9 @@ def test_branch_with_skills_is_atomic(client):
             },
         ],
     }
-    response = client.post(
-        "/api/v1/softskills/branches-with-skills", json=payload
-    )
+    response = client.post("/api/v1/softskills/branches-with-skills", json=payload)
     assert response.status_code == 201
-    tree = client.get(
-        "/api/v1/softskills", headers={"X-User-ID": "1"}
-    ).json()
+    tree = client.get("/api/v1/softskills", headers={"X-User-ID": "1"}).json()
     assert "bon_vivant" in tree["branches"]
     assert {skill["id"] for skill in tree["skills"]} == {
         "karaoke",
@@ -246,9 +234,7 @@ def test_branch_with_skills_is_atomic(client):
         },
     )
     assert failed.status_code == 400
-    tree_after = client.get(
-        "/api/v1/softskills", headers={"X-User-ID": "1"}
-    ).json()
+    tree_after = client.get("/api/v1/softskills", headers={"X-User-ID": "1"}).json()
     assert "autre" not in tree_after["branches"]
 
 

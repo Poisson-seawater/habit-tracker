@@ -15,25 +15,51 @@ def db_session():
     Session = sessionmaker(bind=engine)
     session = Session()
     try:
-        session.add(User(id=1, username="Gabriel", chat_id="123456", gold=0, xp=0, level=1))
+        session.add(
+            User(id=1, username="Gabriel", chat_id="123456", gold=0, xp=0, level=1)
+        )
         # Binary habit with a daily target of 2 (each rep = +5 discipline)
-        session.add(Habit(
-            id=1, user_id=1, name="jogging", type="binary", frequency="daily",
-            scheduled_days="0,1,2,3,4,5,6", point_rewards={"discipline": 5},
-            daily_target=2, is_active=True,
-        ))
+        session.add(
+            Habit(
+                id=1,
+                user_id=1,
+                name="jogging",
+                type="binary",
+                frequency="daily",
+                scheduled_days="0,1,2,3,4,5,6",
+                point_rewards={"discipline": 5},
+                daily_target=2,
+                is_active=True,
+            )
+        )
         # Plain binary habit (no target) for the no-regression check
-        session.add(Habit(
-            id=2, user_id=1, name="routine", type="binary", frequency="daily",
-            scheduled_days="0,1,2,3,4,5,6", point_rewards={"discipline": 5},
-            is_active=True,
-        ))
+        session.add(
+            Habit(
+                id=2,
+                user_id=1,
+                name="routine",
+                type="binary",
+                frequency="daily",
+                scheduled_days="0,1,2,3,4,5,6",
+                point_rewards={"discipline": 5},
+                is_active=True,
+            )
+        )
         # Targeted binary with a daily_cap to verify the cap still applies
-        session.add(Habit(
-            id=3, user_id=1, name="capped", type="binary", frequency="daily",
-            scheduled_days="0,1,2,3,4,5,6", point_rewards={"discipline": 5},
-            daily_target=3, daily_cap=12, is_active=True,
-        ))
+        session.add(
+            Habit(
+                id=3,
+                user_id=1,
+                name="capped",
+                type="binary",
+                frequency="daily",
+                scheduled_days="0,1,2,3,4,5,6",
+                point_rewards={"discipline": 5},
+                daily_target=3,
+                daily_cap=12,
+                is_active=True,
+            )
+        )
         session.commit()
         yield session
     finally:
@@ -42,8 +68,14 @@ def db_session():
 
 def _log(session, habit_id, n):
     for _ in range(n):
-        session.add(HabitLog(user_id=1, habit_id=habit_id, log_type="done",
-                             timestamp=datetime.datetime.now()))
+        session.add(
+            HabitLog(
+                user_id=1,
+                habit_id=habit_id,
+                log_type="done",
+                timestamp=datetime.datetime.now(),
+            )
+        )
     session.commit()
 
 

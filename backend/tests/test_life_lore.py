@@ -14,12 +14,14 @@ TEST_DATABASE_URL = f"sqlite:///{TEST_DB_FILE}"
 engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 def override_get_db():
     db = TestingSessionLocal()
     try:
         yield db
     finally:
         db.close()
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_test_db():
@@ -29,35 +31,39 @@ def setup_test_db():
             os.remove(TEST_DB_FILE)
         except OSError:
             pass
-        
+
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
-    
+
     try:
         # Seed default user Gabriel
         u = User(id=1, username="Gabriel", chat_id="111", xp=0, level=1, gold=100)
         db.add(u)
         # Seed an initial goal
-        g = Goal(id=10, user_id=1, title="Devenir Légende", description="Une longue quête")
+        g = Goal(
+            id=10, user_id=1, title="Devenir Légende", description="Une longue quête"
+        )
         db.add(g)
         db.commit()
     finally:
         db.close()
-        
+
     yield
-    
+
     if get_db in app.dependency_overrides:
         del app.dependency_overrides[get_db]
-        
+
     if os.path.exists(TEST_DB_FILE):
         try:
             os.remove(TEST_DB_FILE)
         except OSError:
             pass
 
+
 @pytest.fixture
 def client():
     return TestClient(app)
+
 
 def test_life_lore_flow(client):
     # 1. Create a subgoal without is_life_lore (defaults to false)
@@ -68,9 +74,9 @@ def test_life_lore_flow(client):
             "description": "Une étape normale",
             "gold_reward": 50,
             "stats_json": ["force"],
-            "execution_order": 1
+            "execution_order": 1,
         },
-        headers={"X-User-ID": "1"}
+        headers={"X-User-ID": "1"},
     )
     assert response.status_code == 201
     classic_substep_id = response.json()["substep"]["id"]
@@ -85,9 +91,9 @@ def test_life_lore_flow(client):
             "gold_reward": 100,
             "stats_json": ["force", "finance"],
             "execution_order": 2,
-            "is_life_lore": True
+            "is_life_lore": True,
         },
-        headers={"X-User-ID": "1"}
+        headers={"X-User-ID": "1"},
     )
     assert response.status_code == 201
     lore_substep_id = response.json()["substep"]["id"]
@@ -101,11 +107,15 @@ def test_life_lore_flow(client):
     assert len(data["life_lore_today"]) == 0
 
     # 4. Complete the classic subgoal
-    response = client.post(f"/api/v1/substeps/{classic_substep_id}/complete", headers={"X-User-ID": "1"})
+    response = client.post(
+        f"/api/v1/substeps/{classic_substep_id}/complete", headers={"X-User-ID": "1"}
+    )
     assert response.status_code == 200
 
     # 5. Complete the life lore subgoal
-    response = client.post(f"/api/v1/substeps/{lore_substep_id}/complete", headers={"X-User-ID": "1"})
+    response = client.post(
+        f"/api/v1/substeps/{lore_substep_id}/complete", headers={"X-User-ID": "1"}
+    )
     assert response.status_code == 200
 
     # 6. Fetch profile and verify "Forger Excalibur" is in life_lore_today
@@ -135,9 +145,9 @@ def test_life_lore_flow(client):
             "gold_reward": 75,
             "stats_json": ["force"],
             "execution_order": 1,
-            "is_life_lore": True
+            "is_life_lore": True,
         },
-        headers={"X-User-ID": "1"}
+        headers={"X-User-ID": "1"},
     )
     assert response.status_code == 200
     assert response.json()["substep"]["is_life_lore"] is True

@@ -15,12 +15,14 @@ TEST_DATABASE_URL = f"sqlite:///{TEST_DB_FILE}"
 engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 def override_get_db():
     db = TestingSessionLocal()
     try:
         yield db
     finally:
         db.close()
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_test_db():
@@ -30,10 +32,10 @@ def setup_test_db():
             os.remove(TEST_DB_FILE)
         except OSError:
             pass
-        
+
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
-    
+
     try:
         # Seed default user Gabriel with 100 gold
         u = User(id=1, username="Gabriel", chat_id="111", xp=0, level=1, gold=100)
@@ -41,21 +43,23 @@ def setup_test_db():
         db.commit()
     finally:
         db.close()
-        
+
     yield
-    
+
     if get_db in app.dependency_overrides:
         del app.dependency_overrides[get_db]
-        
+
     if os.path.exists(TEST_DB_FILE):
         try:
             os.remove(TEST_DB_FILE)
         except OSError:
             pass
 
+
 @pytest.fixture
 def client():
     return TestClient(app)
+
 
 class TestAllostasisRewards:
 
@@ -68,9 +72,9 @@ class TestAllostasisRewards:
                 "description": "Watch series",
                 "gold_cost": 50,  # Should be forced to 0
                 "category": "allostasis_daily",
-                "is_one_time": False
+                "is_one_time": False,
             },
-            headers={"X-User-ID": "1"}
+            headers={"X-User-ID": "1"},
         )
         assert response.status_code == 201
         data = response.json()
@@ -86,9 +90,9 @@ class TestAllostasisRewards:
                 json={
                     "title": f"Daily Item {i}",
                     "gold_cost": 0,
-                    "category": "allostasis_daily"
+                    "category": "allostasis_daily",
                 },
-                headers={"X-User-ID": "1"}
+                headers={"X-User-ID": "1"},
             )
             assert resp.status_code == 201
 
@@ -98,9 +102,9 @@ class TestAllostasisRewards:
             json={
                 "title": "4th Daily Item",
                 "gold_cost": 0,
-                "category": "allostasis_daily"
+                "category": "allostasis_daily",
             },
-            headers={"X-User-ID": "1"}
+            headers={"X-User-ID": "1"},
         )
         assert resp.status_code == 400
         assert "3 items" in resp.json()["detail"]
@@ -112,9 +116,9 @@ class TestAllostasisRewards:
                 json={
                     "title": f"Weekly Item {i}",
                     "gold_cost": 0,
-                    "category": "allostasis_weekly"
+                    "category": "allostasis_weekly",
                 },
-                headers={"X-User-ID": "1"}
+                headers={"X-User-ID": "1"},
             )
             assert resp.status_code == 201
 
@@ -123,9 +127,9 @@ class TestAllostasisRewards:
             json={
                 "title": "4th Weekly Item",
                 "gold_cost": 0,
-                "category": "allostasis_weekly"
+                "category": "allostasis_weekly",
             },
-            headers={"X-User-ID": "1"}
+            headers={"X-User-ID": "1"},
         )
         assert resp.status_code == 400
         assert "3 items" in resp.json()["detail"]
@@ -141,7 +145,9 @@ class TestAllostasisRewards:
         daily_item = next(r for r in rewards if r["category"] == "allostasis_daily")
 
         # Purchase daily item
-        purchase_resp = client.post(f"/api/v1/rewards/{daily_item['id']}/purchase", headers={"X-User-ID": "1"})
+        purchase_resp = client.post(
+            f"/api/v1/rewards/{daily_item['id']}/purchase", headers={"X-User-ID": "1"}
+        )
         assert purchase_resp.status_code == 200
         data = purchase_resp.json()
         assert data["status"] == "success"
@@ -158,39 +164,47 @@ class TestAllostasisRewards:
     def test_purchase_allostasis_reward_limit_same_period(self, client):
         # Fetch the same daily item purchased in the previous test
         rewards_resp = client.get("/api/v1/rewards", headers={"X-User-ID": "1"})
-        daily_item = next(r for r in rewards_resp.json() if r["category"] == "allostasis_daily" and r["last_purchased_at"] is not None)
+        daily_item = next(
+            r
+            for r in rewards_resp.json()
+            if r["category"] == "allostasis_daily"
+            and r["last_purchased_at"] is not None
+        )
 
         # Attempting to purchase it again today must fail
-        purchase_resp = client.post(f"/api/v1/rewards/{daily_item['id']}/purchase", headers={"X-User-ID": "1"})
+        purchase_resp = client.post(
+            f"/api/v1/rewards/{daily_item['id']}/purchase", headers={"X-User-ID": "1"}
+        )
         assert purchase_resp.status_code == 400
         assert "déjà été validé" in purchase_resp.json()["detail"]
 
     def test_allostasis_daily_recap_inclusion(self, client, monkeypatch):
         # Setup mock Bot and token to test recap inclusion
         sent_messages = []
-        
+
         class MockBot:
             def __init__(self, token):
                 self.token = token
+
             async def send_message(self, chat_id, text, parse_mode=None):
                 sent_messages.append(text)
-                
+
         monkeypatch.setattr("src.bot.scheduler.Bot", MockBot)
         monkeypatch.setattr("src.bot.scheduler.TELEGRAM_BOT_TOKEN", "mock_token")
         monkeypatch.setattr("src.config.TELEGRAM_GROUP_ID", "mock_group_id")
-        
+
         # Override the database session inside the scheduler to use TestingSessionLocal
         # since it uses SessionLocal by default.
         monkeypatch.setattr("src.bot.scheduler.SessionLocal", TestingSessionLocal)
-        
+
         # Run daily recap generator
         import asyncio
         from src.bot.scheduler import publish_daily_recap
+
         asyncio.run(publish_daily_recap())
-        
+
         # Assert recap generated is sent and includes the validated allostasis item name
         assert len(sent_messages) > 0
         recap_msg = sent_messages[0]
         assert "Allostasie" in recap_msg
         assert "25 min TV Show" in recap_msg
-

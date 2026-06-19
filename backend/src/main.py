@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from src.database.seed import init_db
 from src.api.idempotency import IdempotencyMiddleware
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup phase
@@ -20,11 +21,12 @@ async def lifespan(app: FastAPI):
     # Shutdown phase
     print("Shutting down API server...")
 
+
 app = FastAPI(
     title="Habit Tracker Bot API",
     description="Backend API and dashboard server for the RPG Accountability Habit Tracker",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 app.add_middleware(IdempotencyMiddleware)
@@ -38,15 +40,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Root status healthcheck
 @app.get("/health", tags=["System"])
 def health_check():
     return {"status": "healthy", "service": "habit-tracker-api"}
 
+
 # We will register our api routes here (implemented in T017/T018)
 from src.api.routes import router as api_router
+
 app.include_router(api_router, prefix="/api/v1")
 
 # Mount static files at root AFTER api routes
 from src.api.static_config import configure_static_serving
+
 configure_static_serving(app)

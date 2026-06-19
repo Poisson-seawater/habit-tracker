@@ -15,6 +15,7 @@ TEST_DATABASE_URL = f"sqlite:///{TEST_DB_FILE}"
 engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 def override_get_db():
     db = TestingSessionLocal()
     try:
@@ -22,14 +23,13 @@ def override_get_db():
     finally:
         db.close()
 
+
 @pytest.fixture(autouse=True)
 def mock_config_file(monkeypatch, tmp_path):
     """Fixture to mock the softskills config path with a temporary file."""
     temp_config_file = tmp_path / "test_softskills_tree.json"
     initial_config = {
-        "branches": {
-            "communication": {"color": "#8b5cf6", "pale_color": "#ddd"}
-        },
+        "branches": {"communication": {"color": "#8b5cf6", "pale_color": "#ddd"}},
         "skills": [
             {
                 "id": "ecoute",
@@ -39,7 +39,7 @@ def mock_config_file(monkeypatch, tmp_path):
                 "prerequisites": [],
                 "related": [],
                 "x": 100,
-                "y": 100
+                "y": 100,
             },
             {
                 "id": "orateur",
@@ -49,17 +49,21 @@ def mock_config_file(monkeypatch, tmp_path):
                 "prerequisites": ["ecoute"],
                 "related": [],
                 "x": 200,
-                "y": 100
-            }
-        ]
+                "y": 100,
+            },
+        ],
     }
     with open(temp_config_file, "w", encoding="utf-8") as f:
         json.dump(initial_config, f, indent=2)
 
     from src.services import softskill_service
-    monkeypatch.setattr(softskill_service, "_get_config_path", lambda: str(temp_config_file))
+
+    monkeypatch.setattr(
+        softskill_service, "_get_config_path", lambda: str(temp_config_file)
+    )
     softskill_service._tree_config = None
     yield temp_config_file
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_test_db():
@@ -69,45 +73,51 @@ def setup_test_db():
             os.remove(TEST_DB_FILE)
         except OSError:
             pass
-        
+
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
-    
+
     try:
         # Seed default user Gabriel
         u = User(id=1, username="Gabriel", chat_id="111", xp=0, level=1, gold=100)
         db.add(u)
-        
+
         # Seed goals
-        g1 = Goal(id=1, user_id=1, title="Devenir Riche", description="1M$", completed=False)
-        g2 = Goal(id=2, user_id=1, title="Devenir Sage", description="Méditer", completed=True)
+        g1 = Goal(
+            id=1, user_id=1, title="Devenir Riche", description="1M$", completed=False
+        )
+        g2 = Goal(
+            id=2, user_id=1, title="Devenir Sage", description="Méditer", completed=True
+        )
         db.add_all([g1, g2])
-        
+
         # Seed softskill progress
         sp1 = UserSoftskillProgress(user_id=1, softskill_id="ecoute", completed=True)
         db.add(sp1)
-        
+
         db.commit()
     finally:
         db.close()
-        
+
     yield
-    
+
     if get_db in app.dependency_overrides:
         del app.dependency_overrides[get_db]
-        
+
     if os.path.exists(TEST_DB_FILE):
         try:
             os.remove(TEST_DB_FILE)
         except OSError:
             pass
 
+
 @pytest.fixture
 def client():
     return TestClient(app)
 
+
 class TestRewardShop:
-    
+
     def test_create_reward_success(self, client):
         response = client.post(
             "/api/v1/rewards",
@@ -115,9 +125,9 @@ class TestRewardShop:
                 "title": "Une bonne bière",
                 "description": "Une IPA bien fraîche",
                 "gold_cost": 25,
-                "is_one_time": False
+                "is_one_time": False,
             },
-            headers={"X-User-ID": "1"}
+            headers={"X-User-ID": "1"},
         )
         assert response.status_code == 201
         data = response.json()
@@ -132,9 +142,9 @@ class TestRewardShop:
             json={
                 "title": "Une bière gratuite ?",
                 "gold_cost": -5,
-                "is_one_time": False
+                "is_one_time": False,
             },
-            headers={"X-User-ID": "1"}
+            headers={"X-User-ID": "1"},
         )
         assert response.status_code == 422
 
@@ -147,9 +157,9 @@ class TestRewardShop:
                 "title": "Achat de voiture",
                 "gold_cost": 50,
                 "required_goal_id": 1,
-                "is_one_time": True
+                "is_one_time": True,
             },
-            headers={"X-User-ID": "1"}
+            headers={"X-User-ID": "1"},
         )
         # R2: requires completed Goal 2
         client.post(
@@ -158,9 +168,9 @@ class TestRewardShop:
                 "title": "Séance de spa",
                 "gold_cost": 30,
                 "required_goal_id": 2,
-                "is_one_time": False
+                "is_one_time": False,
             },
-            headers={"X-User-ID": "1"}
+            headers={"X-User-ID": "1"},
         )
         # R3: requires completed Softskill "ecoute"
         client.post(
@@ -169,9 +179,9 @@ class TestRewardShop:
                 "title": "Discussion Premium",
                 "gold_cost": 10,
                 "required_softskill_id": "ecoute",
-                "is_one_time": False
+                "is_one_time": False,
             },
-            headers={"X-User-ID": "1"}
+            headers={"X-User-ID": "1"},
         )
         # R4: requires uncompleted Softskill "orateur"
         client.post(
@@ -180,15 +190,15 @@ class TestRewardShop:
                 "title": "Présentation TedX",
                 "gold_cost": 40,
                 "required_softskill_id": "orateur",
-                "is_one_time": False
+                "is_one_time": False,
             },
-            headers={"X-User-ID": "1"}
+            headers={"X-User-ID": "1"},
         )
 
         response = client.get("/api/v1/rewards", headers={"X-User-ID": "1"})
         assert response.status_code == 200
         rewards = response.json()
-        
+
         # Verify lock statuses
         r_car = next(r for r in rewards if r["title"] == "Achat de voiture")
         assert r_car["unlocked"] is False
@@ -217,7 +227,9 @@ class TestRewardShop:
         assert profile_resp.json()["gold"] == 100
 
         # Purchase Spa reward (cost = 30)
-        purchase_resp = client.post(f"/api/v1/rewards/{r_spa['id']}/purchase", headers={"X-User-ID": "1"})
+        purchase_resp = client.post(
+            f"/api/v1/rewards/{r_spa['id']}/purchase", headers={"X-User-ID": "1"}
+        )
         assert purchase_resp.status_code == 200
         data = purchase_resp.json()
         assert data["status"] == "success"
@@ -234,7 +246,9 @@ class TestRewardShop:
         r_car = next(r for r in rewards if r["title"] == "Achat de voiture")
 
         # Purchase car (locked)
-        purchase_resp = client.post(f"/api/v1/rewards/{r_car['id']}/purchase", headers={"X-User-ID": "1"})
+        purchase_resp = client.post(
+            f"/api/v1/rewards/{r_car['id']}/purchase", headers={"X-User-ID": "1"}
+        )
         assert purchase_resp.status_code == 400
         assert "verrouillée" in purchase_resp.json()["detail"]
 
@@ -242,16 +256,14 @@ class TestRewardShop:
         # Create a reward that costs 200 gold (Gabriel has 70 gold now)
         response = client.post(
             "/api/v1/rewards",
-            json={
-                "title": "Voyage spatial",
-                "gold_cost": 200,
-                "is_one_time": False
-            },
-            headers={"X-User-ID": "1"}
+            json={"title": "Voyage spatial", "gold_cost": 200, "is_one_time": False},
+            headers={"X-User-ID": "1"},
         )
         r_id = response.json()["reward"]["id"]
 
-        purchase_resp = client.post(f"/api/v1/rewards/{r_id}/purchase", headers={"X-User-ID": "1"})
+        purchase_resp = client.post(
+            f"/api/v1/rewards/{r_id}/purchase", headers={"X-User-ID": "1"}
+        )
         assert purchase_resp.status_code == 400
         assert "Or insuffisant" in purchase_resp.json()["detail"]
 
@@ -259,12 +271,8 @@ class TestRewardShop:
         # Create a one-time reward (cost = 10)
         response = client.post(
             "/api/v1/rewards",
-            json={
-                "title": "Badge unique",
-                "gold_cost": 10,
-                "is_one_time": True
-            },
-            headers={"X-User-ID": "1"}
+            json={"title": "Badge unique", "gold_cost": 10, "is_one_time": True},
+            headers={"X-User-ID": "1"},
         )
         r_id = response.json()["reward"]["id"]
 
@@ -292,9 +300,9 @@ class TestRewardShop:
                 "gold_cost": 50,
                 "is_one_time": False,
                 "required_softskill_id": None,
-                "required_goal_id": None
+                "required_goal_id": None,
             },
-            headers={"X-User-ID": "1"}
+            headers={"X-User-ID": "1"},
         )
         assert update_resp.status_code == 200
         data = update_resp.json()
@@ -308,7 +316,9 @@ class TestRewardShop:
         r_spa = next(r for r in rewards if r["title"] == "Séance de spa de luxe")
 
         # Delete
-        del_resp = client.delete(f"/api/v1/rewards/{r_spa['id']}", headers={"X-User-ID": "1"})
+        del_resp = client.delete(
+            f"/api/v1/rewards/{r_spa['id']}", headers={"X-User-ID": "1"}
+        )
         assert del_resp.status_code == 200
         assert del_resp.json()["status"] == "success"
 

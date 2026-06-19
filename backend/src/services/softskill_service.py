@@ -58,14 +58,10 @@ def _skill_position(skill: Dict[str, Any]) -> Optional[Tuple[int, int]]:
     return x, y
 
 
-def _positions_overlap(
-    first: Tuple[int, int], second: Tuple[int, int]
-) -> bool:
+def _positions_overlap(first: Tuple[int, int], second: Tuple[int, int]) -> bool:
     return (
-        abs(first[0] - second[0])
-        < LAYOUT_NODE_WIDTH + LAYOUT_HORIZONTAL_PADDING
-        and abs(first[1] - second[1])
-        < LAYOUT_NODE_HEIGHT + LAYOUT_VERTICAL_PADDING
+        abs(first[0] - second[0]) < LAYOUT_NODE_WIDTH + LAYOUT_HORIZONTAL_PADDING
+        and abs(first[1] - second[1]) < LAYOUT_NODE_HEIGHT + LAYOUT_VERTICAL_PADDING
     )
 
 
@@ -74,8 +70,7 @@ def _position_is_free(
     occupied_positions: List[Tuple[int, int]],
 ) -> bool:
     return all(
-        not _positions_overlap(position, occupied)
-        for occupied in occupied_positions
+        not _positions_overlap(position, occupied) for occupied in occupied_positions
     )
 
 
@@ -337,7 +332,9 @@ def validate_no_cycles(config: Dict[str, Any]) -> None:
                     f"Cyclic dependency detected in softskills_tree.json involving '{sid}'"
                 )
 
-    logger.info("Softskills tree config validated: no cycles found (%d skills)", len(skills))
+    logger.info(
+        "Softskills tree config validated: no cycles found (%d skills)", len(skills)
+    )
 
 
 def save_tree_config(config: Dict[str, Any]) -> None:
@@ -381,12 +378,10 @@ def create_branch_with_skills(
             raise ValueError("Skill IDs must be unique within the request.")
         duplicate_ids = sorted(existing_ids.intersection(new_ids))
         if duplicate_ids:
-            raise ValueError(
-                f"Skill IDs already exist: {', '.join(duplicate_ids)}."
-            )
+            raise ValueError(f"Skill IDs already exist: {', '.join(duplicate_ids)}.")
 
         allowed_prerequisites = existing_ids.union(new_ids)
-        
+
         # Build map of all skills (existing + new ones) to check branches
         full_skill_branch_map = {s["id"]: s.get("branch") for s in existing_skills}
         for new_id in new_ids:
@@ -430,9 +425,8 @@ def create_branch_with_skills(
             }
             requested_position = _skill_position(skill_data)
             occupied = _occupied_positions(config)
-            if (
-                requested_position is not None
-                and _position_is_free(requested_position, occupied)
+            if requested_position is not None and _position_is_free(
+                requested_position, occupied
             ):
                 x, y = requested_position
             else:
@@ -465,15 +459,14 @@ def create_branch(key: str, color: str, pale_color: str) -> Dict[str, Any]:
     if key in config["branches"]:
         raise ValueError(f"Branch '{key}' already exists.")
 
-    config["branches"][key] = {
-        "color": color,
-        "pale_color": pale_color
-    }
+    config["branches"][key] = {"color": color, "pale_color": pale_color}
     save_tree_config(config)
     return {"key": key, "color": color, "pale_color": pale_color}
 
 
-def update_branch(old_key: str, new_key: str, color: str, pale_color: str) -> Dict[str, Any]:
+def update_branch(
+    old_key: str, new_key: str, color: str, pale_color: str
+) -> Dict[str, Any]:
     """Update a branch's color and optionally rename its key."""
     config = load_tree_config(force_reload=True)
     if "branches" not in config or old_key not in config["branches"]:
@@ -482,10 +475,7 @@ def update_branch(old_key: str, new_key: str, color: str, pale_color: str) -> Di
     if old_key != new_key and new_key in config["branches"]:
         raise ValueError(f"Branch '{new_key}' already exists.")
 
-    branch_data = {
-        "color": color,
-        "pale_color": pale_color
-    }
+    branch_data = {"color": color, "pale_color": pale_color}
 
     if old_key != new_key:
         del config["branches"][old_key]
@@ -508,7 +498,9 @@ def delete_branch(db: Session, key: str) -> Dict[str, Any]:
 
     del config["branches"][key]
 
-    skills_to_delete = [s["id"] for s in config.get("skills", []) if s.get("branch") == key]
+    skills_to_delete = [
+        s["id"] for s in config.get("skills", []) if s.get("branch") == key
+    ]
     for skill_id in skills_to_delete:
         db.query(UserSoftskillProgress).filter_by(softskill_id=skill_id).delete()
         for s in config.get("skills", []):
@@ -546,12 +538,16 @@ def create_skill(skill_data: Dict[str, Any]) -> Dict[str, Any]:
     for prereq_id in prerequisites:
         prereq_skill = skill_map.get(prereq_id)
         if prereq_skill and prereq_skill.get("branch") == branch:
-            raise ValueError(f"Skill '{skill_id}' cannot have prerequisite '{prereq_id}' from the same branch '{branch}'.")
+            raise ValueError(
+                f"Skill '{skill_id}' cannot have prerequisite '{prereq_id}' from the same branch '{branch}'."
+            )
 
     for rel_id in related:
         rel_skill = skill_map.get(rel_id)
         if rel_skill and rel_skill.get("branch") == branch:
-            raise ValueError(f"A skill cannot be related to another skill of the same branch ('{rel_skill['name']}' belongs to '{branch}').")
+            raise ValueError(
+                f"A skill cannot be related to another skill of the same branch ('{rel_skill['name']}' belongs to '{branch}')."
+            )
 
     new_skill = {
         "id": skill_id,
@@ -565,9 +561,8 @@ def create_skill(skill_data: Dict[str, Any]) -> Dict[str, Any]:
     }
     requested_position = _skill_position(skill_data)
     occupied = _occupied_positions(config)
-    if (
-        requested_position is not None
-        and _position_is_free(requested_position, occupied)
+    if requested_position is not None and _position_is_free(
+        requested_position, occupied
     ):
         x, y = requested_position
     else:
@@ -614,12 +609,16 @@ def update_skill(skill_id: str, skill_data: Dict[str, Any]) -> Dict[str, Any]:
     for prereq_id in prerequisites:
         prereq_skill = skill_map.get(prereq_id)
         if prereq_skill and prereq_skill.get("branch") == branch:
-            raise ValueError(f"Skill '{skill_id}' cannot have prerequisite '{prereq_id}' from the same branch '{branch}'.")
+            raise ValueError(
+                f"Skill '{skill_id}' cannot have prerequisite '{prereq_id}' from the same branch '{branch}'."
+            )
 
     for rel_id in related:
         rel_skill = skill_map.get(rel_id)
         if rel_skill and rel_skill.get("branch") == branch:
-            raise ValueError(f"A skill cannot be related to another skill of the same branch ('{rel_skill['name']}' belongs to '{branch}').")
+            raise ValueError(
+                f"A skill cannot be related to another skill of the same branch ('{rel_skill['name']}' belongs to '{branch}')."
+            )
 
     updated_skill = {
         **current_skill,
@@ -636,8 +635,7 @@ def update_skill(skill_id: str, skill_data: Dict[str, Any]) -> Dict[str, Any]:
     requested_position = _skill_position(skill_data)
     current_position = _skill_position(current_skill)
     structure_changed = (
-        branch != old_branch
-        or updated_skill["execution_order"] != old_order
+        branch != old_branch or updated_skill["execution_order"] != old_order
     )
 
     if requested_position is not None:
@@ -736,14 +734,22 @@ def get_tree_with_progress(db: Session, user_id: int) -> Dict[str, Any]:
 
     skills_out = []
     for skill in config.get("skills", []):
-        skill_progress = progress.get(skill["id"], {
-            "success_criteria_test": None,
-            "current_level": 0,
-            "completed": False,
-            "updated_at": None,
-        })
-        if not skill_progress.get("success_criteria_test") and skill.get("success_criteria_test"):
-            skill_progress = {**skill_progress, "success_criteria_test": skill.get("success_criteria_test")}
+        skill_progress = progress.get(
+            skill["id"],
+            {
+                "success_criteria_test": None,
+                "current_level": 0,
+                "completed": False,
+                "updated_at": None,
+            },
+        )
+        if not skill_progress.get("success_criteria_test") and skill.get(
+            "success_criteria_test"
+        ):
+            skill_progress = {
+                **skill_progress,
+                "success_criteria_test": skill.get("success_criteria_test"),
+            }
         skills_out.append({**skill, "progress": skill_progress})
 
     return {

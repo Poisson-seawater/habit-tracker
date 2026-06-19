@@ -6,19 +6,42 @@ from typing import Optional, List, Dict
 from pydantic import BaseModel, Field
 
 from src.database.session import get_db
-from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, Goal, SubStep, GoalSubStepLink, NoTodo, UserSoftskillProgress, Reward, RemoteOperation
-from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_6_STATS, DEFAULT_THRESHOLDS
+from src.database.models import (
+    User,
+    Habit,
+    HabitLog,
+    PerfectDayTemplate,
+    DailyScore,
+    Streak,
+    Todo,
+    Goal,
+    SubStep,
+    GoalSubStepLink,
+    NoTodo,
+    UserSoftskillProgress,
+    Reward,
+    RemoteOperation,
+)
+from src.services.score_service import (
+    calculate_daily_score,
+    update_streaks,
+    add_user_xp,
+    ALL_6_STATS,
+    DEFAULT_THRESHOLDS,
+)
 from src.services import softskill_service
 
 router = APIRouter()
 
 # --- Request/Response Pydantic Schemas ---
 
+
 class LogCreate(BaseModel):
     habit_id: int
     log_type: str  # "done", "skip", "log"
     amount: Optional[int] = None
     reason: Optional[str] = None
+
 
 class HabitCreate(BaseModel):
     name: str
@@ -35,12 +58,15 @@ class HabitCreate(BaseModel):
     daily_target: Optional[int] = None
     unit: Optional[str] = None
 
+
 class TemplateOverride(BaseModel):
     template_name: str
+
 
 class TemplateSave(BaseModel):
     template_name: str
     thresholds_json: Dict[str, int]
+
 
 class TodoCreate(BaseModel):
     title: str
@@ -50,13 +76,16 @@ class TodoCreate(BaseModel):
     points_reward_2: Optional[int] = 0
     xp_reward: Optional[int] = Field(10, ge=0, le=40)  # Max 40 XP
 
+
 class NoTodoCreate(BaseModel):
     title: str
+
 
 class TelegramWebAppSessionCreate(BaseModel):
     id: int
     username: Optional[str] = None
     first_name: Optional[str] = None
+
 
 class GoalCreate(BaseModel):
     title: str
@@ -75,6 +104,7 @@ class SubStepCreate(BaseModel):
     execution_order: int = 1
     is_life_lore: Optional[bool] = False
 
+
 class SubStepUpdate(BaseModel):
     title: str
     description: Optional[str] = None
@@ -83,10 +113,12 @@ class SubStepUpdate(BaseModel):
     execution_order: int = 1
     is_life_lore: Optional[bool] = False
 
+
 class SubStepLinkRequest(BaseModel):
     goal_id: int
     substep_id: int
     execution_order: Optional[int] = 1
+
 
 class SubStepReorderRequest(BaseModel):
     execution_order: int
@@ -183,7 +215,11 @@ GoalWithSubstepsCreate.model_rebuild()
 
 # --- Multi-User Dependency ---
 
-def get_current_user_id(user_id: Optional[int] = None, x_user_id: Optional[str] = Header(None, alias="X-User-ID")) -> int:
+
+def get_current_user_id(
+    user_id: Optional[int] = None,
+    x_user_id: Optional[str] = Header(None, alias="X-User-ID"),
+) -> int:
     """
     Dependency to resolve the current user ID, falling back to Gabriel (ID 1).
     """
@@ -208,7 +244,7 @@ def _validate_stat_name(stat_name: Optional[str]):
     if stat_name and stat_name not in ALL_6_STATS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown stat '{stat_name}'. Valid stats: {', '.join(ALL_6_STATS)}"
+            detail=f"Unknown stat '{stat_name}'. Valid stats: {', '.join(ALL_6_STATS)}",
         )
 
 
@@ -221,12 +257,12 @@ def validate_habit_payload(payload: "HabitCreate"):
     if payload.type not in VALID_HABIT_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid habit type '{payload.type}'. Valid types: {', '.join(sorted(VALID_HABIT_TYPES))}"
+            detail=f"Invalid habit type '{payload.type}'. Valid types: {', '.join(sorted(VALID_HABIT_TYPES))}",
         )
     if payload.frequency is not None and payload.frequency not in VALID_FREQUENCIES:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid frequency '{payload.frequency}'. Valid: {', '.join(sorted(VALID_FREQUENCIES))}"
+            detail=f"Invalid frequency '{payload.frequency}'. Valid: {', '.join(sorted(VALID_FREQUENCIES))}",
         )
     if not payload.point_rewards:
         raise HTTPException(status_code=400, detail="point_rewards must not be empty.")
@@ -234,10 +270,12 @@ def validate_habit_payload(payload: "HabitCreate"):
         if stat not in ALL_6_STATS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unknown stat '{stat}' in point_rewards. Valid stats: {', '.join(ALL_6_STATS)}"
+                detail=f"Unknown stat '{stat}' in point_rewards. Valid stats: {', '.join(ALL_6_STATS)}",
             )
     if payload.type == "quantitative" and not payload.unit:
-        raise HTTPException(status_code=400, detail="A quantitative habit requires a 'unit'.")
+        raise HTTPException(
+            status_code=400, detail="A quantitative habit requires a 'unit'."
+        )
 
 
 # --- Users & Profile Route ---
@@ -288,6 +326,7 @@ def get_remote_operation(
         "updated_at": operation.updated_at.isoformat(),
     }
 
+
 @router.get("/users")
 def get_users(db: Session = Depends(get_db)):
     """
@@ -296,8 +335,11 @@ def get_users(db: Session = Depends(get_db)):
     users = db.query(User).all()
     return [{"id": u.id, "username": u.username} for u in users]
 
+
 @router.post("/telegram-webapp/session")
-def create_telegram_webapp_session(payload: TelegramWebAppSessionCreate, db: Session = Depends(get_db)):
+def create_telegram_webapp_session(
+    payload: TelegramWebAppSessionCreate, db: Session = Depends(get_db)
+):
     """
     Prototype Telegram Mini App session resolver.
     Uses Telegram-provided client data to select or create a local user.
@@ -310,7 +352,9 @@ def create_telegram_webapp_session(payload: TelegramWebAppSessionCreate, db: Ses
         user = db.query(User).filter_by(username=payload.username).first()
 
     if not user:
-        user = User(username=display_name, chat_id=telegram_chat_id, xp=0, level=1, gold=0)
+        user = User(
+            username=display_name, chat_id=telegram_chat_id, xp=0, level=1, gold=0
+        )
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -321,8 +365,11 @@ def create_telegram_webapp_session(payload: TelegramWebAppSessionCreate, db: Ses
 
     return {"id": user.id, "username": user.username}
 
+
 @router.get("/profile")
-def get_profile(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_profile(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
     """
     Fetch the user's profile status, level, active daily template, RPG attributes,
     and progress towards daily score thresholds.
@@ -338,27 +385,45 @@ def get_profile(db: Session = Depends(get_db), user_id: int = Depends(get_curren
         score = calculate_daily_score(db, user_id=user.id, date=today)
 
     # Get custom template thresholds or fallback
-    custom_template = db.query(PerfectDayTemplate).filter_by(user_id=user.id, template_name=score.template_used).first()
-    thresholds = custom_template.thresholds_json if custom_template else DEFAULT_THRESHOLDS.get(score.template_used, {})
+    custom_template = (
+        db.query(PerfectDayTemplate)
+        .filter_by(user_id=user.id, template_name=score.template_used)
+        .first()
+    )
+    thresholds = (
+        custom_template.thresholds_json
+        if custom_template
+        else DEFAULT_THRESHOLDS.get(score.template_used, {})
+    )
 
     # Get today's completed habit IDs
     start_dt = datetime.datetime.combine(today, datetime.time.min)
     end_dt = datetime.datetime.combine(today, datetime.time.max)
-    logs = db.query(HabitLog).filter(
-        HabitLog.user_id == user.id,
-        HabitLog.timestamp >= start_dt,
-        HabitLog.timestamp <= end_dt
-    ).all()
-    completed_habit_ids = list(set(log.habit_id for log in logs if log.log_type in ["done", "log"]))
+    logs = (
+        db.query(HabitLog)
+        .filter(
+            HabitLog.user_id == user.id,
+            HabitLog.timestamp >= start_dt,
+            HabitLog.timestamp <= end_dt,
+        )
+        .all()
+    )
+    completed_habit_ids = list(
+        set(log.habit_id for log in logs if log.log_type in ["done", "log"])
+    )
 
     # Get today's completed Life Lore subgoals
-    life_lore_today = db.query(SubStep).filter(
-        SubStep.user_id == user.id,
-        SubStep.is_life_lore == True,
-        SubStep.completed == True,
-        SubStep.completed_at >= start_dt,
-        SubStep.completed_at <= end_dt
-    ).all()
+    life_lore_today = (
+        db.query(SubStep)
+        .filter(
+            SubStep.user_id == user.id,
+            SubStep.is_life_lore == True,
+            SubStep.completed == True,
+            SubStep.completed_at >= start_dt,
+            SubStep.completed_at <= end_dt,
+        )
+        .all()
+    )
 
     return {
         "username": user.username,
@@ -366,7 +431,7 @@ def get_profile(db: Session = Depends(get_db), user_id: int = Depends(get_curren
         "completed_habit_ids": completed_habit_ids,
         "scores": {
             "status": score.status,
-            "perfect_day_validated": score.status == "Perfect"
+            "perfect_day_validated": score.status == "Perfect",
         },
         "stats": score.actual_stats,
         "thresholds": thresholds,
@@ -379,12 +444,14 @@ def get_profile(db: Session = Depends(get_db), user_id: int = Depends(get_curren
         "life_lore_today": [
             {"id": s.id, "title": s.title, "description": s.description or ""}
             for s in life_lore_today
-        ]
+        ],
     }
 
 
 @router.get("/profile/life-lore")
-def get_user_life_lore(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_user_life_lore(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
     """
     Fetch all completed life lore substeps of all time for the user.
     """
@@ -401,14 +468,18 @@ def get_user_life_lore(db: Session = Depends(get_db), user_id: int = Depends(get
             "description": s.description or "",
             "completed_at": s.completed_at.isoformat() if s.completed_at else None,
             "gold_reward": s.gold_reward,
-            "stats": s.stats_json or []
+            "stats": s.stats_json or [],
         }
         for s in substeps
     ]
 
 
 @router.put("/profile/pins")
-def update_profile_pins(payload: PinsUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def update_profile_pins(
+    payload: PinsUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Update the user's pinned sub-steps and pinned softskills.
     """
@@ -422,7 +493,9 @@ def update_profile_pins(payload: PinsUpdate, db: Session = Depends(get_db), user
 
 
 @router.get("/status")
-def get_status(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_status(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
     """
     Full day status in a single call — the JSON equivalent of the bot's /status command.
     Exposes the Perfect Day streak and skip reasons, which no other endpoint provides.
@@ -434,41 +507,80 @@ def get_status(db: Session = Depends(get_db), user_id: int = Depends(get_current
     today = datetime.date.today()
     score = calculate_daily_score(db, user_id=user.id, date=today)
 
-    custom_template = db.query(PerfectDayTemplate).filter_by(user_id=user.id, template_name=score.template_used).first()
-    thresholds = custom_template.thresholds_json if custom_template else DEFAULT_THRESHOLDS.get(score.template_used, {})
+    custom_template = (
+        db.query(PerfectDayTemplate)
+        .filter_by(user_id=user.id, template_name=score.template_used)
+        .first()
+    )
+    thresholds = (
+        custom_template.thresholds_json
+        if custom_template
+        else DEFAULT_THRESHOLDS.get(score.template_used, {})
+    )
 
     # Today's logs, grouped by type
     start_dt = datetime.datetime.combine(today, datetime.time.min)
     end_dt = datetime.datetime.combine(today, datetime.time.max)
-    today_logs = db.query(HabitLog).filter(
-        HabitLog.user_id == user.id,
-        HabitLog.timestamp >= start_dt,
-        HabitLog.timestamp <= end_dt
-    ).all()
+    today_logs = (
+        db.query(HabitLog)
+        .filter(
+            HabitLog.user_id == user.id,
+            HabitLog.timestamp >= start_dt,
+            HabitLog.timestamp <= end_dt,
+        )
+        .all()
+    )
 
     completed = []
     skipped = []
     logged_habit_ids = set()
     for log_entry in today_logs:
-        habit = db.query(Habit).filter_by(id=log_entry.habit_id, user_id=user.id).first()
+        habit = (
+            db.query(Habit).filter_by(id=log_entry.habit_id, user_id=user.id).first()
+        )
         if not habit:
             continue
         logged_habit_ids.add(habit.id)
         if log_entry.log_type == "done":
-            completed.append({"habit_id": habit.id, "name": habit.name, "type": "done", "amount": None, "unit": None})
+            completed.append(
+                {
+                    "habit_id": habit.id,
+                    "name": habit.name,
+                    "type": "done",
+                    "amount": None,
+                    "unit": None,
+                }
+            )
         elif log_entry.log_type == "log":
-            completed.append({"habit_id": habit.id, "name": habit.name, "type": "log", "amount": log_entry.amount, "unit": log_entry.unit})
+            completed.append(
+                {
+                    "habit_id": habit.id,
+                    "name": habit.name,
+                    "type": "log",
+                    "amount": log_entry.amount,
+                    "unit": log_entry.unit,
+                }
+            )
         elif log_entry.log_type == "skip":
-            skipped.append({"habit_id": habit.id, "name": habit.name, "reason": log_entry.reason})
+            skipped.append(
+                {"habit_id": habit.id, "name": habit.name, "reason": log_entry.reason}
+            )
 
     # Todos completed today
-    completed_todos = db.query(Todo).filter(
-        Todo.user_id == user.id,
-        Todo.is_completed == True,
-        Todo.completed_at >= start_dt,
-        Todo.completed_at <= end_dt
-    ).all()
-    completed_todos_out = [{"id": t.id, "title": t.title, "xp_reward": t.xp_reward} for t in completed_todos]
+    completed_todos = (
+        db.query(Todo)
+        .filter(
+            Todo.user_id == user.id,
+            Todo.is_completed == True,
+            Todo.completed_at >= start_dt,
+            Todo.completed_at <= end_dt,
+        )
+        .all()
+    )
+    completed_todos_out = [
+        {"id": t.id, "title": t.title, "xp_reward": t.xp_reward}
+        for t in completed_todos
+    ]
 
     # Remaining scheduled habits (not yet logged)
     weekday = today.weekday()
@@ -476,20 +588,28 @@ def get_status(db: Session = Depends(get_db), user_id: int = Depends(get_current
     all_habits = db.query(Habit).filter_by(user_id=user.id, is_active=True).all()
     remaining = []
     for habit in all_habits:
-        scheduled = str(model_day_idx) in [day.strip() for day in habit.scheduled_days.split(",")]
+        scheduled = str(model_day_idx) in [
+            day.strip() for day in habit.scheduled_days.split(",")
+        ]
         if not scheduled or habit.id in logged_habit_ids:
             continue
         remaining.append({"habit_id": habit.id, "name": habit.name, "type": habit.type})
 
     # Perfect Day streak
-    perf_streak = db.query(Streak).filter_by(user_id=user.id, streak_type="Perfect").first()
+    perf_streak = (
+        db.query(Streak).filter_by(user_id=user.id, streak_type="Perfect").first()
+    )
 
     # No-Todos failed today
-    failed_notodos = db.query(NoTodo).filter(
-        NoTodo.user_id == user.id,
-        NoTodo.failed_at >= start_dt,
-        NoTodo.failed_at <= end_dt
-    ).all()
+    failed_notodos = (
+        db.query(NoTodo)
+        .filter(
+            NoTodo.user_id == user.id,
+            NoTodo.failed_at >= start_dt,
+            NoTodo.failed_at <= end_dt,
+        )
+        .all()
+    )
     failed_notodos_out = [{"id": n.id, "title": n.title} for n in failed_notodos]
 
     return {
@@ -499,7 +619,9 @@ def get_status(db: Session = Depends(get_db), user_id: int = Depends(get_current
             "status": score.status,
             "validated": score.status == "Perfect",
             "thresholds": thresholds,
-            "actual": {stat: score.actual_stats.get(stat.lower(), 0) for stat in thresholds},
+            "actual": {
+                stat: score.actual_stats.get(stat.lower(), 0) for stat in thresholds
+            },
         },
         "streak": {
             "current": perf_streak.current_streak if perf_streak else 0,
@@ -519,8 +641,11 @@ def get_status(db: Session = Depends(get_db), user_id: int = Depends(get_current
 
 # --- Goals & SubSteps Graph Routes ---
 
+
 @router.get("/goals")
-def get_goals(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_goals(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
     """
     List all goals with their substeps and graph dependencies.
     execution_order is now read from GoalSubStepLink (per-goal ordering).
@@ -528,7 +653,7 @@ def get_goals(db: Session = Depends(get_db), user_id: int = Depends(get_current_
     """
     goals = db.query(Goal).filter_by(user_id=user_id).all()
     result = []
-    
+
     for g in goals:
         substeps_list = []
         for link in g.substep_links:
@@ -538,54 +663,54 @@ def get_goals(db: Session = Depends(get_db), user_id: int = Depends(get_current_
             for other_link in s.goal_links:
                 if other_link.goal_id != g.id:
                     other_goal = other_link.goal
-                    other_goals.append({
-                        "id": other_goal.id,
-                        "title": other_goal.title
-                    })
-            substeps_list.append({
-                "id": s.id,
-                "title": s.title,
-                "description": s.description or "",
-                "gold_reward": s.gold_reward,
-                "completed": s.completed,
-                "completed_at": s.completed_at.isoformat() if s.completed_at else None,
-                "stats": s.stats_json or [],
-                "execution_order": link.execution_order,
-                "linked_goals": other_goals,
-                "is_life_lore": s.is_life_lore
-            })
-            
-        result.append({
-            "id": g.id,
-            "title": g.title,
-            "description": g.description,
-            "completed": g.completed,
-            "completed_at": g.completed_at.isoformat() if g.completed_at else None,
-            "substeps": substeps_list
-        })
-        
+                    other_goals.append({"id": other_goal.id, "title": other_goal.title})
+            substeps_list.append(
+                {
+                    "id": s.id,
+                    "title": s.title,
+                    "description": s.description or "",
+                    "gold_reward": s.gold_reward,
+                    "completed": s.completed,
+                    "completed_at": (
+                        s.completed_at.isoformat() if s.completed_at else None
+                    ),
+                    "stats": s.stats_json or [],
+                    "execution_order": link.execution_order,
+                    "linked_goals": other_goals,
+                    "is_life_lore": s.is_life_lore,
+                }
+            )
+
+        result.append(
+            {
+                "id": g.id,
+                "title": g.title,
+                "description": g.description,
+                "completed": g.completed,
+                "completed_at": g.completed_at.isoformat() if g.completed_at else None,
+                "substeps": substeps_list,
+            }
+        )
+
     return result
 
+
 @router.post("/goals", status_code=201)
-def create_goal(payload: GoalCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def create_goal(
+    payload: GoalCreate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Create a new goal.
     """
-    goal = Goal(
-        user_id=user_id,
-        title=payload.title,
-        description=payload.description
-    )
+    goal = Goal(user_id=user_id, title=payload.title, description=payload.description)
     db.add(goal)
     db.commit()
     db.refresh(goal)
     return {
         "status": "success",
-        "goal": {
-            "id": goal.id,
-            "title": goal.title,
-            "description": goal.description
-        }
+        "goal": {"id": goal.id, "title": goal.title, "description": goal.description},
     }
 
 
@@ -620,7 +745,13 @@ def create_goal_with_substeps(
         )
         db.add(substep)
         db.flush()
-        db.add(GoalSubStepLink(goal_id=goal.id, substep_id=substep.id, execution_order=substep_payload.execution_order))
+        db.add(
+            GoalSubStepLink(
+                goal_id=goal.id,
+                substep_id=substep.id,
+                execution_order=substep_payload.execution_order,
+            )
+        )
         created_substeps.append(
             {
                 "id": substep.id,
@@ -644,50 +775,63 @@ def create_goal_with_substeps(
         },
     }
 
+
 @router.delete("/goals/{goal_id}")
-def delete_goal(goal_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def delete_goal(
+    goal_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Delete a goal and its associated goal-substep links.
     """
     goal = db.query(Goal).filter_by(id=goal_id, user_id=user_id).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
-        
+
     db.delete(goal)
     db.commit()
     return {"status": "success", "message": "Goal deleted successfully"}
 
+
 @router.put("/goals/{goal_id}")
-def update_goal(goal_id: int, payload: GoalCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def update_goal(
+    goal_id: int,
+    payload: GoalCreate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Update a goal's title and description.
     """
     goal = db.query(Goal).filter_by(id=goal_id, user_id=user_id).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
-        
+
     goal.title = payload.title
     goal.description = payload.description
     db.commit()
     db.refresh(goal)
     return {
         "status": "success",
-        "goal": {
-            "id": goal.id,
-            "title": goal.title,
-            "description": goal.description
-        }
+        "goal": {"id": goal.id, "title": goal.title, "description": goal.description},
     }
 
+
 @router.post("/goals/{goal_id}/substeps", status_code=201)
-def create_substep(goal_id: int, payload: SubStepCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def create_substep(
+    goal_id: int,
+    payload: SubStepCreate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Create a new substep and associate it with a goal. Optionally define blockers.
     """
     goal = db.query(Goal).filter_by(id=goal_id, user_id=user_id).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
-        
+
     substep = SubStep(
         user_id=user_id,
         title=payload.title,
@@ -695,20 +839,20 @@ def create_substep(goal_id: int, payload: SubStepCreate, db: Session = Depends(g
         gold_reward=payload.gold_reward,
         stats_json=payload.stats_json,
         execution_order=payload.execution_order,
-        is_life_lore=payload.is_life_lore or False
+        is_life_lore=payload.is_life_lore or False,
     )
     db.add(substep)
     db.flush()  # Generate substep ID
 
     # Link to Goal with per-goal execution_order
-    link = GoalSubStepLink(goal_id=goal_id, substep_id=substep.id, execution_order=payload.execution_order)
+    link = GoalSubStepLink(
+        goal_id=goal_id, substep_id=substep.id, execution_order=payload.execution_order
+    )
     db.add(link)
-
-
 
     db.commit()
     db.refresh(substep)
-    
+
     return {
         "status": "success",
         "substep": {
@@ -718,37 +862,54 @@ def create_substep(goal_id: int, payload: SubStepCreate, db: Session = Depends(g
             "gold_reward": substep.gold_reward,
             "stats": substep.stats_json,
             "execution_order": substep.execution_order,
-            "is_life_lore": substep.is_life_lore
-        }
+            "is_life_lore": substep.is_life_lore,
+        },
     }
 
+
 @router.post("/substeps/link")
-def link_substep_to_goal(payload: SubStepLinkRequest, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def link_substep_to_goal(
+    payload: SubStepLinkRequest,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Link an existing substep to another goal (shared substep relation).
     Supports per-goal execution_order.
     """
     goal = db.query(Goal).filter_by(id=payload.goal_id, user_id=user_id).first()
-    substep = db.query(SubStep).filter_by(id=payload.substep_id, user_id=user_id).first()
-    
+    substep = (
+        db.query(SubStep).filter_by(id=payload.substep_id, user_id=user_id).first()
+    )
+
     if not goal or not substep:
         raise HTTPException(status_code=404, detail="Goal or Substep not found")
-        
-    existing_link = db.query(GoalSubStepLink).filter_by(goal_id=goal.id, substep_id=substep.id).first()
+
+    existing_link = (
+        db.query(GoalSubStepLink)
+        .filter_by(goal_id=goal.id, substep_id=substep.id)
+        .first()
+    )
     if existing_link:
         existing_link.execution_order = payload.execution_order
         db.commit()
         return {"status": "updated"}
-        
-    link = GoalSubStepLink(goal_id=goal.id, substep_id=substep.id, execution_order=payload.execution_order)
+
+    link = GoalSubStepLink(
+        goal_id=goal.id, substep_id=substep.id, execution_order=payload.execution_order
+    )
     db.add(link)
     db.commit()
     return {"status": "success"}
 
 
-
 @router.put("/substeps/{substep_id}")
-def update_substep(substep_id: int, payload: SubStepUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def update_substep(
+    substep_id: int,
+    payload: SubStepUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Update a substep's title, description, gold reward, target stats.
     Does not overwrite execution_order on individual goal links.
@@ -756,17 +917,17 @@ def update_substep(substep_id: int, payload: SubStepUpdate, db: Session = Depend
     substep = db.query(SubStep).filter_by(id=substep_id, user_id=user_id).first()
     if not substep:
         raise HTTPException(status_code=404, detail="Substep not found")
-        
+
     substep.title = payload.title
     substep.description = payload.description
     substep.gold_reward = payload.gold_reward
     substep.stats_json = payload.stats_json
     substep.execution_order = payload.execution_order
     substep.is_life_lore = payload.is_life_lore or False
-                
+
     db.commit()
     db.refresh(substep)
-    
+
     return {
         "status": "success",
         "substep": {
@@ -776,9 +937,10 @@ def update_substep(substep_id: int, payload: SubStepUpdate, db: Session = Depend
             "gold_reward": substep.gold_reward,
             "stats": substep.stats_json,
             "execution_order": substep.execution_order,
-            "is_life_lore": substep.is_life_lore
-        }
+            "is_life_lore": substep.is_life_lore,
+        },
     }
+
 
 @router.put("/goals/{goal_id}/substeps/{substep_id}/reorder")
 def reorder_substep_in_goal(
@@ -786,45 +948,60 @@ def reorder_substep_in_goal(
     substep_id: int,
     payload: SubStepReorderRequest,
     db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    user_id: int = Depends(get_current_user_id),
 ):
     """
     Change the execution_order of a substep within a specific goal only.
     Does NOT affect the substep's order in other goals.
     """
-    link = db.query(GoalSubStepLink).join(Goal).filter(
-        GoalSubStepLink.goal_id == goal_id,
-        GoalSubStepLink.substep_id == substep_id,
-        Goal.user_id == user_id
-    ).first()
+    link = (
+        db.query(GoalSubStepLink)
+        .join(Goal)
+        .filter(
+            GoalSubStepLink.goal_id == goal_id,
+            GoalSubStepLink.substep_id == substep_id,
+            Goal.user_id == user_id,
+        )
+        .first()
+    )
     if not link:
         raise HTTPException(status_code=404, detail="Goal-substep link not found")
-    
+
     link.execution_order = payload.execution_order
     db.commit()
-    
+
     return {
         "status": "success",
         "goal_id": goal_id,
         "substep_id": substep_id,
-        "execution_order": link.execution_order
+        "execution_order": link.execution_order,
     }
 
+
 @router.delete("/substeps/{substep_id}")
-def delete_substep(substep_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def delete_substep(
+    substep_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Delete a substep manually. Associated links/dependencies will cascade.
     """
     substep = db.query(SubStep).filter_by(id=substep_id, user_id=user_id).first()
     if not substep:
         raise HTTPException(status_code=404, detail="Substep not found")
-        
+
     db.delete(substep)
     db.commit()
     return {"status": "success", "message": "Substep deleted successfully"}
 
+
 @router.post("/substeps/{substep_id}/complete")
-def complete_substep(substep_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def complete_substep(
+    substep_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Complete a substep manually. Strict Option A validation:
     Cannot complete if any blocker dependency is uncompleted.
@@ -832,16 +1009,14 @@ def complete_substep(substep_id: int, db: Session = Depends(get_db), user_id: in
     substep = db.query(SubStep).filter_by(id=substep_id, user_id=user_id).first()
     if not substep:
         raise HTTPException(status_code=404, detail="Substep not found")
-        
+
     if substep.completed:
         return {"status": "already_completed", "gold": substep.user.gold}
-
-
 
     # Complete substep
     substep.completed = True
     substep.completed_at = datetime.datetime.now()
-    
+
     # Award customizable gold reward
     user = db.query(User).filter_by(id=user_id).first()
     user.gold += substep.gold_reward
@@ -864,19 +1039,22 @@ def complete_substep(substep_id: int, db: Session = Depends(get_db), user_id: in
             completed_goals.append(g.title)
 
     db.commit()
-    
+
     return {
         "status": "success",
         "gold_awarded": substep.gold_reward,
         "new_gold": user.gold,
-        "completed_goals": completed_goals
+        "completed_goals": completed_goals,
     }
 
 
 # --- Perfect Day Templates & Summation Routes ---
 
+
 @router.get("/templates")
-def get_templates(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_templates(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
     """
     Get custom template thresholds configurations.
     """
@@ -884,45 +1062,67 @@ def get_templates(db: Session = Depends(get_db), user_id: int = Depends(get_curr
     result = {}
     for t in templates:
         result[t.template_name] = t.thresholds_json
-        
+
     # Fill in missing templates with defaults
     for name, default_vals in DEFAULT_THRESHOLDS.items():
         if name not in result:
             result[name] = default_vals
-            
+
     return result
 
+
 @router.post("/templates")
-def save_template(payload: TemplateSave, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def save_template(
+    payload: TemplateSave,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Save custom template thresholds configurations.
     """
-    template = db.query(PerfectDayTemplate).filter_by(user_id=user_id, template_name=payload.template_name).first()
+    template = (
+        db.query(PerfectDayTemplate)
+        .filter_by(user_id=user_id, template_name=payload.template_name)
+        .first()
+    )
     if not template:
         template = PerfectDayTemplate(
             user_id=user_id,
             template_name=payload.template_name,
-            thresholds_json=payload.thresholds_json
+            thresholds_json=payload.thresholds_json,
         )
         db.add(template)
     else:
         template.thresholds_json = payload.thresholds_json
-        
+
     db.commit()
     return {"status": "success", "template_name": payload.template_name}
 
+
 @router.get("/quests/daily-stats-potentials")
-def get_daily_stats_potentials(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_daily_stats_potentials(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
     """
     Calculate potential statistic totals group by day of the week.
     Scheduled days represented by 0 (Sunday) to 6 (Saturday).
     """
     habits = db.query(Habit).filter_by(user_id=user_id, is_active=True).all()
-    day_names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    day_names = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+    ]
     potentials = {day: {stat: 0 for stat in ALL_6_STATS} for day in day_names}
-    
+
     for h in habits:
-        scheduled_days = [int(d.strip()) for d in h.scheduled_days.split(",") if d.strip().isdigit()]
+        scheduled_days = [
+            int(d.strip()) for d in h.scheduled_days.split(",") if d.strip().isdigit()
+        ]
         for d_idx in scheduled_days:
             if 0 <= d_idx < 7:
                 day_name = day_names[d_idx]
@@ -931,45 +1131,62 @@ def get_daily_stats_potentials(db: Session = Depends(get_db), user_id: int = Dep
                     if stat_key in potentials[day_name]:
                         # Sum potential values
                         potentials[day_name][stat_key] += reward_points
-                        
+
     return potentials
 
 
 # --- Log habits ---
 
+
 @router.post("/logs")
-def create_log(payload: LogCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def create_log(
+    payload: LogCreate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Submit an ephemeral habit log.
     """
-    habit = db.query(Habit).filter_by(id=payload.habit_id, user_id=user_id, is_active=True).first()
+    habit = (
+        db.query(Habit)
+        .filter_by(id=payload.habit_id, user_id=user_id, is_active=True)
+        .first()
+    )
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found or inactive")
 
     if habit.type == "quantitative":
         if payload.log_type == "log" and payload.amount is None:
-            raise HTTPException(status_code=400, detail="Amount is required for quantitative habit logs")
+            raise HTTPException(
+                status_code=400, detail="Amount is required for quantitative habit logs"
+            )
     elif habit.type == "binary":
         if payload.log_type != "done" and payload.log_type != "skip":
-            raise HTTPException(status_code=400, detail="Binary habit logs must be 'done' or 'skip'")
+            raise HTTPException(
+                status_code=400, detail="Binary habit logs must be 'done' or 'skip'"
+            )
 
     today = datetime.date.today()
     has_target = habit.daily_target is not None and habit.daily_target > 1
     if habit.type == "binary" and payload.log_type == "done" and not has_target:
         start_dt = datetime.datetime.combine(today, datetime.time.min)
         end_dt = datetime.datetime.combine(today, datetime.time.max)
-        existing = db.query(HabitLog).filter(
-            HabitLog.user_id == user_id,
-            HabitLog.habit_id == habit.id,
-            HabitLog.log_type == "done",
-            HabitLog.timestamp >= start_dt,
-            HabitLog.timestamp <= end_dt
-        ).first()
+        existing = (
+            db.query(HabitLog)
+            .filter(
+                HabitLog.user_id == user_id,
+                HabitLog.habit_id == habit.id,
+                HabitLog.log_type == "done",
+                HabitLog.timestamp >= start_dt,
+                HabitLog.timestamp <= end_dt,
+            )
+            .first()
+        )
         if existing:
             return {
                 "log_id": existing.id,
                 "status": "already_logged",
-                "affected_stats": habit.point_rewards
+                "affected_stats": habit.point_rewards,
             }
 
     log = HabitLog(
@@ -978,7 +1195,7 @@ def create_log(payload: LogCreate, db: Session = Depends(get_db), user_id: int =
         log_type=payload.log_type,
         amount=payload.amount,
         unit=habit.unit if habit.type == "quantitative" else None,
-        reason=payload.reason
+        reason=payload.reason,
     )
     db.add(log)
     db.commit()
@@ -992,14 +1209,19 @@ def create_log(payload: LogCreate, db: Session = Depends(get_db), user_id: int =
         "log_id": log.id,
         "status": "logged",
         "affected_stats": habit.point_rewards,
-        "daily_score_status": score.status
+        "daily_score_status": score.status,
     }
 
 
 # --- Switch Template ---
 
+
 @router.post("/profile/template")
-def change_profile_template(payload: TemplateOverride, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def change_profile_template(
+    payload: TemplateOverride,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Override the day's active score template and recalculate.
     """
@@ -1011,29 +1233,36 @@ def change_profile_template(payload: TemplateOverride, db: Session = Depends(get
         "recovery": "recup",
         "recup": "recup",
         "sick": "malade",
-        "malade": "malade"
+        "malade": "malade",
     }
     matched_name = t_map.get(t_name, "week")
-    
+
     today = datetime.date.today()
-    score = calculate_daily_score(db, user_id=user_id, date=today, template_name=matched_name)
+    score = calculate_daily_score(
+        db, user_id=user_id, date=today, template_name=matched_name
+    )
     update_streaks(db, user_id=user_id, date=today)
-    
+
     return {
         "status": "updated",
         "active_template": score.template_used,
-        "daily_score_status": score.status
+        "daily_score_status": score.status,
     }
 
 
 # --- Todos / Primes with Custom XP and Stats Rewards ---
 
+
 @router.get("/todos")
-def get_todos(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_todos(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
     """
     List all bounties (todos) for the calling user.
     """
-    todos = db.query(Todo).filter_by(user_id=user_id).order_by(Todo.created_at.desc()).all()
+    todos = (
+        db.query(Todo).filter_by(user_id=user_id).order_by(Todo.created_at.desc()).all()
+    )
     return [
         {
             "id": t.id,
@@ -1045,13 +1274,18 @@ def get_todos(db: Session = Depends(get_db), user_id: int = Depends(get_current_
             "xp_reward": t.xp_reward,
             "is_completed": t.is_completed,
             "created_at": t.created_at.isoformat() if t.created_at else None,
-            "completed_at": t.completed_at.isoformat() if t.completed_at else None
+            "completed_at": t.completed_at.isoformat() if t.completed_at else None,
         }
         for t in todos
     ]
 
+
 @router.post("/todos", status_code=201)
-def create_todo(payload: TodoCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def create_todo(
+    payload: TodoCreate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Create a custom todo (bounty). Max XP is 40.
     """
@@ -1064,7 +1298,7 @@ def create_todo(payload: TodoCreate, db: Session = Depends(get_db), user_id: int
         stat_reward_2=payload.stat_reward_2,
         points_reward_2=payload.points_reward_2,
         xp_reward=payload.xp_reward,
-        is_completed=False
+        is_completed=False,
     )
     db.add(todo)
     db.commit()
@@ -1074,19 +1308,24 @@ def create_todo(payload: TodoCreate, db: Session = Depends(get_db), user_id: int
             "id": todo.id,
             "title": todo.title,
             "xp_reward": todo.xp_reward,
-            "is_completed": todo.is_completed
-        }
+            "is_completed": todo.is_completed,
+        },
     }
 
+
 @router.post("/todos/{todo_id}/complete")
-def complete_todo(todo_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def complete_todo(
+    todo_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Complete a todo and award its custom XP. Add stats points to current daily scores.
     """
     todo = db.query(Todo).filter_by(id=todo_id, user_id=user_id).first()
     if not todo:
         raise HTTPException(status_code=404, detail="Bounty not found")
-        
+
     if todo.is_completed:
         raise HTTPException(status_code=400, detail="Bounty already completed")
 
@@ -1096,10 +1335,10 @@ def complete_todo(todo_id: int, db: Session = Depends(get_db), user_id: int = De
 
     todo.is_completed = True
     todo.completed_at = datetime.datetime.now()
-    
+
     # Award permanent XP
     levels_gained = add_user_xp(user, todo.xp_reward)
-    
+
     # Recalculate daily scores to instantly add Todo stats points
     today = datetime.date.today()
     calculate_daily_score(db, user_id=user_id, date=today)
@@ -1112,18 +1351,26 @@ def complete_todo(todo_id: int, db: Session = Depends(get_db), user_id: int = De
         "xp_rewarded": todo.xp_reward,
         "levels_gained": levels_gained,
         "new_level": user.level,
-        "new_xp": user.xp
+        "new_xp": user.xp,
     }
 
 
 # --- No-Todos ---
 
+
 @router.get("/notodos")
-def get_notodos(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_notodos(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
     """
     List all No-Todos for the calling user.
     """
-    notodos = db.query(NoTodo).filter_by(user_id=user_id).order_by(NoTodo.created_at.desc()).all()
+    notodos = (
+        db.query(NoTodo)
+        .filter_by(user_id=user_id)
+        .order_by(NoTodo.created_at.desc())
+        .all()
+    )
     today = datetime.date.today()
     return [
         {
@@ -1131,33 +1378,36 @@ def get_notodos(db: Session = Depends(get_db), user_id: int = Depends(get_curren
             "title": n.title,
             "failed_today": n.failed_at is not None and n.failed_at.date() == today,
             "created_at": n.created_at.isoformat() if n.created_at else None,
-            "failed_at": n.failed_at.isoformat() if n.failed_at else None
+            "failed_at": n.failed_at.isoformat() if n.failed_at else None,
         }
         for n in notodos
     ]
 
+
 @router.post("/notodos", status_code=201)
-def create_notodo(payload: NoTodoCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def create_notodo(
+    payload: NoTodoCreate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Create a No-Todo rule.
     """
-    notodo = NoTodo(
-        user_id=user_id,
-        title=payload.title
-    )
+    notodo = NoTodo(user_id=user_id, title=payload.title)
     db.add(notodo)
     db.commit()
     return {
         "status": "success",
-        "notodo": {
-            "id": notodo.id,
-            "title": notodo.title,
-            "failed_today": False
-        }
+        "notodo": {"id": notodo.id, "title": notodo.title, "failed_today": False},
     }
 
+
 @router.post("/notodos/{notodo_id}/fail")
-def fail_notodo(notodo_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def fail_notodo(
+    notodo_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Mark a No-Todo as failed for today.
     """
@@ -1168,13 +1418,15 @@ def fail_notodo(notodo_id: int, db: Session = Depends(get_db), user_id: int = De
     notodo.failed_at = datetime.datetime.now()
     db.commit()
 
-    return {
-        "status": "success",
-        "message": "No-Todo marked as failed for today."
-    }
+    return {"status": "success", "message": "No-Todo marked as failed for today."}
+
 
 @router.delete("/notodos/{notodo_id}")
-def delete_notodo(notodo_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def delete_notodo(
+    notodo_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Delete a No-Todo rule.
     """
@@ -1185,66 +1437,81 @@ def delete_notodo(notodo_id: int, db: Session = Depends(get_db), user_id: int = 
     db.delete(notodo)
     db.commit()
 
-    return {
-        "status": "success",
-        "message": "No-Todo deleted successfully."
-    }
-
+    return {"status": "success", "message": "No-Todo deleted successfully."}
 
 
 # --- History & Habits Listing ---
 
+
 @router.get("/habits")
-def get_habits(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_habits(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
     habits = db.query(Habit).filter_by(user_id=user_id, is_active=True).all()
     today = datetime.date.today()
-    week_start = datetime.datetime.combine(today - datetime.timedelta(days=today.weekday()), datetime.time.min)
+    week_start = datetime.datetime.combine(
+        today - datetime.timedelta(days=today.weekday()), datetime.time.min
+    )
     month_start = datetime.datetime.combine(today.replace(day=1), datetime.time.min)
 
     # Count today's validations per habit (for the "X/N" display on targeted habits)
     day_start = datetime.datetime.combine(today, datetime.time.min)
     day_end = datetime.datetime.combine(today, datetime.time.max)
-    today_logs = db.query(HabitLog).filter(
-        HabitLog.user_id == user_id,
-        HabitLog.log_type.in_(["done", "log"]),
-        HabitLog.timestamp >= day_start,
-        HabitLog.timestamp <= day_end,
-    ).all()
+    today_logs = (
+        db.query(HabitLog)
+        .filter(
+            HabitLog.user_id == user_id,
+            HabitLog.log_type.in_(["done", "log"]),
+            HabitLog.timestamp >= day_start,
+            HabitLog.timestamp <= day_end,
+        )
+        .all()
+    )
     today_count_by_habit = {}
     for log in today_logs:
-        today_count_by_habit[log.habit_id] = today_count_by_habit.get(log.habit_id, 0) + 1
+        today_count_by_habit[log.habit_id] = (
+            today_count_by_habit.get(log.habit_id, 0) + 1
+        )
 
     result = []
     for h in habits:
         completed_this_period = False
         if h.frequency in ("weekly", "monthly"):
             cutoff = week_start if h.frequency == "weekly" else month_start
-            completed_this_period = db.query(HabitLog).filter(
-                HabitLog.habit_id == h.id,
-                HabitLog.user_id == user_id,
-                HabitLog.log_type.in_(["done", "log"]),
-                HabitLog.timestamp >= cutoff,
-            ).first() is not None
-        result.append({
-            "id": h.id,
-            "name": h.name,
-            "description": h.description,
-            "type": h.type,
-            "frequency": h.frequency,
-            "scheduled_days": h.scheduled_days,
-            "reminder_time": h.reminder_time,
-            "is_private": h.is_private,
-            "is_reportable": h.is_reportable,
-            "is_mandatory": h.is_mandatory,
-            "point_rewards": h.point_rewards,
-            "daily_cap": h.daily_cap,
-            "daily_target": h.daily_target,
-            "unit": h.unit,
-            "is_active": h.is_active,
-            "completed_this_period": completed_this_period,
-            "today_count": today_count_by_habit.get(h.id, 0),
-        })
+            completed_this_period = (
+                db.query(HabitLog)
+                .filter(
+                    HabitLog.habit_id == h.id,
+                    HabitLog.user_id == user_id,
+                    HabitLog.log_type.in_(["done", "log"]),
+                    HabitLog.timestamp >= cutoff,
+                )
+                .first()
+                is not None
+            )
+        result.append(
+            {
+                "id": h.id,
+                "name": h.name,
+                "description": h.description,
+                "type": h.type,
+                "frequency": h.frequency,
+                "scheduled_days": h.scheduled_days,
+                "reminder_time": h.reminder_time,
+                "is_private": h.is_private,
+                "is_reportable": h.is_reportable,
+                "is_mandatory": h.is_mandatory,
+                "point_rewards": h.point_rewards,
+                "daily_cap": h.daily_cap,
+                "daily_target": h.daily_target,
+                "unit": h.unit,
+                "is_active": h.is_active,
+                "completed_this_period": completed_this_period,
+                "today_count": today_count_by_habit.get(h.id, 0),
+            }
+        )
     return result
+
 
 class HabitUpdate(BaseModel):
     name: Optional[str] = None
@@ -1261,12 +1528,18 @@ class HabitUpdate(BaseModel):
     is_reportable: Optional[bool] = None
     is_active: Optional[bool] = None
 
+
 @router.put("/habits/{habit_id}")
-def update_habit(habit_id: int, payload: HabitUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def update_habit(
+    habit_id: int,
+    payload: HabitUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found.")
-    
+
     # Handle active status transition logic
     payload_dict = payload.model_dump(exclude_none=True)
     if "is_active" in payload_dict:
@@ -1278,7 +1551,11 @@ def update_habit(habit_id: int, payload: HabitUpdate, db: Session = Depends(get_
                 freeze_days = (datetime.datetime.now() - habit.deactivated_at).days
                 if freeze_days > 14:
                     # Reset streak
-                    h_streak = db.query(Streak).filter_by(user_id=user_id, streak_type=f"habit:{habit.id}").first()
+                    h_streak = (
+                        db.query(Streak)
+                        .filter_by(user_id=user_id, streak_type=f"habit:{habit.id}")
+                        .first()
+                    )
                     if h_streak:
                         h_streak.current_streak = 0
             habit.deactivated_at = None
@@ -1288,8 +1565,13 @@ def update_habit(habit_id: int, payload: HabitUpdate, db: Session = Depends(get_
     db.commit()
     return {"status": "updated"}
 
+
 @router.delete("/habits/{habit_id}")
-def delete_habit(habit_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def delete_habit(
+    habit_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found.")
@@ -1298,15 +1580,17 @@ def delete_habit(habit_id: int, db: Session = Depends(get_db), user_id: int = De
     db.commit()
     return {"status": "deleted"}
 
+
 @router.get("/habits/{habit_id}/calendar")
 def get_habit_calendar(
     habit_id: int,
     year: Optional[int] = None,
     month: Optional[int] = None,
     db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
+    user_id: int = Depends(get_current_user_id),
 ):
     import calendar
+
     habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found.")
@@ -1321,16 +1605,20 @@ def get_habit_calendar(
 
     start_date = datetime.date(year, month, 1)
     end_date = datetime.date(year, month, num_days)
-    
+
     start_dt = datetime.datetime.combine(start_date, datetime.time.min)
     end_dt = datetime.datetime.combine(end_date, datetime.time.max)
 
-    logs = db.query(HabitLog).filter(
-        HabitLog.habit_id == habit_id,
-        HabitLog.user_id == user_id,
-        HabitLog.timestamp >= start_dt,
-        HabitLog.timestamp <= end_dt
-    ).all()
+    logs = (
+        db.query(HabitLog)
+        .filter(
+            HabitLog.habit_id == habit_id,
+            HabitLog.user_id == user_id,
+            HabitLog.timestamp >= start_dt,
+            HabitLog.timestamp <= end_dt,
+        )
+        .all()
+    )
 
     logs_by_day = {}
     for log in logs:
@@ -1338,8 +1626,12 @@ def get_habit_calendar(
         logs_by_day.setdefault(log_day, []).append(log)
 
     days_status = {}
-    
-    h_streak = db.query(Streak).filter_by(user_id=user_id, streak_type=f"habit:{habit.id}").first()
+
+    h_streak = (
+        db.query(Streak)
+        .filter_by(user_id=user_id, streak_type=f"habit:{habit.id}")
+        .first()
+    )
     current_streak = h_streak.current_streak if h_streak else 0
     max_streak = h_streak.max_streak if h_streak else 0
 
@@ -1347,7 +1639,7 @@ def get_habit_calendar(
 
     for day in range(1, num_days + 1):
         day_date = datetime.date(year, month, day)
-        
+
         if day_date > today:
             days_status[day] = "future"
             continue
@@ -1367,8 +1659,10 @@ def get_habit_calendar(
         else:
             weekday = day_date.weekday()
             model_day_idx = (weekday + 1) % 7
-            is_scheduled = str(model_day_idx) in [d.strip() for d in habit.scheduled_days.split(",")]
-            
+            is_scheduled = str(model_day_idx) in [
+                d.strip() for d in habit.scheduled_days.split(",")
+            ]
+
             if is_scheduled:
                 days_status[day] = "missed"
             else:
@@ -1381,16 +1675,25 @@ def get_habit_calendar(
         "month": month,
         "current_streak": current_streak,
         "max_streak": max_streak,
-        "deactivated_at": habit.deactivated_at.isoformat() if habit.deactivated_at else None,
-        "days": days_status
+        "deactivated_at": (
+            habit.deactivated_at.isoformat() if habit.deactivated_at else None
+        ),
+        "days": days_status,
     }
 
+
 @router.post("/habits", status_code=201)
-def create_habit(payload: HabitCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def create_habit(
+    payload: HabitCreate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     validate_habit_payload(payload)
     existing = db.query(Habit).filter_by(user_id=user_id, name=payload.name).first()
     if existing:
-        raise HTTPException(status_code=400, detail=f"Habit with name '{payload.name}' already exists.")
+        raise HTTPException(
+            status_code=400, detail=f"Habit with name '{payload.name}' already exists."
+        )
 
     habit = Habit(
         user_id=user_id,
@@ -1407,54 +1710,68 @@ def create_habit(payload: HabitCreate, db: Session = Depends(get_db), user_id: i
         daily_cap=payload.daily_cap,
         daily_target=payload.daily_target,
         unit=payload.unit,
-        is_active=True
+        is_active=True,
     )
     db.add(habit)
     db.commit()
     db.refresh(habit)
     return {"id": habit.id, "name": habit.name, "status": "success"}
 
+
 @router.get("/history")
-def get_history(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_history(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
     import calendar
+
     today = datetime.date.today()
     _, num_days = calendar.monthrange(today.year, today.month)
     start_date = today.replace(day=1)
-    
-    scores = db.query(DailyScore).filter(
-        DailyScore.user_id == user_id,
-        DailyScore.date >= start_date,
-        DailyScore.date <= today
-    ).order_by(DailyScore.date.asc()).all()
-    
+
+    scores = (
+        db.query(DailyScore)
+        .filter(
+            DailyScore.user_id == user_id,
+            DailyScore.date >= start_date,
+            DailyScore.date <= today,
+        )
+        .order_by(DailyScore.date.asc())
+        .all()
+    )
+
     score_map = {score.date.isoformat(): score.status for score in scores}
-    
+
     history = []
     for i in range(num_days):
         d = start_date + datetime.timedelta(days=i)
         d_str = d.isoformat()
-        
+
         ui_status = "future"
         if d <= today:
             status = score_map.get(d_str, "Incomplet")
             ui_status = "failed"
             if status == "Perfect":
                 ui_status = "perfect"
-                
-        history.append({
-            "date": d_str,
-            "status": ui_status,
-            "label": d.strftime("%d"),
-            "weekday": d.weekday()
-        })
-        
+
+        history.append(
+            {
+                "date": d_str,
+                "status": ui_status,
+                "label": d.strftime("%d"),
+                "weekday": d.weekday(),
+            }
+        )
+
     return history
 
 
 # --- Softskill Progress Tree Routes ---
 
+
 @router.get("/softskills")
-def get_softskills_tree(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_softskills_tree(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
     """
     Get the full softskill tree layout merged with the current user's progress.
     """
@@ -1462,30 +1779,54 @@ def get_softskills_tree(db: Session = Depends(get_db), user_id: int = Depends(ge
 
 
 @router.post("/softskills/{softskill_id}/test")
-def update_softskill_test(softskill_id: str, payload: SoftskillTestUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def update_softskill_test(
+    softskill_id: str,
+    payload: SoftskillTestUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Save or update the user's custom success criteria test for a softskill.
     """
-    result = softskill_service.update_success_test(db, user_id, softskill_id, payload.success_criteria_test)
-    return {"status": "success", "message": "Success criteria test updated", "data": result}
+    result = softskill_service.update_success_test(
+        db, user_id, softskill_id, payload.success_criteria_test
+    )
+    return {
+        "status": "success",
+        "message": "Success criteria test updated",
+        "data": result,
+    }
 
 
 @router.post("/softskills/{softskill_id}/complete")
-def toggle_softskill_completion(softskill_id: str, payload: SoftskillCompleteToggle, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def toggle_softskill_completion(
+    softskill_id: str,
+    payload: SoftskillCompleteToggle,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Manually mark a softskill as completed or uncompleted.
     Validates that prerequisites are met before allowing completion.
     """
-    result = softskill_service.toggle_completion(db, user_id, softskill_id, payload.completed)
+    result = softskill_service.toggle_completion(
+        db, user_id, softskill_id, payload.completed
+    )
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
-    return {"status": "success", "message": "Softskill completion updated", "data": result}
+    return {
+        "status": "success",
+        "message": "Softskill completion updated",
+        "data": result,
+    }
 
 
 @router.post("/softskills/branches", status_code=201)
 def api_create_branch(payload: BranchConfig):
     try:
-        return softskill_service.create_branch(payload.key, payload.color, payload.pale_color)
+        return softskill_service.create_branch(
+            payload.key, payload.color, payload.pale_color
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1506,7 +1847,9 @@ def api_create_branch_with_skills(payload: BranchWithSkillsCreate):
 @router.put("/softskills/branches/{branch_key}")
 def api_update_branch(branch_key: str, payload: BranchUpdate):
     try:
-        return softskill_service.update_branch(branch_key, payload.new_key, payload.color, payload.pale_color)
+        return softskill_service.update_branch(
+            branch_key, payload.new_key, payload.color, payload.pale_color
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1545,53 +1888,80 @@ def api_delete_skill(skill_id: str, db: Session = Depends(get_db)):
 
 # --- Reward Shop (Boutique) Routes ---
 
+
 @router.get("/rewards")
-def get_rewards(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_rewards(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
     """
     Get list of rewards for the user, with lock states calculated dynamically.
     """
     from src.services.reward_service import check_reward_lock, is_allostasis_available
+
     rewards = db.query(Reward).filter_by(user_id=user_id).all()
     result = []
     for r in rewards:
         unlocked, lock_reason = check_reward_lock(db, user_id, r)
-        is_available = is_allostasis_available(r) if r.category in ("allostasis_daily", "allostasis_weekly") else True
-        result.append({
-            "id": r.id,
-            "title": r.title,
-            "description": r.description,
-            "gold_cost": r.gold_cost,
-            "required_softskill_id": r.required_softskill_id,
-            "required_goal_id": r.required_goal_id,
-            "is_one_time": r.is_one_time,
-            "purchased_count": r.purchased_count,
-            "unlocked": unlocked,
-            "lock_reason": lock_reason,
-            "category": r.category,
-            "last_purchased_at": r.last_purchased_at.isoformat() if r.last_purchased_at else None,
-            "is_available": is_available
-        })
+        is_available = (
+            is_allostasis_available(r)
+            if r.category in ("allostasis_daily", "allostasis_weekly")
+            else True
+        )
+        result.append(
+            {
+                "id": r.id,
+                "title": r.title,
+                "description": r.description,
+                "gold_cost": r.gold_cost,
+                "required_softskill_id": r.required_softskill_id,
+                "required_goal_id": r.required_goal_id,
+                "is_one_time": r.is_one_time,
+                "purchased_count": r.purchased_count,
+                "unlocked": unlocked,
+                "lock_reason": lock_reason,
+                "category": r.category,
+                "last_purchased_at": (
+                    r.last_purchased_at.isoformat() if r.last_purchased_at else None
+                ),
+                "is_available": is_available,
+            }
+        )
     return result
 
 
 @router.post("/rewards", status_code=201)
-def create_reward(payload: RewardCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def create_reward(
+    payload: RewardCreate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Create a new reward.
     """
-    softskill_id = payload.required_softskill_id if payload.required_softskill_id and payload.required_softskill_id.strip() else None
+    softskill_id = (
+        payload.required_softskill_id
+        if payload.required_softskill_id and payload.required_softskill_id.strip()
+        else None
+    )
     goal_id = payload.required_goal_id
     if goal_id:
         goal = db.query(Goal).filter_by(id=goal_id, user_id=user_id).first()
         if not goal:
-            raise HTTPException(status_code=400, detail="Objectif requis introuvable ou invalide.")
+            raise HTTPException(
+                status_code=400, detail="Objectif requis introuvable ou invalide."
+            )
 
     category = payload.category or "regular"
     if category in ("allostasis_daily", "allostasis_weekly"):
         gold_cost = 0
-        existing_count = db.query(Reward).filter_by(user_id=user_id, category=category).count()
+        existing_count = (
+            db.query(Reward).filter_by(user_id=user_id, category=category).count()
+        )
         if existing_count >= 3:
-            raise HTTPException(status_code=400, detail=f"Limite de 3 items pour la catégorie {category} atteinte.")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Limite de 3 items pour la catégorie {category} atteinte.",
+            )
     else:
         gold_cost = payload.gold_cost
 
@@ -1604,7 +1974,7 @@ def create_reward(payload: RewardCreate, db: Session = Depends(get_db), user_id:
         required_goal_id=goal_id,
         is_one_time=payload.is_one_time or False,
         purchased_count=0,
-        category=category
+        category=category,
     )
     db.add(reward)
     db.commit()
@@ -1613,7 +1983,12 @@ def create_reward(payload: RewardCreate, db: Session = Depends(get_db), user_id:
 
 
 @router.put("/rewards/{reward_id}")
-def update_reward(reward_id: int, payload: RewardUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def update_reward(
+    reward_id: int,
+    payload: RewardUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Update an existing reward.
     """
@@ -1621,23 +1996,36 @@ def update_reward(reward_id: int, payload: RewardUpdate, db: Session = Depends(g
     if not reward:
         raise HTTPException(status_code=404, detail="Récompense introuvable.")
 
-    softskill_id = payload.required_softskill_id if payload.required_softskill_id and payload.required_softskill_id.strip() else None
+    softskill_id = (
+        payload.required_softskill_id
+        if payload.required_softskill_id and payload.required_softskill_id.strip()
+        else None
+    )
     goal_id = payload.required_goal_id
     if goal_id:
         goal = db.query(Goal).filter_by(id=goal_id, user_id=user_id).first()
         if not goal:
-            raise HTTPException(status_code=400, detail="Objectif requis introuvable ou invalide.")
+            raise HTTPException(
+                status_code=400, detail="Objectif requis introuvable ou invalide."
+            )
 
     category = payload.category or "regular"
     if category in ("allostasis_daily", "allostasis_weekly"):
         gold_cost = 0
-        existing_count = db.query(Reward).filter(
-            Reward.user_id == user_id,
-            Reward.category == category,
-            Reward.id != reward_id
-        ).count()
+        existing_count = (
+            db.query(Reward)
+            .filter(
+                Reward.user_id == user_id,
+                Reward.category == category,
+                Reward.id != reward_id,
+            )
+            .count()
+        )
         if existing_count >= 3:
-            raise HTTPException(status_code=400, detail=f"Limite de 3 items pour la catégorie {category} atteinte.")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Limite de 3 items pour la catégorie {category} atteinte.",
+            )
     else:
         gold_cost = payload.gold_cost
 
@@ -1655,7 +2043,11 @@ def update_reward(reward_id: int, payload: RewardUpdate, db: Session = Depends(g
 
 
 @router.delete("/rewards/{reward_id}")
-def delete_reward(reward_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def delete_reward(
+    reward_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Delete a reward.
     """
@@ -1668,9 +2060,14 @@ def delete_reward(reward_id: int, db: Session = Depends(get_db), user_id: int = 
 
 
 @router.post("/rewards/{reward_id}/purchase")
-def purchase_reward_endpoint(reward_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def purchase_reward_endpoint(
+    reward_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     """
     Purchase a reward.
     """
     from src.services.reward_service import purchase_reward
+
     return purchase_reward(db, user_id, reward_id)

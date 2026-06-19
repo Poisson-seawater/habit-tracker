@@ -1,11 +1,9 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies if any are needed (none for SQLite)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# All runtime deps ship as pure-Python / manylinux wheels (incl. aarch64),
+# so no compiler toolchain is needed. SQLite is bundled with Python.
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

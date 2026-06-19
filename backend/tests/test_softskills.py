@@ -23,7 +23,7 @@ def mock_config_file(monkeypatch, tmp_path):
     initial_config = {
         "branches": {
             "communication": {"color": "#8b5cf6", "pale_color": "#ddd"},
-            "leadership": {"color": "#f59e0b", "pale_color": "#eee"}
+            "leadership": {"color": "#f59e0b", "pale_color": "#eee"},
         },
         "skills": [
             {
@@ -34,7 +34,7 @@ def mock_config_file(monkeypatch, tmp_path):
                 "prerequisites": [],
                 "related": [],
                 "x": 100,
-                "y": 100
+                "y": 100,
             },
             {
                 "id": "orateur",
@@ -44,15 +44,18 @@ def mock_config_file(monkeypatch, tmp_path):
                 "prerequisites": ["ecoute"],
                 "related": [],
                 "x": 300,
-                "y": 100
-            }
-        ]
+                "y": 100,
+            },
+        ],
     }
     with open(temp_config_file, "w", encoding="utf-8") as f:
         json.dump(initial_config, f, indent=2)
 
     from src.services import softskill_service
-    monkeypatch.setattr(softskill_service, "_get_config_path", lambda: str(temp_config_file))
+
+    monkeypatch.setattr(
+        softskill_service, "_get_config_path", lambda: str(temp_config_file)
+    )
     # Reset cached tree config
     softskill_service._tree_config = None
     yield temp_config_file
@@ -113,6 +116,7 @@ class TestCycleValidation:
             ],
         }
         import logging
+
         with caplog.at_level(logging.WARNING):
             validate_no_cycles(config)
         assert "unknown prerequisite" in caplog.text.lower()
@@ -144,11 +148,11 @@ class TestConfigLoading:
         config = load_tree_config(force_reload=True)
         for branch_name, branch_data in config["branches"].items():
             assert "color" in branch_data, f"Branch '{branch_name}' missing 'color'"
-            assert "pale_color" in branch_data, f"Branch '{branch_name}' missing 'pale_color'"
+            assert (
+                "pale_color" in branch_data
+            ), f"Branch '{branch_name}' missing 'pale_color'"
 
-    def test_load_repairs_zero_and_overlapping_positions(
-        self, mock_config_file
-    ):
+    def test_load_repairs_zero_and_overlapping_positions(self, mock_config_file):
         config = json.loads(mock_config_file.read_text(encoding="utf-8"))
         config["skills"].extend(
             [
@@ -183,8 +187,7 @@ class TestConfigLoading:
 
         repaired = load_tree_config(force_reload=True)
         positions = {
-            skill["id"]: (skill["x"], skill["y"])
-            for skill in repaired["skills"]
+            skill["id"]: (skill["x"], skill["y"]) for skill in repaired["skills"]
         }
 
         assert positions["ecoute"] == (100, 100)
@@ -192,20 +195,15 @@ class TestConfigLoading:
         assert positions["duplicate"] != (100, 100)
         all_positions = list(positions.values())
         for index, position in enumerate(all_positions):
-            for other in all_positions[index + 1:]:
+            for other in all_positions[index + 1 :]:
                 assert not _positions_overlap(position, other)
 
         persisted = json.loads(mock_config_file.read_text(encoding="utf-8"))
-        assert all(
-            skill["x"] > 0 and skill["y"] > 0
-            for skill in persisted["skills"]
-        )
+        assert all(skill["x"] > 0 and skill["y"] > 0 for skill in persisted["skills"])
 
     def test_dynamic_layout_has_no_fifty_skill_limit(self):
         config = {
-            "branches": {
-                "growth": {"color": "#123456", "pale_color": "#abcdef"}
-            },
+            "branches": {"growth": {"color": "#123456", "pale_color": "#abcdef"}},
             "skills": [
                 {
                     "id": f"skill_{index}",
@@ -223,10 +221,7 @@ class TestConfigLoading:
         }
 
         assert repair_skill_positions(config) is True
-        positions = [
-            (skill["x"], skill["y"])
-            for skill in config["skills"]
-        ]
+        positions = [(skill["x"], skill["y"]) for skill in config["skills"]]
         assert len(set(positions)) == 55
         assert all(x > 0 and y > 0 for x, y in positions)
 
@@ -247,12 +242,14 @@ TEST_DATABASE_URL = f"sqlite:///{TEST_DB_FILE}"
 engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 def override_get_db():
     db = TestingSessionLocal()
     try:
         yield db
     finally:
         db.close()
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_test_db():
@@ -264,10 +261,10 @@ def setup_test_db():
             os.remove(TEST_DB_FILE)
         except OSError:
             pass
-        
+
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
-    
+
     try:
         # Seed default user Gabriel
         u = User(id=1, username="Gabriel", chat_id="111", xp=0, level=1, gold=100)
@@ -275,13 +272,13 @@ def setup_test_db():
         db.commit()
     finally:
         db.close()
-        
+
     yield
-    
+
     # Clean up override so it doesn't leak to other test modules
     if get_db in app.dependency_overrides:
         del app.dependency_overrides[get_db]
-        
+
     if os.path.exists(TEST_DB_FILE):
         try:
             os.remove(TEST_DB_FILE)
@@ -325,7 +322,10 @@ class TestSoftskillRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
-        assert data["data"]["success_criteria_test"] == "Écouter 10 personnes sans interrompre"
+        assert (
+            data["data"]["success_criteria_test"]
+            == "Écouter 10 personnes sans interrompre"
+        )
 
     def test_complete_without_prereqs_fails(self, client):
         """Completing a skill with unmet prerequisites should return 400."""
@@ -353,7 +353,7 @@ class TestSoftskillRoutes:
         # 1. Create branch
         response = client.post(
             "/api/v1/softskills/branches",
-            json={"key": "testbranch", "color": "#111111", "pale_color": "#222222"}
+            json={"key": "testbranch", "color": "#111111", "pale_color": "#222222"},
         )
         assert response.status_code == 201
         data = response.json()
@@ -363,7 +363,11 @@ class TestSoftskillRoutes:
         # 2. Update branch
         response = client.put(
             "/api/v1/softskills/branches/testbranch",
-            json={"new_key": "testbranch_new", "color": "#333333", "pale_color": "#444444"}
+            json={
+                "new_key": "testbranch_new",
+                "color": "#333333",
+                "pale_color": "#444444",
+            },
         )
         assert response.status_code == 200
         data = response.json()
@@ -388,8 +392,8 @@ class TestSoftskillRoutes:
                 "prerequisites": [],
                 "related": [],
                 "x": 100,
-                "y": 100
-            }
+                "y": 100,
+            },
         )
         assert response.status_code == 201
 
@@ -405,8 +409,8 @@ class TestSoftskillRoutes:
                 "related": [],
                 "x": 300,
                 "y": 200,
-                "success_criteria_test": "Valider 5 appels de prospection"
-            }
+                "success_criteria_test": "Valider 5 appels de prospection",
+            },
         )
         assert response.status_code == 201
         data = response.json()
@@ -419,9 +423,14 @@ class TestSoftskillRoutes:
         response = client.get("/api/v1/softskills", headers={"X-User-ID": "1"})
         assert response.status_code == 200
         tree_data = response.json()
-        target_skill = next((s for s in tree_data["skills"] if s["id"] == "testskill"), None)
+        target_skill = next(
+            (s for s in tree_data["skills"] if s["id"] == "testskill"), None
+        )
         assert target_skill is not None
-        assert target_skill["progress"]["success_criteria_test"] == "Valider 5 appels de prospection"
+        assert (
+            target_skill["progress"]["success_criteria_test"]
+            == "Valider 5 appels de prospection"
+        )
 
         # 2. Update skill with cycle (should return 400)
         response = client.put(
@@ -434,8 +443,8 @@ class TestSoftskillRoutes:
                 "related": [],
                 "x": 100,
                 "y": 100,
-                "execution_order": 1
-            }
+                "execution_order": 1,
+            },
         )
         assert response.status_code == 400
 
@@ -451,8 +460,8 @@ class TestSoftskillRoutes:
                 "x": 350,
                 "y": 250,
                 "execution_order": 3,
-                "success_criteria_test": "Valider 10 appels"
-            }
+                "success_criteria_test": "Valider 10 appels",
+            },
         )
         assert response.status_code == 200
         data = response.json()
@@ -465,7 +474,9 @@ class TestSoftskillRoutes:
         response = client.get("/api/v1/softskills", headers={"X-User-ID": "1"})
         assert response.status_code == 200
         tree_data = response.json()
-        target_skill = next((s for s in tree_data["skills"] if s["id"] == "testskill"), None)
+        target_skill = next(
+            (s for s in tree_data["skills"] if s["id"] == "testskill"), None
+        )
         assert target_skill is not None
         assert target_skill["progress"]["success_criteria_test"] == "Valider 10 appels"
 
@@ -490,8 +501,8 @@ class TestSoftskillRoutes:
                 "prerequisites": [],
                 "related": ["ecoute"],
                 "x": 300,
-                "y": 200
-            }
+                "y": 200,
+            },
         )
         assert response.status_code == 400
         assert "same branch" in response.json()["detail"]
@@ -508,8 +519,8 @@ class TestSoftskillRoutes:
                 "prerequisites": [],
                 "related": ["confiance"],
                 "x": 300,
-                "y": 200
-            }
+                "y": 200,
+            },
         )
         assert response.status_code == 201
 
@@ -523,8 +534,8 @@ class TestSoftskillRoutes:
                 "prerequisites": [],
                 "related": ["ecoute"],
                 "x": 300,
-                "y": 200
-            }
+                "y": 200,
+            },
         )
         assert response.status_code == 400
         assert "same branch" in response.json()["detail"]
@@ -545,8 +556,8 @@ class TestSoftskillRoutes:
                 "prerequisites": ["ecoute"],
                 "related": [],
                 "x": 300,
-                "y": 200
-            }
+                "y": 200,
+            },
         )
         assert response.status_code == 400
         assert "same branch" in response.json()["detail"]
@@ -565,8 +576,8 @@ class TestSoftskillRoutes:
                 "related": [],
                 "x": 300,
                 "y": 200,
-                "execution_order": 2
-            }
+                "execution_order": 2,
+            },
         )
         assert response.status_code == 201
 
@@ -574,7 +585,7 @@ class TestSoftskillRoutes:
         response = client.post(
             "/api/v1/softskills/lvl2_skill/complete",
             headers={"X-User-ID": "1"},
-            json={"completed": True}
+            json={"completed": True},
         )
         assert response.status_code == 400
         assert "niveau inférieur" in response.json()["detail"]
@@ -583,14 +594,14 @@ class TestSoftskillRoutes:
         response = client.post(
             "/api/v1/softskills/ecoute/complete",
             headers={"X-User-ID": "1"},
-            json={"completed": True}
+            json={"completed": True},
         )
         assert response.status_code == 200
 
         response = client.post(
             "/api/v1/softskills/orateur/complete",
             headers={"X-User-ID": "1"},
-            json={"completed": True}
+            json={"completed": True},
         )
         assert response.status_code == 200
 
@@ -598,7 +609,7 @@ class TestSoftskillRoutes:
         response = client.post(
             "/api/v1/softskills/lvl2_skill/complete",
             headers={"X-User-ID": "1"},
-            json={"completed": True}
+            json={"completed": True},
         )
         assert response.status_code == 200
 
