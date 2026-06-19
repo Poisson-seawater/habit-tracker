@@ -188,6 +188,23 @@ document.addEventListener("DOMContentLoaded", () => {
           statsContainer.appendChild(statRow);
         });
       }
+      // Update Daily Life Lore
+      const loreContainer = document.getElementById("daily-life-lore-container");
+      const loreList = document.getElementById("daily-life-lore-list");
+      if (loreContainer && loreList) {
+        if (data.life_lore_today && data.life_lore_today.length > 0) {
+          loreList.innerHTML = data.life_lore_today.map(item => `
+            <li style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+              <span style="font-weight: 500; color: var(--text-primary);">✨ ${item.title}</span>
+              ${item.description ? `<span style="font-size: 0.75rem; color: var(--text-muted);">${item.description}</span>` : ""}
+            </li>
+          `).join("");
+          loreContainer.style.display = "block";
+        } else {
+          loreContainer.style.display = "none";
+        }
+      }
+
       renderRecapPanel(data);
     } catch (error) {
       console.error(error);
@@ -797,6 +814,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("edit-substep-desc-input").value = substepData.description || "";
       document.getElementById("edit-substep-gold-input").value = substepData.gold_reward;
       document.getElementById("edit-substep-order-input").value = substepData.execution_order || 1;
+      document.getElementById("edit-substep-life-lore-input").checked = substepData.is_life_lore || false;
       const stats = substepData.stats || [];
       document.getElementById("edit-substep-stat-1").value = stats.length > 0 ? stats[0] : "";
       document.getElementById("edit-substep-stat-2").value = stats.length > 1 ? stats[1] : "";
@@ -1175,6 +1193,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const desc = document.getElementById("substep-desc-input").value.trim();
     const gold = parseInt(document.getElementById("substep-gold-input").value) || 0;
     const order = parseInt(document.getElementById("substep-order-input").value) || 1;
+    const isLifeLore = document.getElementById("substep-life-lore-input").checked;
     
     // Parse stats
     const stat1 = document.getElementById("substep-stat-1").value;
@@ -1190,7 +1209,8 @@ document.addEventListener("DOMContentLoaded", () => {
           description: desc,
           gold_reward: gold,
           stats_json: stats,
-          execution_order: order
+          execution_order: order,
+          is_life_lore: isLifeLore
         })
       });
       if (!resp.ok) throw new Error();
@@ -1210,6 +1230,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const desc = document.getElementById("edit-substep-desc-input").value.trim();
     const gold = parseInt(document.getElementById("edit-substep-gold-input").value) || 0;
     const order = parseInt(document.getElementById("edit-substep-order-input").value) || 1;
+    const isLifeLore = document.getElementById("edit-substep-life-lore-input").checked;
     
     // Parse stats
     const stat1 = document.getElementById("edit-substep-stat-1").value;
@@ -1225,7 +1246,8 @@ document.addEventListener("DOMContentLoaded", () => {
           description: desc,
           gold_reward: gold,
           stats_json: stats,
-          execution_order: order
+          execution_order: order,
+          is_life_lore: isLifeLore
         })
       });
       if (!resp.ok) throw new Error();
@@ -3496,6 +3518,65 @@ document.addEventListener("DOMContentLoaded", () => {
     switchProfileBtn.addEventListener("click", () => {
       localStorage.removeItem('user_id');
       window.location.reload();
+    });
+  }
+
+  // --- Life Lore Modal Logic ---
+  const avatarContainer = document.querySelector(".avatar-container");
+  const lifeLoreModal = document.getElementById("life-lore-modal");
+  const closeLifeLoreBtn = document.getElementById("close-life-lore-btn");
+  const lifeLoreContent = document.getElementById("life-lore-content");
+
+  if (avatarContainer && lifeLoreModal && closeLifeLoreBtn && lifeLoreContent) {
+    avatarContainer.addEventListener("click", async () => {
+      // Clear content and show modal
+      lifeLoreContent.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 2rem;">Chargement du Grimoire de Vie... 📖</p>`;
+      lifeLoreModal.style.display = "flex";
+
+      try {
+        const response = await fetch(`${API_BASE}/profile/life-lore`);
+        if (!response.ok) throw new Error("Erreur de récupération");
+        const substeps = await response.json();
+
+        if (substeps.length === 0) {
+          lifeLoreContent.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 2.5rem; line-height: 1.5;">Aucun fragment de Life Lore n'est gravé dans le marbre pour le moment.<br><br>Cochez la case "Life Lore" dans les paramètres d'une sous-étape et accomplissez-la pour commencer à écrire votre histoire ! 📖</p>`;
+          return;
+        }
+
+        lifeLoreContent.innerHTML = substeps.map(s => {
+          const dateStr = s.completed_at ? new Date(s.completed_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Date inconnue';
+          const statsTags = s.stats.map(st => `<span class="substep-tag" style="font-size: 0.72rem; padding: 2px 6px; background: rgba(124, 58, 237, 0.15); border: 1px solid rgba(124, 58, 237, 0.3); border-radius: 4px; color: var(--accent-purple); font-weight: bold; text-transform: uppercase;">${STAT_LABELS[st.toLowerCase()] || st}</span>`).join(" ");
+          return `
+            <div class="glass-card" style="padding: 1.2rem; background: rgba(255, 255, 255, 0.015); border-color: rgba(255, 255, 255, 0.05); display: flex; flex-direction: column; gap: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+                <h4 style="font-family: var(--font-display); font-size: 1.1rem; color: var(--accent-gold); margin: 0;">${s.title}</h4>
+                <span style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;">📅 ${dateStr}</span>
+              </div>
+              ${s.description ? `<p style="font-size: 0.88rem; color: var(--text-secondary); margin: 0; line-height: 1.4;">${s.description}</p>` : ""}
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; border-top: 1px solid rgba(255, 255, 255, 0.03); padding-top: 0.5rem;">
+                <span style="font-size: 0.8rem; color: var(--accent-cyan); font-weight: 600;">💰 +${s.gold_reward} Gold</span>
+                <div style="display: flex; gap: 0.3rem;">${statsTags}</div>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+      } catch (err) {
+        console.error(err);
+        lifeLoreContent.innerHTML = `<p style="text-align: center; color: var(--accent-red); padding: 2rem;">Impossible de charger les chroniques du Grimoire.</p>`;
+      }
+    });
+
+    // Close on button click
+    closeLifeLoreBtn.addEventListener("click", () => {
+      lifeLoreModal.style.display = "none";
+    });
+
+    // Close on overlay click
+    lifeLoreModal.addEventListener("click", (e) => {
+      if (e.target === lifeLoreModal) {
+        lifeLoreModal.style.display = "none";
+      }
     });
   }
 });

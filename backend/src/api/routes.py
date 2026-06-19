@@ -73,6 +73,7 @@ class SubStepCreate(BaseModel):
     gold_reward: Optional[int] = 50
     stats_json: List[str] = []
     execution_order: int = 1
+    is_life_lore: Optional[bool] = False
 
 class SubStepUpdate(BaseModel):
     title: str
@@ -80,6 +81,7 @@ class SubStepUpdate(BaseModel):
     gold_reward: Optional[int] = 50
     stats_json: List[str] = []
     execution_order: int = 1
+    is_life_lore: Optional[bool] = False
 
 class SubStepLinkRequest(BaseModel):
     goal_id: int
@@ -349,6 +351,15 @@ def get_profile(db: Session = Depends(get_db), user_id: int = Depends(get_curren
     ).all()
     completed_habit_ids = list(set(log.habit_id for log in logs if log.log_type in ["done", "log"]))
 
+    # Get today's completed Life Lore subgoals
+    life_lore_today = db.query(SubStep).filter(
+        SubStep.user_id == user.id,
+        SubStep.is_life_lore == True,
+        SubStep.completed == True,
+        SubStep.completed_at >= start_dt,
+        SubStep.completed_at <= end_dt
+    ).all()
+
     return {
         "username": user.username,
         "active_template": score.template_used,
@@ -364,8 +375,36 @@ def get_profile(db: Session = Depends(get_db), user_id: int = Depends(get_curren
         "level": user.level,
         "gold": user.gold,
         "pinned_substeps": user.pinned_substeps or [],
-        "pinned_softskills": user.pinned_softskills or []
+        "pinned_softskills": user.pinned_softskills or [],
+        "life_lore_today": [
+            {"id": s.id, "title": s.title, "description": s.description or ""}
+            for s in life_lore_today
+        ]
     }
+
+
+@router.get("/profile/life-lore")
+def get_user_life_lore(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Fetch all completed life lore substeps of all time for the user.
+    """
+    substeps = (
+        db.query(SubStep)
+        .filter_by(user_id=user_id, is_life_lore=True, completed=True)
+        .order_by(SubStep.completed_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": s.id,
+            "title": s.title,
+            "description": s.description or "",
+            "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+            "gold_reward": s.gold_reward,
+            "stats": s.stats_json or []
+        }
+        for s in substeps
+    ]
 
 
 @router.put("/profile/pins")
@@ -512,7 +551,8 @@ def get_goals(db: Session = Depends(get_db), user_id: int = Depends(get_current_
                 "completed_at": s.completed_at.isoformat() if s.completed_at else None,
                 "stats": s.stats_json or [],
                 "execution_order": link.execution_order,
-                "linked_goals": other_goals
+                "linked_goals": other_goals,
+                "is_life_lore": s.is_life_lore
             })
             
         result.append({
@@ -576,6 +616,7 @@ def create_goal_with_substeps(
             gold_reward=substep_payload.gold_reward,
             stats_json=substep_payload.stats_json,
             execution_order=substep_payload.execution_order,
+            is_life_lore=substep_payload.is_life_lore or False,
         )
         db.add(substep)
         db.flush()
@@ -588,6 +629,7 @@ def create_goal_with_substeps(
                 "gold_reward": substep.gold_reward,
                 "stats": substep.stats_json or [],
                 "execution_order": substep.execution_order,
+                "is_life_lore": substep.is_life_lore,
             }
         )
 
@@ -652,7 +694,8 @@ def create_substep(goal_id: int, payload: SubStepCreate, db: Session = Depends(g
         description=payload.description,
         gold_reward=payload.gold_reward,
         stats_json=payload.stats_json,
-        execution_order=payload.execution_order
+        execution_order=payload.execution_order,
+        is_life_lore=payload.is_life_lore or False
     )
     db.add(substep)
     db.flush()  # Generate substep ID
@@ -674,7 +717,8 @@ def create_substep(goal_id: int, payload: SubStepCreate, db: Session = Depends(g
             "description": substep.description or "",
             "gold_reward": substep.gold_reward,
             "stats": substep.stats_json,
-            "execution_order": substep.execution_order
+            "execution_order": substep.execution_order,
+            "is_life_lore": substep.is_life_lore
         }
     }
 
@@ -718,6 +762,7 @@ def update_substep(substep_id: int, payload: SubStepUpdate, db: Session = Depend
     substep.gold_reward = payload.gold_reward
     substep.stats_json = payload.stats_json
     substep.execution_order = payload.execution_order
+    substep.is_life_lore = payload.is_life_lore or False
                 
     db.commit()
     db.refresh(substep)
@@ -730,7 +775,8 @@ def update_substep(substep_id: int, payload: SubStepUpdate, db: Session = Depend
             "description": substep.description or "",
             "gold_reward": substep.gold_reward,
             "stats": substep.stats_json,
-            "execution_order": substep.execution_order
+            "execution_order": substep.execution_order,
+            "is_life_lore": substep.is_life_lore
         }
     }
 

@@ -165,6 +165,7 @@ class SubStep(Base):
     description = Column(Text, nullable=True)
     stats_json = Column(JSON, nullable=True)  # List of related stats e.g. ["force", "finance"]
     execution_order = Column(Integer, default=1)
+    is_life_lore = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.now)
 
     user = relationship("User", back_populates="substeps")

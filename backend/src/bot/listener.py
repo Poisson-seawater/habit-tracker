@@ -8,7 +8,7 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes, Cal
 
 from src.config import TELEGRAM_BOT_TOKEN, TELEGRAM_GROUP_ID
 from src.database.session import SessionLocal
-from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, NoTodo, Reward
+from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, DailyScore, Streak, Todo, NoTodo, Reward, SubStep
 from src.bot.parser import parse_command, ParserError
 from src.services.score_service import calculate_daily_score, update_streaks, DEFAULT_THRESHOLDS, add_user_xp
 from src.bot.scheduler import start_scheduler
@@ -530,6 +530,17 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ).all()
             for t in completed_todos:
                 completed_lines.append(f"- Todo : {html.escape(t.title)} (+{t.xp_reward} XP)")
+
+            # Get completed Life Lore subgoals for today
+            completed_life_lore = db.query(SubStep).filter(
+                SubStep.user_id == user.id,
+                SubStep.is_life_lore == True,
+                SubStep.completed == True,
+                SubStep.completed_at >= start_dt,
+                SubStep.completed_at <= end_dt
+            ).all()
+            for s in completed_life_lore:
+                completed_lines.append(f"- 📖 Life Lore : {html.escape(s.title)}")
 
             # Get remaining scheduled habits
             weekday = today.weekday()

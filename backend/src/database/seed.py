@@ -332,6 +332,15 @@ def _run_migrations():
                 ))
                 db.commit()
                 print("Migration v12 applied successfully.")
+        
+        # v13: Add is_life_lore to substeps
+        if "substeps" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("substeps")]
+            if "is_life_lore" not in columns:
+                print("Running migration v13: adding is_life_lore to substeps...")
+                db.execute(text("ALTER TABLE substeps ADD COLUMN is_life_lore BOOLEAN DEFAULT 0"))
+                db.commit()
+                print("Migration v13 applied successfully.")
     except Exception as e:
         db.rollback()
         print(f"Migration error (non-fatal): {e}")

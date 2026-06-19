@@ -918,6 +918,13 @@
               <!-- Dynamically populated stats rows will be inserted here -->
               <p style="text-align: center; color: var(--text-muted);">Chargement de la feuille de personnage...</p>
             </div>
+            
+            <div id="daily-life-lore-container" style="margin-top: 1.5rem; border-top: 1px solid var(--border-glass); padding-top: 1rem; display: none;">
+              <h3 style="font-family: var(--font-display); font-size: 0.95rem; color: var(--accent-gold); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.3rem;">📖 Life Lore du Jour</h3>
+              <ul id="daily-life-lore-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.85rem;">
+                <!-- Filled dynamically by JS -->
+              </ul>
+            </div>
           </section>
           
         </div>
@@ -1164,6 +1171,12 @@
                 </select>
               </div>
             </div>
+            <div class="form-group checkbox-group" style="margin-top: 0.8rem;">
+              <label class="checkbox-label" style="margin-top: 0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <input type="checkbox" id="substep-life-lore-input" style="cursor: pointer;">
+                <span>📖 Marquer comme Life Lore (apparaît dans les stats et l'histoire)</span>
+              </label>
+            </div>
             <button type="submit" class="quest-action-btn submit-btn" style="margin-top: 0.5rem; width: 100%;">Ajouter Étape</button>
           </form>
         </section>
@@ -1205,6 +1218,12 @@
                   <!-- Populated by JS -->
                 </select>
               </div>
+            </div>
+            <div class="form-group checkbox-group" style="margin-top: 0.8rem;">
+              <label class="checkbox-label" style="margin-top: 0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <input type="checkbox" id="edit-substep-life-lore-input" style="cursor: pointer;">
+                <span>📖 Marquer comme Life Lore (apparaît dans les stats et l'histoire)</span>
+              </label>
             </div>
             <div style="display: flex; gap: 0.8rem; margin-top: 0.8rem;">
               <button type="submit" class="quest-action-btn submit-btn" style="flex-grow: 1;">Enregistrer</button>
@@ -1770,6 +1789,19 @@
 
       <div style="display: flex; gap: 0.8rem; margin-top: 1rem;">
         <button id="save-recap-pins-btn" class="quest-action-btn" style="width: 100%; padding: 12px; font-weight: bold;">Sauvegarder les Épingles</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Life Lore Chronicles -->
+  <div id="life-lore-modal" class="modal-overlay" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.65); backdrop-filter: blur(8px); align-items: center; justify-content: center;">
+    <div class="modal-content glass-card" style="max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; position: relative; padding: 1.5rem; border: 1px solid var(--border-glass); border-radius: 16px; background: rgba(18, 18, 30, 0.9); box-shadow: 0 0 35px rgba(124, 58, 237, 0.2);">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.8rem; margin-bottom: 1rem;">
+        <h3 style="font-family: var(--font-display); font-size: 1.25rem; color: var(--accent-gold); margin: 0; display: flex; align-items: center; gap: 0.5rem;">📖 Mon Grimoire de Vie (Life Lore)</h3>
+        <span id="close-life-lore-btn" style="cursor: pointer; font-size: 1.8rem; color: var(--text-muted); line-height: 1; transition: color 0.2s;" onmouseover="this.style.color='var(--accent-gold)'" onmouseout="this.style.color='var(--text-muted)'">&times;</span>
+      </div>
+      <div id="life-lore-content" style="display: flex; flex-direction: column; gap: 1rem;">
+        <p style="text-align: center; color: var(--text-muted);">Chargement de vos chroniques...</p>
       </div>
     </div>
   </div>

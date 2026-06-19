@@ -87,6 +87,13 @@ body {
   padding: 4px;
   background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
   box-shadow: 0 0 20px var(--accent-purple-glow);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+}
+
+.avatar-container:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 28px var(--accent-purple);
 }
 
 .avatar-image {

@@ -7,7 +7,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.config import TELEGRAM_BOT_TOKEN
 from src.database.session import SessionLocal
-from src.database.models import User, Habit, HabitLog, DailyScore, Streak, Todo, NoTodo
+from src.database.models import User, Habit, HabitLog, DailyScore, Streak, Todo, NoTodo, SubStep
 from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_6_STATS
 from src.services.reward_service import get_allostasis_purchases_on_date
 
@@ -162,6 +162,19 @@ async def publish_daily_recap():
             todos_str = ", ".join(completed_todos_list) if completed_todos_list else "Aucun"
             failed_notodos_str = ", ".join(failed_notodos_list) if failed_notodos_list else "Aucun"
 
+            # Check completed Life Lore subgoals today
+            completed_life_lore = db.query(SubStep).filter(
+                SubStep.user_id == user.id,
+                SubStep.is_life_lore == True,
+                SubStep.completed == True,
+                SubStep.completed_at >= start_dt,
+                SubStep.completed_at <= end_dt
+            ).all()
+            completed_life_lore_list = []
+            for s in completed_life_lore:
+                completed_life_lore_list.append(f"{html.escape(s.title)} 📖")
+            life_lore_str = ", ".join(completed_life_lore_list) if completed_life_lore_list else "Aucun"
+
             # Fetch today's redeemed allostasis rewards
             allostasis_purchased = get_allostasis_purchases_on_date(db, user.id, today)
             allostasis_line = ""
@@ -177,6 +190,7 @@ async def publish_daily_recap():
                 f"✅ <b>Habitudes faites :</b> {habits_str}"
                 f"{skipped_line}\n"
                 f"🌟 <b>To-Dos faits :</b> {todos_str}\n"
+                f"📖 <b>Life Lore :</b> {life_lore_str}\n"
                 f"⚠️ <b>No-To-Dos brisés :</b> {failed_notodos_str}"
                 f"{allostasis_line}"
             )
