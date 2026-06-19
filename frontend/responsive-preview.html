@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Responsive Preview — Habit Tracker</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* ============================================================
+       PREVIEW HARNESS — NOT PART OF THE APP
+       ============================================================ */
+    body.preview-harness {
+      background: #111 !important;
+      padding: 2rem 1rem !important;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .preview-title {
+      text-align: center;
+      font-family: 'Outfit', sans-serif;
+      font-size: 2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #f59e0b, #06b6d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+    .preview-subtitle {
+      text-align: center;
+      color: #888;
+      font-size: 0.9rem;
+      margin-bottom: 3rem;
+    }
+
+    .preview-section {
+      margin-bottom: 4rem;
+    }
+    .preview-label {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #06b6d4;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .preview-label .dimensions {
+      font-size: 0.8rem;
+      font-weight: 400;
+      color: #666;
+    }
+
+    .preview-frame {
+      border: 2px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      overflow: hidden;
+      background: hsl(224, 71%, 4%);
+      margin: 0 auto;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      position: relative;
+      width: 100%;
+      transition: height 0.2s ease, width 0.2s ease;
+    }
+
+    .preview-frame iframe {
+      width: 100%;
+      border: none;
+      display: block;
+      overflow: hidden;
+    }
+
+    .preview-frame.mobile {
+      max-width: 375px;
+    }
+    .preview-frame.mobile iframe {
+      height: 2600px;
+    }
+    .preview-frame.tablet {
+      max-width: 768px;
+    }
+    .preview-frame.tablet iframe {
+      height: 2400px;
+    }
+    .preview-frame.desktop {
+      max-width: 1200px;
+    }
+    .preview-frame.desktop iframe {
+      height: 1800px;
+    }
+
+    .iframe-scaler {
+      transform-origin: top left;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Tabs for switching views */
+    .preview-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 0.8rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    .preview-tab-btn {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 10px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.03);
+      color: #aaa;
+      transition: all 0.3s ease;
+    }
+    .preview-tab-btn:hover {
+      border-color: #06b6d4;
+      color: #fff;
+    }
+    .preview-tab-btn.active {
+      background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+    }
+
+    .preview-section { display: none; }
+    .preview-section.visible { display: block; }
+  </style>
+</head>
+<body class="preview-harness">
+
+  <h1 class="preview-title">📱 Responsive Preview — Habit Tracker</h1>
+  <p class="preview-subtitle">Visualise le rendu actuel sur les 3 breakpoints principaux. Utilise les onglets pour naviguer.</p>
+
+  <div class="preview-tabs">
+    <button class="preview-tab-btn active" data-target="mobile-section">📱 Mobile (375px)</button>
+    <button class="preview-tab-btn" data-target="tablet-section">📋 Tablet (768px)</button>
+    <button class="preview-tab-btn" data-target="desktop-section">🖥️ Desktop (1200px)</button>
+    <button class="preview-tab-btn" data-target="all-section">👁️ Tout Voir</button>
+  </div>
+
+  <!-- MOBILE -->
+  <div id="mobile-section" class="preview-section visible">
+    <div class="preview-label">📱 Mobile <span class="dimensions">375 × auto</span></div>
+    <div class="preview-frame mobile" data-width="375">
+      <div class="iframe-scaler">
+        <iframe src="responsive-content.html" scrolling="no"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLET -->
+  <div id="tablet-section" class="preview-section">
+    <div class="preview-label">📋 Tablet <span class="dimensions">768 × auto</span></div>
+    <div class="preview-frame tablet" data-width="768">
+      <div class="iframe-scaler">
+        <iframe src="responsive-content.html" scrolling="no"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- DESKTOP -->
+  <div id="desktop-section" class="preview-section">
+    <div class="preview-label">🖥️ Desktop <span class="dimensions">1200 × auto</span></div>
+    <div class="preview-frame desktop" data-width="1200">
+      <div class="iframe-scaler">
+        <iframe src="responsive-content.html" scrolling="no"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALL -->
+  <div id="all-section" class="preview-section">
+    <div class="preview-label">📱 Mobile <span class="dimensions">375 × auto</span></div>
+    <div class="preview-frame mobile" data-width="375" style="margin-bottom: 3rem;">
+      <div class="iframe-scaler">
+        <iframe src="responsive-content.html" scrolling="no"></iframe>
+      </div>
+    </div>
+    <div class="preview-label">📋 Tablet <span class="dimensions">768 × auto</span></div>
+    <div class="preview-frame tablet" data-width="768" style="margin-bottom: 3rem;">
+      <div class="iframe-scaler">
+        <iframe src="responsive-content.html" scrolling="no"></iframe>
+      </div>
+    </div>
+    <div class="preview-label">🖥️ Desktop <span class="dimensions">1200 × auto</span></div>
+    <div class="preview-frame desktop" data-width="1200">
+      <div class="iframe-scaler">
+        <iframe src="responsive-content.html" scrolling="no"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Resize the iframe based on its content height
+    function resizeIframe(iframe) {
+      try {
+        if (iframe.contentWindow && iframe.contentWindow.document.body) {
+          const body = iframe.contentWindow.document.body;
+          const html = iframe.contentWindow.document.documentElement;
+          
+          // Temporarily reset height to get accurate measurement
+          iframe.style.height = 'auto';
+          const height = Math.max(
+            body.scrollHeight,
+            body.offsetHeight,
+            html.clientHeight,
+            html.scrollHeight,
+            html.offsetHeight
+          );
+          iframe.style.height = height + 'px';
+          
+          // Immediately update container width & scaling if necessary
+          updateFrameScaling(iframe.closest('.preview-frame'));
+        }
+      } catch (e) {
+        console.warn("Same-origin policy prevented automatic iframe height adjustment:", e);
+      }
+    }
+
+    // Handle scaling when the parent container is narrower than the target viewport width
+    function updateFrameScaling(frame) {
+      if (!frame) return;
+      const scaler = frame.querySelector('.iframe-scaler');
+      const iframe = frame.querySelector('iframe');
+      if (!scaler || !iframe) return;
+
+      const targetWidth = parseInt(frame.dataset.width);
+      const parentWidth = frame.parentNode.clientWidth;
+      const containerWidth = Math.min(targetWidth, parentWidth);
+
+      if (parentWidth < targetWidth) {
+        const scale = parentWidth / targetWidth;
+        scaler.style.width = `${targetWidth}px`;
+        scaler.style.transform = `scale(${scale})`;
+        
+        // Get natural height of the iframe
+        const iframeHeight = parseInt(iframe.style.height || iframe.height || 2000);
+        frame.style.height = `${iframeHeight * scale}px`;
+        frame.style.width = `${parentWidth}px`;
+      } else {
+        scaler.style.width = '100%';
+        scaler.style.transform = 'none';
+        frame.style.height = 'auto';
+        frame.style.width = 'auto';
+      }
+    }
+
+    function updateAllScaling() {
+      document.querySelectorAll('.preview-frame').forEach(frame => {
+        updateFrameScaling(frame);
+      });
+    }
+
+    // Set up iframes on load
+    window.addEventListener('load', () => {
+      document.querySelectorAll('iframe').forEach(iframe => {
+        iframe.addEventListener('load', () => {
+          resizeIframe(iframe);
+          
+          // Observe internal DOM mutations to resize if content changes dynamically
+          try {
+            if (iframe.contentWindow && iframe.contentWindow.document.body) {
+              const observer = new MutationObserver(() => resizeIframe(iframe));
+              observer.observe(iframe.contentWindow.document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true
+              });
+            }
+          } catch (e) {
+            console.warn("Could not attach MutationObserver to iframe:", e);
+          }
+        });
+        
+        // Trigger resize immediately if already loaded
+        if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+          resizeIframe(iframe);
+        }
+      });
+      
+      // Initial scale pass
+      setTimeout(updateAllScaling, 100);
+    });
+
+    // Update scaling on tab switch
+    document.querySelectorAll('.preview-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.preview-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const target = btn.dataset.target;
+        const targetSection = document.getElementById(target);
+        document.querySelectorAll('.preview-section').forEach(s => s.classList.remove('visible'));
+        targetSection.classList.add('visible');
+        
+        // Let the DOM update first, then recalculate heights & scaling for visible frames
+        setTimeout(() => {
+          targetSection.querySelectorAll('iframe').forEach(iframe => {
+            resizeIframe(iframe);
+          });
+          updateAllScaling();
+        }, 50);
+      });
+    });
+
+    // Scale dynamically on window resize
+    window.addEventListener('resize', updateAllScaling);
+  </script>
+</body>
+</html>

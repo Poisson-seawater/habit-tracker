@@ -185,7 +185,7 @@ body {
   gap: 2rem;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 620px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
@@ -1643,7 +1643,7 @@ body {
   gap: 1.2rem;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 621px) {
   .recap-grid {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -1652,7 +1652,7 @@ body {
   }
 }
 
-@media (min-width: 480px) and (max-width: 767px) {
+@media (min-width: 480px) and (max-width: 620px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 1rem;
@@ -1692,20 +1692,74 @@ body {
   }
 }
 
-/* 3. Mobile View Layouts (max-width: 768px) */
-@media (max-width: 768px) {
+/* 3. Tablet Nav — compact single-row nav (621px–900px) */
+@media (max-width: 900px) and (min-width: 621px) {
+  .main-nav {
+    flex-wrap: wrap !important;
+    gap: 0.8rem !important;
+    padding: 1rem 1.2rem !important;
+  }
+
+  .nav-links {
+    order: 2 !important;
+    flex: 1 1 100% !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    gap: 0.5rem !important;
+    padding-bottom: 4px !important;
+    scrollbar-width: none !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-links::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .nav-tab {
+    padding: 6px 14px !important;
+    font-size: 0.82rem !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .user-quick-stats {
+    width: auto !important;
+    padding: 6px 14px !important;
+    font-size: 0.82rem !important;
+  }
+
+  /* Profile: keep side-by-side but tighter */
+  .profile-card {
+    grid-template-columns: auto 1fr auto !important;
+    gap: 1.2rem !important;
+    padding: 1.5rem 1.2rem !important;
+  }
+
+  .avatar-container {
+    width: 70px !important;
+    height: 70px !important;
+  }
+
+  .profile-info h1 {
+    font-size: 1.6rem !important;
+  }
+}
+
+/* 4. Mobile View Layouts (max-width: 620px) */
+@media (max-width: 620px) {
   .main-nav {
     flex-direction: column !important;
     align-items: center !important;
-    gap: 1rem !important;
-    padding: 1.2rem 1rem !important;
+    gap: 0.8rem !important;
+    padding: 1rem 0.8rem !important;
     border-radius: 16px !important;
   }
   
   .logo {
-    font-size: 1.2rem !important;
+    font-size: 1.1rem !important;
     text-align: center !important;
-    margin-bottom: 0.2rem !important;
+    margin-bottom: 0 !important;
   }
   
   .nav-links {
@@ -1713,8 +1767,8 @@ body {
     display: flex !important;
     flex-wrap: nowrap !important;
     overflow-x: auto !important;
-    padding-bottom: 8px !important;
-    gap: 0.5rem !important;
+    padding-bottom: 6px !important;
+    gap: 0.4rem !important;
     justify-content: flex-start !important;
     scrollbar-width: none !important;
     -webkit-overflow-scrolling: touch;
@@ -1725,46 +1779,80 @@ body {
   }
   
   .nav-tab {
-    padding: 6px 12px !important;
-    font-size: 0.8rem !important;
+    padding: 8px 14px !important;
+    font-size: 0.78rem !important;
     white-space: nowrap !important;
     flex-shrink: 0 !important;
+    min-height: 36px !important;
   }
   
   .user-quick-stats {
-    width: 100% !important;
-    justify-content: center !important;
+    width: auto !important;
+    align-self: center !important;
+    padding: 8px 18px !important;
+    font-size: 0.85rem !important;
+  }
+
+  /* Touch-friendly action buttons */
+  .quest-action-btn {
+    padding: 10px 18px !important;
+    font-size: 0.88rem !important;
+    min-height: 40px !important;
+  }
+
+  .bounty-action-btn {
+    padding: 10px 16px !important;
+    font-size: 0.85rem !important;
+    min-height: 40px !important;
+  }
+
+  .floating-add-btn {
+    padding: 8px 16px !important;
+    font-size: 0.82rem !important;
+    min-height: 36px !important;
   }
 
   .skill-tree-scroll-container, 
   .skill-tree-absolute-container {
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Section headers tighter */
+  .section-header {
+    font-size: 1.15rem !important;
+    margin-bottom: 1rem !important;
+  }
 }
 
-/* 4. Small Mobile Screen Optimization (max-width: 480px) */
+/* 5. Small Mobile Screen Optimization (max-width: 480px) */
 @media (max-width: 480px) {
   body {
-    padding: 1rem 0.5rem !important;
+    padding: 0.8rem 0.4rem !important;
   }
   
   .glass-card {
     border-radius: 14px !important;
+  }
+
+  .quests-panel,
+  .bounties-panel-widget,
+  .stats-panel {
     padding: 1.2rem 1rem !important;
   }
   
   .profile-card {
     padding: 1.2rem 1rem !important;
-    gap: 1.2rem !important;
+    gap: 1rem !important;
   }
   
   .profile-info h1 {
-    font-size: 1.6rem !important;
+    font-size: 1.4rem !important;
   }
   
   .profile-badges {
     flex-wrap: wrap !important;
     justify-content: center !important;
+    gap: 0.5rem !important;
   }
 
   .form-grid {
@@ -1774,14 +1862,16 @@ body {
   
   .calendar-panel {
     padding: 1rem !important;
+    max-width: none !important;
   }
   
   .calendar-grid {
-    gap: 0.3rem !important;
+    gap: 0.25rem !important;
   }
   
   .calendar-day-box {
-    font-size: 0.75rem !important;
+    font-size: 0.72rem !important;
+    border-radius: 6px !important;
   }
   
   .modal-content {
@@ -1798,9 +1888,32 @@ body {
   .stats-panel p {
     margin-bottom: 1rem !important;
   }
+
+  .quest-item {
+    padding: 0.8rem !important;
+    border-radius: 12px !important;
+  }
+
+  .bounty-item {
+    padding: 0.8rem !important;
+    border-radius: 12px !important;
+  }
+
+  /* Recap columns stay stacked on small screens */
+  .recap-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
+/* 6. Calendar — remove max-width on wider screens for better use of space */
+@media (min-width: 621px) {
+  .calendar-panel {
+    max-width: 650px !important;
+  }
+}
 
-
-
-
+@media (min-width: 1000px) {
+  .calendar-panel {
+    max-width: 750px !important;
+  }
+}

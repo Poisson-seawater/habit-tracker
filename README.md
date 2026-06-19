@@ -54,7 +54,6 @@ Context: un sous-objectifs peuvent s'afficher dans plusieurs objectifs. Les skil
 Si skill fait, alors background change de couleur pour etre le meme que celui de la bordure (pas de verts).
 La vue global, 
 
-
 **not to-do**
 je veux etre capable de delete un non to do
 

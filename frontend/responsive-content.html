@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mock Content</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Inline nav styles from index.html */
+    .main-nav { display:flex; justify-content:space-between; align-items:center; padding:1rem 2rem; margin-bottom:2rem; border-radius:20px; }
+    .logo { font-family:var(--font-display); font-size:1.4rem; font-weight:800; background:linear-gradient(135deg,var(--accent-gold),var(--accent-cyan)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+    .nav-links { display:flex; gap:1rem; }
+    .nav-tab { background:rgba(255,255,255,0.03); border:1px solid var(--border-glass); color:var(--text-secondary); font-family:var(--font-display); font-weight:600; font-size:0.9rem; padding:8px 20px; border-radius:12px; cursor:pointer; transition:var(--transition-smooth); }
+    .nav-tab.active { background:linear-gradient(135deg,var(--accent-purple),var(--accent-cyan)); color:var(--text-primary); border-color:transparent; box-shadow:0 4px 12px var(--accent-purple-glow); }
+    .user-quick-stats { font-family:var(--font-display); font-weight:700; color:var(--accent-gold); background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.2); padding:8px 20px; border-radius:12px; box-shadow:0 0 10px var(--accent-gold-glow); display:inline-flex; align-items:center; gap:0.5rem; }
+
+    /* Responsive overrides already in style.css */
+    .recap-grid { display:grid; grid-template-columns:1fr; gap:1.2rem; }
+    @media(min-width:768px){ .recap-grid{ grid-template-columns:repeat(3,1fr); } }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- NAV -->
+  <nav class="glass-card main-nav">
+    <div class="logo">⚔️ RPG Habit Tracker</div>
+    <div class="nav-links">
+      <button class="nav-tab active">⚔️ Dashboard</button>
+      <button class="nav-tab">🏆 Objectifs</button>
+      <button class="nav-tab">🌳 Softskills</button>
+      <button class="nav-tab">🚫 NO To-Do</button>
+      <button class="nav-tab">⚙️ Perfect Days</button>
+    </div>
+    <button class="nav-tab user-quick-stats">💰 1250 Gold 🛒</button>
+  </nav>
+
+  <!-- PROFILE CARD -->
+  <header class="glass-card profile-card">
+    <div class="avatar-container">
+      <div class="avatar-image">🧙‍♂️</div>
+      <div class="avatar-level-badge">LV.12</div>
+    </div>
+    <div class="profile-info">
+      <div class="name-talent-row">
+        <h1>Gabriel</h1>
+        <span class="talent-badge">🌟 Talent: +15% XP</span>
+      </div>
+      <div class="class-title">Aventurier d'Élite</div>
+      <div class="xp-bar-container">
+        <div class="xp-bar-fill" style="width: 65%;"></div>
+        <span class="xp-text">325 / 500 XP</span>
+      </div>
+      <div class="profile-badges" style="margin-top: 0.8rem;">
+        <div class="template-select-container">
+          <select class="template-dropdown"><option>Semaine ⚔️</option></select>
+        </div>
+        <span class="badge badge-status">Perfect Day : En cours</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- DASHBOARD GRID -->
+  <main class="dashboard-grid">
+
+    <!-- LEFT COLUMN -->
+    <div style="display:flex;flex-direction:column;gap:2rem;">
+
+      <!-- RECAP 3-3-3 -->
+      <section class="glass-card" style="padding:1.8rem;">
+        <h2 class="section-header">🛡️ <span>Recap 3 - 3 - 3</span></h2>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:1.5rem;margin-top:-1rem;">Gardez le cap sur vos 3 objectifs prioritaires, vos 3 compétences actives et votre allostasie du jour.</p>
+        <div class="recap-grid">
+          <div class="recap-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;border-bottom:1px solid var(--border-glass);padding-bottom:0.3rem;">
+              <h3 style="font-size:0.95rem;margin:0;color:var(--accent-cyan);">🏆 Objectifs</h3>
+              <button style="background:none;border:none;cursor:pointer;font-size:0.9rem;padding:2px;">✏️</button>
+            </div>
+            <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.6rem;">
+              <li class="recap-item"><span class="recap-item-text">Devenir Millionnaire</span><span class="recap-item-status-icon">🎯</span></li>
+              <li class="recap-item completed"><span class="recap-item-text">Maîtriser Python</span><span class="recap-item-status-icon">✅</span></li>
+              <li class="recap-item"><span class="recap-item-text">Courir un Marathon</span><span class="recap-item-status-icon">🎯</span></li>
+            </ul>
+          </div>
+          <div class="recap-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;border-bottom:1px solid var(--border-glass);padding-bottom:0.3rem;">
+              <h3 style="font-size:0.95rem;margin:0;color:var(--accent-cyan);">🧬 Compétences</h3>
+              <button style="background:none;border:none;cursor:pointer;font-size:0.9rem;padding:2px;">✏️</button>
+            </div>
+            <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.6rem;">
+              <li class="recap-item"><span class="recap-item-text">Négociation</span><span class="recap-item-status-icon">🧬</span></li>
+              <li class="recap-item"><span class="recap-item-text">Leadership</span><span class="recap-item-status-icon">🧬</span></li>
+              <li class="recap-item completed"><span class="recap-item-text">Communication</span><span class="recap-item-status-icon">✅</span></li>
+            </ul>
+          </div>
+          <div class="recap-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;border-bottom:1px solid var(--border-glass);padding-bottom:0.3rem;">
+              <h3 style="font-size:0.95rem;margin:0;color:var(--accent-cyan);">🩹 Allostasie</h3>
+              <button style="background:none;border:none;cursor:pointer;font-size:0.9rem;padding:2px;">🔄</button>
+            </div>
+            <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.6rem;">
+              <li class="recap-item"><span class="recap-item-text">Pas d'écran après 22h</span><span class="recap-item-status-icon">🩹</span></li>
+              <li class="recap-item completed"><span class="recap-item-text">Marche 30 min</span><span class="recap-item-status-icon">✅</span></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- STATS PANEL -->
+      <section class="glass-card stats-panel">
+        <h2 class="section-header">🛡️ <span>Feuille de Personnage (Éphémère)</span></h2>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:1.5rem;margin-top:-1rem;">Ces statistiques éphémères retombent strictement à 0 chaque matin !</p>
+        <div class="stats-grid" id="stats-container">
+          <div class="stat-row stat-forme_physique"><div class="stat-label-row"><span class="stat-name">💪 Forme Physique</span><span class="stat-value">12/15</span></div><div class="stat-progress-track"><div class="stat-progress-bar" style="width:80%"></div></div></div>
+          <div class="stat-row stat-sante"><div class="stat-label-row"><span class="stat-name">🧘 Santé</span><span class="stat-value">8/10</span></div><div class="stat-progress-track"><div class="stat-progress-bar" style="width:80%"></div></div></div>
+          <div class="stat-row stat-social"><div class="stat-label-row"><span class="stat-name">🤝 Social</span><span class="stat-value">3/10</span></div><div class="stat-progress-track"><div class="stat-progress-bar" style="width:30%"></div></div></div>
+          <div class="stat-row stat-finance"><div class="stat-label-row"><span class="stat-name">💰 Finance</span><span class="stat-value">5/8</span></div><div class="stat-progress-track"><div class="stat-progress-bar" style="width:62%"></div></div></div>
+          <div class="stat-row stat-apprendre"><div class="stat-label-row"><span class="stat-name">📚 Apprendre</span><span class="stat-value">10/12</span></div><div class="stat-progress-track"><div class="stat-progress-bar" style="width:83%"></div></div></div>
+          <div class="stat-row stat-discipline"><div class="stat-label-row"><span class="stat-name">⚔️ Discipline</span><span class="stat-value">7/10</span></div><div class="stat-progress-track"><div class="stat-progress-bar" style="width:70%"></div></div></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="widgets-container">
+
+      <!-- QUESTS -->
+      <section class="glass-card quests-panel">
+        <h2 class="section-header"><span>🎯 Quêtes Actives (Habitudes)</span><button class="floating-add-btn">+ Quête</button></h2>
+        <div class="quests-list">
+          <div class="quest-item"><div class="quest-details"><span class="quest-name">🧘 Méditation</span><span class="quest-desc">10 min de pleine conscience</span><span class="quest-reward-tag">+5 Santé • +3 Discipline</span></div><button class="quest-action-btn completed">✅ Fait</button></div>
+          <div class="quest-item"><div class="quest-details"><span class="quest-name">📖 Lecture</span><span class="quest-desc">30 pages minimum</span><span class="quest-reward-tag">+8 Apprendre</span></div><button class="quest-action-btn">Valider</button></div>
+          <div class="quest-item"><div class="quest-details"><span class="quest-name">💪 Musculation</span><span class="quest-desc">Séance push/pull/legs</span><span class="quest-reward-tag">+12 Forme Physique</span></div><button class="quest-action-btn">Valider</button></div>
+          <div class="quest-item"><div class="quest-details"><span class="quest-name">🧹 Ménage rapide</span><span class="quest-desc">15 min de rangement</span><span class="quest-reward-tag">+3 Discipline</span></div><button class="quest-action-btn completed">✅ Fait</button></div>
+          <div class="quest-item"><div class="quest-details"><span class="quest-name">📝 Journaling</span><span class="quest-desc">Écrire les 3 victoires du jour</span><span class="quest-reward-tag">+5 Santé</span></div><button class="quest-action-btn">Valider</button></div>
+        </div>
+      </section>
+
+      <!-- BOUNTIES / TODOS -->
+      <section class="glass-card bounties-panel-widget">
+        <h2 class="section-header"><span>⚔️ Tableau des Primes (Todos)</span><button class="floating-add-btn">+ Prime</button></h2>
+        <div class="bounties-list">
+          <div class="bounty-item"><div class="bounty-details"><span class="bounty-title">Terminer le rapport Q2</span><span class="bounty-xp">+25 XP • +5 Finance</span></div><button class="bounty-action-btn">Réclamer</button></div>
+          <div class="bounty-item completed"><div class="bounty-details"><span class="bounty-title">Appeler le dentiste</span><span class="bounty-xp">+10 XP • +3 Santé</span></div><button class="bounty-action-btn completed">✅ Fait</button></div>
+          <div class="bounty-item"><div class="bounty-details"><span class="bounty-title">Préparer présentation IA</span><span class="bounty-xp">+30 XP • +8 Apprendre</span></div><button class="bounty-action-btn">Réclamer</button></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- CALENDAR -->
+  <section class="bottom-grid" style="grid-template-columns:1fr;margin-top:2rem;">
+    <div class="glass-card calendar-panel">
+      <h2 class="section-header">📅 <span>Bilan Historique (Juin 2026)</span></h2>
+      <div class="calendar-grid">
+        <div class="calendar-day-header">L</div><div class="calendar-day-header">M</div><div class="calendar-day-header">M</div><div class="calendar-day-header">J</div><div class="calendar-day-header">V</div><div class="calendar-day-header">S</div><div class="calendar-day-header">D</div>
+        <div class="calendar-day-box perfect">1</div><div class="calendar-day-box perfect">2</div><div class="calendar-day-box failed">3</div><div class="calendar-day-box perfect">4</div><div class="calendar-day-box acceptable">5</div><div class="calendar-day-box perfect">6</div><div class="calendar-day-box acceptable">7</div>
+        <div class="calendar-day-box perfect">8</div><div class="calendar-day-box failed">9</div><div class="calendar-day-box perfect">10</div><div class="calendar-day-box perfect">11</div><div class="calendar-day-box acceptable">12</div><div class="calendar-day-box perfect">13</div><div class="calendar-day-box perfect">14</div>
+        <div class="calendar-day-box acceptable">15</div><div class="calendar-day-box perfect">16</div><div class="calendar-day-box perfect">17</div><div class="calendar-day-box perfect">18</div><div class="calendar-day-box">19</div><div class="calendar-day-box future">20</div><div class="calendar-day-box future">21</div>
+        <div class="calendar-day-box future">22</div><div class="calendar-day-box future">23</div><div class="calendar-day-box future">24</div><div class="calendar-day-box future">25</div><div class="calendar-day-box future">26</div><div class="calendar-day-box future">27</div><div class="calendar-day-box future">28</div>
+        <div class="calendar-day-box future">29</div><div class="calendar-day-box future">30</div>
+      </div>
+      <div class="calendar-legend">
+        <span class="legend-item"><span class="legend-dot failed"></span> Échec</span>
+        <span class="legend-item"><span class="legend-dot acceptable"></span> Acceptable</span>
+        <span class="legend-item"><span class="legend-dot perfect"></span> Perfect Day</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
