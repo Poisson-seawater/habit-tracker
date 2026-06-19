@@ -7,7 +7,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.config import TELEGRAM_BOT_TOKEN
 from src.database.session import SessionLocal
-from src.database.models import User, Habit, HabitLog, DailyScore, Streak, Todo
+from src.database.models import User, Habit, HabitLog, DailyScore, Streak, Todo, NoTodo
 from src.services.score_service import calculate_daily_score, update_streaks, add_user_xp, ALL_6_STATS
 from src.services.reward_service import get_allostasis_purchases_on_date
 
@@ -71,7 +71,8 @@ async def publish_daily_recap():
                 HabitLog.timestamp <= end_dt
             ).all()
 
-            public_actions = []
+            completed_habits = []
+            skipped_habits = []
             private_completed_count = 0
 
             # Group today's logs by habit so targeted habits show a single "X/N" line
@@ -91,18 +92,18 @@ async def publish_daily_recap():
                     if habit.is_private:
                         private_completed_count += len(done_logs)
                     elif has_target:
-                        public_actions.append(f"{html.escape(habit.name)} {len(done_logs)}/{habit.daily_target} ✅")
+                        completed_habits.append(f"{html.escape(habit.name)} {len(done_logs)}/{habit.daily_target} ✅")
                     else:
                         for log in done_logs:
                             if log.log_type == "done":
-                                public_actions.append(f"{html.escape(habit.name)} ✅")
+                                completed_habits.append(f"{html.escape(habit.name)} ✅")
                             else:
-                                public_actions.append(f"{html.escape(habit.name)} ({log.amount}{html.escape(log.unit or '')})")
+                                completed_habits.append(f"{html.escape(habit.name)} ({log.amount}{html.escape(log.unit or '')})")
                 elif any(l.log_type == "skip" for l in h_logs):
                     if habit.is_private:
-                        public_actions.append("Chose secrète 🔒 (skippée ⏭️)")
+                        skipped_habits.append("Chose secrète 🔒 (skippée ⏭️)")
                     else:
-                        public_actions.append(f"{html.escape(habit.name)} (skippé ⏭️)")
+                        skipped_habits.append(f"{html.escape(habit.name)} (skippé ⏭️)")
 
             # Check completed Todos today
             completed_todos = db.query(Todo).filter(
@@ -111,8 +112,19 @@ async def publish_daily_recap():
                 Todo.completed_at >= start_dt,
                 Todo.completed_at <= end_dt
             ).all()
+            completed_todos_list = []
             for t in completed_todos:
-                public_actions.append(f"Todo : {html.escape(t.title)} 🌟")
+                completed_todos_list.append(f"{html.escape(t.title)} 🌟")
+
+            # Check failed NoTodos today
+            failed_notodos = db.query(NoTodo).filter(
+                NoTodo.user_id == user.id,
+                NoTodo.failed_at >= start_dt,
+                NoTodo.failed_at <= end_dt
+            ).all()
+            failed_notodos_list = []
+            for n in failed_notodos:
+                failed_notodos_list.append(f"{html.escape(n.title)} 🚫")
 
             # 4. Format streaks
             perf_streak = db.query(Streak).filter_by(user_id=user.id, streak_type="Perfect").first()
@@ -139,9 +151,16 @@ async def publish_daily_recap():
             lvl_info = f" (LEVEL UP! Nouveau niveau: {user.level} 🎉)" if levels_gained else ""
 
             # 5. Construct user block
-            actions_str = ", ".join(public_actions) if public_actions else "Aucune action enregistrée"
+            habits_str = ", ".join(completed_habits) if completed_habits else "Aucune"
             if private_completed_count > 0:
-                actions_str += f" (+{private_completed_count} privées 🔒)"
+                if habits_str == "Aucune":
+                    habits_str = f"+{private_completed_count} privées 🔒"
+                else:
+                    habits_str += f" (+{private_completed_count} privées 🔒)"
+
+            skipped_line = f"\n⏭️ <b>Habitudes skippées :</b> {', '.join(skipped_habits)}" if skipped_habits else ""
+            todos_str = ", ".join(completed_todos_list) if completed_todos_list else "Aucun"
+            failed_notodos_str = ", ".join(failed_notodos_list) if failed_notodos_list else "Aucun"
 
             # Fetch today's redeemed allostasis rewards
             allostasis_purchased = get_allostasis_purchases_on_date(db, user.id, today)
@@ -155,7 +174,10 @@ async def publish_daily_recap():
                 f"🛡️ <b>Statut :</b> {status_emoji} | Template : {score.template_used.upper()}\n"
                 f"🔥 Streak Perfect : <b>{perf_streak_val}j</b> | 💰 Or : <b>{user.gold} Gold</b>\n"
                 f"📈 <b>Stats du jour :</b> {stat_progression_str}\n"
-                f"⚔️ <b>Actions :</b> {actions_str}"
+                f"✅ <b>Habitudes faites :</b> {habits_str}"
+                f"{skipped_line}\n"
+                f"🌟 <b>To-Dos faits :</b> {todos_str}\n"
+                f"⚠️ <b>No-To-Dos brisés :</b> {failed_notodos_str}"
                 f"{allostasis_line}"
             )
             user_blocks.append(user_block)
