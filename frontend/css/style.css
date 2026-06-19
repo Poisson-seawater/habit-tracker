@@ -1632,6 +1632,175 @@ body {
   }
 }
 
+/* ==========================================================================
+   RESPONSIVE DESIGN OVERRIDES (MOBILE & TABLET)
+   ========================================================================== */
+
+/* 1. Grid layouts improvements for wider screens */
+.recap-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.2rem;
+}
+
+@media (min-width: 768px) {
+  .recap-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (min-width: 480px) and (max-width: 767px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem;
+  }
+}
+
+/* 2. Tablet & Smaller Layouts (max-width: 1000px) */
+@media (max-width: 1000px) {
+  .goals-layout {
+    flex-direction: column !important;
+    gap: 1.5rem !important;
+  }
+  .goals-sidebar {
+    width: 100% !important;
+    padding: 1.2rem !important;
+  }
+  .goals-selector-list {
+    display: flex !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    max-height: none !important;
+    padding-bottom: 8px !important;
+    gap: 1rem !important;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+  .goal-selector-item {
+    min-width: 240px !important;
+    flex-shrink: 0 !important;
+    padding: 0.8rem !important;
+    margin-bottom: 0 !important;
+  }
+  .goals-main {
+    padding: 1.2rem !important;
+    min-height: 450px !important;
+  }
+}
+
+/* 3. Mobile View Layouts (max-width: 768px) */
+@media (max-width: 768px) {
+  .main-nav {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    padding: 1.2rem 1rem !important;
+    border-radius: 16px !important;
+  }
+  
+  .logo {
+    font-size: 1.2rem !important;
+    text-align: center !important;
+    margin-bottom: 0.2rem !important;
+  }
+  
+  .nav-links {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    padding-bottom: 8px !important;
+    gap: 0.5rem !important;
+    justify-content: flex-start !important;
+    scrollbar-width: none !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .nav-links::-webkit-scrollbar {
+    display: none !important;
+  }
+  
+  .nav-tab {
+    padding: 6px 12px !important;
+    font-size: 0.8rem !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .user-quick-stats {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .skill-tree-scroll-container, 
+  .skill-tree-absolute-container {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* 4. Small Mobile Screen Optimization (max-width: 480px) */
+@media (max-width: 480px) {
+  body {
+    padding: 1rem 0.5rem !important;
+  }
+  
+  .glass-card {
+    border-radius: 14px !important;
+    padding: 1.2rem 1rem !important;
+  }
+  
+  .profile-card {
+    padding: 1.2rem 1rem !important;
+    gap: 1.2rem !important;
+  }
+  
+  .profile-info h1 {
+    font-size: 1.6rem !important;
+  }
+  
+  .profile-badges {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.8rem !important;
+  }
+  
+  .calendar-panel {
+    padding: 1rem !important;
+  }
+  
+  .calendar-grid {
+    gap: 0.3rem !important;
+  }
+  
+  .calendar-day-box {
+    font-size: 0.75rem !important;
+  }
+  
+  .modal-content {
+    padding: 1.5rem !important;
+    width: 95% !important;
+  }
+  
+  .creators-drawer {
+    padding: 1.2rem 1rem !important;
+    width: 96% !important;
+  }
+
+  .recap-panel p, 
+  .stats-panel p {
+    margin-bottom: 1rem !important;
+  }
+}
+
+
 
 
 

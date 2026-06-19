@@ -411,3 +411,38 @@ def test_per_goal_substep_execution_order():
     assert goal_a["substeps"][0]["execution_order"] == 4
     assert goal_b["substeps"][0]["execution_order"] == 5
 
+
+def test_notodo_crud():
+    # 1. Create a No-Todo
+    response = client.post("/api/v1/notodos", json={
+        "title": "Ne pas procrastiner"
+    })
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["notodo"]["title"] == "Ne pas procrastiner"
+    notodo_id = data["notodo"]["id"]
+
+    # 2. Get list of No-Todos
+    response = client.get("/api/v1/notodos")
+    assert response.status_code == 200
+    notodos = response.json()
+    assert any(n["id"] == notodo_id for n in notodos)
+
+    # 3. Fail No-Todo
+    response = client.post(f"/api/v1/notodos/{notodo_id}/fail")
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+
+    # 4. Delete No-Todo
+    response = client.delete(f"/api/v1/notodos/{notodo_id}")
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+
+    # 5. Verify deleted No-Todo is gone
+    response = client.get("/api/v1/notodos")
+    assert response.status_code == 200
+    notodos = response.json()
+    assert not any(n["id"] == notodo_id for n in notodos)
+
+

@@ -1173,6 +1173,24 @@ def fail_notodo(notodo_id: int, db: Session = Depends(get_db), user_id: int = De
         "message": "No-Todo marked as failed for today."
     }
 
+@router.delete("/notodos/{notodo_id}")
+def delete_notodo(notodo_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """
+    Delete a No-Todo rule.
+    """
+    notodo = db.query(NoTodo).filter_by(id=notodo_id, user_id=user_id).first()
+    if not notodo:
+        raise HTTPException(status_code=404, detail="No-Todo not found")
+
+    db.delete(notodo)
+    db.commit()
+
+    return {
+        "status": "success",
+        "message": "No-Todo deleted successfully."
+    }
+
+
 
 # --- History & Habits Listing ---
 

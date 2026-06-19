@@ -664,15 +664,23 @@ document.addEventListener("DOMContentLoaded", () => {
               ${n.failed_today ? "Échoué aujourd'hui ⚠️" : "Respecté aujourd'hui 🛡️"}
             </span>
           </div>
-          <button class="substep-btn-check ${n.failed_today ? "completed" : ""}" data-id="${n.id}" ${n.failed_today ? "disabled" : ""} style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgb(239, 68, 68); color: rgb(239, 68, 68);">
-            ${n.failed_today ? "Échoué" : "Déclarer Échec"}
-          </button>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="substep-btn-check ${n.failed_today ? "completed" : ""}" data-id="${n.id}" ${n.failed_today ? "disabled" : ""} style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 0 16px; color: #ef4444; font-family: var(--font-display); font-weight: 600; font-size: 0.85rem; cursor: ${n.failed_today ? "not-allowed" : "pointer"}; transition: var(--transition-smooth); display: inline-flex; align-items: center; justify-content: center; height: 38px; opacity: ${n.failed_today ? 0.6 : 1};" ${n.failed_today ? "" : "onmouseover=\"this.style.background='rgba(239, 68, 68, 0.2)'; this.style.transform='scale(1.02)';\" onmouseout=\"this.style.background='rgba(239, 68, 68, 0.1)'; this.style.transform='scale(1)';\""}>
+              ${n.failed_today ? "Échoué" : "Déclarer Échec"}
+            </button>
+            <button class="notodo-delete-btn" data-id="${n.id}" style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-glass); border-radius: 8px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); cursor: pointer; transition: var(--transition-smooth);" title="Supprimer la règle" onmouseover="this.style.background='rgba(239, 68, 68, 0.15)'; this.style.color='#ef4444'; this.style.transform='scale(1.02)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'; this.style.color='var(--text-muted)'; this.style.transform='scale(1)';">
+              🗑️
+            </button>
+          </div>
         `;
 
         if (!n.failed_today) {
           const btn = item.querySelector(".substep-btn-check");
           btn.addEventListener("click", () => failNoTodo(n.id));
         }
+
+        const deleteBtn = item.querySelector(".notodo-delete-btn");
+        deleteBtn.addEventListener("click", () => deleteNoTodo(n.id));
 
         container.appendChild(item);
       });
@@ -695,6 +703,21 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast("Erreur lors de la déclaration d'échec", true);
     }
   }
+
+  async function deleteNoTodo(id) {
+    if (!confirm("Voulez-vous vraiment supprimer définitivement cette règle ?")) return;
+    try {
+      const response = await fetch(`${API_BASE}/notodos/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Erreur suppression notodo");
+
+      showToast("Règle No-Todo supprimée avec succès !");
+      refreshAll();
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur lors de la suppression de la règle", true);
+    }
+  }
+
 
   async function claimBounty(id) {
     try {
