@@ -334,3 +334,80 @@ def test_create_habit_valid_still_passes():
     })
     assert response.status_code == 201
     assert response.json()["status"] == "success"
+
+
+def test_per_goal_substep_execution_order():
+    # 1. Create two goals
+    resp_a = client.post("/api/v1/goals", json={"title": "Goal A", "description": "First goal"})
+    assert resp_a.status_code == 201
+    goal_a_id = resp_a.json()["goal"]["id"]
+
+    resp_b = client.post("/api/v1/goals", json={"title": "Goal B", "description": "Second goal"})
+    assert resp_b.status_code == 201
+    goal_b_id = resp_b.json()["goal"]["id"]
+
+    # 2. Create SubStep under Goal A with execution_order 2
+    resp_s = client.post(f"/api/v1/goals/{goal_a_id}/substeps", json={
+        "title": "Shared Substep",
+        "description": "To be shared",
+        "gold_reward": 100,
+        "execution_order": 2
+    })
+    assert resp_s.status_code == 201
+    substep_id = resp_s.json()["substep"]["id"]
+
+    # 3. Link SubStep to Goal B with execution_order 5
+    resp_link = client.post("/api/v1/substeps/link", json={
+        "goal_id": goal_b_id,
+        "substep_id": substep_id,
+        "execution_order": 5
+    })
+    assert resp_link.status_code == 200
+    assert resp_link.json()["status"] == "success"
+
+    # 4. Fetch goals and assert orders
+    resp_goals = client.get("/api/v1/goals")
+    assert resp_goals.status_code == 200
+    goals = resp_goals.json()
+    
+    goal_a = next(g for g in goals if g["id"] == goal_a_id)
+    goal_b = next(g for g in goals if g["id"] == goal_b_id)
+
+    assert goal_a["substeps"][0]["id"] == substep_id
+    assert goal_a["substeps"][0]["execution_order"] == 2
+
+    assert goal_b["substeps"][0]["id"] == substep_id
+    assert goal_b["substeps"][0]["execution_order"] == 5
+
+    # 5. Update substep generally (this should NOT overwrite link execution orders)
+    resp_update = client.put(f"/api/v1/substeps/{substep_id}", json={
+        "title": "Shared Substep Updated",
+        "description": "To be shared",
+        "gold_reward": 120,
+        "execution_order": 9  # generic/default order
+    })
+    assert resp_update.status_code == 200
+
+    resp_goals = client.get("/api/v1/goals")
+    goals = resp_goals.json()
+    goal_a = next(g for g in goals if g["id"] == goal_a_id)
+    goal_b = next(g for g in goals if g["id"] == goal_b_id)
+
+    # Confirm execution orders in links are unchanged
+    assert goal_a["substeps"][0]["execution_order"] == 2
+    assert goal_b["substeps"][0]["execution_order"] == 5
+
+    # 6. Reorder specifically for Goal A to execution_order 4
+    resp_reorder = client.put(f"/api/v1/goals/{goal_a_id}/substeps/{substep_id}/reorder", json={
+        "execution_order": 4
+    })
+    assert resp_reorder.status_code == 200
+
+    resp_goals = client.get("/api/v1/goals")
+    goals = resp_goals.json()
+    goal_a = next(g for g in goals if g["id"] == goal_a_id)
+    goal_b = next(g for g in goals if g["id"] == goal_b_id)
+
+    assert goal_a["substeps"][0]["execution_order"] == 4
+    assert goal_b["substeps"][0]["execution_order"] == 5
+

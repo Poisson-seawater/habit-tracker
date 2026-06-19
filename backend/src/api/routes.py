@@ -692,7 +692,9 @@ def link_substep_to_goal(payload: SubStepLinkRequest, db: Session = Depends(get_
         
     existing_link = db.query(GoalSubStepLink).filter_by(goal_id=goal.id, substep_id=substep.id).first()
     if existing_link:
-        return {"status": "already_linked"}
+        existing_link.execution_order = payload.execution_order
+        db.commit()
+        return {"status": "updated"}
         
     link = GoalSubStepLink(goal_id=goal.id, substep_id=substep.id, execution_order=payload.execution_order)
     db.add(link)
@@ -705,7 +707,7 @@ def link_substep_to_goal(payload: SubStepLinkRequest, db: Session = Depends(get_
 def update_substep(substep_id: int, payload: SubStepUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     """
     Update a substep's title, description, gold reward, target stats.
-    Also propagates execution_order to all GoalSubStepLinks for this substep.
+    Does not overwrite execution_order on individual goal links.
     """
     substep = db.query(SubStep).filter_by(id=substep_id, user_id=user_id).first()
     if not substep:
@@ -716,10 +718,6 @@ def update_substep(substep_id: int, payload: SubStepUpdate, db: Session = Depend
     substep.gold_reward = payload.gold_reward
     substep.stats_json = payload.stats_json
     substep.execution_order = payload.execution_order
-
-    # Also update execution_order on all links (global fallback)
-    for link in substep.goal_links:
-        link.execution_order = payload.execution_order
                 
     db.commit()
     db.refresh(substep)

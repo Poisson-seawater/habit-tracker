@@ -959,6 +959,14 @@ document.addEventListener("DOMContentLoaded", () => {
         if (linkSubstepSelect) linkSubstepSelect.innerHTML += optionHTML;
       });
 
+      // Pre-select active goal in dropdowns
+      if (linkGoalSelect && activeGoalId) {
+        linkGoalSelect.value = activeGoalId;
+      }
+      if (substepGoalSelect && activeGoalId) {
+        substepGoalSelect.value = activeGoalId;
+      }
+
       // Render Active Tree
       renderGoalTree(activeGoal);
 
@@ -1221,6 +1229,17 @@ document.addEventListener("DOMContentLoaded", () => {
         })
       });
       if (!resp.ok) throw new Error();
+
+      // Update execution_order specifically for the active goal link
+      if (activeGoalId) {
+        const reorderResp = await fetch(`${API_BASE}/goals/${activeGoalId}/substeps/${subId}/reorder`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ execution_order: order })
+        });
+        if (!reorderResp.ok) throw new Error();
+      }
+
       showToast("Sous-étape modifiée avec succès ! ✏️");
       closeDrawer();
       fetchGoals();
@@ -1254,12 +1273,13 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     const subId = parseInt(document.getElementById("link-substep-select").value);
     const goalId = parseInt(document.getElementById("link-goal-select").value);
+    const order = parseInt(document.getElementById("link-order-input").value) || 1;
 
     try {
       const resp = await fetch(`${API_BASE}/substeps/link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goal_id: goalId, substep_id: subId })
+        body: JSON.stringify({ goal_id: goalId, substep_id: subId, execution_order: order })
       });
       if (!resp.ok) throw new Error();
       showToast("Sous-étape liée à l'arbre cible avec succès ! 🔗");

@@ -1221,8 +1221,14 @@
             <form id="link-substep-form" class="modal-form">
               <h5 style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.4rem;">Partager une étape existante</h5>
               <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.4rem;">
-                <select id="link-substep-select" required></select>
-                <select id="link-goal-select" required></select>
+                <div>
+                  <label for="link-substep-select" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Étape à partager</label>
+                  <select id="link-substep-select" required style="width: 100%; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); box-sizing: border-box;"></select>
+                </div>
+                <div>
+                  <label for="link-goal-select" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Objectif cible</label>
+                  <select id="link-goal-select" required style="width: 100%; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); box-sizing: border-box;"></select>
+                </div>
               </div>
               <div class="form-group" style="margin-bottom: 0.4rem;">
                 <label for="link-order-input" style="font-size: 0.75rem; color: var(--text-muted);">Étape dans l'objectif cible</label>
