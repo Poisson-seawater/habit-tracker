@@ -178,12 +178,12 @@ async def publish_daily_recap():
                 val = score.actual_stats.get(stat, 0)
                 if val > 0:
                     label = STAT_LABELS.get(stat, stat.capitalize())
-                    label_short = label.split(" ")[0] if " " in label else label
-                    stat_earned_parts.append(f"{label_short} +{val}")
+                    stat_earned_parts.append(f"{label} +{val}")
 
-            stat_progression_str = (
-                ", ".join(stat_earned_parts) if stat_earned_parts else "Aucune stat"
-            )
+            if stat_earned_parts:
+                stat_progression_str = "\n" + "\n".join(f"• {part}" for part in stat_earned_parts)
+            else:
+                stat_progression_str = " Aucun"
 
             # Level up notification text
             lvl_info = (
@@ -191,24 +191,23 @@ async def publish_daily_recap():
             )
 
             # 5. Construct user block
-            habits_str = ", ".join(completed_habits) if completed_habits else "Aucune"
-            if private_completed_count > 0:
-                if habits_str == "Aucune":
-                    habits_str = f"+{private_completed_count} privées 🔒"
-                else:
-                    habits_str += f" (+{private_completed_count} privées 🔒)"
+            if completed_habits or private_completed_count > 0:
+                habits_lines = [f"• {h}" for h in completed_habits]
+                if private_completed_count > 0:
+                    habits_lines.append(f"• +{private_completed_count} privées 🔒")
+                habits_str = "\n" + "\n".join(habits_lines)
+            else:
+                habits_str = " Aucune"
 
             skipped_line = (
-                f"\n⏭️ <b>Habitudes skippées :</b> {', '.join(skipped_habits)}"
+                f"\n⏭️ <b>Habitudes skippées :</b>\n" + "\n".join(f"• {h}" for h in skipped_habits)
                 if skipped_habits
                 else ""
             )
-            todos_str = (
-                ", ".join(completed_todos_list) if completed_todos_list else "Aucun"
-            )
-            failed_notodos_str = (
-                ", ".join(failed_notodos_list) if failed_notodos_list else "Aucun"
-            )
+            if completed_todos_list:
+                todos_str = "\n" + "\n".join(f"• {t}" for t in completed_todos_list)
+            else:
+                todos_str = " Aucun"
 
             # Check completed Life Lore subgoals today
             completed_life_lore = (
@@ -225,31 +224,35 @@ async def publish_daily_recap():
             completed_life_lore_list = []
             for s in completed_life_lore:
                 completed_life_lore_list.append(f"{html.escape(s.title)} 📖")
-            life_lore_str = (
-                ", ".join(completed_life_lore_list)
-                if completed_life_lore_list
-                else "Aucun"
-            )
+            if completed_life_lore_list:
+                life_lore_str = "\n" + "\n".join(f"• {s}" for s in completed_life_lore_list)
+            else:
+                life_lore_str = " Aucun"
+
+            if failed_notodos_list:
+                failed_notodos_str = "\n" + "\n".join(f"• {n}" for n in failed_notodos_list)
+            else:
+                failed_notodos_str = " Aucun"
 
             # Fetch today's redeemed allostasis rewards
             allostasis_purchased = get_allostasis_purchases_on_date(db, user.id, today)
             allostasis_line = ""
             if allostasis_purchased:
-                allostasis_items_str = ", ".join(
-                    f"{html.escape(r.title)} ✅" for r in allostasis_purchased
+                allostasis_items_str = "\n" + "\n".join(
+                    f"• {html.escape(r.title)} ✅" for r in allostasis_purchased
                 )
-                allostasis_line = f"\n🧠 <b>Allostasie :</b> {allostasis_items_str}"
+                allostasis_line = f"\n🧠 <b>Allostasie :</b>{allostasis_items_str}"
 
             user_block = (
                 f"👤 Aventurier : <b>{html.escape(user.username)}</b> (Niveau {user.level}{lvl_info})\n"
                 f"🛡️ <b>Statut :</b> {status_emoji} | Template : {score.template_used.upper()}\n"
                 f"🔥 Streak Perfect : <b>{perf_streak_val}j</b> | 💰 Or : <b>{user.gold} Gold</b>\n"
-                f"📈 <b>Stats du jour :</b> {stat_progression_str}\n"
-                f"✅ <b>Habitudes faites :</b> {habits_str}"
+                f"📈 <b>Stats du jour :</b>{stat_progression_str}\n"
+                f"✅ <b>Habitudes faites :</b>{habits_str}"
                 f"{skipped_line}\n"
-                f"🌟 <b>To-Dos faits :</b> {todos_str}\n"
-                f"📖 <b>Life Lore :</b> {life_lore_str}\n"
-                f"⚠️ <b>No-To-Dos brisés :</b> {failed_notodos_str}"
+                f"🌟 <b>To-Dos faits :</b>{todos_str}\n"
+                f"📖 <b>Life Lore :</b>{life_lore_str}\n"
+                f"⚠️ <b>No-To-Dos brisés :</b>{failed_notodos_str}"
                 f"{allostasis_line}"
             )
             user_blocks.append(user_block)

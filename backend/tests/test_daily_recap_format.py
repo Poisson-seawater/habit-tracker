@@ -140,9 +140,6 @@ def test_daily_recap_formatting(monkeypatch):
 
     # Assertions on recap format
     assert "Aventurier : <b>Gabriel</b>" in recap_msg
-    assert (
-        "Hab habitudes faites"
-        or "Habitudes faites :</b> Mediter ✅, Lecture (15pages)" in recap_msg
-    )
-    assert "To-Dos faits :</b> Faire la vaisselle 🌟" in recap_msg
-    assert "No-To-Dos brisés :</b> Manger du fastfood 🚫" in recap_msg
+    assert "Habitudes faites :</b>\n• Mediter ✅\n• Lecture (15pages)" in recap_msg
+    assert "To-Dos faits :</b>\n• Faire la vaisselle 🌟" in recap_msg
+    assert "No-To-Dos brisés :</b>\n• Manger du fastfood 🚫" in recap_msg
