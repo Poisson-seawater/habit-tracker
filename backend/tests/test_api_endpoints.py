@@ -381,7 +381,6 @@ def test_create_habit_valid_still_passes():
     assert response.status_code == 201
     assert response.json()["status"] == "success"
 
-
 def test_per_goal_substep_execution_order():
     # 1. Create two goals
     resp_a = client.post(
@@ -498,3 +497,54 @@ def test_notodo_crud():
     assert response.status_code == 200
     notodos = response.json()
     assert not any(n["id"] == notodo_id for n in notodos)
+
+
+def test_goal_linked_substep_relations():
+    # 1. Create two goals
+    r1 = client.post("/api/v1/goals", json={"title": "Goal A", "description": "First Goal"})
+    r2 = client.post("/api/v1/goals", json={"title": "Goal B", "description": "Second Goal"})
+    g1_id = r1.json()["goal"]["id"]
+    g2_id = r2.json()["goal"]["id"]
+
+    # 2. Add substep to Goal A
+    r_sub = client.post(f"/api/v1/goals/{g1_id}/substeps", json={
+        "title": "Shared Step",
+        "description": "Shared across A and B",
+        "gold_reward": 100,
+        "stats_json": ["discipline"]
+    })
+    sub_id = r_sub.json()["substep"]["id"]
+
+    # 3. Link substep to Goal B
+    client.post("/api/v1/substeps/link", json={
+        "substep_id": sub_id,
+        "goal_id": g2_id
+    })
+
+    # 4. Fetch /goals and assert
+    response = client.get("/api/v1/goals")
+    assert response.status_code == 200
+    goals = response.json()
+
+    # Find Goal A and Goal B in output
+    goal_a = next(g for g in goals if g["id"] == g1_id)
+    goal_b = next(g for g in goals if g["id"] == g2_id)
+
+    # Goal A's substep should show linked to Goal B
+    sub_in_a = next(s for s in goal_a["substeps"] if s["id"] == sub_id)
+    assert len(sub_in_a["linked_goals"]) == 1
+    assert sub_in_a["linked_goals"][0]["id"] == g2_id
+    assert sub_in_a["linked_goals"][0]["title"] == "Goal B"
+
+    # Goal B's substep should show linked to Goal A
+    sub_in_b = next(s for s in goal_b["substeps"] if s["id"] == sub_id)
+    assert len(sub_in_b["linked_goals"]) == 1
+    assert sub_in_b["linked_goals"][0]["id"] == g1_id
+    assert sub_in_b["linked_goals"][0]["title"] == "Goal A"
+
+    # Cleanup
+    client.delete(f"/api/v1/goals/{g1_id}")
+    client.delete(f"/api/v1/goals/{g2_id}")
+    # Delete the substep itself (cascaded from goal links)
+    client.delete(f"/api/v1/substeps/{sub_id}")
+

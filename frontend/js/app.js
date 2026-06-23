@@ -809,6 +809,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==============================================
   let activeGoalId = null;
 
+  window.selectGoalById = function(id) {
+    activeGoalId = id;
+    fetchGoals();
+  };
+
   // Drawer Toggle Helpers
   function openDrawer(mode = "add", goalData = null, substepData = null, otherSubstepsInGoal = []) {
     const drawer = document.getElementById("creators-drawer");
@@ -841,6 +846,33 @@ document.addEventListener("DOMContentLoaded", () => {
       const stats = substepData.stats || [];
       document.getElementById("edit-substep-stat-1").value = stats.length > 0 ? stats[0] : "";
       document.getElementById("edit-substep-stat-2").value = stats.length > 1 ? stats[1] : "";
+
+      const linkedGoalsContainer = document.getElementById("edit-substep-linked-goals");
+      if (linkedGoalsContainer) {
+        linkedGoalsContainer.innerHTML = "";
+
+        // Find active goal title from sidebar
+        const activeGoalEl = document.querySelector(".goal-selector-item.active .goal-selector-title span");
+        const activeGoalTitle = activeGoalEl ? activeGoalEl.textContent.trim().replace(/🎉/g, "").trim() : "Objectif actuel";
+
+        // Active goal badge
+        const activeBadge = document.createElement("span");
+        activeBadge.className = "substep-tag";
+        activeBadge.style.cssText = "background: rgba(34, 197, 94, 0.15); color: var(--accent-green); border: 1px solid rgba(34, 197, 94, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;";
+        activeBadge.textContent = activeGoalTitle;
+        linkedGoalsContainer.appendChild(activeBadge);
+
+        // Other linked goals badges
+        if (substepData.linked_goals && substepData.linked_goals.length > 0) {
+          substepData.linked_goals.forEach(g => {
+            const badge = document.createElement("span");
+            badge.className = "substep-tag";
+            badge.style.cssText = "background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); border: 1px solid rgba(139, 92, 246, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;";
+            badge.textContent = g.title;
+            linkedGoalsContainer.appendChild(badge);
+          });
+        }
+      }
 
 
     } else if (mode === "edit" && goalData) {
@@ -1080,6 +1112,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const statsTags = s.stats.map(st => `<span class="substep-tag">${STAT_LABELS[st.toLowerCase()] || st}</span>`).join(" ");
 
+        let linkedGoalsHTML = "";
+        if (s.linked_goals && s.linked_goals.length > 0) {
+          linkedGoalsHTML = `
+            <div class="tree-node-links" style="font-size: 0.7rem; color: var(--accent-purple); margin-top: 0.3rem; display: flex; align-items: center; gap: 0.2rem; flex-wrap: wrap; justify-content: center; width: 100%;">
+              <span style="opacity: 0.7;">🔗 Lié à :</span>
+              ${s.linked_goals.map(g => `<span class="substep-tag" style="background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); font-size: 0.65rem; border: 1px solid rgba(139, 92, 246, 0.3); padding: 1px 4px; border-radius: 4px; cursor: pointer; transition: all 0.2s;" onclick="window.selectGoalById(${g.id})" title="Aller à l'objectif : ${g.title.replace(/"/g, '&quot;')}">${g.title}</span>`).join(" ")}
+            </div>
+          `;
+        }
+
         nodesHTML += `
           <div class="tree-node ${stateClass}" data-substep-id="${s.id}" style="position: relative; padding-top: 1.6rem;">
             <div class="tree-node-actions" style="position: absolute; top: 8px; right: 8px; display: flex; gap: 0.4rem;">
@@ -1089,6 +1131,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ${s.description ? `<span class="tree-node-desc" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.2rem; line-height: 1.2;">${s.description}</span>` : ""}
             <span class="tree-node-gold" style="margin-top: 0.3rem; display: block;">💰 +${s.gold_reward}g</span>
             <div class="tree-node-stats">${statsTags}</div>
+            ${linkedGoalsHTML}
             ${btnHTML}
           </div>
         `;

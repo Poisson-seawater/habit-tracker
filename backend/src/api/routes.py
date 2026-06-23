@@ -691,7 +691,6 @@ def get_goals(
                 "substeps": substeps_list,
             }
         )
-
     return result
 
 
