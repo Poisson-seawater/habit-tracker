@@ -41,9 +41,15 @@ def setup_test_db():
         u = User(id=1, username="Gabriel", chat_id="111", xp=0, level=1, gold=100)
         db.add(u)
 
-        # Create a streak
+        # Create user EmptyUser
+        u2 = User(id=2, username="EmptyUser", chat_id="222", xp=0, level=1, gold=100)
+        db.add(u2)
+
+        # Create streaks
         s = Streak(user_id=1, streak_type="Perfect", current_streak=3, max_streak=5)
         db.add(s)
+        s2 = Streak(user_id=2, streak_type="Perfect", current_streak=2, max_streak=5)
+        db.add(s2)
 
         # Create some habits
         h1 = Habit(
@@ -138,8 +144,12 @@ def test_daily_recap_formatting(monkeypatch):
     assert len(sent_messages) > 0
     recap_msg = sent_messages[0]
 
-    # Assertions on recap format
-    assert "Aventurier : <b>Gabriel</b>" in recap_msg
-    assert "Habitudes faites :</b>\n• Mediter ✅\n• Lecture (15pages)" in recap_msg
-    assert "To-Dos faits :</b>\n• Faire la vaisselle 🌟" in recap_msg
-    assert "No-To-Dos brisés :</b>\n• Manger du fastfood 🚫" in recap_msg
+    # Assertions on active user recap format (Gabriel)
+    assert "<b>Gabriel</b>, streak : 0" in recap_msg
+    assert "✅ Mediter" in recap_msg
+    assert "✅ Lecture (15pages)" in recap_msg
+    assert "✅ Faire la vaisselle 🌟" in recap_msg
+    assert "⚠️ <b>No-To-Dos brisés :</b>\n• Manger du fastfood 🚫" in recap_msg
+
+    # Assertions on empty user recap format (EmptyUser)
+    assert "<b>EmptyUser</b>,\nstreak =0\nbranleux fait mieux demain." in recap_msg

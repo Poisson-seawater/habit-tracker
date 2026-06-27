@@ -206,5 +206,5 @@ class TestAllostasisRewards:
         # Assert recap generated is sent and includes the validated allostasis item name
         assert len(sent_messages) > 0
         recap_msg = sent_messages[0]
-        assert "Allostasie" in recap_msg
         assert "25 min TV Show" in recap_msg
+        assert "✅ 25 min TV Show 🧠" in recap_msg

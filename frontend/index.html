@@ -939,8 +939,11 @@
           <!-- Quests Widget (Habits Check-ins) -->
           <section class="glass-card quests-panel">
             <h2 class="section-header">
-              <span>🎯 Quêtes Actives (Habitudes)</span>
-              <button class="floating-add-btn" id="open-quest-inline-btn">+ Quête</button>
+              <span id="quests-panel-title">🎯 Quêtes Actives (Aujourd'hui)</span>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button class="floating-add-btn" id="toggle-quests-view-btn" title="Voir les autres jours">➡️</button>
+                <button class="floating-add-btn" id="open-quest-inline-btn">+ Quête</button>
+              </div>
             </h2>
 
             <!-- Quick Quest Form -->
@@ -1015,8 +1018,11 @@
           <!-- Bounties Widget (Primes / Todos) -->
           <section class="glass-card bounties-panel-widget">
             <h2 class="section-header">
-              <span>⚔️ Tableau des Primes (Todos)</span>
-              <button class="floating-add-btn" id="open-bounty-inline-btn">+ Prime</button>
+              <span id="bounties-panel-title">⚔️ Tableau des Primes (Aujourd'hui)</span>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button class="floating-add-btn" id="toggle-bounties-view-btn" title="Voir les autres jours">➡️</button>
+                <button class="floating-add-btn" id="open-bounty-inline-btn">+ Prime</button>
+              </div>
             </h2>
             
             <!-- Quick Bounty Form -->
@@ -1051,6 +1057,17 @@
               <div class="form-group">
                 <label for="new-bounty-points-2">Points Stat 2</label>
                 <input type="number" id="new-bounty-points-2" value="0" min="0" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
+              </div>
+
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="new-bounty-do-date">Date Planifiée (Do Date)</label>
+                  <input type="date" id="new-bounty-do-date" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); font-family: inherit;">
+                </div>
+                <div class="form-group">
+                  <label for="new-bounty-due-date">Date Limite (Due Date)</label>
+                  <input type="date" id="new-bounty-due-date" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); font-family: inherit;">
+                </div>
               </div>
 
               <button class="quest-action-btn" id="submit-bounty-btn" type="button" style="padding: 10px;">Publier la Prime</button>
@@ -1108,6 +1125,19 @@
 
         </main>
 
+      </div>
+
+      <!-- Focus Rules Notice at the bottom of goals-tab -->
+      <div class="focus-rules-notice glass-card" style="margin-top: 1rem; padding: 0.8rem 1.2rem; background: rgba(245, 158, 11, 0.03); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 0.8rem; flex: 1; min-width: 300px;">
+          <span style="font-size: 1.5rem; color: var(--accent-yellow);">⚠️</span>
+          <div style="font-size: 0.78rem; line-height: 1.4; color: var(--text-secondary);">
+            <strong style="color: var(--accent-yellow);">Règles de Focus 3-3-3</strong> : Vous pouvez avoir jusqu'à <strong>20 objectifs</strong> actifs au total. Pour rester concentré, vous devez choisir vos <strong>3 objectifs prioritaires (Top 3)</strong> en cliquant sur l'étoile (<span style="color: var(--accent-yellow);">★</span>) à côté de leur titre dans la liste. Seuls les sous-étapes de ces 3 objectifs prioritaires peuvent être épinglées dans le panel <strong>Recap 3-3-3</strong> et être validées. Les autres objectifs restent gelés.
+          </div>
+        </div>
+        <div id="top3-lock-btn-container" style="display: flex; align-items: center; justify-content: flex-end; min-width: 180px;">
+          <!-- Populated dynamically via JS -->
+        </div>
       </div>
 
       <!-- Slide-Out Overlay Drawer for Forms -->
@@ -1795,6 +1825,11 @@
           <!-- Dynamically populated checkboxes -->
           <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Aucune compétence disponible.</p>
         </div>
+      </div>
+
+      <!-- Footnote reminder -->
+      <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.4; padding: 0.5rem; background: rgba(255,255,255,0.01); border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
+        💡 <em>Rappel : Vous ne pouvez épingler que les sous-étapes de vos 3 objectifs prioritaires (sélectionnés avec ★ dans l'onglet Objectifs).</em>
       </div>
 
       <div style="display: flex; gap: 0.8rem; margin-top: 1rem;">

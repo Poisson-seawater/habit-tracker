@@ -14,6 +14,7 @@ from src.database.models import (
     Streak,
     Goal,
     SubStep,
+    Todo,
 )
 from src.main import app
 
@@ -183,6 +184,72 @@ def test_create_and_complete_todo_endpoints():
     data = response.json()
     assert data["status"] == "success"
     assert data["xp_rewarded"] == 30
+
+    # Assert that the completed todo is no longer listed in active todos
+    response = client.get("/api/v1/todos")
+    assert response.status_code == 200
+    todos = response.json()
+    assert not any(t["id"] == todo_id for t in todos)
+
+
+def test_todo_with_do_and_due_dates():
+    payload = {
+        "title": "⚔️ Dompter le Dragon de Fer (Séance Jambes) avec dates",
+        "xp_reward": 30,
+        "stat_reward_1": "discipline",
+        "points_reward_1": 5,
+        "do_date": "2026-06-27",
+        "due_date": "2026-06-30",
+    }
+    response = client.post("/api/v1/todos", json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "success"
+    todo_id = data["todo"]["id"]
+
+    # Assert they are retrieved in the listing
+    response = client.get("/api/v1/todos")
+    assert response.status_code == 200
+    todos = response.json()
+    todo_item = next(t for t in todos if t["id"] == todo_id)
+    assert todo_item["do_date"] == "2026-06-27"
+    assert todo_item["due_date"] == "2026-06-30"
+
+    # Cleanup the created todo
+    response = client.post(f"/api/v1/todos/{todo_id}/complete")
+    assert response.status_code == 200
+
+
+def test_completed_todos_older_than_today_are_deleted():
+    import datetime
+
+    db = override_get_db().__next__()
+    try:
+        yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+        old_todo = Todo(
+            user_id=1,
+            title="Old Todo",
+            is_completed=True,
+            completed_at=yesterday,
+            xp_reward=10,
+        )
+        db.add(old_todo)
+        db.commit()
+        old_todo_id = old_todo.id
+    finally:
+        db.close()
+
+    # Call get_todos, which triggers cleanup
+    response = client.get("/api/v1/todos")
+    assert response.status_code == 200
+
+    # Verify that the old todo has been physically deleted from the database
+    db = override_get_db().__next__()
+    try:
+        todo_in_db = db.query(Todo).filter_by(id=old_todo_id).first()
+        assert todo_in_db is None
+    finally:
+        db.close()
 
 
 def test_goals_and_substeps_crud():
@@ -381,6 +448,7 @@ def test_create_habit_valid_still_passes():
     assert response.status_code == 201
     assert response.json()["status"] == "success"
 
+
 def test_per_goal_substep_execution_order():
     # 1. Create two goals
     resp_a = client.post(
@@ -501,25 +569,29 @@ def test_notodo_crud():
 
 def test_goal_linked_substep_relations():
     # 1. Create two goals
-    r1 = client.post("/api/v1/goals", json={"title": "Goal A", "description": "First Goal"})
-    r2 = client.post("/api/v1/goals", json={"title": "Goal B", "description": "Second Goal"})
+    r1 = client.post(
+        "/api/v1/goals", json={"title": "Goal A", "description": "First Goal"}
+    )
+    r2 = client.post(
+        "/api/v1/goals", json={"title": "Goal B", "description": "Second Goal"}
+    )
     g1_id = r1.json()["goal"]["id"]
     g2_id = r2.json()["goal"]["id"]
 
     # 2. Add substep to Goal A
-    r_sub = client.post(f"/api/v1/goals/{g1_id}/substeps", json={
-        "title": "Shared Step",
-        "description": "Shared across A and B",
-        "gold_reward": 100,
-        "stats_json": ["discipline"]
-    })
+    r_sub = client.post(
+        f"/api/v1/goals/{g1_id}/substeps",
+        json={
+            "title": "Shared Step",
+            "description": "Shared across A and B",
+            "gold_reward": 100,
+            "stats_json": ["discipline"],
+        },
+    )
     sub_id = r_sub.json()["substep"]["id"]
 
     # 3. Link substep to Goal B
-    client.post("/api/v1/substeps/link", json={
-        "substep_id": sub_id,
-        "goal_id": g2_id
-    })
+    client.post("/api/v1/substeps/link", json={"substep_id": sub_id, "goal_id": g2_id})
 
     # 4. Fetch /goals and assert
     response = client.get("/api/v1/goals")
@@ -547,4 +619,3 @@ def test_goal_linked_substep_relations():
     client.delete(f"/api/v1/goals/{g2_id}")
     # Delete the substep itself (cascaded from goal links)
     client.delete(f"/api/v1/substeps/{sub_id}")
-

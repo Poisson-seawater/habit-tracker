@@ -1,7 +1,6 @@
 # Contribuer
 
-Projet perso à deux, en vibe coding avec Claude Code. But de ce doc : qu'on bosse en
-parallèle sans se marcher dessus et sans casser la prod.
+Projet a 2 en vibe coding. But de ce doc : qu'on bosse en parallèle sans se marcher dessus et sans casser la prod.
 
 ## Branches
 

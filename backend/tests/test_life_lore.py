@@ -66,6 +66,14 @@ def client():
 
 
 def test_life_lore_flow(client):
+    # 0. Pin goal 10
+    response = client.put(
+        "/api/v1/profile/pins",
+        json={"pinned_goals": [10], "pinned_substeps": []},
+        headers={"X-User-ID": "1"},
+    )
+    assert response.status_code == 200
+
     # 1. Create a subgoal without is_life_lore (defaults to false)
     response = client.post(
         "/api/v1/goals/10/substeps",

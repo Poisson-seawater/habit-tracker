@@ -28,6 +28,7 @@ from src.services.score_service import (
     add_user_xp,
     ALL_6_STATS,
     DEFAULT_THRESHOLDS,
+    cleanup_completed_todos,
 )
 from src.services import softskill_service
 
@@ -75,6 +76,8 @@ class TodoCreate(BaseModel):
     stat_reward_2: Optional[str] = None
     points_reward_2: Optional[int] = 0
     xp_reward: Optional[int] = Field(10, ge=0, le=40)  # Max 40 XP
+    do_date: Optional[datetime.date] = None
+    due_date: Optional[datetime.date] = None
 
 
 class NoTodoCreate(BaseModel):
@@ -208,6 +211,7 @@ class SkillUpdate(BaseModel):
 class PinsUpdate(BaseModel):
     pinned_substeps: List[int] = []
     pinned_softskills: List[str] = []
+    pinned_goals: List[int] = []
 
 
 GoalWithSubstepsCreate.model_rebuild()
@@ -441,6 +445,7 @@ def get_profile(
         "gold": user.gold,
         "pinned_substeps": user.pinned_substeps or [],
         "pinned_softskills": user.pinned_softskills or [],
+        "pinned_goals": user.pinned_goals or [],
         "life_lore_today": [
             {"id": s.id, "title": s.title, "description": s.description or ""}
             for s in life_lore_today
@@ -486,7 +491,29 @@ def update_profile_pins(
     user = db.query(User).filter_by(id=user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    user.pinned_substeps = payload.pinned_substeps
+
+    if len(payload.pinned_goals) > 3:
+        raise HTTPException(
+            status_code=400,
+            detail="Vous pouvez sélectionner au maximum 3 objectifs prioritaires (Top 3).",
+        )
+
+    user.pinned_goals = payload.pinned_goals
+
+    # Keep only pinned_substeps that are linked to the pinned_goals
+    allowed_substep_ids = set()
+    if payload.pinned_goals:
+        links = (
+            db.query(GoalSubStepLink)
+            .filter(GoalSubStepLink.goal_id.in_(payload.pinned_goals))
+            .all()
+        )
+        for link in links:
+            allowed_substep_ids.add(link.substep_id)
+
+    user.pinned_substeps = [
+        sid for sid in payload.pinned_substeps if sid in allowed_substep_ids
+    ]
     user.pinned_softskills = payload.pinned_softskills
     db.commit()
     return {"status": "success", "message": "Pins updated successfully"}
@@ -703,6 +730,13 @@ def create_goal(
     """
     Create a new goal.
     """
+    existing_goals_count = db.query(Goal).filter_by(user_id=user_id).count()
+    if existing_goals_count >= 20:
+        raise HTTPException(
+            status_code=400,
+            detail="Limite de 20 objectifs atteinte. Concentrez-vous sur vos objectifs actuels ou supprimez-en.",
+        )
+
     goal = Goal(user_id=user_id, title=payload.title, description=payload.description)
     db.add(goal)
     db.commit()
@@ -719,6 +753,13 @@ def create_goal_with_substeps(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ):
+    existing_goals_count = db.query(Goal).filter_by(user_id=user_id).count()
+    if existing_goals_count >= 20:
+        raise HTTPException(
+            status_code=400,
+            detail="Limite de 20 objectifs atteinte. Concentrez-vous sur vos objectifs actuels ou supprimez-en.",
+        )
+
     for substep_payload in payload.substeps:
         for stat in substep_payload.stats_json:
             _validate_stat_name(stat)
@@ -1009,8 +1050,18 @@ def complete_substep(
     if not substep:
         raise HTTPException(status_code=404, detail="Substep not found")
 
+    user = db.query(User).filter_by(id=user_id).first()
+    pinned_goals = user.pinned_goals or []
+    linked_goal_ids = [link.goal_id for link in substep.goal_links]
+    is_validable = any(gid in pinned_goals for gid in linked_goal_ids)
+    if not is_validable:
+        raise HTTPException(
+            status_code=400,
+            detail="Focus requis : cette étape n'appartient à aucun de vos objectifs prioritaires (Top 3).",
+        )
+
     if substep.completed:
-        return {"status": "already_completed", "gold": substep.user.gold}
+        return {"status": "already_completed", "gold": user.gold}
 
     # Complete substep
     substep.completed = True
@@ -1259,8 +1310,12 @@ def get_todos(
     """
     List all bounties (todos) for the calling user.
     """
+    cleanup_completed_todos(db, user_id)
     todos = (
-        db.query(Todo).filter_by(user_id=user_id).order_by(Todo.created_at.desc()).all()
+        db.query(Todo)
+        .filter_by(user_id=user_id, is_completed=False)
+        .order_by(Todo.created_at.desc())
+        .all()
     )
     return [
         {
@@ -1274,6 +1329,8 @@ def get_todos(
             "is_completed": t.is_completed,
             "created_at": t.created_at.isoformat() if t.created_at else None,
             "completed_at": t.completed_at.isoformat() if t.completed_at else None,
+            "do_date": t.do_date.isoformat() if t.do_date else None,
+            "due_date": t.due_date.isoformat() if t.due_date else None,
         }
         for t in todos
     ]
@@ -1298,6 +1355,8 @@ def create_todo(
         points_reward_2=payload.points_reward_2,
         xp_reward=payload.xp_reward,
         is_completed=False,
+        do_date=payload.do_date,
+        due_date=payload.due_date,
     )
     db.add(todo)
     db.commit()
@@ -1321,6 +1380,7 @@ def complete_todo(
     """
     Complete a todo and award its custom XP. Add stats points to current daily scores.
     """
+    cleanup_completed_todos(db, user_id)
     todo = db.query(Todo).filter_by(id=todo_id, user_id=user_id).first()
     if not todo:
         raise HTTPException(status_code=404, detail="Bounty not found")

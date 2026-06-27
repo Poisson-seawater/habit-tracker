@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup — Perfect Day Agenda</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: hsl(224, 71%, 4%);
+      --bg-secondary: hsl(222, 47%, 9%);
+      --bg-glass: rgba(15, 23, 42, 0.55);
+      --border-glass: rgba(255, 255, 255, 0.08);
+      --border-glass-hover: rgba(255, 255, 255, 0.15);
+      
+      --accent-purple: hsl(263, 80%, 60%);
+      --accent-purple-glow: hsla(263, 80%, 60%, 0.3);
+      --accent-cyan: hsl(190, 95%, 45%);
+      --accent-cyan-glow: hsla(190, 95%, 45%, 0.3);
+      --accent-green: hsl(142, 76%, 45%);
+      --accent-green-glow: hsla(142, 76%, 45%, 0.3);
+      --accent-red: hsl(355, 85%, 55%);
+      --accent-red-glow: hsla(355, 85%, 55%, 0.3);
+      --accent-gold: hsl(45, 93%, 47%);
+      --accent-gold-glow: hsla(45, 93%, 47%, 0.3);
+
+      --text-primary: hsl(0, 0%, 98%);
+      --text-secondary: hsl(215, 20%, 75%);
+      --text-muted: hsl(215, 15%, 50%);
+
+      --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      --font-display: 'Outfit', sans-serif;
+      --font-body: 'Inter', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      background-image: 
+        radial-gradient(at 10% 20%, hsla(263, 70%, 20%, 0.15) 0px, transparent 50%),
+        radial-gradient(at 90% 80%, hsla(190, 70%, 20%, 0.15) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      line-height: 1.6;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+      text-align: center;
+    }
+
+    header h1 {
+      font-family: var(--font-display);
+      font-size: 2.5rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+    }
+
+    .glass-card {
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-glass);
+      border-radius: 20px;
+      box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+      transition: var(--transition-smooth);
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .glass-card:hover {
+      border-color: var(--border-glass-hover);
+      box-shadow: 0 16px 48px 0 rgba(0, 0, 0, 0.6);
+    }
+
+    /* Template Tabs */
+    .tabs-container {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      padding: 10px 20px;
+      border-radius: 12px;
+      border: 1px solid var(--border-glass);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .tab-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+      border-color: var(--border-glass-hover);
+      transform: translateY(-2px);
+    }
+
+    .tab-btn.active {
+      background: rgba(139, 92, 246, 0.15);
+      color: var(--text-primary);
+      border-color: var(--accent-purple);
+      box-shadow: 0 0 15px var(--accent-purple-glow);
+    }
+
+    /* Section Header */
+    .section-header {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-glass);
+      padding-bottom: 0.5rem;
+    }
+
+    .section-header span {
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Timeline Styling */
+    .timeline-container {
+      margin-bottom: 2.5rem;
+      position: relative;
+    }
+
+    .timeline-bar {
+      height: 40px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-glass);
+      border-radius: 12px;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    .timeline-block {
+      height: 100%;
+      position: relative;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      border-right: 1px solid rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+
+    .timeline-block:hover {
+      filter: brightness(1.2);
+      transform: scaleY(1.05);
+      z-index: 10;
+    }
+
+    .timeline-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      padding: 0 4px;
+    }
+
+    /* Block Category colors */
+    .block-focus {
+      background: linear-gradient(135deg, var(--accent-purple), #a855f7);
+      box-shadow: inset 0 0 12px rgba(168, 85, 247, 0.2);
+    }
+    .block-routine {
+      background: linear-gradient(135deg, var(--accent-cyan), #06b6d4);
+      box-shadow: inset 0 0 12px rgba(6, 182, 212, 0.2);
+    }
+    .block-relax {
+      background: linear-gradient(135deg, var(--accent-green), #22c55e);
+      box-shadow: inset 0 0 12px rgba(34, 197, 94, 0.2);
+    }
+    .block-sleep {
+      background: linear-gradient(135deg, #475569, #334155);
+      box-shadow: inset 0 0 12px rgba(71, 85, 105, 0.2);
+    }
+
+    /* Layout grid */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 2rem;
+    }
+
+    @media (max-width: 950px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Agenda List */
+    .agenda-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      max-height: 500px;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+    }
+
+    .agenda-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    .agenda-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .agenda-list::-webkit-scrollbar-thumb {
+      background: var(--border-glass);
+      border-radius: 4px;
+    }
+    .agenda-list::-webkit-scrollbar-thumb:hover {
+      background: var(--border-glass-hover);
+    }
+
+    .agenda-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 1.2rem;
+      padding: 1rem 1.2rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-glass);
+      border-radius: 14px;
+      transition: var(--transition-smooth);
+    }
+
+    .agenda-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-glass-hover);
+      transform: translateX(4px);
+    }
+
+    .agenda-time {
+      font-family: var(--font-display);
+      font-weight: 700;
+      color: var(--accent-cyan);
+      font-size: 0.95rem;
+      background: rgba(6, 182, 212, 0.1);
+      padding: 4px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      text-align: center;
+      min-width: 100px;
+    }
+
+    .agenda-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .agenda-title-text {
+      font-weight: 600;
+      font-size: 1.05rem;
+      color: var(--text-primary);
+    }
+
+    .agenda-meta {
+      display: flex;
+      gap: 0.8rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .badge-stat {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--accent-gold);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .badge-category {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-category.focus {
+      background: rgba(139, 92, 246, 0.1);
+      color: var(--accent-purple);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+    .badge-category.routine {
+      background: rgba(6, 182, 212, 0.1);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+    }
+    .badge-category.relax {
+      background: rgba(34, 197, 94, 0.1);
+      color: var(--accent-green);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+    .badge-category.sleep {
+      background: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .btn-delete {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--accent-red);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 8px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      font-size: 0.9rem;
+    }
+
+    .btn-delete:hover {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: var(--accent-red);
+      transform: scale(1.08);
+    }
+
+    /* Forms */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .form-group input, .form-group select {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-glass);
+      border-radius: 8px;
+      padding: 10px;
+      color: var(--text-primary);
+      outline: none;
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      transition: var(--transition-smooth);
+    }
+
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan-glow);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .btn-submit {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: none;
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
+      color: var(--text-primary);
+      box-shadow: 0 4px 12px var(--accent-purple-glow);
+      transition: var(--transition-smooth);
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+
+    .btn-submit:hover {
+      transform: scale(1.02);
+      box-shadow: 0 6px 16px rgba(139, 92, 246, 0.5);
+    }
+
+    /* Warning box */
+    .alert-box {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: #ff6b6b;
+      padding: 0.8rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Stats validation card */
+    .validation-panel {
+      padding: 1.5rem;
+      background: rgba(255, 255, 255, 0.01);
+      border-radius: 16px;
+      border: 1px solid var(--border-glass);
+      margin-top: 1.5rem;
+    }
+
+    .validation-title {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .validation-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .validation-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      background: rgba(255,255,255,0.01);
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.03);
+    }
+
+    .validation-name {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-weight: 500;
+    }
+
+    .validation-progress {
+      font-family: var(--font-display);
+      font-weight: 700;
+    }
+
+    .validation-progress.met {
+      color: var(--accent-green);
+    }
+
+    .validation-progress.unmet {
+      color: var(--accent-red);
+    }
+
+    .status-alert {
+      margin-top: 1rem;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .status-alert.all-met {
+      background: rgba(34, 197, 94, 0.12);
+      border: 1px solid rgba(34, 197, 94, 0.25);
+      color: #4ade80;
+    }
+
+    .status-alert.some-unmet {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      color: #fbbf24;
+    }
+
+    /* Tooltip */
+    .tooltip {
+      position: absolute;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-glass-hover);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      color: var(--text-primary);
+      z-index: 100;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      display: none;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>⚙️ Configuration de l'Agenda Idéal</h1>
+      <p>Planifiez la structure d'une journée type pour chacun de vos templates de Perfect Day</p>
+    </header>
+
+    <!-- Tabs to switch between Perfect Day Templates -->
+    <div class="tabs-container">
+      <button class="tab-btn active" data-template="week" onclick="switchTemplate('week')">
+        <span>⚔️ Semaine</span>
+      </button>
+      <button class="tab-btn" data-template="weekend" onclick="switchTemplate('weekend')">
+        <span>💤 Weekend</span>
+      </button>
+      <button class="tab-btn" data-template="recup" onclick="switchTemplate('recup')">
+        <span>🩹 Récupération</span>
+      </button>
+      <button class="tab-btn" data-template="malade" onclick="switchTemplate('malade')">
+        <span>🤒 Malade</span>
+      </button>
+    </div>
+
+    <!-- Timeline visualization card -->
+    <div class="glass-card timeline-container">
+      <h2 class="section-header">
+        <span>📅 Chronologie de la journée type</span>
+        <span id="current-template-title" style="font-size: 0.9rem; font-family: var(--font-body); color: var(--text-muted); font-weight: normal;">Template actif: Semaine</span>
+      </h2>
+      
+      <!-- Visual timeline bar representing blocks from 00:00 to 24:00 -->
+      <div class="timeline-bar" id="timeline-bar" onmousemove="showTooltip(event)" onmouseleave="hideTooltip()">
+        <!-- JS will populate these blocks -->
+      </div>
+      <div class="timeline-labels">
+        <span>00:00</span>
+        <span>04:00</span>
+        <span>08:00</span>
+        <span>12:00</span>
+        <span>16:00</span>
+        <span>20:00</span>
+        <span>24:00</span>
+      </div>
+
+      <!-- Tooltip node -->
+      <div class="tooltip" id="timeline-tooltip">Tooltip</div>
+    </div>
+
+    <div class="main-grid">
+      
+      <!-- Left Panel: Agenda list -->
+      <section class="glass-card">
+        <h2 class="section-header"><span>📋 Liste des Blocs Planifiés</span></h2>
+        
+        <div class="agenda-list" id="agenda-list-container">
+          <!-- JS will populate list of blocks -->
+        </div>
+      </section>
+
+      <!-- Right Panel: Add Block Form & Threshold Checklist -->
+      <div style="display: flex; flex-direction: column; gap: 2rem;">
+        
+        <!-- Add Block Form -->
+        <section class="glass-card" style="padding: 1.5rem;">
+          <h2 class="section-header"><span>➕ Ajouter un Bloc</span></h2>
+          
+          <!-- Overlap Warning -->
+          <div class="alert-box" id="overlap-alert">
+            <span>⚠️</span>
+            <span id="overlap-alert-text">Ce bloc chevauche un créneau existant.</span>
+          </div>
+
+          <form id="add-block-form" onsubmit="handleAddBlock(event)">
+            <div class="form-group">
+              <label for="block-title">Activité / Description</label>
+              <input type="text" id="block-title" placeholder="Ex: Musculation intense, Focus Code..." required>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="block-start">Heure Début</label>
+                <input type="time" id="block-start" value="08:00" required onchange="checkTimeOverlap()">
+              </div>
+              <div class="form-group">
+                <label for="block-end">Heure Fin</label>
+                <input type="time" id="block-end" value="10:00" required onchange="checkTimeOverlap()">
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="block-stat">Statistique liée</label>
+                <select id="block-stat">
+                  <option value="discipline">🛡️ Discipline</option>
+                  <option value="force">⚔️ Force</option>
+                  <option value="sante">🍀 Santé</option>
+                  <option value="social">🤝 Social</option>
+                  <option value="finance">💰 Finance</option>
+                  <option value="apprendre">📖 Apprendre</option>
+                  <option value="none">Aucune</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="block-points">Valeur (Points)</label>
+                <input type="number" id="block-points" value="4" min="0" max="20" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="block-category">Catégorie de Focus</label>
+              <select id="block-category">
+                <option value="focus">⚡ Focus (Activité productive intense)</option>
+                <option value="routine">🔄 Routine (Habitude, tâche récurrente)</option>
+                <option value="relax">🧘 Relax (Repos actif, repas, social)</option>
+                <option value="sleep">😴 Sommeil (Sommeil, sieste)</option>
+              </select>
+            </div>
+
+            <button type="submit" class="btn-submit">Forger le Créneau</button>
+          </form>
+        </section>
+
+        <!-- Stats Threshold Verification Checklist -->
+        <section class="validation-panel">
+          <div class="validation-title">
+            <span>📊 Alignement Perfect Day</span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: -0.5rem;">
+            Vérifiez si les points de statistiques prévus dans votre agenda idéal permettent de satisfaire les seuils de ce template.
+          </p>
+
+          <div class="validation-list" id="validation-list-container">
+            <!-- JS will inject stat checkers -->
+          </div>
+
+          <div class="status-alert" id="overall-status-alert">
+            <!-- JS will check overall readiness -->
+          </div>
+        </section>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Templates setup with default thresholds & default typical agenda seeds
+    const templates = {
+      week: {
+        title: "Semaine ⚔️",
+        thresholds: {
+          discipline: 8,
+          force: 5,
+          apprendre: 6,
+          finance: 4
+        },
+        agenda: [
+          { id: 1, title: "Sommeil / Récupération", start: "00:00", end: "07:00", stat: "sante", points: 4, category: "sleep" },
+          { id: 2, title: "Routine matinale & Cardio", start: "07:00", end: "08:00", stat: "force", points: 5, category: "routine" },
+          { id: 3, title: "Focus Deep Work (Projet principal)", start: "08:30", end: "12:00", stat: "apprendre", points: 8, category: "focus" },
+          { id: 4, title: "Lunch / Relax", start: "12:00", end: "13:00", stat: "sante", points: 2, category: "relax" },
+          { id: 5, title: "Gestion Finance & Emails", start: "13:00", end: "14:30", stat: "finance", points: 5, category: "focus" },
+          { id: 6, title: "Focus Routine & Tâches secondaires", start: "14:30", end: "17:00", stat: "discipline", points: 6, category: "focus" },
+          { id: 7, title: "Entraînement physique", start: "17:30", end: "19:00", stat: "force", points: 4, category: "routine" },
+          { id: 8, title: "Dîner & Social / Lecture", start: "19:00", end: "22:00", stat: "social", points: 4, category: "relax" },
+          { id: 9, title: "Sommeil / Couché", start: "22:00", end: "24:00", stat: "sante", points: 2, category: "sleep" }
+        ]
+      },
+      weekend: {
+        title: "Weekend 💤",
+        thresholds: {
+          sante: 6,
+          social: 8,
+          force: 4
+        },
+        agenda: [
+          { id: 1, title: "Grasse matinée / Sommeil", start: "00:00", end: "09:00", stat: "sante", points: 6, category: "sleep" },
+          { id: 2, title: "Entraînement Nature / Randonnée", start: "10:00", end: "13:00", stat: "force", points: 8, category: "routine" },
+          { id: 3, title: "Repas de famille / Sortie amis", start: "13:30", end: "17:00", stat: "social", points: 10, category: "relax" },
+          { id: 4, title: "Loisir Créatif / Apprentissage libre", start: "18:00", end: "20:00", stat: "apprendre", points: 4, category: "focus" },
+          { id: 5, title: "Détente / Film", start: "20:00", end: "23:00", stat: "sante", points: 2, category: "relax" },
+          { id: 6, title: "Sommeil", start: "23:00", end: "24:00", stat: "sante", points: 1, category: "sleep" }
+        ]
+      },
+      recup: {
+        title: "Récupération 🩹",
+        thresholds: {
+          sante: 12,
+          discipline: 2
+        },
+        agenda: [
+          { id: 1, title: "Sommeil Profond", start: "00:00", end: "08:00", stat: "sante", points: 8, category: "sleep" },
+          { id: 2, title: "Méditation & Mobilité douce", start: "09:00", end: "10:00", stat: "sante", points: 4, category: "relax" },
+          { id: 3, title: "Marche tranquille", start: "11:00", end: "12:00", stat: "sante", points: 3, category: "relax" },
+          { id: 4, title: "Lecture & Repos mental", start: "14:00", end: "17:00", stat: "apprendre", points: 3, category: "relax" },
+          { id: 5, title: "Étirements passifs", start: "18:00", end: "19:00", stat: "sante", points: 3, category: "routine" },
+          { id: 6, title: "Sommeil réparateur", start: "21:30", end: "24:00", stat: "sante", points: 4, category: "sleep" }
+        ]
+      },
+      malade: {
+        title: "Malade 🤒",
+        thresholds: {
+          sante: 6
+        },
+        agenda: [
+          { id: 1, title: "Repos / Sommeil continue", start: "00:00", end: "11:00", stat: "sante", points: 8, category: "sleep" },
+          { id: 2, title: "Hydratation & Repas léger", start: "12:00", end: "13:00", stat: "sante", points: 2, category: "relax" },
+          { id: 3, title: "Sieste & Repos complet", start: "14:00", end: "18:00", stat: "sante", points: 6, category: "sleep" },
+          { id: 4, title: "Nuit anticipée", start: "20:00", end: "24:00", stat: "sante", points: 4, category: "sleep" }
+        ]
+      }
+    };
+
+    let activeTemplate = "week";
+
+    // Convert HH:MM time to minutes from midnight
+    function timeToMinutes(timeStr) {
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    }
+
+    // Convert minutes from midnight to HH:MM string
+    function minutesToTime(mins) {
+      const h = Math.floor(mins / 60).toString().padStart(2, '0');
+      const m = (mins % 60).toString().padStart(2, '0');
+      return `${h}:${m}`;
+    }
+
+    // Switch active template
+    function switchTemplate(templateName) {
+      activeTemplate = templateName;
+      
+      // Update active tab visual status
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.getAttribute('data-template') === templateName) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+
+      // Update current template header
+      document.getElementById('current-template-title').textContent = `Template actif: ${templates[activeTemplate].title}`;
+
+      // Refresh layout components
+      renderTimeline();
+      renderAgendaList();
+      renderChecklist();
+      checkTimeOverlap();
+    }
+
+    // Render visual 24h timeline
+    function renderTimeline() {
+      const bar = document.getElementById('timeline-bar');
+      bar.innerHTML = '';
+
+      // Sort agenda blocks chronologically
+      const agenda = [...templates[activeTemplate].agenda].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+
+      let currentMin = 0;
+      const totalMinsInDay = 24 * 60;
+
+      agenda.forEach(block => {
+        const startMins = timeToMinutes(block.start);
+        const endMins = timeToMinutes(block.end);
+
+        // If there is an empty gap before this block, render an empty slot
+        if (startMins > currentMin) {
+          const gapWidth = ((startMins - currentMin) / totalMinsInDay) * 100;
+          const gapNode = document.createElement('div');
+          gapNode.style.width = `${gapWidth}%`;
+          gapNode.style.background = 'transparent';
+          bar.appendChild(gapNode);
+        }
+
+        // Render current block
+        const blockWidth = ((endMins - startMins) / totalMinsInDay) * 100;
+        const blockNode = document.createElement('div');
+        blockNode.className = `timeline-block block-${block.category}`;
+        blockNode.style.width = `${blockWidth}%`;
+        
+        // Show icon/abbreviation if size permits
+        if (blockWidth > 4) {
+          blockNode.textContent = block.title.substring(0, Math.floor(blockWidth / 1.5));
+        }
+
+        // Store block information for hover/tooltip details
+        blockNode.dataset.title = block.title;
+        blockNode.dataset.start = block.start;
+        blockNode.dataset.end = block.end;
+        blockNode.dataset.stat = block.stat;
+        blockNode.dataset.points = block.points;
+        blockNode.dataset.category = block.category;
+
+        bar.appendChild(blockNode);
+        currentMin = endMins;
+      });
+
+      // Render remaining empty slot if any
+      if (currentMin < totalMinsInDay) {
+        const gapWidth = ((totalMinsInDay - currentMin) / totalMinsInDay) * 100;
+        const gapNode = document.createElement('div');
+        gapNode.style.width = `${gapWidth}%`;
+        gapNode.style.background = 'transparent';
+        bar.appendChild(gapNode);
+      }
+    }
+
+    // Show tooltip details on hover
+    function showTooltip(event) {
+      const tooltip = document.getElementById('timeline-tooltip');
+      const target = event.target;
+
+      if (target.classList.contains('timeline-block')) {
+        const title = target.dataset.title;
+        const start = target.dataset.start;
+        const end = target.dataset.end;
+        const stat = target.dataset.stat.toUpperCase();
+        const points = target.dataset.points;
+        const cat = target.dataset.category.toUpperCase();
+
+        tooltip.innerHTML = `
+          <strong>${title}</strong><br/>
+          🕒 ${start} - ${end}<br/>
+          📊 Stat: ${stat} (+${points} pts)<br/>
+          🏷️ Focus: ${cat}
+        `;
+        
+        // Position tooltip
+        tooltip.style.display = 'block';
+        tooltip.style.left = `${event.pageX + 15}px`;
+        tooltip.style.top = `${event.pageY + 15}px`;
+      } else {
+        tooltip.style.display = 'none';
+      }
+    }
+
+    function hideTooltip() {
+      document.getElementById('timeline-tooltip').style.display = 'none';
+    }
+
+    // Render chronological card list of agenda blocks
+    function renderAgendaList() {
+      const container = document.getElementById('agenda-list-container');
+      container.innerHTML = '';
+
+      const agenda = [...templates[activeTemplate].agenda].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+
+      if (agenda.length === 0) {
+        container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 2rem;">Aucun bloc planifié pour le moment. Utilisez le formulaire pour en forger un !</p>`;
+        return;
+      }
+
+      agenda.forEach(block => {
+        const item = document.createElement('div');
+        item.className = 'agenda-item';
+
+        const statLabels = {
+          discipline: "🛡️ Discipline",
+          force: "⚔️ Force",
+          sante: "🍀 Santé",
+          social: "🤝 Social",
+          finance: "💰 Finance",
+          apprendre: "📖 Apprendre",
+          none: "Aucune"
+        };
+
+        const statText = block.stat !== 'none' ? `${statLabels[block.stat]} (+${block.points} pts)` : 'Aucune stat';
+
+        item.innerHTML = `
+          <div class="agenda-time">
+            ${block.start} - ${block.end}
+          </div>
+          <div class="agenda-details">
+            <div class="agenda-title-text">${block.title}</div>
+            <div class="agenda-meta">
+              <span class="badge-stat">${statText}</span>
+              <span class="badge-category ${block.category}">${block.category}</span>
+            </div>
+          </div>
+          <button class="btn-delete" onclick="handleDeleteBlock(${block.id})" title="Supprimer le créneau">&times;</button>
+        `;
+
+        container.appendChild(item);
+      });
+    }
+
+    // Render stat thresholds validation checklist
+    function renderChecklist() {
+      const container = document.getElementById('validation-list-container');
+      container.innerHTML = '';
+
+      const thresholds = templates[activeTemplate].thresholds;
+      const agenda = templates[activeTemplate].agenda;
+
+      // Sum points per stat from typical agenda
+      const agendaSums = {};
+      agenda.forEach(block => {
+        if (block.stat && block.stat !== 'none') {
+          agendaSums[block.stat] = (agendaSums[block.stat] || 0) + Number(block.points);
+        }
+      });
+
+      const statLabels = {
+        discipline: "🛡️ Discipline",
+        force: "⚔️ Force",
+        sante: "🍀 Santé",
+        social: "🤝 Social",
+        finance: "💰 Finance",
+        apprendre: "📖 Apprendre"
+      };
+
+      const keys = Object.keys(thresholds);
+      
+      if (keys.length === 0) {
+        container.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center;">Aucun seuil défini pour ce template.</p>`;
+        document.getElementById('overall-status-alert').className = 'status-alert all-met';
+        document.getElementById('overall-status-alert').innerHTML = '✅ Agenda prêt (Aucune contrainte)';
+        return;
+      }
+
+      let allMet = true;
+
+      keys.forEach(stat => {
+        const req = thresholds[stat];
+        const currentVal = agendaSums[stat] || 0;
+        const isMet = currentVal >= req;
+
+        if (!isMet) allMet = false;
+
+        const row = document.createElement('div');
+        row.className = 'validation-item';
+        row.innerHTML = `
+          <span class="validation-name">
+            <span>${isMet ? '✅' : '❌'}</span>
+            <span>${statLabels[stat]}</span>
+          </span>
+          <span class="validation-progress ${isMet ? 'met' : 'unmet'}">
+            ${currentVal} / ${req} pts
+          </span>
+        `;
+        container.appendChild(row);
+      });
+
+      // Update general validation box
+      const alertBox = document.getElementById('overall-status-alert');
+      if (allMet) {
+        alertBox.className = 'status-alert all-met';
+        alertBox.innerHTML = '🏆 Parfait ! L\'agenda type couvre tous les seuils statistiques requis.';
+      } else {
+        alertBox.className = 'status-alert some-unmet';
+        alertBox.innerHTML = '⚠️ Agenda insuffisant pour valider les seuils requis.';
+      }
+    }
+
+    // Check if new input block overlaps with existing template blocks
+    function checkTimeOverlap() {
+      const startInput = document.getElementById('block-start').value;
+      const endInput = document.getElementById('block-end').value;
+      const alertBox = document.getElementById('overlap-alert');
+
+      if (!startInput || !endInput) return false;
+
+      const newStart = timeToMinutes(startInput);
+      const newEnd = timeToMinutes(endInput);
+
+      if (newStart >= newEnd) {
+        alertBox.style.display = 'flex';
+        document.getElementById('overlap-alert-text').textContent = 'L\'heure de début doit précéder l\'heure de fin.';
+        return true;
+      }
+
+      // Check against current agenda
+      const agenda = templates[activeTemplate].agenda;
+      let hasOverlap = false;
+
+      for (let block of agenda) {
+        const bStart = timeToMinutes(block.start);
+        const bEnd = timeToMinutes(block.end);
+
+        // Simple overlap logic: start1 < end2 AND start2 < end1
+        if (newStart < bEnd && bStart < newEnd) {
+          hasOverlap = true;
+          alertBox.style.display = 'flex';
+          document.getElementById('overlap-alert-text').textContent = `Conflit détecté avec : "${block.title}" (${block.start} - ${block.end}).`;
+          break;
+        }
+      }
+
+      if (!hasOverlap) {
+        alertBox.style.display = 'none';
+      }
+
+      return hasOverlap;
+    }
+
+    // Handle adding new agenda block
+    function handleAddBlock(event) {
+      event.preventDefault();
+
+      if (checkTimeOverlap()) {
+        alert('Erreur: Conflit horaire détecté.');
+        return;
+      }
+
+      const title = document.getElementById('block-title').value;
+      const start = document.getElementById('block-start').value;
+      const end = document.getElementById('block-end').value;
+      const stat = document.getElementById('block-stat').value;
+      const points = Number(document.getElementById('block-points').value);
+      const category = document.getElementById('block-category').value;
+
+      const newBlock = {
+        id: Date.now(),
+        title,
+        start,
+        end,
+        stat,
+        points,
+        category
+      };
+
+      templates[activeTemplate].agenda.push(newBlock);
+
+      // Reset form title
+      document.getElementById('block-title').value = '';
+
+      // Refresh layout
+      renderTimeline();
+      renderAgendaList();
+      renderChecklist();
+      checkTimeOverlap();
+    }
+
+    // Handle deleting agenda block
+    function handleDeleteBlock(id) {
+      if (!confirm('Supprimer ce créneau ?')) return;
+
+      templates[activeTemplate].agenda = templates[activeTemplate].agenda.filter(block => block.id !== id);
+
+      // Refresh layout
+      renderTimeline();
+      renderAgendaList();
+      renderChecklist();
+      checkTimeOverlap();
+    }
+
+    // Initialize layout
+    switchTemplate('week');
+  </script>
+</body>
+</html>

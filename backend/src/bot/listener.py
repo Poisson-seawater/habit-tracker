@@ -32,6 +32,7 @@ from src.services.score_service import (
     update_streaks,
     DEFAULT_THRESHOLDS,
     add_user_xp,
+    cleanup_completed_todos,
 )
 from src.bot.scheduler import start_scheduler
 from src.services.reward_service import (
@@ -55,6 +56,71 @@ STAT_LABELS = {
     "apprendre": "Apprendre 📚",
     "discipline": "Discipline ⚔️",
 }
+
+
+def parse_date_offset(date_str: str) -> datetime.date | None:
+    date_str = date_str.lower().strip()
+    today = datetime.date.today()
+    if date_str in ["today", "aujourd'hui", "auj", "aujourdhui"]:
+        return today
+    elif date_str in ["tomorrow", "demain"]:
+        return today + datetime.timedelta(days=1)
+
+    # Try YYYY-MM-DD
+    match = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", date_str)
+    if match:
+        try:
+            return datetime.date(
+                int(match.group(1)), int(match.group(2)), int(match.group(3))
+            )
+        except ValueError:
+            pass
+
+    # Try DD/MM/YYYY
+    match = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", date_str)
+    if match:
+        try:
+            return datetime.date(
+                int(match.group(3)), int(match.group(2)), int(match.group(1))
+            )
+        except ValueError:
+            pass
+
+    # Try DD/MM
+    match = re.match(r"^(\d{1,2})/(\d{1,2})$", date_str)
+    if match:
+        try:
+            return datetime.date(today.year, int(match.group(2)), int(match.group(1)))
+        except ValueError:
+            pass
+
+    return None
+
+
+def parse_todo_text(
+    title_str: str,
+) -> tuple[str, datetime.date | None, datetime.date | None]:
+    do_date = None
+    due_date = None
+
+    do_match = re.search(r"\bdo:(\S+)", title_str)
+    if do_match:
+        do_val = do_match.group(1)
+        parsed = parse_date_offset(do_val)
+        if parsed:
+            do_date = parsed
+            title_str = title_str.replace(f"do:{do_val}", "")
+
+    due_match = re.search(r"\bdue:(\S+)", title_str)
+    if due_match:
+        due_val = due_match.group(1)
+        parsed = parse_date_offset(due_val)
+        if parsed:
+            due_date = parsed
+            title_str = title_str.replace(f"due:{due_val}", "")
+
+    title_str = re.sub(r"\s+", " ", title_str).strip()
+    return title_str, do_date, due_date
 
 
 def format_stat_rewards(point_rewards: dict) -> str:
@@ -103,10 +169,19 @@ def _resolve_user(db, from_user) -> User:
 def _render_liste(db, user_id: int, l_type: str) -> str:
     """HTML text for one of the three lists. Used by typed /liste and the buttons."""
     if l_type == "todo":
+        cleanup_completed_todos(db, user_id)
         todos = db.query(Todo).filter_by(user_id=user_id, is_completed=False).all()
         if not todos:
             return "Aucun Todo en attente."
-        lines = [f"- {html.escape(t.title)} (+{t.xp_reward} XP)" for t in todos]
+        lines = []
+        for t in todos:
+            date_info = []
+            if t.do_date:
+                date_info.append(f"Faire : {t.do_date.strftime('%d/%m')}")
+            if t.due_date:
+                date_info.append(f"Limite : {t.due_date.strftime('%d/%m')}")
+            date_str = f" ({', '.join(date_info)})" if date_info else ""
+            lines.append(f"- {html.escape(t.title)} (+{t.xp_reward} XP){date_str}")
         return "<b>Liste des Todos :</b>\n" + "\n".join(lines)
     if l_type == "habit":
         habits = db.query(Habit).filter_by(user_id=user_id, is_active=True).all()
@@ -142,9 +217,24 @@ def _create_pending_item(db, user: User, pending: str, title: str) -> str:
     if not title:
         return "❌ Titre vide — action annulée. Relance /add."
     if pending == "todo":
-        db.add(Todo(user_id=user.id, title=title, xp_reward=10))
+        title_clean, do_date, due_date = parse_todo_text(title)
+        db.add(
+            Todo(
+                user_id=user.id,
+                title=title_clean,
+                xp_reward=10,
+                do_date=do_date,
+                due_date=due_date,
+            )
+        )
         db.commit()
-        return f"✅ Todo ajouté : {html.escape(title)}"
+        date_info = []
+        if do_date:
+            date_info.append(f"Faire : {do_date.strftime('%d/%m')}")
+        if due_date:
+            date_info.append(f"Limite : {due_date.strftime('%d/%m')}")
+        date_str = f" ({', '.join(date_info)})" if date_info else ""
+        return f"✅ Todo ajouté : {html.escape(title_clean)}{date_str}"
     if pending == "notodo":
         db.add(NoTodo(user_id=user.id, title=title))
         db.commit()
@@ -865,10 +955,28 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 return
             if a_type == "todo":
-                todo = Todo(user_id=user.id, title=title, xp_reward=10)
+                title_clean, do_date, due_date = parse_todo_text(title)
+                todo = Todo(
+                    user_id=user.id,
+                    title=title_clean,
+                    xp_reward=10,
+                    do_date=do_date,
+                    due_date=due_date,
+                )
                 db.add(todo)
                 db.commit()
-                await update.message.reply_text(f"✅ Todo ajouté : {title}")
+
+                date_info = []
+                if do_date:
+                    date_info.append(f"Faire : {do_date.strftime('%d/%m')}")
+                if due_date:
+                    date_info.append(f"Limite : {due_date.strftime('%d/%m')}")
+                date_str = f" ({', '.join(date_info)})" if date_info else ""
+
+                await update.message.reply_text(
+                    f"✅ Todo ajouté : {html.escape(title_clean)}{date_str}",
+                    parse_mode="HTML",
+                )
             elif a_type == "notodo":
                 notodo = NoTodo(user_id=user.id, title=title)
                 db.add(notodo)
@@ -1538,6 +1646,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
             elif data.startswith("log_todo:"):
                 todo_id = int(data.split(":", 1)[1])
+                cleanup_completed_todos(db, user.id)
                 todo = db.query(Todo).filter_by(id=todo_id, user_id=user.id).first()
                 if not todo:
                     await query.edit_message_text("❌ Todo introuvable.")

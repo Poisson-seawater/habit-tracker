@@ -2,72 +2,6 @@
 
 Habit tracker auto-hébergé façon RPG + système de responsabilité, tournant sur un **Raspberry Pi 5**. Un bot Telegram et un dashboard web analytique partagent une même base **SQLite** locale et rapide.
 
----
-
-#### bug hunting
-
-1. PULL MODIFICATION FAIT SUR ORDI
-2. lancer toutes les prompts manquant
-3. pull de la pie
-4. test IA interaction direct sur le site web ! par modification http ???
-5. rerun test de stockage pour optimisation du code !
-
-
-objectif:
-- [x] quand je lis un objectif ex avoir 500k en actif a objectif faire le tour du monde, je ne vois pas cet objectif s'afficher dans faire le tour du monde. comme cela ce fait dans softskill.
-- [x] description apparais des que je batit la sous-etapes  ! pas uniquement dans edit.
-
-softskill:
-- [x] etre capable de delete un softskill
-- [x] Compétences Liées (liaisons secondaires) c'est quoi  ?
-- [x] quand je ✨ Forger une compétence, pouvoir ecrire la description ET son critere de validation aussi !
-- [x] revoir les liens entre les skills
-- [ ] revoir les couleurs quand c'est valider et non !
-
-Add stat caché = life experience / personal lore -> option yes  /no sur des objectifs. 
-
-message: 
-- log vide permet de sélectionner to do ou habit puis de sélectionner habit de son choix
-
-overall: 
-- cleaner sur cellphone
-
-
-
-aight so tu as fait de la merde ! je ne peux plus chagner l'étapes d;un sous objectifs ! aucun changement de place visuel ! ET apres avoir changer etape 1 pour 2, létape redevient 1 des que l'edit du sous-objecrifs est terminer
-
-
-
-##### prompts list
-
-**telegram**: 
-A la fin de la journés, donc 21h30, le message de recap dois afficher les to do et les habit faite ! ainsi que les no-to-do de failure fait !
-
-La commande /log me permet de selectionner une habitude ou une to do par bouton ! 1. donne le choix entre habitude ou bouton. 2. liste les habitudes/ boutons et je clique sur celui que je log. 
-
-**objectifs**
-dans les paramètre d'un sous-objectif, on peux cocher une case life lore. Quand un sous-objectifs life lore est réaliser. Alors il apparais dans les stats du jours. Le jour peux voir son life lore quand il clique sur son image de profil.
-
-**skills**
-OUTPUT: better ux. Les skills ont la meme logique par branche que les objectifs et refonte visuel.
-Context: un sous-objectifs peuvent s'afficher dans plusieurs objectifs. Les skills aussi peuvent apparaitre dans plusieur branche.
-Si skill fait, alors background change de couleur pour etre le meme que celui de la bordure (pas de verts).
-La vue global, 
-
-**not to-do**
-je veux etre capable de delete un non to do
-
-
-**esthetique**
-Le rendu est propre sur ordi, mais tres moche des qu'on est sur telephone. Creer moi 2 maquettes: telephone et tablette afin quon verifie ensemble le visuel ! 
-
-
-
-#### last prompt
-double check database, code with 1 outputs in mind.
-consume as little RAM as possible.
-
-what can be optimize  ? database ? code librairie ? 
 
 ## 🎯 Vision & Philosophie
 
@@ -85,30 +19,43 @@ L'idée de base : transformer la discipline quotidienne en jeu (XP, niveaux, or,
 
 ### Ce que le projet N'EST PAS
 
-- **Pas un SaaS.** Aucune intention de vendre, d'héberger pour des tiers, ni de scaler.
-- **Pas multi-tenant.** « Multi-utilisateur » = nous deux, sur une seule instance, une seule DB SQLite. Pas d'organisations, de rôles, de facturation.
-- **Pas une app publique.** Tourne derrière notre réseau / tunnel. Pas de hardening niveau prod publique (CORS ouvert, auth par simple header `X-User-ID`).
+- **Pas un SaaS.** 
 - **Pas une plateforme générique.** Tout est personnalisé pour nos besoins.
 
 ### Non-goals explicites
 
-- Pas d'inscription publique ni d'onboarding grand public.
-- Pas de paiement, d'abonnement, de plan freemium.
-- Pas de support multi-DB (Postgres, MySQL…) — SQLite suffit pour deux personnes.
+
 - Pas de scaling horizontal, de microservices, de Kubernetes.
 - Pas de mobile natif — le bot Telegram + la Mini App couvrent le besoin mobile.
-- Pas d'i18n complète — FR/EN au fil de l'eau, sans framework de traduction.
 - Pas d'optimisation pour des milliers d'utilisateurs : on optimise pour la **RAM du Pi**, pas pour la charge.
 
 ### Pistes futures (non engagées)
 
-> Idées issues du cahier des charges initial, conservées ici en attendant d'être éventuellement cadrées dans `specs/`. Rien de tout ça n'est décidé.
+> idées conservées ici en attendant d'être cadrées dans `specs/`. 
+
 
 - **V3 — intégrations externes** : calendrier employeur, app de todo externe, API professionnelles.
 - **Fin d'objectif par cumul de succès** (ex. 180 succès ≈ 6 mois), statuts abandonné / terminé.
-- **Planification quotidienne 3-3-3** : 3 objectifs majeurs, 3 tâches courtes, 3 tâches de maintenance.
 - **Régulation de la charge cognitive** : limiter les projets et habitudes actifs simultanément.
 - **Système de Punitions** : actions compensatoires constructives face à l'échec d'engagements.
+- **Vision Agenda pour les Todos** : Ajout d'une date d'échéance (*due date*) et d'une date de planification (*do date*) pour les Todos.
+- **Plugin MCP / Assistant IA** : Développement de connecteurs facilitant l'accès et la création d'emploi du temps par une IA.
+- **Perfect Day Agenda automatisé** : Liaison des habitudes à une durée associée pour pré-remplir l'agenda du Perfect Day par défaut.
+- **Simplification du système de statistiques** : Évolution vers un système de progression plus simple (les statistiques augmentent avec les niveaux globaux, et l'échec d'une habitude entraîne une perte de points de statistique).
+- **Évolution des Habitudes** :
+  - Pérennisation du suivi par jalons (90 et 180 succès).
+  - Gestion de plusieurs niveaux de difficulté préparés à l'avance pour une même habitude.
+  - Connexion et liaisons des habitudes directement à des compétences (softskills) ou objectifs majeurs.
+- **Accès à distance sécurisé** : Configurer la Raspberry Pi (par exemple via Tailscale, Cloudflare Tunnels ou un reverse proxy sécurisé) afin de pouvoir accéder au site web et à l'API de n'importe où dans le monde.
+
+
+```
+Brainstorm with me DO NOT CODE !
+Le system de 3-3-3 est good ! La visualisation des skills et des objectifs aussi. 
+Mais je veux avoir une séparation entre to do, une action planifier dans le temps et que je planifie dans mon agenda (outside of scope of the app). VS habitudes, ce que je dois faire régulièrement pour mon "developpement perso" et mon statue quo VS nouvelle habitude / changement planifier pour réussir les 3 objectifs selectionner ou les 3 competences selectionner. 
+
+Propose moi des idées
+```
 
 ---
 
@@ -119,8 +66,7 @@ Projet perso. Avant de contribuer, lire :
 - 🎯 **[Vision & Philosophie](#-vision--philosophie)** — pourquoi ce projet existe, qui il vise, ce qu'il n'est pas (section ci-dessus).
 - 🤖 **[CLAUDE.md](./CLAUDE.md)** — conventions et règles pour Claude Code / agents (symlink vers `AGENTS.md`).
 - 🌿 **[CONTRIBUTING.md](./CONTRIBUTING.md)** — branches, PRs, format des commits.
-- 🗺️ **[ROADMAP.md](./ROADMAP.md)** — ce qui reste à faire.
-
+ 
 On travaille par branches `feat/...` → PR vers `dev` → PR vers `main`, 1 review minimum.
 
 ---

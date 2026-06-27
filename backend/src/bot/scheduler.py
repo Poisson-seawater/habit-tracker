@@ -92,7 +92,6 @@ async def publish_daily_recap():
             )
 
             completed_habits = []
-            skipped_habits = []
             private_completed_count = 0
 
             # Group today's logs by habit so targeted habits show a single "X/N" line
@@ -113,21 +112,16 @@ async def publish_daily_recap():
                         private_completed_count += len(done_logs)
                     elif has_target:
                         completed_habits.append(
-                            f"{html.escape(habit.name)} {len(done_logs)}/{habit.daily_target} ✅"
+                            f"✅ {html.escape(habit.name)} {len(done_logs)}/{habit.daily_target}"
                         )
                     else:
                         for log in done_logs:
                             if log.log_type == "done":
-                                completed_habits.append(f"{html.escape(habit.name)} ✅")
+                                completed_habits.append(f"✅ {html.escape(habit.name)}")
                             else:
                                 completed_habits.append(
-                                    f"{html.escape(habit.name)} ({log.amount}{html.escape(log.unit or '')})"
+                                    f"✅ {html.escape(habit.name)} ({log.amount}{html.escape(log.unit or '')})"
                                 )
-                elif any(l.log_type == "skip" for l in h_logs):
-                    if habit.is_private:
-                        skipped_habits.append("Chose secrète 🔒 (skippée ⏭️)")
-                    else:
-                        skipped_habits.append(f"{html.escape(habit.name)} (skippé ⏭️)")
 
             # Check completed Todos today
             completed_todos = (
@@ -142,7 +136,7 @@ async def publish_daily_recap():
             )
             completed_todos_list = []
             for t in completed_todos:
-                completed_todos_list.append(f"{html.escape(t.title)} 🌟")
+                completed_todos_list.append(f"✅ {html.escape(t.title)} 🌟")
 
             # Check failed NoTodos today
             failed_notodos = (
@@ -156,7 +150,7 @@ async def publish_daily_recap():
             )
             failed_notodos_list = []
             for n in failed_notodos:
-                failed_notodos_list.append(f"{html.escape(n.title)} 🚫")
+                failed_notodos_list.append(f"• {html.escape(n.title)} 🚫")
 
             # 4. Format streaks
             perf_streak = (
@@ -165,49 +159,6 @@ async def publish_daily_recap():
                 .first()
             )
             perf_streak_val = perf_streak.current_streak if perf_streak else 0
-
-            # Determine daily status string
-            if score.status == "Perfect":
-                status_emoji = "🏆 PERFECT DAY (+5 XP)!"
-            else:
-                status_emoji = "🟥 JOURNÉE INCOMPLÈTE"
-
-            # Format stat progression lines
-            stat_earned_parts = []
-            for stat in ALL_6_STATS:
-                val = score.actual_stats.get(stat, 0)
-                if val > 0:
-                    label = STAT_LABELS.get(stat, stat.capitalize())
-                    stat_earned_parts.append(f"{label} +{val}")
-
-            if stat_earned_parts:
-                stat_progression_str = "\n" + "\n".join(f"• {part}" for part in stat_earned_parts)
-            else:
-                stat_progression_str = " Aucun"
-
-            # Level up notification text
-            lvl_info = (
-                f" (LEVEL UP! Nouveau niveau: {user.level} 🎉)" if levels_gained else ""
-            )
-
-            # 5. Construct user block
-            if completed_habits or private_completed_count > 0:
-                habits_lines = [f"• {h}" for h in completed_habits]
-                if private_completed_count > 0:
-                    habits_lines.append(f"• +{private_completed_count} privées 🔒")
-                habits_str = "\n" + "\n".join(habits_lines)
-            else:
-                habits_str = " Aucune"
-
-            skipped_line = (
-                f"\n⏭️ <b>Habitudes skippées :</b>\n" + "\n".join(f"• {h}" for h in skipped_habits)
-                if skipped_habits
-                else ""
-            )
-            if completed_todos_list:
-                todos_str = "\n" + "\n".join(f"• {t}" for t in completed_todos_list)
-            else:
-                todos_str = " Aucun"
 
             # Check completed Life Lore subgoals today
             completed_life_lore = (
@@ -223,38 +174,40 @@ async def publish_daily_recap():
             )
             completed_life_lore_list = []
             for s in completed_life_lore:
-                completed_life_lore_list.append(f"{html.escape(s.title)} 📖")
-            if completed_life_lore_list:
-                life_lore_str = "\n" + "\n".join(f"• {s}" for s in completed_life_lore_list)
-            else:
-                life_lore_str = " Aucun"
-
-            if failed_notodos_list:
-                failed_notodos_str = "\n" + "\n".join(f"• {n}" for n in failed_notodos_list)
-            else:
-                failed_notodos_str = " Aucun"
+                completed_life_lore_list.append(f"✅ {html.escape(s.title)} 📖")
 
             # Fetch today's redeemed allostasis rewards
             allostasis_purchased = get_allostasis_purchases_on_date(db, user.id, today)
-            allostasis_line = ""
+            allostasis_list = []
             if allostasis_purchased:
-                allostasis_items_str = "\n" + "\n".join(
-                    f"• {html.escape(r.title)} ✅" for r in allostasis_purchased
-                )
-                allostasis_line = f"\n🧠 <b>Allostasie :</b>{allostasis_items_str}"
+                for r in allostasis_purchased:
+                    allostasis_list.append(f"✅ {html.escape(r.title)} 🧠")
 
-            user_block = (
-                f"👤 Aventurier : <b>{html.escape(user.username)}</b> (Niveau {user.level}{lvl_info})\n"
-                f"🛡️ <b>Statut :</b> {status_emoji} | Template : {score.template_used.upper()}\n"
-                f"🔥 Streak Perfect : <b>{perf_streak_val}j</b> | 💰 Or : <b>{user.gold} Gold</b>\n"
-                f"📈 <b>Stats du jour :</b>{stat_progression_str}\n"
-                f"✅ <b>Habitudes faites :</b>{habits_str}"
-                f"{skipped_line}\n"
-                f"🌟 <b>To-Dos faits :</b>{todos_str}\n"
-                f"📖 <b>Life Lore :</b>{life_lore_str}\n"
-                f"⚠️ <b>No-To-Dos brisés :</b>{failed_notodos_str}"
-                f"{allostasis_line}"
-            )
+            # Gather all completed actions
+            actions_done = []
+            actions_done.extend(completed_habits)
+            if private_completed_count > 0:
+                actions_done.append(f"✅ +{private_completed_count} privées 🔒")
+            actions_done.extend(completed_todos_list)
+            actions_done.extend(completed_life_lore_list)
+            actions_done.extend(allostasis_list)
+
+            # 5. Construct user block
+            if len(actions_done) > 0:
+                actions_str = "\n".join(actions_done)
+                user_block = f"<b>{html.escape(user.username)}</b>, streak : {perf_streak_val}\n{actions_str}"
+            else:
+                user_block = (
+                    f"<b>{html.escape(user.username)}</b>,\n"
+                    f"streak ={perf_streak_val}\n"
+                    f"branleux fait mieux demain."
+                )
+
+            # Append failed No-To-Dos if any
+            if failed_notodos_list:
+                failed_notodos_str = "\n".join(failed_notodos_list)
+                user_block += f"\n\n⚠️ <b>No-To-Dos brisés :</b>\n{failed_notodos_str}"
+
             user_blocks.append(user_block)
             individual_reports[user.chat_id] = user_block
 
@@ -262,12 +215,7 @@ async def publish_daily_recap():
         group_chat_id = TELEGRAM_GROUP_ID if TELEGRAM_GROUP_ID else None
 
         if group_chat_id:
-            guild_msg = (
-                f"🔔 <b>BILAN DE LA GUILDE — {today.strftime('%d/%m/%Y')}</b> ⚔\n"
-                f"━━━━━━━━━━━━━━━━━━━\n\n" + "\n\n".join(user_blocks) + "\n\n"
-                f"━━━━━━━━━━━━━━━━━━━\n"
-                f"💪 Demain est une nouvelle journée d'entraînement. Soyez prêts !"
-            )
+            guild_msg = "\n\n".join(user_blocks)
             await bot.send_message(
                 chat_id=group_chat_id, text=guild_msg, parse_mode="HTML"
             )
@@ -279,14 +227,9 @@ async def publish_daily_recap():
             for chat_id, report_str in individual_reports.items():
                 if not chat_id:
                     continue
-                dm_msg = (
-                    f"🔔 <b>VOTRE BILAN JOURNALIER — {today.strftime('%d/%m/%Y')}</b> ⚔\n"
-                    f"━━━━━━━━━━━━━━━━━━━\n\n"
-                    f"{report_str}\n\n"
-                    f"━━━━━━━━━━━━━━━━━━━\n"
-                    f"💪 Demain est une nouvelle journée d'entraînement. Soyez prêts !"
+                await bot.send_message(
+                    chat_id=chat_id, text=report_str, parse_mode="HTML"
                 )
-                await bot.send_message(chat_id=chat_id, text=dm_msg, parse_mode="HTML")
                 print(f"Scheduler: Successfully sent daily DM recap to {chat_id}")
 
     except Exception as e:

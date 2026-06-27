@@ -27,3 +27,7 @@ testpaths = [
 ]
 asyncio_mode = "auto"
 pythonpath = ["src"]
+
+[tool.pyright]
+extraPaths = ["."]
+reportArgumentType = false

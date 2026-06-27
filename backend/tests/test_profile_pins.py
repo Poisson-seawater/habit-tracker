@@ -39,6 +39,19 @@ def setup_test_db():
         # Seed default user Gabriel
         u = User(id=1, username="Gabriel", chat_id="111", xp=0, level=1, gold=100)
         db.add(u)
+        db.flush()
+
+        from src.database.models import Goal, SubStep, GoalSubStepLink
+
+        g = Goal(id=100, user_id=1, title="Test Goal", description="...")
+        s1 = SubStep(id=42, user_id=1, title="Sub 42", gold_reward=10)
+        s2 = SubStep(id=43, user_id=1, title="Sub 43", gold_reward=10)
+        db.add(g)
+        db.add(s1)
+        db.add(s2)
+        db.flush()
+        db.add(GoalSubStepLink(goal_id=100, substep_id=42))
+        db.add(GoalSubStepLink(goal_id=100, substep_id=43))
         db.commit()
     finally:
         db.close()
@@ -71,7 +84,11 @@ def test_profile_pins_flow(client):
     assert data["pinned_softskills"] == []
 
     # 2. Update profile pins
-    payload = {"pinned_substeps": [42, 43], "pinned_softskills": ["focus", "lecture"]}
+    payload = {
+        "pinned_goals": [100],
+        "pinned_substeps": [42, 43],
+        "pinned_softskills": ["focus", "lecture"],
+    }
     response = client.put(
         "/api/v1/profile/pins", json=payload, headers={"X-User-ID": "1"}
     )

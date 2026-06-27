@@ -322,3 +322,18 @@ def add_user_xp(user: User, xp_gained: int) -> list:
             break
 
     return levels_gained
+
+
+def cleanup_completed_todos(db: Session, user_id: int):
+    """
+    Deletes completed todos that were completed before today (in local timezone).
+    This preserves completed todos for today's daily score calculations and status recaps,
+    but deletes them once the day is over.
+    """
+    today_start = datetime.datetime.combine(datetime.date.today(), datetime.time.min)
+    db.query(Todo).filter(
+        Todo.user_id == user_id,
+        Todo.is_completed == True,
+        Todo.completed_at < today_start,
+    ).delete(synchronize_session=False)
+    db.commit()

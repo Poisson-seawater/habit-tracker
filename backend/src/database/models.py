@@ -27,6 +27,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.datetime.now)
     pinned_substeps = Column(JSON, nullable=True, default=list)
     pinned_softskills = Column(JSON, nullable=True, default=list)
+    pinned_goals = Column(JSON, nullable=True, default=list)
 
     logs = relationship("HabitLog", back_populates="user", cascade="all, delete-orphan")
     scores = relationship(
@@ -176,6 +177,8 @@ class Todo(Base):
     is_completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.now)
     completed_at = Column(DateTime, nullable=True)
+    do_date = Column(Date, nullable=True)
+    due_date = Column(Date, nullable=True)
 
     user = relationship("User", back_populates="todos")
 

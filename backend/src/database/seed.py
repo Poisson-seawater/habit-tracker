@@ -440,6 +440,27 @@ def _run_migrations():
                 )
                 db.commit()
                 print("Migration v13 applied successfully.")
+
+        # v14: Add do_date and due_date to todos
+        if "todos" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("todos")]
+            if "do_date" not in columns:
+                print("Running migration v14: adding do_date and due_date to todos...")
+                db.execute(text("ALTER TABLE todos ADD COLUMN do_date DATE"))
+                db.execute(text("ALTER TABLE todos ADD COLUMN due_date DATE"))
+                db.commit()
+                print("Migration v14 applied successfully.")
+
+        # v15: Add pinned_goals to users
+        if "users" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("users")]
+            if "pinned_goals" not in columns:
+                print("Running migration v15: adding pinned_goals to users...")
+                db.execute(
+                    text("ALTER TABLE users ADD COLUMN pinned_goals TEXT DEFAULT '[]'")
+                )
+                db.commit()
+                print("Migration v15 applied successfully.")
     except Exception as e:
         db.rollback()
         print(f"Migration error (non-fatal): {e}")

@@ -92,3 +92,38 @@ def test_parse_command_with_bot_username():
     result2 = parse_command("/buy@MyHabitRPGTrackerBot Netflix")
     assert result2["command"] == "buy"
     assert result2["reward_name"] == "Netflix"
+
+
+def test_parse_todo_text_with_dates():
+    from src.bot.listener import parse_todo_text
+    import datetime
+
+    # Test no dates
+    title, do_d, due_d = parse_todo_text("Acheter du pain")
+    assert title == "Acheter du pain"
+    assert do_d is None
+    assert due_d is None
+
+    # Test do date
+    title, do_d, due_d = parse_todo_text("Acheter du pain do:today")
+    assert title == "Acheter du pain"
+    assert do_d == datetime.date.today()
+    assert due_d is None
+
+    # Test due date
+    title, do_d, due_d = parse_todo_text("Acheter du pain due:tomorrow")
+    assert title == "Acheter du pain"
+    assert do_d is None
+    assert due_d == datetime.date.today() + datetime.timedelta(days=1)
+
+    # Test both do and due dates
+    title, do_d, due_d = parse_todo_text("Acheter du pain do:2026-12-25 due:2026-12-31")
+    assert title == "Acheter du pain"
+    assert do_d == datetime.date(2026, 12, 25)
+    assert due_d == datetime.date(2026, 12, 31)
+
+    # Test DD/MM format
+    today = datetime.date.today()
+    title, do_d, due_d = parse_todo_text("Faire les courses do:15/08")
+    assert title == "Faire les courses"
+    assert do_d == datetime.date(today.year, 8, 15)

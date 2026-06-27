@@ -62,6 +62,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const badgeStatus = document.getElementById("badge-status");
   const templateSelect = document.getElementById("template-select");
   const questsListContainer = document.getElementById("quests-list-container");
+  let showTodayQuests = true;
+  let showTodayBounties = true;
   const toastNotification = document.getElementById("toast-notification");
   
   // Show a glowing premium toast alert
@@ -233,15 +235,29 @@ document.addEventListener("DOMContentLoaded", () => {
       const pythonDay = (jsDay + 6) % 7;
 
       const visibleHabits = habits.filter(habit => {
-        if (habit.frequency === "specific_days") {
-          const days = (habit.scheduled_days || "").split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-          return days.includes(pythonDay);
-        }
-        return true; // daily, weekly, monthly always visible
+        const isScheduledToday = (() => {
+          if (habit.frequency === "specific_days") {
+            const days = (habit.scheduled_days || "").split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+            return days.includes(pythonDay);
+          }
+          return true; // daily, weekly, monthly always visible
+        })();
+        return showTodayQuests ? isScheduledToday : !isScheduledToday;
       });
 
+      const toggleQuestsBtn = document.getElementById("toggle-quests-view-btn");
+      const questsPanelTitle = document.getElementById("quests-panel-title");
+      if (questsPanelTitle) {
+        questsPanelTitle.textContent = showTodayQuests ? "🎯 Quêtes Actives (Aujourd'hui)" : "🎯 Quêtes Actives (Autres jours)";
+      }
+      if (toggleQuestsBtn) {
+        toggleQuestsBtn.textContent = showTodayQuests ? "➡️" : "⬅️";
+        toggleQuestsBtn.title = showTodayQuests ? "Voir les quêtes des autres jours" : "Retour aux quêtes d'aujourd'hui";
+      }
+
       if (visibleHabits.length === 0) {
-        questsListContainer.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem; text-align: center;">Aucune quête prévue aujourd'hui.</p>`;
+        const noQuestsMsg = showTodayQuests ? "Aucune quête prévue aujourd'hui." : "Aucune quête prévue pour les autres jours.";
+        questsListContainer.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem; text-align: center;">${noQuestsMsg}</p>`;
         return;
       }
 
@@ -590,12 +606,36 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!container) return;
 
       container.innerHTML = "";
-      if (bounties.length === 0) {
-        container.innerHTML = `<p style="color: var(--text-secondary); font-size: 0.85rem; text-align: center; padding: 1.5rem 0;">Aucune prime active. Déclarez vos exploits ! ⚔️</p>`;
+
+      const todayObj = new Date();
+      const yyyy = todayObj.getFullYear();
+      const mm = String(todayObj.getMonth() + 1).padStart(2, '0');
+      const dd = String(todayObj.getDate()).padStart(2, '0');
+      const todayStr = `${yyyy}-${mm}-${dd}`;
+
+      const visibleBounties = bounties.filter(b => {
+        const hasDoDate = !!b.do_date;
+        const isToday = hasDoDate ? b.do_date <= todayStr : (!b.due_date || b.due_date <= todayStr);
+        return showTodayBounties ? isToday : !isToday;
+      });
+
+      const toggleBountiesBtn = document.getElementById("toggle-bounties-view-btn");
+      const bountiesPanelTitle = document.getElementById("bounties-panel-title");
+      if (bountiesPanelTitle) {
+        bountiesPanelTitle.textContent = showTodayBounties ? "⚔️ Tableau des Primes (Aujourd'hui)" : "⚔️ Tableau des Primes (Autres jours)";
+      }
+      if (toggleBountiesBtn) {
+        toggleBountiesBtn.textContent = showTodayBounties ? "➡️" : "⬅️";
+        toggleBountiesBtn.title = showTodayBounties ? "Voir les primes des autres jours" : "Retour aux primes d'aujourd'hui";
+      }
+
+      if (visibleBounties.length === 0) {
+        const noBountiesMsg = showTodayBounties ? "Aucune prime active pour aujourd'hui." : "Aucune prime planifiée pour les autres jours.";
+        container.innerHTML = `<p style="color: var(--text-secondary); font-size: 0.85rem; text-align: center; padding: 1.5rem 0;">${noBountiesMsg}</p>`;
         return;
       }
 
-      bounties.forEach(b => {
+      visibleBounties.forEach(b => {
         const item = document.createElement("div");
         item.className = "bounty-card";
         
@@ -607,10 +647,26 @@ document.addEventListener("DOMContentLoaded", () => {
           rewardStatsText += ` (+${b.points_reward_2} ${STAT_LABELS[b.stat_reward_2.toLowerCase()] || b.stat_reward_2})`;
         }
 
+        let dateInfo = [];
+        if (b.do_date) {
+          const parts = b.do_date.split("-");
+          const dateStr = parts.length === 3 ? `${parts[2]}/${parts[1]}` : b.do_date;
+          dateInfo.push(`📅 Planifié : ${dateStr}`);
+        }
+        if (b.due_date) {
+          const parts = b.due_date.split("-");
+          const dateStr = parts.length === 3 ? `${parts[2]}/${parts[1]}` : b.due_date;
+          dateInfo.push(`🚨 Limite : ${dateStr}`);
+        }
+        const dateHtml = dateInfo.length > 0 
+          ? `<span style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; display: inline-flex; gap: 8px;">${dateInfo.join(" | ")}</span>` 
+          : "";
+
         item.innerHTML = `
           <div class="bounty-info">
             <span class="bounty-title">${b.title}</span>
             <span class="bounty-xp-tag">🏆 +${b.xp_reward} XP ${rewardStatsText}</span>
+            ${dateHtml}
           </div>
           <button class="substep-btn-check ${b.is_completed ? "completed" : ""}" data-id="${b.id}" ${b.is_completed ? "disabled" : ""}>
             ${b.is_completed ? "Réclamée" : "Réclamer"}
@@ -766,6 +822,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const stat2 = document.getElementById("new-bounty-stat-2").value || null;
         const pts2 = parseInt(document.getElementById("new-bounty-points-2").value) || 0;
 
+        const doDate = document.getElementById("new-bounty-do-date").value || null;
+        const dueDate = document.getElementById("new-bounty-due-date").value || null;
+
         if (!title) {
           showToast("Veuillez donner un titre à la prime !", true);
           return;
@@ -781,7 +840,9 @@ document.addEventListener("DOMContentLoaded", () => {
               stat_reward_1: stat1,
               points_reward_1: pts1,
               stat_reward_2: stat2,
-              points_reward_2: pts2
+              points_reward_2: pts2,
+              do_date: doDate,
+              due_date: dueDate
             })
           });
 
@@ -793,6 +854,8 @@ document.addEventListener("DOMContentLoaded", () => {
           document.getElementById("new-bounty-points-1").value = "5";
           document.getElementById("new-bounty-stat-2").value = "";
           document.getElementById("new-bounty-points-2").value = "0";
+          document.getElementById("new-bounty-do-date").value = "";
+          document.getElementById("new-bounty-due-date").value = "";
           bountyForm.style.display = "none";
           openBountyBtn.textContent = "+ Prime";
           refreshAll();
@@ -953,6 +1016,20 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!response.ok) throw new Error("Erreur fetch goals");
       const goals = await response.json();
 
+      // Check if goals count is 20 or more
+      const addGoalBtn = document.getElementById("sidebar-add-goal-btn");
+      if (addGoalBtn) {
+        if (goals.length >= 20) {
+          addGoalBtn.style.opacity = "0.3";
+          addGoalBtn.style.pointerEvents = "none";
+          addGoalBtn.setAttribute("title", "Limite de 20 objectifs atteinte.");
+        } else {
+          addGoalBtn.style.opacity = "";
+          addGoalBtn.style.pointerEvents = "";
+          addGoalBtn.removeAttribute("title");
+        }
+      }
+
       const selectorList = document.getElementById("goals-selector-list");
       if (!selectorList) return;
 
@@ -1001,9 +1078,20 @@ document.addEventListener("DOMContentLoaded", () => {
         const completedSteps = goal.substeps.filter(s => s.completed).length;
         const percent = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
+        const isPinned = pinnedGoals.includes(goal.id);
+        const locked = getTop3LockState();
+        const starCursor = locked ? 'not-allowed' : 'pointer';
+        const starTitle = locked
+          ? 'Le Top 3 est verrouillé (Déverrouillez en bas de la page)'
+          : (isPinned ? 'Retirer du Top 3' : 'Définir comme Top 3');
+        const starHTML = `<span class="goal-pin-star ${isPinned ? 'pinned' : ''}" title="${starTitle}" style="cursor: ${starCursor}; margin-left: 0.5rem; font-size: 1.15rem; color: ${isPinned ? 'var(--accent-yellow, #ffb300)' : 'var(--text-muted, #8e9297)'}; transition: color 0.2s;">${isPinned ? '★' : '☆'}</span>`;
+
         item.innerHTML = `
-          <div class="goal-selector-title">
-            <span>${goal.title} ${goal.completed ? "🎉" : ""}</span>
+          <div class="goal-selector-title" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <span style="display: flex; align-items: center; gap: 0.3rem;">
+              <span>${goal.title} ${goal.completed ? "🎉" : ""}</span>
+              ${starHTML}
+            </span>
             <span style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">${percent}%</span>
           </div>
           <span class="goal-selector-meta">${totalSteps} sous-étape${totalSteps > 1 ? 's' : ''}</span>
@@ -1011,6 +1099,55 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="goal-selector-progress-fill" style="width: ${percent}%;"></div>
           </div>
         `;
+
+        const starBtn = item.querySelector(".goal-pin-star");
+        if (starBtn) {
+          starBtn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+
+            const isCurrentLocked = getTop3LockState();
+            if (isCurrentLocked) {
+              showToast("Le Top 3 est verrouillé. Cliquez sur 'Déverrouiller le Top 3' en bas de la page pour le modifier.", true);
+              return;
+            }
+
+            let newPinnedGoals = [...pinnedGoals];
+            if (newPinnedGoals.includes(goal.id)) {
+              newPinnedGoals = newPinnedGoals.filter(id => id !== goal.id);
+              isUnlockClicked = false;
+            } else {
+              if (newPinnedGoals.length >= 3) {
+                showToast("Vous pouvez sélectionner au maximum 3 objectifs prioritaires (Top 3) !", true);
+                return;
+              }
+              newPinnedGoals.push(goal.id);
+            }
+
+            try {
+              const resp = await fetch(`${API_BASE}/profile/pins`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  pinned_goals: newPinnedGoals,
+                  pinned_substeps: pinnedSubsteps,
+                  pinned_softskills: pinnedSoftskills
+                })
+              });
+
+              if (!resp.ok) {
+                const errData = await resp.json();
+                throw new Error(errData.detail || "Erreur de sauvegarde");
+              }
+              
+              showToast(isPinned ? "Objectif retiré du Top 3 🎯" : "Objectif ajouté au Top 3 ! ⭐");
+              
+              await fetchProfile();
+              await fetchGoals();
+            } catch (err) {
+              showToast(err.message, true);
+            }
+          });
+        }
 
         item.addEventListener("click", () => {
           activeGoalId = goal.id;
@@ -1042,6 +1179,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Render Active Tree
       renderGoalTree(activeGoal);
+      renderTop3LockButton();
 
     } catch (e) {
       console.error(e);
@@ -1103,11 +1241,16 @@ document.addEventListener("DOMContentLoaded", () => {
         let stateClass = "unlocked-node";
         if (isCompleted) stateClass = "completed-node";
 
+        const isGoalPinned = pinnedGoals.includes(goal.id) || (s.linked_goals && s.linked_goals.some(g => pinnedGoals.includes(g.id)));
         let btnHTML = "";
         if (isCompleted) {
           btnHTML = `<span style="color: var(--accent-green); font-size: 0.75rem; font-weight: 700; margin-top: 0.4rem; display: flex; align-items: center; gap: 0.2rem;">✓ Complétée</span>`;
         } else {
-          btnHTML = `<button class="tree-node-btn action-complete-substep" data-id="${s.id}">Valider</button>`;
+          if (isGoalPinned) {
+            btnHTML = `<button class="tree-node-btn action-complete-substep" data-id="${s.id}">Valider</button>`;
+          } else {
+            btnHTML = `<button class="tree-node-btn action-complete-substep" data-id="${s.id}" disabled title="Ce sous-objectif doit appartenir à l'un de vos 3 objectifs prioritaires (Top 3) pour être validé." style="opacity: 0.45; cursor: not-allowed;">Valider (Focus requis)</button>`;
+          }
         }
 
         const statsTags = s.stats.map(st => `<span class="substep-tag">${STAT_LABELS[st.toLowerCase()] || st}</span>`).join(" ");
@@ -1621,8 +1764,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function setupToggleEvents() {
+    const toggleQuestsBtn = document.getElementById("toggle-quests-view-btn");
+    if (toggleQuestsBtn) {
+      toggleQuestsBtn.addEventListener("click", () => {
+        showTodayQuests = !showTodayQuests;
+        fetchQuests();
+      });
+    }
+
+    const toggleBountiesBtn = document.getElementById("toggle-bounties-view-btn");
+    if (toggleBountiesBtn) {
+      toggleBountiesBtn.addEventListener("click", () => {
+        showTodayBounties = !showTodayBounties;
+        fetchBounties();
+      });
+    }
+  }
+
   function initializeApp() {
     refreshAll();
+    setupToggleEvents();
     setupBountiesEvents();
     setupQuestsEvents();
     setupNoTodosEvents();
@@ -3249,6 +3411,15 @@ document.addEventListener("DOMContentLoaded", () => {
   let allostasisViewMode = "daily"; // "daily" or "weekly"
   let pinnedSubsteps = [];
   let pinnedSoftskills = [];
+  let pinnedGoals = [];
+  let isUnlockClicked = false;
+
+  function getTop3LockState() {
+    if (pinnedGoals.length < 3) {
+      return false;
+    }
+    return !isUnlockClicked;
+  }
 
   // Helper to open/close the pin drawer
   function openRecapPinDrawer() {
@@ -3285,25 +3456,34 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!goalsResp.ok) throw new Error("Failed to load goals");
       const goals = await goalsResp.json();
 
-      // Find all uncompleted substeps across all goals
+      // Find all uncompleted substeps across pinned goals
+      const pinnedGoalsList = goals.filter(goal => pinnedGoals.includes(goal.id));
       let substepsHtml = "";
       let hasSubsteps = false;
-      goals.forEach(goal => {
-        const eligibleSubsteps = goal.substeps.filter(s => !s.completed || pinnedSubsteps.includes(s.id));
-        if (eligibleSubsteps.length > 0) {
-          hasSubsteps = true;
-          eligibleSubsteps.forEach(sub => {
-            const isChecked = pinnedSubsteps.includes(sub.id) ? "checked" : "";
-            substepsHtml += `
-              <label class="recap-checkbox-container">
-                <input type="checkbox" name="pin-substep-checkbox" value="${sub.id}" ${isChecked}>
-                <span style="font-size: 0.8rem;"><strong>${goal.title}</strong>: ${sub.title}</span>
-              </label>
-            `;
-          });
+      
+      if (pinnedGoals.length === 0) {
+        substepsHtml = `<p style="font-size: 0.82rem; color: var(--accent-yellow); margin: 0; padding: 0.5rem; line-height: 1.4; background: rgba(245, 158, 11, 0.1); border: 1px dashed rgba(245, 158, 11, 0.3); border-radius: 6px;">⚠️ Aucun objectif prioritaire (Top 3) sélectionné.<br>Sélectionnez d'abord vos objectifs prioritaires via l'étoile ★ dans l'onglet <strong>Objectifs</strong>.</p>`;
+      } else {
+        pinnedGoalsList.forEach(goal => {
+          const eligibleSubsteps = goal.substeps.filter(s => !s.completed || pinnedSubsteps.includes(s.id));
+          if (eligibleSubsteps.length > 0) {
+            hasSubsteps = true;
+            eligibleSubsteps.forEach(sub => {
+              const isChecked = pinnedSubsteps.includes(sub.id) ? "checked" : "";
+              substepsHtml += `
+                <label class="recap-checkbox-container">
+                  <input type="checkbox" name="pin-substep-checkbox" value="${sub.id}" ${isChecked}>
+                  <span style="font-size: 0.8rem;"><strong>${goal.title}</strong>: ${sub.title}</span>
+                </label>
+              `;
+            });
+          }
+        });
+        if (!hasSubsteps) {
+          substepsHtml = `<p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Aucune sous-étape active pour vos objectifs prioritaires.</p>`;
         }
-      });
-      goalsListContainer.innerHTML = hasSubsteps ? substepsHtml : `<p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Aucune sous-étape active.</p>`;
+      }
+      goalsListContainer.innerHTML = substepsHtml;
 
       // 2. Fetch Softskills
       const skillsResp = await fetch(`${API_BASE}/softskills`);
@@ -3385,6 +3565,47 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function renderTop3LockButton() {
+    const container = document.getElementById("top3-lock-btn-container");
+    if (!container) return;
+
+    container.innerHTML = "";
+    const locked = getTop3LockState();
+
+    if (pinnedGoals.length === 3) {
+      if (locked) {
+        const btn = document.createElement("button");
+        btn.id = "unlock-top3-btn";
+        btn.className = "quest-action-btn";
+        btn.style.cssText = "padding: 6px 12px; font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4); color: #f87171; font-weight: bold; cursor: pointer; transition: all 0.2s;";
+        btn.innerHTML = "🔓 Déverrouiller le Top 3";
+        btn.addEventListener("click", () => {
+          isUnlockClicked = true;
+          showToast("Top 3 déverrouillé ! Vous pouvez modifier vos objectifs prioritaires.");
+          renderTop3LockButton();
+          fetchGoals(); // Re-render goals sidebar to refresh star buttons/tooltip
+        });
+        container.appendChild(btn);
+      } else {
+        const btn = document.createElement("button");
+        btn.id = "lock-top3-btn";
+        btn.className = "quest-action-btn";
+        btn.style.cssText = "padding: 6px 12px; font-size: 0.75rem; background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: #34d399; font-weight: bold; cursor: pointer; transition: all 0.2s;";
+        btn.innerHTML = "🔒 Verrouiller le Top 3";
+        btn.addEventListener("click", () => {
+          isUnlockClicked = false;
+          showToast("Top 3 verrouillé ! 🎯");
+          renderTop3LockButton();
+          fetchGoals();
+        });
+        container.appendChild(btn);
+      }
+    } else {
+      const remaining = 3 - pinnedGoals.length;
+      container.innerHTML = `<span style="font-size: 0.72rem; color: var(--text-muted); font-style: italic;">Sélectionnez encore ${remaining} objectif${remaining > 1 ? 's' : ''}</span>`;
+    }
+  }
+
   // Render the recap panel content
   async function renderRecapPanel(profileData) {
     const goalsList = document.getElementById("recap-goals-list");
@@ -3396,6 +3617,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     pinnedSubsteps = profileData.pinned_substeps || [];
     pinnedSoftskills = profileData.pinned_softskills || [];
+    pinnedGoals = profileData.pinned_goals || [];
+    renderTop3LockButton();
 
     // 1. Render Goals
     try {
