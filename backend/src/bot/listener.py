@@ -33,6 +33,7 @@ from src.services.score_service import (
     DEFAULT_THRESHOLDS,
     add_user_xp,
     cleanup_completed_todos,
+    ALL_6_STATS,
 )
 from src.bot.scheduler import start_scheduler
 from src.services.reward_service import (
@@ -690,28 +691,17 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             today = datetime.date.today()
             score = calculate_daily_score(db, user_id=user.id, date=today)
 
-            # Fetch custom thresholds or defaults
-            custom_template = (
-                db.query(PerfectDayTemplate)
-                .filter_by(user_id=user.id, template_name=score.template_used)
-                .first()
-            )
-            thresholds = (
-                custom_template.thresholds_json
-                if custom_template
-                else DEFAULT_THRESHOLDS.get(score.template_used, {})
-            )
-
             perf_status = (
                 "🟩 Validé !" if score.status == "Perfect" else "🟥 En cours..."
             )
 
-            perf_details = []
-            for stat, thresh in thresholds.items():
+            tag_details = []
+            for stat in ALL_6_STATS:
                 actual = score.actual_stats.get(stat.lower(), 0)
-                perf_details.append(
-                    f"{STAT_LABELS.get(stat.lower(), stat)} : {actual}/{thresh}"
-                )
+                if actual > 0:
+                    tag_details.append(
+                        f"{STAT_LABELS.get(stat.lower(), stat)} : {actual}"
+                    )
 
             # Get completed habits list
             start_dt = datetime.datetime.combine(today, datetime.time.min)
@@ -814,9 +804,9 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             perf_streak_val = perf_streak.current_streak if perf_streak else 0
 
             msg = (
-                f"⚔️ <b>{html.escape(username)}</b> — Statut de la journée (Template : {score.template_used.upper()})\n\n"
+                f"⚔️ <b>{html.escape(username)}</b> — Statut de la journée\n\n"
                 f"Perfect Day : {perf_status}\n"
-                f"🎯 Seuils à atteindre : {', '.join(perf_details) if perf_details else 'Aucun'}\n\n"
+                f"🏷️ Tags activés : {', '.join(tag_details) if tag_details else 'Aucun'}\n\n"
                 f"🔥 Streak Perfect Day : {perf_streak_val} jours\n"
                 f"💰 Or accumulé : {user.gold} Gold\n"
                 f"⭐ Niveau {user.level} (XP : {user.xp})\n\n"

@@ -24,7 +24,6 @@ L'idée de base : transformer la discipline quotidienne en jeu (XP, niveaux, or,
 
 ### Non-goals explicites
 
-
 - Pas de scaling horizontal, de microservices, de Kubernetes.
 - Pas de mobile natif — le bot Telegram + la Mini App couvrent le besoin mobile.
 - Pas d'optimisation pour des milliers d'utilisateurs : on optimise pour la **RAM du Pi**, pas pour la charge.
@@ -55,6 +54,20 @@ Le system de 3-3-3 est good ! La visualisation des skills et des objectifs aussi
 Mais je veux avoir une séparation entre to do, une action planifier dans le temps et que je planifie dans mon agenda (outside of scope of the app). VS habitudes, ce que je dois faire régulièrement pour mon "developpement perso" et mon statue quo VS nouvelle habitude / changement planifier pour réussir les 3 objectifs selectionner ou les 3 competences selectionner. 
 
 Propose moi des idées
+
+
+---
+
+index change. 3-3-3 devient horizontal.
+la colonne de gauche prend un agenda et celle de droite reste ce qu'elle est.
+
+
+
+---
+3-3-3: 
+juste les lvl disponible a validé sont affichés !
+Objectif affichage a revoir + UK aussi !
+
 ```
 
 ---

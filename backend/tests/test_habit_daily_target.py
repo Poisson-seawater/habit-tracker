@@ -80,35 +80,35 @@ def _log(session, habit_id, n):
 
 
 def test_one_rep_no_penalty(db_session):
-    """Doing a targeted habit once still counts and gives its base XP (no penalty)."""
+    """Doing a targeted habit once still counts and gives 1 validation (no penalty)."""
     _log(db_session, 1, 1)
     score = calculate_daily_score(db_session, user_id=1, date=datetime.date.today())
-    assert score.actual_stats["discipline"] == 5
+    assert score.actual_stats["discipline"] == 1
 
 
 def test_extra_reps_give_extra_xp(db_session):
-    """Each validation of a targeted habit adds its full reward (2 reps = 2x)."""
+    """Each validation of a targeted habit adds 1 validation count."""
     _log(db_session, 1, 2)
     score = calculate_daily_score(db_session, user_id=1, date=datetime.date.today())
-    assert score.actual_stats["discipline"] == 10
+    assert score.actual_stats["discipline"] == 2
 
 
 def test_exceeding_target_keeps_awarding(db_session):
-    """Going past the target (3/2) still awards XP for every rep."""
+    """Going past the target (3/2) still awards validations."""
     _log(db_session, 1, 3)
     score = calculate_daily_score(db_session, user_id=1, date=datetime.date.today())
-    assert score.actual_stats["discipline"] == 15
+    assert score.actual_stats["discipline"] == 3
 
 
 def test_plain_binary_awards_once(db_session):
-    """A binary habit without a target is unchanged: awarded once regardless of reps."""
+    """A binary habit without a target adds 1 validation count per log entry."""
     _log(db_session, 2, 3)
     score = calculate_daily_score(db_session, user_id=1, date=datetime.date.today())
-    assert score.actual_stats["discipline"] == 5
+    assert score.actual_stats["discipline"] == 3
 
 
 def test_daily_cap_respected_on_targeted_binary(db_session):
-    """daily_cap still bounds the points of a targeted binary (3 reps x5 = 15 -> capped 12)."""
+    """Under the simple tag system, validation counts are tracked directly."""
     _log(db_session, 3, 3)
     score = calculate_daily_score(db_session, user_id=1, date=datetime.date.today())
-    assert score.actual_stats["discipline"] == 12
+    assert score.actual_stats["discipline"] == 3

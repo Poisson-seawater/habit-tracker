@@ -90,12 +90,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Helper to format stat list for rewards description
   function formatPointRewards(rewards) {
-    return Object.entries(rewards)
-      .map(([stat, val]) => `+${val} ${STAT_LABELS[stat.toLowerCase()] || stat}`)
-      .join(", ");
+    let tags = [];
+    if (Array.isArray(rewards)) {
+      tags = rewards;
+    } else if (rewards && typeof rewards === 'object') {
+      tags = Object.keys(rewards);
+    }
+    return tags.map(stat => `${STAT_LABELS[stat.toLowerCase()] || stat}`).join(", ");
   }
 
-  const substepStatsDropdowns = ["substep-stat-1", "substep-stat-2", "edit-substep-stat-1", "edit-substep-stat-2", "new-quest-stat-1", "new-bounty-stat-1", "new-bounty-stat-2"];
+  const substepStatsDropdowns = [
+    "substep-tag-1", "substep-tag-2",
+    "edit-substep-tag-1", "edit-substep-tag-2",
+    "new-quest-tag-1", "new-quest-tag-2",
+    "edit-quest-tag-1", "edit-quest-tag-2",
+    "new-bounty-tag-1", "new-bounty-tag-2"
+  ];
   substepStatsDropdowns.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -159,32 +169,23 @@ document.addEventListener("DOMContentLoaded", () => {
         badgeStatus.classList.add("failed");
       }
 
-      // Update Character Sheet stats rows dynamically
+      // Update Character Sheet stats rows dynamically as simple tag counters
       const statsContainer = document.getElementById("stats-container");
       if (statsContainer) {
         statsContainer.innerHTML = "";
         
         Object.keys(STAT_LABELS).forEach(stat => {
           const val = data.stats[stat] || 0;
-          const target = data.thresholds[stat] || 0;
-          const maxVal = Math.max(val, target, 10);
-          const percent = Math.min((val / maxVal) * 100, 100);
           
           const statRow = document.createElement("div");
           statRow.className = `stat-row stat-${stat}`;
           
-          let thresholdText = "";
-          if (target > 0) {
-            thresholdText = `<span style="font-size: 0.72rem; color: var(--text-muted);"> (Seuil: ${target})</span>`;
-          }
-          
           statRow.innerHTML = `
-            <div class="stat-label-row">
-              <span class="stat-name">${STAT_LABELS[stat]}${thresholdText}</span>
-              <span class="stat-value">${val} pts</span>
-            </div>
-            <div class="stat-progress-track">
-              <div class="stat-progress-bar" style="width: ${percent}%;"></div>
+            <div class="stat-label-row" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; width: 100%; box-sizing: border-box;">
+              <span class="stat-name" style="font-weight: 500;">${STAT_LABELS[stat]}</span>
+              <span class="stat-value" style="font-weight: bold; color: ${val > 0 ? 'var(--accent-gold)' : 'var(--text-muted)'}; background: ${val > 0 ? 'rgba(212,163,89,0.15)' : 'rgba(255,255,255,0.03)'}; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">
+                ${val} ${val > 1 ? 'validations' : 'validation'}
+              </span>
             </div>
           `;
           statsContainer.appendChild(statRow);
@@ -817,10 +818,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const title = titleInput.value.trim();
         const xp = parseInt(xpInput.value) || 10;
         
-        const stat1 = document.getElementById("new-bounty-stat-1").value || null;
-        const pts1 = parseInt(document.getElementById("new-bounty-points-1").value) || 0;
-        const stat2 = document.getElementById("new-bounty-stat-2").value || null;
-        const pts2 = parseInt(document.getElementById("new-bounty-points-2").value) || 0;
+        const tag1 = document.getElementById("new-bounty-tag-1").value || null;
+        const tag2 = document.getElementById("new-bounty-tag-2").value || null;
 
         const doDate = document.getElementById("new-bounty-do-date").value || null;
         const dueDate = document.getElementById("new-bounty-due-date").value || null;
@@ -837,10 +836,10 @@ document.addEventListener("DOMContentLoaded", () => {
             body: JSON.stringify({
               title: title,
               xp_reward: xp,
-              stat_reward_1: stat1,
-              points_reward_1: pts1,
-              stat_reward_2: stat2,
-              points_reward_2: pts2,
+              stat_reward_1: tag1,
+              points_reward_1: tag1 ? 1 : 0,
+              stat_reward_2: tag2,
+              points_reward_2: tag2 ? 1 : 0,
               do_date: doDate,
               due_date: dueDate
             })
@@ -850,10 +849,8 @@ document.addEventListener("DOMContentLoaded", () => {
           showToast("Nouvelle prime publiée au tableau ! ⚔️");
           titleInput.value = "";
           xpInput.value = 20;
-          document.getElementById("new-bounty-stat-1").value = "";
-          document.getElementById("new-bounty-points-1").value = "5";
-          document.getElementById("new-bounty-stat-2").value = "";
-          document.getElementById("new-bounty-points-2").value = "0";
+          document.getElementById("new-bounty-tag-1").value = "";
+          document.getElementById("new-bounty-tag-2").value = "";
           document.getElementById("new-bounty-do-date").value = "";
           document.getElementById("new-bounty-due-date").value = "";
           bountyForm.style.display = "none";
@@ -907,8 +904,8 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("edit-substep-order-input").value = substepData.execution_order || 1;
       document.getElementById("edit-substep-life-lore-input").checked = substepData.is_life_lore || false;
       const stats = substepData.stats || [];
-      document.getElementById("edit-substep-stat-1").value = stats.length > 0 ? stats[0] : "";
-      document.getElementById("edit-substep-stat-2").value = stats.length > 1 ? stats[1] : "";
+      document.getElementById("edit-substep-tag-1").value = stats.length > 0 ? stats[0] : "";
+      document.getElementById("edit-substep-tag-2").value = stats.length > 1 ? stats[1] : "";
 
       const linkedGoalsContainer = document.getElementById("edit-substep-linked-goals");
       if (linkedGoalsContainer) {
@@ -1404,10 +1401,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const order = parseInt(document.getElementById("substep-order-input").value) || 1;
     const isLifeLore = document.getElementById("substep-life-lore-input").checked;
     
-    // Parse stats
-    const stat1 = document.getElementById("substep-stat-1").value;
-    const stat2 = document.getElementById("substep-stat-2").value;
-    const stats = [stat1, stat2].filter(s => s !== "");
+    // Parse tags
+    const tag1 = document.getElementById("substep-tag-1").value;
+    const tag2 = document.getElementById("substep-tag-2").value;
+    const stats = [tag1, tag2].filter(s => s !== "");
 
     try {
       const resp = await fetch(`${API_BASE}/goals/${goalId}/substeps`, {
@@ -1441,10 +1438,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const order = parseInt(document.getElementById("edit-substep-order-input").value) || 1;
     const isLifeLore = document.getElementById("edit-substep-life-lore-input").checked;
     
-    // Parse stats
-    const stat1 = document.getElementById("edit-substep-stat-1").value;
-    const stat2 = document.getElementById("edit-substep-stat-2").value;
-    const stats = [stat1, stat2].filter(s => s !== "");
+    // Parse tags
+    const tag1 = document.getElementById("edit-substep-tag-1").value;
+    const tag2 = document.getElementById("edit-substep-tag-2").value;
+    const stats = [tag1, tag2].filter(s => s !== "");
 
     try {
       const resp = await fetch(`${API_BASE}/substeps/${subId}`, {
@@ -1643,6 +1640,11 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("edit-quest-target").value    = habit.daily_target || "";
     editFreqSelect.value = habit.frequency || "daily";
 
+    // Populate tags
+    const tags = habit.point_rewards ? Object.keys(habit.point_rewards) : [];
+    document.getElementById("edit-quest-tag-1").value = tags[0] || "";
+    document.getElementById("edit-quest-tag-2").value = tags[1] || "";
+
     // Show/hide day checkboxes
     const isSpecific = habit.frequency === "specific_days";
     editDaysGroup.style.display = isSpecific ? "block" : "none";
@@ -1678,6 +1680,13 @@ document.addEventListener("DOMContentLoaded", () => {
       scheduled_days = checked.length > 0 ? checked.join(",") : "0,1,2,3,4,5,6";
     }
     const editTargetRaw = parseInt(document.getElementById("edit-quest-target").value);
+    
+    const tag1 = document.getElementById("edit-quest-tag-1").value || null;
+    const tag2 = document.getElementById("edit-quest-tag-2").value || null;
+    const point_rewards = {};
+    if (tag1) point_rewards[tag1] = 1;
+    if (tag2) point_rewards[tag2] = 1;
+
     const body = {
       name:           document.getElementById("edit-quest-name").value.trim(),
       description:    document.getElementById("edit-quest-desc").value.trim(),
@@ -1685,6 +1694,7 @@ document.addEventListener("DOMContentLoaded", () => {
       frequency,
       scheduled_days,
       daily_target:   editTargetRaw > 1 ? editTargetRaw : 1,  // 1 = pas de cible (exclude_none empêche de remettre null)
+      point_rewards:  point_rewards,
     };
     try {
       const r = await fetch(`${API_BASE}/habits/${id}`, {
@@ -1828,8 +1838,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const desc = document.getElementById("new-quest-desc").value.trim();
         const type = document.getElementById("new-quest-type").value;
         const unit = document.getElementById("new-quest-unit").value.trim();
-        const stat1 = document.getElementById("new-quest-stat-1").value || null;
-        const pts1 = parseInt(document.getElementById("new-quest-points-1").value) || 0;
+        const tag1 = document.getElementById("new-quest-tag-1").value || null;
+        const tag2 = document.getElementById("new-quest-tag-2").value || null;
         const targetRaw = parseInt(document.getElementById("new-quest-target").value);
         const daily_target = targetRaw > 1 ? targetRaw : null;
         const frequency = freqSelect ? freqSelect.value : "daily";
@@ -1846,9 +1856,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const point_rewards = {};
-        if (stat1 && pts1 > 0) {
-          point_rewards[stat1] = pts1;
-        }
+        if (tag1) point_rewards[tag1] = 1;
+        if (tag2) point_rewards[tag2] = 1;
 
         try {
           const response = await fetch(`${API_BASE}/habits`, {
@@ -1874,8 +1883,8 @@ document.addEventListener("DOMContentLoaded", () => {
           
           document.getElementById("new-quest-name").value = "";
           document.getElementById("new-quest-desc").value = "";
-          document.getElementById("new-quest-stat-1").value = "";
-          document.getElementById("new-quest-points-1").value = "5";
+          document.getElementById("new-quest-tag-1").value = "";
+          document.getElementById("new-quest-tag-2").value = "";
           document.getElementById("new-quest-unit").value = "";
           document.getElementById("new-quest-target").value = "";
           if (freqSelect) freqSelect.value = "daily";

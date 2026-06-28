@@ -244,11 +244,11 @@ VALID_FREQUENCIES = {"daily", "weekly", "custom"}
 
 
 def _validate_stat_name(stat_name: Optional[str]):
-    """Reject a stat name that is not one of the 6 canonical stats. None is allowed."""
+    """Reject a stat/tag name that is not one of the 6 canonical options. None is allowed."""
     if stat_name and stat_name not in ALL_6_STATS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown stat '{stat_name}'. Valid stats: {', '.join(ALL_6_STATS)}",
+            detail=f"Unknown tag '{stat_name}'. Valid tags: {', '.join(ALL_6_STATS)}",
         )
 
 
@@ -269,12 +269,20 @@ def validate_habit_payload(payload: "HabitCreate"):
             detail=f"Invalid frequency '{payload.frequency}'. Valid: {', '.join(sorted(VALID_FREQUENCIES))}",
         )
     if not payload.point_rewards:
-        raise HTTPException(status_code=400, detail="point_rewards must not be empty.")
+        raise HTTPException(
+            status_code=400,
+            detail="point_rewards must contain at least one tag.",
+        )
+    if len(payload.point_rewards) > 2:
+        raise HTTPException(
+            status_code=400,
+            detail="You can specify a maximum of 2 tags for a habit.",
+        )
     for stat in payload.point_rewards.keys():
         if stat not in ALL_6_STATS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unknown stat '{stat}' in point_rewards. Valid stats: {', '.join(ALL_6_STATS)}",
+                detail=f"Unknown tag '{stat}' in point_rewards. Valid tags: {', '.join(ALL_6_STATS)}",
             )
     if payload.type == "quantitative" and not payload.unit:
         raise HTTPException(
@@ -388,17 +396,8 @@ def get_profile(
     if not score:
         score = calculate_daily_score(db, user_id=user.id, date=today)
 
-    # Get custom template thresholds or fallback
-    custom_template = (
-        db.query(PerfectDayTemplate)
-        .filter_by(user_id=user.id, template_name=score.template_used)
-        .first()
-    )
-    thresholds = (
-        custom_template.thresholds_json
-        if custom_template
-        else DEFAULT_THRESHOLDS.get(score.template_used, {})
-    )
+    # Thresholds are deprecated in the simple tag system
+    thresholds = {}
 
     # Get today's completed habit IDs
     start_dt = datetime.datetime.combine(today, datetime.time.min)
@@ -534,16 +533,8 @@ def get_status(
     today = datetime.date.today()
     score = calculate_daily_score(db, user_id=user.id, date=today)
 
-    custom_template = (
-        db.query(PerfectDayTemplate)
-        .filter_by(user_id=user.id, template_name=score.template_used)
-        .first()
-    )
-    thresholds = (
-        custom_template.thresholds_json
-        if custom_template
-        else DEFAULT_THRESHOLDS.get(score.template_used, {})
-    )
+    # Thresholds are deprecated in the simple tag system
+    thresholds = {}
 
     # Today's logs, grouped by type
     start_dt = datetime.datetime.combine(today, datetime.time.min)
@@ -1601,6 +1592,20 @@ def update_habit(
 
     # Handle active status transition logic
     payload_dict = payload.model_dump(exclude_none=True)
+    if "point_rewards" in payload_dict and payload_dict["point_rewards"] is not None:
+        point_rewards = payload_dict["point_rewards"]
+        if len(point_rewards) > 2:
+            raise HTTPException(
+                status_code=400,
+                detail="You can specify a maximum of 2 tags for a habit.",
+            )
+        for stat in point_rewards.keys():
+            if stat not in ALL_6_STATS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unknown tag '{stat}'. Valid tags: {', '.join(ALL_6_STATS)}",
+                )
+
     if "is_active" in payload_dict:
         new_active = payload_dict["is_active"]
         if new_active is False and habit.is_active is True:

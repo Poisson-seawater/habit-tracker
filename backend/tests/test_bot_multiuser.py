@@ -153,7 +153,7 @@ async def test_bot_command_user_isolation(db_session):
     jeanne_score = db_session.query(DailyScore).filter_by(user_id=2).first()
     gabriel_score = db_session.query(DailyScore).filter_by(user_id=1).first()
     assert jeanne_score is not None
-    assert jeanne_score.actual_stats.get("discipline", 0) == 2
+    assert jeanne_score.actual_stats.get("discipline", 0) == 1
     assert gabriel_score is None
 
 

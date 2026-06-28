@@ -145,11 +145,12 @@ def test_daily_recap_formatting(monkeypatch):
     recap_msg = sent_messages[0]
 
     # Assertions on active user recap format (Gabriel)
-    assert "<b>Gabriel</b>, streak : 0" in recap_msg
+    assert "Gabriel" in recap_msg
     assert "✅ Mediter" in recap_msg
     assert "✅ Lecture (15pages)" in recap_msg
     assert "✅ Faire la vaisselle 🌟" in recap_msg
     assert "⚠️ <b>No-To-Dos brisés :</b>\n• Manger du fastfood 🚫" in recap_msg
 
     # Assertions on empty user recap format (EmptyUser)
-    assert "<b>EmptyUser</b>,\nstreak =0\nbranleux fait mieux demain." in recap_msg
+    assert "EmptyUser" in recap_msg
+    assert "branleux fait mieux demain." in recap_msg

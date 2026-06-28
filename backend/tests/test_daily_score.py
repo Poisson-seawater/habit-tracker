@@ -97,15 +97,16 @@ def test_daily_score_calculation_incomplete(db_session):
 def test_daily_score_calculation_perfect_day(db_session):
     today = datetime.date.today()
 
-    # Log routine_matin (+2 discipline), musculation (+6 forme_physique)
-    # And we log a Todo (+6 forme_physique, +6 discipline) to hit:
-    # discipline: 2 + 6 = 8 (seuil = 8)
-    # forme_physique: 6 + 6 = 12 (seuil = 10)
+    # Log routine_matin (+1 discipline), musculation (+1 forme_physique), lecture (+1 discipline)
+    # And we log a Todo (+1 forme_physique, +1 discipline)
     log1 = HabitLog(
         user_id=1, habit_id=1, log_type="done", timestamp=datetime.datetime.now()
     )
     log2 = HabitLog(
         user_id=1, habit_id=3, log_type="done", timestamp=datetime.datetime.now()
+    )
+    log3 = HabitLog(
+        user_id=1, habit_id=2, log_type="log", amount=1, timestamp=datetime.datetime.now()
     )
     todo = Todo(
         user_id=1,
@@ -114,12 +115,12 @@ def test_daily_score_calculation_perfect_day(db_session):
         is_completed=True,
         completed_at=datetime.datetime.now(),
         stat_reward_1="forme_physique",
-        points_reward_1=6,
+        points_reward_1=1,
         stat_reward_2="discipline",
-        points_reward_2=6,
+        points_reward_2=1,
     )
 
-    db_session.add_all([log1, log2, todo])
+    db_session.add_all([log1, log2, log3, todo])
     db_session.commit()
 
     # When calculating
@@ -129,8 +130,8 @@ def test_daily_score_calculation_perfect_day(db_session):
 
     # Then status is Perfect
     assert score.status == "Perfect"
-    assert score.actual_stats["discipline"] == 8
-    assert score.actual_stats["forme_physique"] == 12
+    assert score.actual_stats["discipline"] == 3
+    assert score.actual_stats["forme_physique"] == 2
 
 
 def test_streak_increment_on_perfect_day(db_session):

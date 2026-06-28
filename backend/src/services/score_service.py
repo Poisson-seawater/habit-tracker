@@ -8,6 +8,7 @@ from src.database.models import (
     DailyScore,
     Streak,
     Todo,
+    SubStep,
 )
 
 ALL_6_STATS = [
@@ -31,34 +32,21 @@ def calculate_daily_score(
     db: Session, user_id: int, date: datetime.date, template_name: str = None
 ) -> DailyScore:
     """
-    Evaluates the daily score for a user on a given date based on their ephemeral daily stats
-    (from habits and completed todos) compared against their custom Perfect Day template.
+    Evaluates the daily score for a user on a given date.
+    A Perfect Day is achieved if all active, scheduled habits for that day are logged (completed or skipped).
+    We also sum the counts of tags validated today.
     """
-    # 1. Resolve template name
+    # 1. Resolve template name (always default/week for backward compatibility)
     if not template_name:
-        # Check if DailyScore already exists with a template
         existing_score = (
             db.query(DailyScore).filter_by(user_id=user_id, date=date).first()
         )
         if existing_score:
             template_name = existing_score.template_used
         else:
-            # Fallback to dynamic weekday/weekend
-            weekday = date.isoweekday()  # Mon=1, ..., Sun=7
-            template_name = "weekend" if weekday in [6, 7] else "week"
+            template_name = "default"
 
-    # 2. Get user's custom template thresholds
-    custom_template = (
-        db.query(PerfectDayTemplate)
-        .filter_by(user_id=user_id, template_name=template_name)
-        .first()
-    )
-    if custom_template:
-        thresholds = custom_template.thresholds_json
-    else:
-        thresholds = DEFAULT_THRESHOLDS.get(template_name, {})
-
-    # 3. Sum stats from habits logged on this date
+    # 2. Get today's logs
     start_dt = datetime.datetime.combine(date, datetime.time.min)
     end_dt = datetime.datetime.combine(date, datetime.time.max)
 
@@ -72,54 +60,64 @@ def calculate_daily_score(
         .all()
     )
 
-    actual_stats = {stat: 0 for stat in ALL_6_STATS}
+    # 3. Get all active habits for the user
+    habits = db.query(Habit).filter_by(user_id=user_id, is_active=True).all()
+
+    # 4. Check if all scheduled habits are completed/skipped today
+    weekday = date.weekday()
+    model_day_idx = (weekday + 1) % 7 # 0=Sun, 1=Mon, ..., 6=Sat
+
+    scheduled_habits = []
+    for h in habits:
+        scheduled = str(model_day_idx) in [d.strip() for d in h.scheduled_days.split(",")]
+        if scheduled:
+            scheduled_habits.append(h)
 
     # Group logs by habit
     logs_by_habit = {}
     for log in logs:
-        if log.log_type in ["done", "log"]:
-            logs_by_habit.setdefault(log.habit_id, []).append(log)
+        logs_by_habit.setdefault(log.habit_id, []).append(log)
 
-    for habit_id, habit_logs in logs_by_habit.items():
-        habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
-        if not habit or not habit.is_active:
+    perfect_valid = True
+    for h in scheduled_habits:
+        h_logs = logs_by_habit.get(h.id, [])
+        is_skipped = any(l.log_type == "skip" for l in h_logs)
+        if is_skipped:
             continue
+        
+        completions = sum(1 for l in h_logs if l.log_type in ["done", "log"])
+        if h.daily_target and h.daily_target > 1:
+            if completions < h.daily_target:
+                perfect_valid = False
+                break
+        else:
+            if completions < 1:
+                perfect_valid = False
+                break
 
-        habit_stats = {stat: 0 for stat in ALL_6_STATS}
+    # If there are no scheduled habits, perfect_valid remains True
 
-        has_target = habit.daily_target is not None and habit.daily_target > 1
+    status = "Perfect" if perfect_valid else "Failed"
 
-        if habit.type == "binary":
-            # For binary habits, award points once — unless a daily_target is set,
-            # in which case each validation counts (extra reps = extra XP, capped by daily_cap).
-            done_count = sum(1 for l in habit_logs if l.log_type == "done")
-            if done_count > 0:
-                reps = done_count if has_target else 1
-                for stat, val in habit.point_rewards.items():
-                    stat_key = stat.lower()
-                    if stat_key in actual_stats:
-                        habit_stats[stat_key] = val * reps
-                if has_target and habit.daily_cap is not None:
-                    for stat in habit_stats:
-                        habit_stats[stat] = min(habit_stats[stat], habit.daily_cap)
+    # 5. Populate actual_stats with tag counts
+    actual_stats = {stat: 0 for stat in ALL_6_STATS}
 
-        elif habit.type == "quantitative":
-            # For quantitative habits, sum and apply daily cap
-            for log in habit_logs:
-                if log.log_type == "log":
-                    for stat, val in habit.point_rewards.items():
-                        stat_key = stat.lower()
-                        if stat_key in actual_stats:
-                            habit_stats[stat_key] += val
+    # Count tags from completed habit logs
+    for log in logs:
+        if log.log_type in ["done", "log"]:
+            habit = db.query(Habit).filter_by(id=log.habit_id, user_id=user_id).first()
+            if habit:
+                tags = []
+                if isinstance(habit.point_rewards, list):
+                    tags = habit.point_rewards
+                elif isinstance(habit.point_rewards, dict):
+                    tags = list(habit.point_rewards.keys())
+                
+                for tag in tags:
+                    tag_key = tag.lower()
+                    actual_stats[tag_key] = actual_stats.get(tag_key, 0) + 1
 
-            if habit.daily_cap is not None:
-                for stat in habit_stats:
-                    habit_stats[stat] = min(habit_stats[stat], habit.daily_cap)
-
-        for stat, val in habit_stats.items():
-            actual_stats[stat] += val
-
-    # 4. Sum stats from Todos completed on this date
+    # Count tags from completed Todos today
     completed_todos = (
         db.query(Todo)
         .filter(
@@ -132,25 +130,34 @@ def calculate_daily_score(
     )
 
     for todo in completed_todos:
-        if todo.stat_reward_1 and todo.stat_reward_1.lower() in actual_stats:
-            actual_stats[todo.stat_reward_1.lower()] += todo.points_reward_1
-        if todo.stat_reward_2 and todo.stat_reward_2.lower() in actual_stats:
-            actual_stats[todo.stat_reward_2.lower()] += todo.points_reward_2
+        for t_tag in [todo.stat_reward_1, todo.stat_reward_2]:
+            if t_tag:
+                tag_key = t_tag.lower()
+                actual_stats[tag_key] = actual_stats.get(tag_key, 0) + 1
 
-    # 5. Evaluate if the Perfect Day thresholds are met
-    perfect_valid = True
-    if not thresholds:
-        perfect_valid = (
-            False  # No requirements means it cannot be a Perfect Day by default
+    # Count tags from completed SubSteps today
+    completed_substeps = (
+        db.query(SubStep)
+        .filter(
+            SubStep.user_id == user_id,
+            SubStep.completed == True,
+            SubStep.completed_at >= start_dt,
+            SubStep.completed_at <= end_dt,
         )
-    else:
-        for stat, target in thresholds.items():
-            stat_key = stat.lower()
-            if actual_stats.get(stat_key, 0) < target:
-                perfect_valid = False
-                break
+        .all()
+    )
 
-    status = "Perfect" if perfect_valid else "Failed"
+    for substep in completed_substeps:
+        substep_tags = []
+        if isinstance(substep.stats_json, list):
+            substep_tags = substep.stats_json
+        elif isinstance(substep.stats_json, dict):
+            substep_tags = list(substep.stats_json.keys())
+        
+        for s_tag in substep_tags:
+            if s_tag:
+                tag_key = s_tag.lower()
+                actual_stats[tag_key] = actual_stats.get(tag_key, 0) + 1
 
     # 6. Save or update DailyScore
     score = db.query(DailyScore).filter_by(user_id=user_id, date=date).first()

@@ -848,7 +848,7 @@
             <span class="xp-text" id="char-xp-text">0 / 10 XP</span>
           </div>
           <div class="profile-badges" style="margin-top: 0.8rem;">
-            <div class="template-select-container">
+            <div class="template-select-container" style="display: none;">
               <select id="template-select" class="template-dropdown">
                 <option value="week">Semaine ⚔️</option>
                 <option value="weekend">Weekend 💤</option>
@@ -913,9 +913,9 @@
 
           <!-- Left Column: Ephemeral Daily Character Stats -->
           <section class="glass-card stats-panel">
-            <h2 class="section-header">🛡️ <span>Feuille de Personnage (Éphémère)</span></h2>
+            <h2 class="section-header">🛡️ <span>Activité du Jour (Tags)</span></h2>
             <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
-              Ces statistiques éphémères retombent strictement à 0 chaque matin ! Complétez vos quêtes et primes pour valider les seuils requis de la journée.
+              Visualisez les tags de quêtes, primes et sous-étapes que vous avez validés aujourd'hui !
             </p>
             
             <div class="stats-grid" id="stats-container">
@@ -991,14 +991,16 @@
 
               <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
                 <div class="form-group">
-                  <label>Stat liée 1</label>
-                  <select id="new-quest-stat-1" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
-                    <option value="">Aucune</option>
+                  <label>Tag lié 1</label>
+                  <select id="new-quest-tag-1" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
+                    <option value="">Aucun</option>
                   </select>
                 </div>
                 <div class="form-group">
-                  <label>Points</label>
-                  <input type="number" id="new-quest-points-1" value="5" min="0" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
+                  <label>Tag lié 2</label>
+                  <select id="new-quest-tag-2" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
+                    <option value="">Aucun</option>
+                  </select>
                 </div>
               </div>
 
@@ -1029,34 +1031,25 @@
             <div class="bounty-inline-add" id="bounty-inline-form" style="display: none; padding: 1.2rem; gap: 0.8rem; flex-direction: column; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-glass); border-radius: 12px; margin-bottom: 1rem;">
               <input type="text" id="new-bounty-title" placeholder="ex: Séance Jambes intenses" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); outline: none; font-size: 0.85rem;" required>
               
-              <div class="form-grid">
+              <div class="form-grid" style="display: grid; grid-template-columns: 1fr; gap: 0.8rem;">
                 <div class="form-group">
                   <label for="new-bounty-xp">Récompense XP (Max 40)</label>
-                  <input type="number" id="new-bounty-xp" value="20" min="1" max="40" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
-                </div>
-                <div class="form-group">
-                  <label for="new-bounty-stat-1">Stat liée 1</label>
-                  <select id="new-bounty-stat-1" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
-                    <option value="">Aucune</option>
-                  </select>
+                  <input type="number" id="new-bounty-xp" value="20" min="1" max="40" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%; box-sizing: border-box;">
                 </div>
               </div>
-
-              <div class="form-grid">
+              <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
                 <div class="form-group">
-                  <label for="new-bounty-points-1">Points Stat 1</label>
-                  <input type="number" id="new-bounty-points-1" value="5" min="0" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
-                </div>
-                <div class="form-group">
-                  <label for="new-bounty-stat-2">Stat liée 2</label>
-                  <select id="new-bounty-stat-2" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
-                    <option value="">Aucune</option>
+                  <label for="new-bounty-tag-1">Tag lié 1</label>
+                  <select id="new-bounty-tag-1" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
+                    <option value="">Aucun</option>
                   </select>
                 </div>
-              </div>
-              <div class="form-group">
-                <label for="new-bounty-points-2">Points Stat 2</label>
-                <input type="number" id="new-bounty-points-2" value="0" min="0" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
+                <div class="form-group">
+                  <label for="new-bounty-tag-2">Tag lié 2</label>
+                  <select id="new-bounty-tag-2" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
+                    <option value="">Aucun</option>
+                  </select>
+                </div>
               </div>
 
               <div class="form-grid">
@@ -1191,16 +1184,16 @@
             </div>
             <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem;">
               <div class="form-group">
-                <label>Stat cible 1</label>
-                <select id="substep-stat-1" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
-                  <option value="">Aucune</option>
+                <label>Tag cible 1</label>
+                <select id="substep-tag-1" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
+                  <option value="">Aucun</option>
                   <!-- Populated by JS -->
                 </select>
               </div>
               <div class="form-group">
-                <label>Stat cible 2</label>
-                <select id="substep-stat-2" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
-                  <option value="">Aucune</option>
+                <label>Tag cible 2</label>
+                <select id="substep-tag-2" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
+                  <option value="">Aucun</option>
                   <!-- Populated by JS -->
                 </select>
               </div>
@@ -1245,16 +1238,16 @@
             </div>
             <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem;">
               <div class="form-group">
-                <label>Stat cible 1</label>
-                <select id="edit-substep-stat-1" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
-                  <option value="">Aucune</option>
+                <label>Tag cible 1</label>
+                <select id="edit-substep-tag-1" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
+                  <option value="">Aucun</option>
                   <!-- Populated by JS -->
                 </select>
               </div>
               <div class="form-group">
-                <label>Stat cible 2</label>
-                <select id="edit-substep-stat-2" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
-                  <option value="">Aucune</option>
+                <label>Tag cible 2</label>
+                <select id="edit-substep-tag-2" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
+                  <option value="">Aucun</option>
                   <!-- Populated by JS -->
                 </select>
               </div>
@@ -1363,9 +1356,12 @@
         <button id="switch-profile-btn" class="nav-tab" style="border-color: var(--accent-red); color: var(--accent-red);">🔌 Changer de profil</button>
       </div>
       <div class="settings-grid">
+        <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); font-size: 0.9rem; padding: 2rem; background: rgba(255,255,255,0.01); border: 1px dashed var(--border-glass); border-radius: 12px; margin-bottom: 1.5rem;">
+          ℹ️ Le système de points et de seuils de Perfect Days a été remplacé par un système de tags plus simple. Les Perfect Days sont validés lorsque toutes les quêtes planifiées de la journée sont terminées !
+        </div>
         
-        <!-- Left Panel: Perfect Day Thresholds Customizer -->
-        <section class="glass-card thresholds-editor">
+        <!-- Left Panel: Perfect Day Thresholds Customizer (Hidden) -->
+        <section class="glass-card thresholds-editor" style="display: none;">
           <h2 class="section-header">⚙️ <span>Seuils des Perfect Days</span></h2>
           <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
             Ajustez à tout moment les points requis par statistique pour chaque template de journée (Semaine, Weekend, Récupération, Malade).
@@ -1388,8 +1384,8 @@
           </form>
         </section>
 
-        <!-- Right Panel: Weekly Potential Stats Summation -->
-        <div class="widgets-container">
+        <!-- Right Panel: Weekly Potential Stats Summation (Hidden) -->
+        <div class="widgets-container" style="display: none;">
           
           <section class="glass-card weekly-potentials-card">
             <h2 class="section-header">📊 <span>Potentiel Hebdomadaire des Stats</span></h2>
@@ -1656,6 +1652,20 @@
     <div class="form-group">
       <label>Cible/jour (optionnel — affiche X/N)</label>
       <input type="number" id="edit-quest-target" min="1" placeholder="ex: 2" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
+    </div>
+    <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:1rem;">
+      <div class="form-group">
+        <label>Tag lié 1</label>
+        <select id="edit-quest-tag-1" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;">
+          <option value="">Aucun</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Tag lié 2</label>
+        <select id="edit-quest-tag-2" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;">
+          <option value="">Aucun</option>
+        </select>
+      </div>
     </div>
     <div class="form-group" id="edit-scheduled-days-group" style="display:none;">
       <label>Jours</label>
