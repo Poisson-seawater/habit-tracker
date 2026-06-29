@@ -5,12 +5,71 @@ from src.database.models import (
     User,
     Habit,
     PerfectDayTemplate,
+    BiologicalZone,
     Todo,
     Goal,
     SubStep,
     GoalSubStepLink,
     NoTodo,
 )
+
+DEFAULT_BIOLOGICAL_ZONES = [
+    {
+        "zone_name": "Sommeil",
+        "zone_type": "sleep",
+        "start_time": "23:00",
+        "end_time": "07:00",
+        "color": None,
+        "display_order": 1,
+    },
+    {
+        "zone_name": "Focus Profond Matin",
+        "zone_type": "deep_focus",
+        "start_time": "08:00",
+        "end_time": "12:00",
+        "color": None,
+        "display_order": 2,
+    },
+    {
+        "zone_name": "Repos / Dejeuner",
+        "zone_type": "rest",
+        "start_time": "12:00",
+        "end_time": "13:00",
+        "color": None,
+        "display_order": 3,
+    },
+    {
+        "zone_name": "Pic Physique",
+        "zone_type": "physical_peak",
+        "start_time": "14:00",
+        "end_time": "17:00",
+        "color": None,
+        "display_order": 4,
+    },
+    {
+        "zone_name": "Zone Creative",
+        "zone_type": "creative",
+        "start_time": "20:00",
+        "end_time": "22:00",
+        "color": None,
+        "display_order": 5,
+    },
+]
+
+
+def seed_default_biological_zones(db, user_id=None):
+    if user_id is not None:
+        if db.query(BiologicalZone).filter_by(user_id=user_id).first() is not None:
+            return
+        user_ids = [user_id]
+    elif db.query(BiologicalZone).first() is not None:
+        return
+    else:
+        user_ids = [row[0] for row in db.query(User.id).all()]
+
+    for user_id in user_ids:
+        for zone in DEFAULT_BIOLOGICAL_ZONES:
+            db.add(BiologicalZone(user_id=user_id, **zone))
 
 
 def seed_db():
@@ -48,23 +107,39 @@ def seed_db():
         for user_id in [1]:
             templates_data = [
                 {
-                    "template_name": "week",
-                    "thresholds_json": {"discipline": 11, "apprendre": 6},
+                    "template_name": "rest",
+                    "focus_hours": 2.0,
+                    "min_rest_hours": 10.0,
+                    "ceilings_json": {"musculaire": 1.0, "cerveau": 1.0, "emotionnel_social": 1.0, "creatif_divergent": 1.0, "total": 4.0},
+                    "thresholds_json": None,
                 },
                 {
-                    "template_name": "weekend",
-                    "thresholds_json": {"sante": 8, "social": 4, "apprendre": 3},
+                    "template_name": "regular",
+                    "focus_hours": 6.0,
+                    "min_rest_hours": 8.0,
+                    "ceilings_json": {"musculaire": 2.0, "cerveau": 2.0, "emotionnel_social": 2.0, "creatif_divergent": 2.0, "total": 8.0},
+                    "thresholds_json": None,
                 },
-                {"template_name": "recup", "thresholds_json": {"sante": 8}},
-                {"template_name": "malade", "thresholds_json": {"sante": 3}},
+                {
+                    "template_name": "hustle",
+                    "focus_hours": 9.0,
+                    "min_rest_hours": 7.0,
+                    "ceilings_json": {"musculaire": 4.0, "cerveau": 4.0, "emotionnel_social": 4.0, "creatif_divergent": 4.0, "total": 10.0},
+                    "thresholds_json": None,
+                },
             ]
             for t_info in templates_data:
                 template = PerfectDayTemplate(
                     user_id=user_id,
                     template_name=t_info["template_name"],
+                    focus_hours=t_info["focus_hours"],
+                    min_rest_hours=t_info["min_rest_hours"],
+                    ceilings_json=t_info["ceilings_json"],
                     thresholds_json=t_info["thresholds_json"],
                 )
                 db.add(template)
+
+        seed_default_biological_zones(db)
 
         # 3. Seed Default Habits
         habits_data = [
@@ -461,6 +536,129 @@ def _run_migrations():
                 )
                 db.commit()
                 print("Migration v15 applied successfully.")
+
+        # v16: Add effort budget columns to perfect_day_templates, habits, substeps
+        if "perfect_day_templates" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("perfect_day_templates")]
+            if "focus_hours" not in columns:
+                print("Running migration v16: adding focus_hours, ceilings_json, min_rest_hours to perfect_day_templates...")
+                db.execute(text("ALTER TABLE perfect_day_templates ADD COLUMN focus_hours REAL DEFAULT 6.0"))
+                db.execute(text("ALTER TABLE perfect_day_templates ADD COLUMN ceilings_json TEXT"))
+                db.execute(text("ALTER TABLE perfect_day_templates ADD COLUMN min_rest_hours REAL DEFAULT 8.0"))
+                db.commit()
+                print("Migration v16 (perfect_day_templates) applied successfully.")
+            
+            # v17: Add agenda_json to perfect_day_templates
+            if "agenda_json" not in columns:
+                print("Running migration v17: adding agenda_json to perfect_day_templates...")
+                db.execute(text("ALTER TABLE perfect_day_templates ADD COLUMN agenda_json TEXT"))
+                db.commit()
+                print("Migration v17 (agenda_json) applied successfully.")
+
+        if "habits" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("habits")]
+            if "effort_type" not in columns:
+                print("Running migration v16: adding effort_type, effort_duration to habits...")
+                db.execute(text("ALTER TABLE habits ADD COLUMN effort_type TEXT"))
+                db.execute(text("ALTER TABLE habits ADD COLUMN effort_duration REAL DEFAULT 1.0"))
+                db.commit()
+                print("Migration v16 (habits) applied successfully.")
+
+        if "substeps" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("substeps")]
+            if "effort_type" not in columns:
+                print("Running migration v16: adding effort_type, effort_duration to substeps...")
+                db.execute(text("ALTER TABLE substeps ADD COLUMN effort_type TEXT"))
+                db.execute(text("ALTER TABLE substeps ADD COLUMN effort_duration REAL DEFAULT 1.0"))
+                db.commit()
+                print("Migration v16 (substeps) applied successfully.")
+
+        # v18: Add biological_zones table and default biological day
+        if "biological_zones" not in inspector.get_table_names():
+            print("Running migration v18: creating biological_zones table...")
+            db.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS biological_zones (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        zone_name VARCHAR NOT NULL,
+                        zone_type VARCHAR NOT NULL,
+                        start_time VARCHAR NOT NULL,
+                        end_time VARCHAR NOT NULL,
+                        color VARCHAR,
+                        display_order INTEGER NOT NULL DEFAULT 0,
+                        FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+                    )
+                    """
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_biological_zones_user_id "
+                    "ON biological_zones (user_id)"
+                )
+            )
+            db.commit()
+            print("Migration v18 (biological_zones table) applied successfully.")
+
+        if "users" in inspector.get_table_names():
+            seed_default_biological_zones(db)
+            db.commit()
+
+        # Check if rest, regular, hustle templates exist for each user
+        # If not, create them
+        if "perfect_day_templates" in inspector.get_table_names() and "users" in inspector.get_table_names():
+            # Get all user IDs
+            user_ids = [r[0] for r in db.execute(text("SELECT id FROM users")).fetchall()]
+            
+            # Default agendas
+            default_rest_agenda = '[{"id": 1, "title": "Sommeil / Repos", "start": "00:00", "end": "08:00", "category": "sleep"}, {"id": 2, "title": "Méditation / Relaxation", "start": "09:00", "end": "10:00", "category": "relax"}, {"id": 3, "title": "Marche & Étirements", "start": "12:00", "end": "13:00", "category": "routine"}, {"id": 4, "title": "Lecture & Repos mental", "start": "14:00", "end": "17:00", "category": "relax"}, {"id": 5, "title": "Sommeil", "start": "21:30", "end": "24:00", "category": "sleep"}]'
+            default_regular_agenda = '[{"id": 1, "title": "Sommeil / Récupération", "start": "00:00", "end": "07:00", "category": "sleep"}, {"id": 2, "title": "Routine matinale & Cardio", "start": "07:00", "end": "08:00", "category": "routine"}, {"id": 3, "title": "Focus Deep Work (Projet principal)", "start": "08:30", "end": "12:00", "category": "focus"}, {"id": 4, "title": "Gestion administrative / Travail", "start": "13:00", "end": "15:00", "category": "focus"}, {"id": 5, "title": "Entraînement physique", "start": "17:30", "end": "19:00", "category": "routine"}, {"id": 6, "title": "Détente / Social", "start": "19:00", "end": "22:00", "category": "relax"}, {"id": 7, "title": "Sommeil / Couché", "start": "22:00", "end": "24:00", "category": "sleep"}]'
+            default_hustle_agenda = '[{"id": 1, "title": "Sommeil court", "start": "00:00", "end": "06:00", "category": "sleep"}, {"id": 2, "title": "Cardio & Routine active", "start": "06:00", "end": "07:00", "category": "routine"}, {"id": 3, "title": "Deep Work", "start": "07:30", "end": "12:00", "category": "focus"}, {"id": 4, "title": "Focus Code / Projet", "start": "13:00", "end": "18:00", "category": "focus"}, {"id": 5, "title": "Musculation / Sport", "start": "18:30", "end": "20:00", "category": "routine"}, {"id": 6, "title": "Veille / Apprentissage", "start": "20:00", "end": "22:30", "category": "focus"}, {"id": 7, "title": "Récupération & Couché", "start": "22:30", "end": "24:00", "category": "sleep"}]'
+
+            for uid in user_ids:
+                existing_templates = [r[0] for r in db.execute(
+                    text("SELECT template_name FROM perfect_day_templates WHERE user_id = :uid"),
+                    {"uid": uid}
+                ).fetchall()]
+                
+                # Check rest
+                if "rest" not in existing_templates:
+                    db.execute(
+                        text("INSERT INTO perfect_day_templates (user_id, template_name, focus_hours, min_rest_hours, ceilings_json, thresholds_json, agenda_json) VALUES (:uid, 'rest', 2.0, 10.0, :ceilings, 'null', :agenda)"),
+                        {"uid": uid, "ceilings": '{"musculaire": 1.0, "cerveau": 1.0, "emotionnel_social": 1.0, "creatif_divergent": 1.0, "total": 4.0}', "agenda": default_rest_agenda}
+                    )
+                else:
+                    db.execute(
+                        text("UPDATE perfect_day_templates SET agenda_json = :agenda WHERE user_id = :uid AND template_name = 'rest' AND (agenda_json IS NULL OR agenda_json = '[]' OR agenda_json = '')"),
+                        {"uid": uid, "agenda": default_rest_agenda}
+                    )
+                
+                # Check regular
+                if "regular" not in existing_templates:
+                    db.execute(
+                        text("INSERT INTO perfect_day_templates (user_id, template_name, focus_hours, min_rest_hours, ceilings_json, thresholds_json, agenda_json) VALUES (:uid, 'regular', 6.0, 8.0, :ceilings, 'null', :agenda)"),
+                        {"uid": uid, "ceilings": '{"musculaire": 2.0, "cerveau": 2.0, "emotionnel_social": 2.0, "creatif_divergent": 2.0, "total": 8.0}', "agenda": default_regular_agenda}
+                    )
+                else:
+                    db.execute(
+                        text("UPDATE perfect_day_templates SET agenda_json = :agenda WHERE user_id = :uid AND template_name = 'regular' AND (agenda_json IS NULL OR agenda_json = '[]' OR agenda_json = '')"),
+                        {"uid": uid, "agenda": default_regular_agenda}
+                    )
+                
+                # Check hustle
+                if "hustle" not in existing_templates:
+                    db.execute(
+                        text("INSERT INTO perfect_day_templates (user_id, template_name, focus_hours, min_rest_hours, ceilings_json, thresholds_json, agenda_json) VALUES (:uid, 'hustle', 9.0, 7.0, :ceilings, 'null', :agenda)"),
+                        {"uid": uid, "ceilings": '{"musculaire": 4.0, "cerveau": 4.0, "emotionnel_social": 4.0, "creatif_divergent": 4.0, "total": 10.0}', "agenda": default_hustle_agenda}
+                    )
+                else:
+                    db.execute(
+                        text("UPDATE perfect_day_templates SET agenda_json = :agenda WHERE user_id = :uid AND template_name = 'hustle' AND (agenda_json IS NULL OR agenda_json = '[]' OR agenda_json = '')"),
+                        {"uid": uid, "agenda": default_hustle_agenda}
+                    )
+            db.commit()
     except Exception as e:
         db.rollback()
         print(f"Migration error (non-fatal): {e}")

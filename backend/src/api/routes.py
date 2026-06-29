@@ -3,7 +3,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from src.database.session import get_db
 from src.database.models import (
@@ -11,6 +11,7 @@ from src.database.models import (
     Habit,
     HabitLog,
     PerfectDayTemplate,
+    BiologicalZone,
     DailyScore,
     Streak,
     Todo,
@@ -22,6 +23,7 @@ from src.database.models import (
     Reward,
     RemoteOperation,
 )
+from src.database.seed import seed_default_biological_zones
 from src.services.score_service import (
     calculate_daily_score,
     update_streaks,
@@ -35,6 +37,104 @@ from src.services import softskill_service
 router = APIRouter()
 
 # --- Request/Response Pydantic Schemas ---
+
+VALID_BIOLOGICAL_ZONE_TYPES = {
+    "deep_focus",
+    "physical_peak",
+    "creative",
+    "rest",
+    "social",
+    "sleep",
+}
+
+BIOLOGICAL_ZONE_TYPE_LABELS = {
+    "deep_focus": "Focus profond",
+    "physical_peak": "Pic physique",
+    "creative": "Creatif",
+    "rest": "Repos",
+    "social": "Social",
+    "sleep": "Sommeil",
+}
+
+
+def _is_valid_time_string(value: str) -> bool:
+    parts = value.split(":")
+    if len(parts) != 2:
+        return False
+    try:
+        hour = int(parts[0])
+        minute = int(parts[1])
+    except ValueError:
+        return False
+    return (
+        len(parts[0]) == 2
+        and len(parts[1]) == 2
+        and 0 <= hour <= 23
+        and 0 <= minute <= 59
+    )
+
+
+class BiologicalZoneBase(BaseModel):
+    zone_name: Optional[str] = None
+    zone_type: Optional[str] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    color: Optional[str] = None
+    display_order: Optional[int] = 0
+
+    @field_validator("zone_name")
+    @classmethod
+    def validate_zone_name(cls, value):
+        if value is not None and not value.strip():
+            raise ValueError("Le nom de zone ne peut pas etre vide.")
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("zone_type")
+    @classmethod
+    def validate_zone_type(cls, value):
+        if value is not None and value not in VALID_BIOLOGICAL_ZONE_TYPES:
+            accepted = ", ".join(sorted(VALID_BIOLOGICAL_ZONE_TYPES))
+            raise ValueError(f"Type de zone invalide. Valeurs acceptees : {accepted}.")
+        return value
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def validate_time(cls, value):
+        if value is not None and not _is_valid_time_string(value):
+            raise ValueError("L'heure doit etre au format HH:MM entre 00:00 et 23:59.")
+        return value
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, value):
+        if value in (None, ""):
+            return None
+        if (
+            isinstance(value, str)
+            and len(value) == 7
+            and value.startswith("#")
+            and all(c in "0123456789abcdefABCDEF" for c in value[1:])
+        ):
+            return value
+        raise ValueError("La couleur doit etre un code hexadecimal, ex: #8b5cf6.")
+
+    @field_validator("display_order")
+    @classmethod
+    def validate_display_order(cls, value):
+        if value is not None and value < 0:
+            raise ValueError("display_order doit etre positif ou nul.")
+        return value
+
+
+class BiologicalZoneCreate(BiologicalZoneBase):
+    zone_name: str
+    zone_type: str
+    start_time: str
+    end_time: str
+
+
+class BiologicalZoneUpdate(BiologicalZoneBase):
+    pass
 
 
 class LogCreate(BaseModel):
@@ -58,6 +158,9 @@ class HabitCreate(BaseModel):
     daily_cap: Optional[int] = None
     daily_target: Optional[int] = None
     unit: Optional[str] = None
+    effort_type: Optional[str] = None
+    effort_duration: Optional[float] = 1.0
+
 
 
 class TemplateOverride(BaseModel):
@@ -66,7 +169,11 @@ class TemplateOverride(BaseModel):
 
 class TemplateSave(BaseModel):
     template_name: str
-    thresholds_json: Dict[str, int]
+    thresholds_json: Optional[Dict[str, int]] = None
+    focus_hours: float = 6.0
+    min_rest_hours: float = 8.0
+    ceilings: Optional[Dict[str, float]] = None
+    agenda_json: Optional[List[dict]] = None
 
 
 class TodoCreate(BaseModel):
@@ -106,6 +213,8 @@ class SubStepCreate(BaseModel):
     stats_json: List[str] = []
     execution_order: int = 1
     is_life_lore: Optional[bool] = False
+    effort_type: Optional[str] = None
+    effort_duration: Optional[float] = 1.0
 
 
 class SubStepUpdate(BaseModel):
@@ -115,6 +224,9 @@ class SubStepUpdate(BaseModel):
     stats_json: List[str] = []
     execution_order: int = 1
     is_life_lore: Optional[bool] = False
+    effort_type: Optional[str] = None
+    effort_duration: Optional[float] = 1.0
+
 
 
 class SubStepLinkRequest(BaseModel):
@@ -235,6 +347,76 @@ def get_current_user_id(
     if user_id is not None:
         return user_id
     return 1
+
+
+def _biological_zone_to_dict(zone: BiologicalZone) -> dict:
+    return {
+        "id": zone.id,
+        "zone_name": zone.zone_name,
+        "zone_type": zone.zone_type,
+        "start_time": zone.start_time,
+        "end_time": zone.end_time,
+        "color": zone.color,
+        "display_order": zone.display_order,
+    }
+
+
+def _time_to_minutes(time_value: str) -> int:
+    hour, minute = time_value.split(":")
+    return int(hour) * 60 + int(minute)
+
+
+def _split_time_range(start_time: str, end_time: str) -> List[tuple[int, int]]:
+    start_min = _time_to_minutes(start_time)
+    end_min = _time_to_minutes(end_time)
+    if start_min == end_min:
+        raise HTTPException(
+            status_code=422,
+            detail="Une zone biologique doit avoir une duree superieure a zero.",
+        )
+    if end_min > start_min:
+        return [(start_min, end_min)]
+    return [(start_min, 1440), (0, end_min)]
+
+
+def _segments_overlap(
+    left: tuple[int, int],
+    right: tuple[int, int],
+) -> bool:
+    return left[0] < right[1] and right[0] < left[1]
+
+
+def _find_overlapping_biological_zone(
+    db: Session,
+    user_id: int,
+    start_time: str,
+    end_time: str,
+    exclude_zone_id: Optional[int] = None,
+) -> Optional[BiologicalZone]:
+    target_segments = _split_time_range(start_time, end_time)
+    query = db.query(BiologicalZone).filter(BiologicalZone.user_id == user_id)
+    if exclude_zone_id is not None:
+        query = query.filter(BiologicalZone.id != exclude_zone_id)
+
+    for zone in query.all():
+        zone_segments = _split_time_range(zone.start_time, zone.end_time)
+        if any(
+            _segments_overlap(target, existing)
+            for target in target_segments
+            for existing in zone_segments
+        ):
+            return zone
+    return None
+
+
+def _raise_biological_zone_overlap(zone: BiologicalZone):
+    raise HTTPException(
+        status_code=422,
+        detail=(
+            f'Ce creneau chevauche la zone "{zone.zone_name}" '
+            f"({zone.start_time} - {zone.end_time})."
+        ),
+    )
 
 
 # --- Server-side validation helpers ---
@@ -696,6 +878,8 @@ def get_goals(
                     "execution_order": link.execution_order,
                     "linked_goals": other_goals,
                     "is_life_lore": s.is_life_lore,
+                    "effort_type": s.effort_type,
+                    "effort_duration": s.effort_duration,
                 }
             )
 
@@ -871,6 +1055,8 @@ def create_substep(
         stats_json=payload.stats_json,
         execution_order=payload.execution_order,
         is_life_lore=payload.is_life_lore or False,
+        effort_type=payload.effort_type,
+        effort_duration=payload.effort_duration,
     )
     db.add(substep)
     db.flush()  # Generate substep ID
@@ -894,6 +1080,8 @@ def create_substep(
             "stats": substep.stats_json,
             "execution_order": substep.execution_order,
             "is_life_lore": substep.is_life_lore,
+            "effort_type": substep.effort_type,
+            "effort_duration": substep.effort_duration,
         },
     }
 
@@ -955,6 +1143,8 @@ def update_substep(
     substep.stats_json = payload.stats_json
     substep.execution_order = payload.execution_order
     substep.is_life_lore = payload.is_life_lore or False
+    substep.effort_type = payload.effort_type
+    substep.effort_duration = payload.effort_duration
 
     db.commit()
     db.refresh(substep)
@@ -969,6 +1159,8 @@ def update_substep(
             "stats": substep.stats_json,
             "execution_order": substep.execution_order,
             "is_life_lore": substep.is_life_lore,
+            "effort_type": substep.effort_type,
+            "effort_duration": substep.effort_duration,
         },
     }
 
@@ -1097,17 +1289,46 @@ def get_templates(
     db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
 ):
     """
-    Get custom template thresholds configurations.
+    Get custom template configurations.
     """
     templates = db.query(PerfectDayTemplate).filter_by(user_id=user_id).all()
     result = {}
     for t in templates:
-        result[t.template_name] = t.thresholds_json
+        result[t.template_name] = {
+            "focus_hours": t.focus_hours,
+            "min_rest_hours": t.min_rest_hours,
+            "ceilings": t.ceilings_json or {
+                "musculaire": 1.0 if t.template_name == "rest" else (4.0 if t.template_name == "hustle" else 2.0),
+                "cerveau": 1.0 if t.template_name == "rest" else (4.0 if t.template_name == "hustle" else 2.0),
+                "emotionnel_social": 1.0 if t.template_name == "rest" else (4.0 if t.template_name == "hustle" else 2.0),
+                "creatif_divergent": 1.0 if t.template_name == "rest" else (4.0 if t.template_name == "hustle" else 2.0),
+                "total": 4.0 if t.template_name == "rest" else (10.0 if t.template_name == "hustle" else 8.0),
+            },
+            "thresholds_json": t.thresholds_json,
+            "agenda_json": t.agenda_json or [],
+        }
+
+    default_agendas = {
+        "rest": [{"id": 1, "title": "Sommeil / Repos", "start": "00:00", "end": "08:00", "category": "sleep"}, {"id": 2, "title": "Méditation / Relaxation", "start": "09:00", "end": "10:00", "category": "relax"}, {"id": 3, "title": "Marche & Étirements", "start": "12:00", "end": "13:00", "category": "routine"}, {"id": 4, "title": "Lecture & Repos mental", "start": "14:00", "end": "17:00", "category": "relax"}, {"id": 5, "title": "Sommeil", "start": "21:30", "end": "24:00", "category": "sleep"}],
+        "regular": [{"id": 1, "title": "Sommeil / Récupération", "start": "00:00", "end": "07:00", "category": "sleep"}, {"id": 2, "title": "Routine matinale & Cardio", "start": "07:00", "end": "08:00", "category": "routine"}, {"id": 3, "title": "Focus Deep Work (Projet principal)", "start": "08:30", "end": "12:00", "category": "focus"}, {"id": 4, "title": "Gestion administrative / Travail", "start": "13:00", "end": "15:00", "category": "focus"}, {"id": 5, "title": "Entraînement physique", "start": "17:30", "end": "19:00", "category": "routine"}, {"id": 6, "title": "Détente / Social", "start": "19:00", "end": "22:00", "category": "relax"}, {"id": 7, "title": "Sommeil / Couché", "start": "22:00", "end": "24:00", "category": "sleep"}],
+        "hustle": [{"id": 1, "title": "Sommeil court", "start": "00:00", "end": "06:00", "category": "sleep"}, {"id": 2, "title": "Cardio & Routine active", "start": "06:00", "end": "07:00", "category": "routine"}, {"id": 3, "title": "Deep Work", "start": "07:30", "end": "12:00", "category": "focus"}, {"id": 4, "title": "Focus Code / Projet", "start": "13:00", "end": "18:00", "category": "focus"}, {"id": 5, "title": "Musculation / Sport", "start": "18:30", "end": "20:00", "category": "routine"}, {"id": 6, "title": "Veille / Apprentissage", "start": "20:00", "end": "22:30", "category": "focus"}, {"id": 7, "title": "Récupération & Couché", "start": "22:30", "end": "24:00", "category": "sleep"}],
+    }
 
     # Fill in missing templates with defaults
-    for name, default_vals in DEFAULT_THRESHOLDS.items():
+    for name in ["rest", "regular", "hustle"]:
         if name not in result:
-            result[name] = default_vals
+            default_ceilings = {
+                "rest": {"musculaire": 1.0, "cerveau": 1.0, "emotionnel_social": 1.0, "creatif_divergent": 1.0, "total": 4.0},
+                "regular": {"musculaire": 2.0, "cerveau": 2.0, "emotionnel_social": 2.0, "creatif_divergent": 2.0, "total": 8.0},
+                "hustle": {"musculaire": 4.0, "cerveau": 4.0, "emotionnel_social": 4.0, "creatif_divergent": 4.0, "total": 10.0},
+            }[name]
+            result[name] = {
+                "focus_hours": 2.0 if name == "rest" else (9.0 if name == "hustle" else 6.0),
+                "min_rest_hours": 10.0 if name == "rest" else (7.0 if name == "hustle" else 8.0),
+                "ceilings": default_ceilings,
+                "thresholds_json": None,
+                "agenda_json": default_agendas[name],
+            }
 
     return result
 
@@ -1119,7 +1340,7 @@ def save_template(
     user_id: int = Depends(get_current_user_id),
 ):
     """
-    Save custom template thresholds configurations.
+    Save custom template configurations.
     """
     template = (
         db.query(PerfectDayTemplate)
@@ -1130,14 +1351,133 @@ def save_template(
         template = PerfectDayTemplate(
             user_id=user_id,
             template_name=payload.template_name,
+            focus_hours=payload.focus_hours,
+            min_rest_hours=payload.min_rest_hours,
+            ceilings_json=payload.ceilings,
             thresholds_json=payload.thresholds_json,
+            agenda_json=payload.agenda_json,
         )
         db.add(template)
     else:
-        template.thresholds_json = payload.thresholds_json
+        template.focus_hours = payload.focus_hours
+        template.min_rest_hours = payload.min_rest_hours
+        template.ceilings_json = payload.ceilings
+        if payload.thresholds_json is not None:
+            template.thresholds_json = payload.thresholds_json
+        if payload.agenda_json is not None:
+            template.agenda_json = payload.agenda_json
 
     db.commit()
     return {"status": "success", "template_name": payload.template_name}
+
+
+@router.get("/biological-zones")
+def get_biological_zones(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
+    zones = (
+        db.query(BiologicalZone)
+        .filter(BiologicalZone.user_id == user_id)
+        .order_by(BiologicalZone.start_time.asc(), BiologicalZone.display_order.asc())
+        .all()
+    )
+    if not zones:
+        seed_default_biological_zones(db, user_id=user_id)
+        db.commit()
+        zones = (
+            db.query(BiologicalZone)
+            .filter(BiologicalZone.user_id == user_id)
+            .order_by(BiologicalZone.start_time.asc(), BiologicalZone.display_order.asc())
+            .all()
+        )
+    return [_biological_zone_to_dict(zone) for zone in zones]
+
+
+@router.post("/biological-zones", status_code=201)
+def create_biological_zone(
+    payload: BiologicalZoneCreate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    overlap = _find_overlapping_biological_zone(
+        db,
+        user_id,
+        payload.start_time,
+        payload.end_time,
+    )
+    if overlap:
+        _raise_biological_zone_overlap(overlap)
+
+    zone = BiologicalZone(
+        user_id=user_id,
+        zone_name=payload.zone_name,
+        zone_type=payload.zone_type,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        color=payload.color,
+        display_order=payload.display_order or 0,
+    )
+    db.add(zone)
+    db.commit()
+    db.refresh(zone)
+    return _biological_zone_to_dict(zone)
+
+
+@router.put("/biological-zones/{zone_id}")
+def update_biological_zone(
+    zone_id: int,
+    payload: BiologicalZoneUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    zone = (
+        db.query(BiologicalZone)
+        .filter(BiologicalZone.id == zone_id, BiologicalZone.user_id == user_id)
+        .first()
+    )
+    if not zone:
+        raise HTTPException(status_code=404, detail="Zone introuvable.")
+
+    updates = payload.model_dump(exclude_unset=True)
+    next_start = updates.get("start_time", zone.start_time)
+    next_end = updates.get("end_time", zone.end_time)
+    overlap = _find_overlapping_biological_zone(
+        db,
+        user_id,
+        next_start,
+        next_end,
+        exclude_zone_id=zone_id,
+    )
+    if overlap:
+        _raise_biological_zone_overlap(overlap)
+
+    for field, value in updates.items():
+        if field == "display_order" and value is None:
+            value = 0
+        setattr(zone, field, value)
+
+    db.commit()
+    db.refresh(zone)
+    return _biological_zone_to_dict(zone)
+
+
+@router.delete("/biological-zones/{zone_id}")
+def delete_biological_zone(
+    zone_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    zone = (
+        db.query(BiologicalZone)
+        .filter(BiologicalZone.id == zone_id, BiologicalZone.user_id == user_id)
+        .first()
+    )
+    if not zone:
+        raise HTTPException(status_code=404, detail="Zone introuvable.")
+
+    db.delete(zone)
+    db.commit()
+    return {"status": "deleted", "id": zone_id}
 
 
 @router.get("/quests/daily-stats-potentials")
@@ -1558,6 +1898,8 @@ def get_habits(
                 "is_active": h.is_active,
                 "completed_this_period": completed_this_period,
                 "today_count": today_count_by_habit.get(h.id, 0),
+                "effort_type": h.effort_type,
+                "effort_duration": h.effort_duration,
             }
         )
     return result
@@ -1577,6 +1919,9 @@ class HabitUpdate(BaseModel):
     is_private: Optional[bool] = None
     is_reportable: Optional[bool] = None
     is_active: Optional[bool] = None
+    effort_type: Optional[str] = None
+    effort_duration: Optional[float] = None
+
 
 
 @router.put("/habits/{habit_id}")
@@ -1774,6 +2119,8 @@ def create_habit(
         daily_cap=payload.daily_cap,
         daily_target=payload.daily_target,
         unit=payload.unit,
+        effort_type=payload.effort_type,
+        effort_duration=payload.effort_duration,
         is_active=True,
     )
     db.add(habit)

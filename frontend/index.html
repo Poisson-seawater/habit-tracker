@@ -847,19 +847,191 @@
             <div class="xp-bar-fill" id="char-xp-fill" style="width: 0%;"></div>
             <span class="xp-text" id="char-xp-text">0 / 10 XP</span>
           </div>
-          <div class="profile-badges" style="margin-top: 0.8rem;">
-            <div class="template-select-container" style="display: none;">
-              <select id="template-select" class="template-dropdown">
-                <option value="week">Semaine ⚔️</option>
-                <option value="weekend">Weekend 💤</option>
-                <option value="recup">Récupération 🩹</option>
-                <option value="malade">Malade 🤒</option>
+          <div class="profile-badges" style="margin-top: 0.8rem; display: flex; align-items: center; gap: 0.8rem;">
+            <div class="template-select-container">
+              <label for="template-select" style="font-size: 0.75rem; color: var(--text-muted); margin-right: 4px;">Journée :</label>
+              <select id="template-select" class="template-dropdown" style="background: rgba(255,255,255,0.05); padding: 4px 8px; border: 1px solid var(--border-glass); border-radius: 6px; color: var(--text-primary); cursor: pointer; font-size: 0.8rem;">
+                <option value="rest">Repos 💤</option>
+                <option value="regular" selected>Normal ⚔️</option>
+                <option value="hustle">Hustle 🔥</option>
               </select>
             </div>
             <span class="badge badge-status" id="badge-status">Perfect Day : En cours</span>
           </div>
         </div>
       </header>
+
+      <section class="perfect-day-rendering-shell" id="perfect-day-rendering-shell">
+        <section class="glass-card bio-timeline-panel" id="bio-timeline-panel">
+          <h2 class="section-header">🌅 <span>Journée Biologique</span></h2>
+          <div class="bio-timeline-container">
+            <div class="bio-timeline-bar" id="bio-timeline-bar">
+              <div class="bio-timeline-empty">Chargement de la journée biologique...</div>
+            </div>
+            <div class="timeline-labels">
+              <span>00:00</span>
+              <span>04:00</span>
+              <span>08:00</span>
+              <span>12:00</span>
+              <span>16:00</span>
+              <span>20:00</span>
+              <span>24:00</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="perfect-day-rendering-grid">
+          <div id="perfect-day-recap-slot">
+            <!-- Perfect Day Agenda / Typical Day Timeline -->
+            <section class="glass-card typical-day-card" id="typical-day-card">
+              <h2 class="section-header">📅 <span>Chronologie de la Journée Type</span></h2>
+              <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
+                Visualisez et gérez la répartition horaire de votre journée type sélectionnée.
+              </p>
+
+              <!-- Horizontal Visual Timeline Bar -->
+              <div class="timeline-container">
+                <div class="timeline-bar" id="timeline-bar">
+                  <!-- Dynamically populated blocks from JS -->
+                </div>
+                <div class="timeline-labels">
+                  <span>00:00</span>
+                  <span>04:00</span>
+                  <span>08:00</span>
+                  <span>12:00</span>
+                  <span>16:00</span>
+                  <span>20:00</span>
+                  <span>24:00</span>
+                </div>
+              </div>
+
+              <!-- List of Planned Blocks Section -->
+              <div class="agenda-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; border-top: 1px solid var(--border-glass); padding-top: 1.2rem;">
+                <h3 style="font-size: 0.95rem; margin: 0; color: var(--accent-cyan);">📋 Blocs Planifiés</h3>
+                <button class="floating-add-btn" id="toggle-add-block-btn" style="padding: 2px 8px; font-size: 0.75rem;">+ Ajouter</button>
+              </div>
+
+              <!-- Add Agenda Block Form (Collapsible) -->
+              <div id="add-block-form-container" style="display: none; padding: 1rem; margin-bottom: 1rem; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-glass); border-radius: 12px; font-size: 0.8rem; flex-direction: column; gap: 0.8rem;">
+                <div style="font-weight: 600; color: var(--accent-gold); margin-bottom: 0.3rem;">Ajouter un bloc type</div>
+
+                <div id="block-overlap-warning" style="display: none; color: var(--accent-red); background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 8px; border-radius: 6px; font-size: 0.75rem; margin-bottom: 0.5rem;">
+                  ⚠️ Attention : Ce bloc chevauche une période déjà planifiée !
+                </div>
+
+                <div class="form-group">
+                  <label style="display: block; margin-bottom: 4px; color: var(--text-muted);">Titre de l'activité</label>
+                  <input type="text" id="block-title" placeholder="ex: Focus Deep Work" style="width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 6px; padding: 6px; color: var(--text-primary); outline: none;" required>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
+                  <div class="form-group">
+                    <label style="display: block; margin-bottom: 4px; color: var(--text-muted);">Heure de Début</label>
+                    <input type="time" id="block-start" value="08:00" style="width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 6px; padding: 6px; color: var(--text-primary); outline: none;" required>
+                  </div>
+                  <div class="form-group">
+                    <label style="display: block; margin-bottom: 4px; color: var(--text-muted);">Heure de Fin</label>
+                    <input type="time" id="block-end" value="10:00" style="width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 6px; padding: 6px; color: var(--text-primary); outline: none;" required>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label style="display: block; margin-bottom: 4px; color: var(--text-muted);">Catégorie de Focus</label>
+                  <select id="block-category" style="width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 6px; padding: 6px; color: var(--text-primary); outline: none; cursor: pointer;">
+                    <option value="focus">🎯 Focus (Travail/Études)</option>
+                    <option value="routine">⚙️ Routine (Sport/Ménage/Cardio)</option>
+                    <option value="relax">🍃 Relax (Lecture/Social/Chill)</option>
+                    <option value="sleep">💤 Sleep (Sommeil/Sieste)</option>
+                  </select>
+                </div>
+
+                <div style="display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 0.4rem;">
+                  <button type="button" id="cancel-add-block-btn" style="background: none; border: 1px solid var(--border-glass); color: var(--text-muted); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 0.78rem;">Annuler</button>
+                  <button type="button" id="save-block-btn" style="background: var(--accent-cyan); border: none; color: black; font-weight: 600; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 0.78rem;">Sauvegarder</button>
+                </div>
+              </div>
+
+              <!-- List of blocks -->
+              <div id="agenda-blocks-list" style="display: flex; flex-direction: column; gap: 0.6rem; max-height: 280px; overflow-y: auto; padding-right: 4px;">
+                <!-- Dynamically populated items from JS -->
+              </div>
+            </section>
+          </div>
+
+          <div id="perfect-day-budget-slot">
+            <!-- Perfect Day Effort Budget Gauge -->
+            <section class="glass-card effort-budget-panel" id="effort-budget-panel">
+              <h2 class="section-header">⚡ <span>Budget d'Énergie Quotidien</span></h2>
+              <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: -1rem;">
+                Répartition de votre budget d'effort pour aujourd'hui.
+              </p>
+
+              <div id="effort-warnings-container" style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem;">
+                <!-- Warnings will be inserted dynamically -->
+              </div>
+
+              <!-- Total Gauge -->
+              <div style="margin-bottom: 1.2rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px;">
+                  <span>Total Focus Planifié</span>
+                  <span id="effort-total-text" style="font-weight: 600;">0.0h / 0.0h</span>
+                </div>
+                <div class="xp-bar-container" style="height: 12px; background: rgba(255,255,255,0.03); border-radius: 6px;" title="Total d'effort planifié vs cible focus">
+                  <div class="xp-bar-fill" id="effort-total-bar" style="width: 0%; height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple)); transition: width 0.3s ease;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
+                  <span id="effort-unplanned-text">Temps libre restant : 16.0h</span>
+                  <span id="effort-rest-text">Repos requis : 8.0h</span>
+                </div>
+              </div>
+
+              <!-- Categories Grid -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; border-top: 1px solid var(--border-glass); padding-top: 1rem;">
+                <!-- Brain -->
+                <div>
+                  <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
+                    <span>🧠 Cerveau</span>
+                    <span id="effort-cerveau-text" style="font-size: 0.72rem;">0h / 2h</span>
+                  </div>
+                  <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
+                    <div id="effort-cerveau-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-cyan); transition: width 0.3s ease;"></div>
+                  </div>
+                </div>
+                <!-- Muscle -->
+                <div>
+                  <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
+                    <span>💪 Musculaire</span>
+                    <span id="effort-musculaire-text" style="font-size: 0.72rem;">0h / 2h</span>
+                  </div>
+                  <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
+                    <div id="effort-musculaire-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-red); transition: width 0.3s ease;"></div>
+                  </div>
+                </div>
+                <!-- Social -->
+                <div>
+                  <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
+                    <span>🤝 Social / Émot.</span>
+                    <span id="effort-social-text" style="font-size: 0.72rem;">0h / 2h</span>
+                  </div>
+                  <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
+                    <div id="effort-social-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-green); transition: width 0.3s ease;"></div>
+                  </div>
+                </div>
+                <!-- Creative -->
+                <div>
+                  <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
+                    <span>🎨 Créatif / Div.</span>
+                    <span id="effort-creatif-text" style="font-size: 0.72rem;">0h / 2h</span>
+                  </div>
+                  <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
+                    <div id="effort-creatif-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-purple); transition: width 0.3s ease;"></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
 
       <!-- Dashboard Grid -->
       <main class="dashboard-grid">
@@ -912,6 +1084,7 @@
           </section>
 
           <!-- Left Column: Ephemeral Daily Character Stats -->
+
           <section class="glass-card stats-panel">
             <h2 class="section-header">🛡️ <span>Activité du Jour (Tags)</span></h2>
             <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
@@ -1003,6 +1176,24 @@
                   </select>
                 </div>
               </div>
+
+              <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
+                <div class="form-group">
+                  <label>Type d'effort</label>
+                  <select id="new-quest-effort-type" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
+                    <option value="">Aucun</option>
+                    <option value="musculaire">Musculaire 💪</option>
+                    <option value="cerveau">Cerveau 🧠</option>
+                    <option value="emotionnel_social">Social / Émotionnel 🤝</option>
+                    <option value="creatif_divergent">Créatif / Divergent 🎨</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Durée d'effort (h)</label>
+                  <input type="number" id="new-quest-effort-duration" step="0.5" min="0" max="16" placeholder="ex: 1.0" value="1.0" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
+                </div>
+              </div>
+
 
               <div class="form-group">
                 <label>Cible/jour (optionnel)</label>
@@ -1198,6 +1389,22 @@
                 </select>
               </div>
             </div>
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem;">
+              <div class="form-group">
+                <label>Type d'effort</label>
+                <select id="substep-effort-type" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); width: 100%;">
+                  <option value="">Aucun</option>
+                  <option value="musculaire">Musculaire 💪</option>
+                  <option value="cerveau">Cerveau 🧠</option>
+                  <option value="emotionnel_social">Social / Émotionnel 🤝</option>
+                  <option value="creatif_divergent">Créatif / Divergent 🎨</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Durée d'effort (h)</label>
+                <input type="number" id="substep-effort-duration" step="0.5" min="0" max="16" placeholder="ex: 1.0" value="1.0" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); width: 100%; box-sizing: border-box;">
+              </div>
+            </div>
             <div class="form-group checkbox-group" style="margin-top: 0.8rem;">
               <label class="checkbox-label" style="margin-top: 0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                 <input type="checkbox" id="substep-life-lore-input" style="cursor: pointer;">
@@ -1250,6 +1457,22 @@
                   <option value="">Aucun</option>
                   <!-- Populated by JS -->
                 </select>
+              </div>
+            </div>
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem;">
+              <div class="form-group">
+                <label>Type d'effort</label>
+                <select id="edit-substep-effort-type" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); width: 100%;">
+                  <option value="">Aucun</option>
+                  <option value="musculaire">Musculaire 💪</option>
+                  <option value="cerveau">Cerveau 🧠</option>
+                  <option value="emotionnel_social">Social / Émotionnel 🤝</option>
+                  <option value="creatif_divergent">Créatif / Divergent 🎨</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Durée d'effort (h)</label>
+                <input type="number" id="edit-substep-effort-duration" step="0.5" min="0" max="16" placeholder="ex: 1.0" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); width: 100%; box-sizing: border-box;">
               </div>
             </div>
             <div class="form-group checkbox-group" style="margin-top: 0.8rem;">
@@ -1357,30 +1580,120 @@
       </div>
       <div class="settings-grid">
         <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); font-size: 0.9rem; padding: 2rem; background: rgba(255,255,255,0.01); border: 1px dashed var(--border-glass); border-radius: 12px; margin-bottom: 1.5rem;">
-          ℹ️ Le système de points et de seuils de Perfect Days a été remplacé par un système de tags plus simple. Les Perfect Days sont validés lorsque toutes les quêtes planifiées de la journée sont terminées !
+          ℹ️ Perfect Days = Allocation de budget d'effort. Répartissez votre énergie sans dépasser les plafonds et assurez-vous un repos suffisant !
         </div>
         
-        <!-- Left Panel: Perfect Day Thresholds Customizer (Hidden) -->
-        <section class="glass-card thresholds-editor" style="display: none;">
-          <h2 class="section-header">⚙️ <span>Seuils des Perfect Days</span></h2>
+        <!-- Left Panel: Perfect Day Budget Customizer -->
+        <section class="glass-card thresholds-editor" style="padding: 1.8rem;">
+          <h2 class="section-header">⚙️ <span>Configuration des Budgets</span></h2>
           <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
-            Ajustez à tout moment les points requis par statistique pour chaque template de journée (Semaine, Weekend, Récupération, Malade).
+            Ajustez à tout moment les plafonds d'effort et les objectifs pour chaque type de journée (Rest, Regular, Hustle).
           </p>
           <div class="form-group" style="margin-bottom: 1.5rem;">
-            <label for="template-edit-select">Template à éditer</label>
+            <label for="template-edit-select">Type de journée à éditer</label>
             <select id="template-edit-select" class="template-dropdown" style="background: rgba(255,255,255,0.05); padding: 10px; width: 100%; border: 1px solid var(--border-glass); border-radius: 8px;">
-              <option value="week">Semaine ⚔️</option>
-              <option value="weekend">Weekend 💤</option>
-              <option value="recup">Récupération 🩹</option>
-              <option value="malade">Malade 🤒</option>
+              <option value="rest">Rest 💤</option>
+              <option value="regular">Regular ⚖️</option>
+              <option value="hustle">Hustle ⚡</option>
             </select>
           </div>
           
           <form id="edit-thresholds-form" class="modal-form">
-            <div id="thresholds-inputs-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-              <!-- Javascript will render 12 input boxes here -->
+            <div id="thresholds-inputs-container" style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                  <label for="template-focus-hours">Objectif Focus (h)</label>
+                  <input type="number" id="template-focus-hours" step="0.5" min="0" max="16" required style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary);">
+                </div>
+                <div class="form-group">
+                  <label for="template-min-rest">Repos Minimum (h)</label>
+                  <input type="number" id="template-min-rest" step="0.5" min="0" max="16" required style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary);">
+                </div>
+              </div>
+              <h4 style="font-family: var(--font-display); font-size: 0.95rem; color: var(--accent-cyan); margin-top: 0.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">Plafonds par type d'effort (h)</h4>
+              <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                  <label for="ceiling-musculaire">Musculaire 💪</label>
+                  <input type="number" id="ceiling-musculaire" step="0.5" min="0" max="16" required style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary);">
+                </div>
+                <div class="form-group">
+                  <label for="ceiling-cerveau">Cerveau 🧠</label>
+                  <input type="number" id="ceiling-cerveau" step="0.5" min="0" max="16" required style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary);">
+                </div>
+              </div>
+              <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                  <label for="ceiling-emotionnel">Social / Émotionnel 🤝</label>
+                  <input type="number" id="ceiling-emotionnel" step="0.5" min="0" max="16" required style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary);">
+                </div>
+                <div class="form-group">
+                  <label for="ceiling-creatif">Créatif / Divergent 🎨</label>
+                  <input type="number" id="ceiling-creatif" step="0.5" min="0" max="16" required style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary);">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="ceiling-total">Plafond Effort Total Cumulé (h)</label>
+                <input type="number" id="ceiling-total" step="0.5" min="0" max="16" required style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary);">
+              </div>
             </div>
-            <button type="submit" class="quest-action-btn submit-btn" style="margin-top: 1.5rem;">Sauvegarder les Seuils</button>
+            <button type="submit" class="quest-action-btn submit-btn" style="margin-top: 1.5rem;">Sauvegarder les Budgets</button>
+          </form>
+        </section>
+
+        <section class="glass-card bio-zone-settings-card" id="bio-zone-settings-section" style="padding: 1.8rem;">
+          <h2 class="section-header">🌅 <span>Journée Biologique</span></h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
+            Configurez les fenêtres naturelles de sommeil, focus, créativité, repos et énergie physique. Ces zones restent indépendantes des templates Rest, Regular et Hustle.
+          </p>
+
+          <div id="bio-zone-error" class="bio-zone-error" style="display: none;"></div>
+          <div id="bio-zone-list" class="bio-zone-list">
+            <p class="bio-zone-empty">Chargement des zones biologiques...</p>
+          </div>
+
+          <form id="bio-zone-form" class="bio-zone-form">
+            <input type="hidden" id="bio-zone-id">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="bio-zone-name">Nom de la zone</label>
+                <input type="text" id="bio-zone-name" placeholder="ex: Focus profond matin" required>
+              </div>
+              <div class="form-group">
+                <label for="bio-zone-type">Type biologique</label>
+                <select id="bio-zone-type" required>
+                  <option value="deep_focus">🧠 Focus profond</option>
+                  <option value="physical_peak">💪 Pic physique</option>
+                  <option value="creative">🎨 Créatif</option>
+                  <option value="rest">🧘 Repos</option>
+                  <option value="social">🤝 Social</option>
+                  <option value="sleep">😴 Sommeil</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="bio-zone-start">Début</label>
+                <input type="time" id="bio-zone-start" value="08:00" required>
+              </div>
+              <div class="form-group">
+                <label for="bio-zone-end">Fin</label>
+                <input type="time" id="bio-zone-end" value="10:00" required>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="bio-zone-color">Couleur optionnelle</label>
+                <input type="color" id="bio-zone-color" value="#8b5cf6">
+              </div>
+              <div class="form-group">
+                <label for="bio-zone-order">Ordre</label>
+                <input type="number" id="bio-zone-order" value="0" min="0" step="1">
+              </div>
+            </div>
+            <div class="bio-zone-form-actions">
+              <button type="button" id="bio-zone-cancel-btn" class="floating-add-btn" style="display: none;">Annuler</button>
+              <button type="submit" id="bio-zone-submit-btn" class="quest-action-btn">Ajouter la zone</button>
+            </div>
           </form>
         </section>
 
@@ -1667,6 +1980,24 @@
         </select>
       </div>
     </div>
+
+    <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:1rem;">
+      <div class="form-group">
+        <label>Type d'effort</label>
+        <select id="edit-quest-effort-type" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;">
+          <option value="">Aucun</option>
+          <option value="musculaire">Musculaire 💪</option>
+          <option value="cerveau">Cerveau 🧠</option>
+          <option value="emotionnel_social">Social / Émotionnel 🤝</option>
+          <option value="creatif_divergent">Créatif / Divergent 🎨</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Durée d'effort (h)</label>
+        <input type="number" id="edit-quest-effort-duration" step="0.5" min="0" max="16" placeholder="ex: 1.0" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
+      </div>
+    </div>
+
     <div class="form-group" id="edit-scheduled-days-group" style="display:none;">
       <label>Jours</label>
       <div id="edit-quest-days" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">

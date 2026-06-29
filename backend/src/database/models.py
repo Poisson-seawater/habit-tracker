@@ -10,6 +10,7 @@ from sqlalchemy import (
     ForeignKey,
     JSON,
     UniqueConstraint,
+    Float,
 )
 from sqlalchemy.orm import relationship
 from src.database.session import Base
@@ -51,6 +52,9 @@ class User(Base):
     rewards = relationship(
         "Reward", back_populates="user", cascade="all, delete-orphan"
     )
+    biological_zones = relationship(
+        "BiologicalZone", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Habit(Base):
@@ -82,6 +86,8 @@ class Habit(Base):
     unit = Column(String, nullable=True)  # Unit e.g. "min", "km"
     is_active = Column(Boolean, default=True)
     deactivated_at = Column(DateTime, nullable=True)
+    effort_type = Column(String, nullable=True)  # "musculaire", "cerveau", "emotionnel_social", "creatif_divergent"
+    effort_duration = Column(Float, default=1.0, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.now)
 
     user = relationship("User", back_populates="habits")
@@ -119,12 +125,36 @@ class PerfectDayTemplate(Base):
     )
     template_name = Column(
         String, nullable=False
-    )  # "week", "weekend", "recup", "malade"
+    )  # "rest", "regular", "hustle"
     thresholds_json = Column(
-        JSON, nullable=False
-    )  # dict mapping stats e.g. {"force": 16, "mobilité": 4}
+        JSON, nullable=True
+    )  # dict mapping stats (deprecated)
+    focus_hours = Column(Float, default=6.0, nullable=False)
+    ceilings_json = Column(JSON, nullable=True)
+    min_rest_hours = Column(Float, default=8.0, nullable=False)
+    agenda_json = Column(JSON, nullable=True)
 
     user = relationship("User", back_populates="perfect_day_templates")
+
+
+class BiologicalZone(Base):
+    __tablename__ = "biological_zones"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    zone_name = Column(String, nullable=False)
+    zone_type = Column(String, nullable=False)
+    start_time = Column(String, nullable=False)
+    end_time = Column(String, nullable=False)
+    color = Column(String, nullable=True)
+    display_order = Column(Integer, default=0, nullable=False)
+
+    user = relationship("User", back_populates="biological_zones")
 
 
 class DailyScore(Base):
@@ -233,6 +263,8 @@ class SubStep(Base):
     )  # List of related stats e.g. ["force", "finance"]
     execution_order = Column(Integer, default=1)
     is_life_lore = Column(Boolean, default=False, nullable=False)
+    effort_type = Column(String, nullable=True)  # "musculaire", "cerveau", "emotionnel_social", "creatif_divergent"
+    effort_duration = Column(Float, default=1.0, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.now)
 
     user = relationship("User", back_populates="substeps")

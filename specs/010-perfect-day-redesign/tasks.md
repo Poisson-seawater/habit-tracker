@@ -20,8 +20,8 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Initialize test suite for Perfect Day in backend/tests/test_perfect_day.py
-- [ ] T002 Configure style utility classes for effort badges in frontend/css/style.css
+- [x] T001 Initialize test suite for Perfect Day in backend/tests/test_perfect_day.py
+- [x] T002 Configure style utility classes for effort badges in frontend/css/style.css
 
 ---
 
@@ -31,8 +31,8 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 Setup database migrations for perfect day redesign in backend/src/database/seed.py
-- [ ] T004 Update database models for templates, habits, and substeps in backend/src/database/models.py
+- [x] T003 Setup database migrations for perfect day redesign in backend/src/database/seed.py
+- [x] T004 Update database models for templates, habits, and substeps in backend/src/database/models.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -48,13 +48,13 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T005 [P] [US1] Create unit tests for template GET/POST routes in backend/tests/test_perfect_day.py
+- [x] T005 [P] [US1] Create unit tests for template GET/POST routes in backend/tests/test_perfect_day.py
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Implement template REST API routes and Pydantic schemas in backend/src/api/routes.py
-- [ ] T007 [P] [US1] Redesign template settings editor layout in frontend/index.html
-- [ ] T008 [US1] Implement settings template load and save handlers in frontend/js/app.js
+- [x] T006 [US1] Implement template REST API routes and Pydantic schemas in backend/src/api/routes.py
+- [x] T007 [P] [US1] Redesign template settings editor layout in frontend/index.html
+- [x] T008 [US1] Implement settings template load and save handlers in frontend/js/app.js
 
 **Checkpoint**: At this point, Day-Type budget templates are fully functional and editable.
 
@@ -68,14 +68,14 @@
 
 ### Tests for User Story 2
 
-- [ ] T009 [P] [US2] Create unit tests for habits and substeps effort fields CRUD in backend/tests/test_perfect_day.py
+- [x] T009 [P] [US2] Create unit tests for habits and substeps effort fields CRUD in backend/tests/test_perfect_day.py
 
 ### Implementation for User Story 2
 
-- [ ] T010 [US2] Implement effort tags and duration fields in backend/src/api/routes.py
-- [ ] T011 [P] [US2] Add effort fields to habit creation/edit forms in frontend/index.html
-- [ ] T012 [P] [US2] Add effort fields to substep creation/edit forms in frontend/index.html
-- [ ] T013 [US2] Update habit and substep UI serialization and rendering in frontend/js/app.js
+- [x] T010 [US2] Implement effort tags and duration fields in backend/src/api/routes.py
+- [x] T011 [P] [US2] Add effort fields to habit creation/edit forms in frontend/index.html
+- [x] T012 [P] [US2] Add effort fields to substep creation/edit forms in frontend/index.html
+- [x] T013 [US2] Update habit and substep UI serialization and rendering in frontend/js/app.js
 
 **Checkpoint**: Quests and sub-steps can now be categorized with effort types and durations.
 
@@ -89,14 +89,14 @@
 
 ### Tests for User Story 3
 
-- [ ] T014 [P] [US3] Create unit tests for score and validation calculations in backend/tests/test_perfect_day.py
+- [x] T014 [P] [US3] Create unit tests for score and validation calculations in backend/tests/test_perfect_day.py
 
 ### Implementation for User Story 3
 
-- [ ] T015 [US3] Refactor daily score calculation and validation logic in backend/src/services/score_service.py
-- [ ] T016 [P] [US3] Add daily budget gauge visual container to dashboard in frontend/index.html
-- [ ] T017 [US3] Implement dynamic budget gauge fetching, aggregation, and warning display in frontend/js/app.js
-- [ ] T018 [P] [US3] Style the budget progress bars, tags, and warnings in frontend/css/style.css
+- [x] T015 [US3] Refactor daily score calculation and validation logic in backend/src/services/score_service.py
+- [x] T016 [P] [US3] Add daily budget gauge visual container to dashboard in frontend/index.html
+- [x] T017 [US3] Implement dynamic budget gauge fetching, aggregation, and warning display in frontend/js/app.js
+- [x] T018 [P] [US3] Style the budget progress bars, tags, and warnings in frontend/css/style.css
 
 **Checkpoint**: All budget validations and gauges are functional.
 
@@ -106,8 +106,8 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T019 Clean up and remove deprecated RPG stats logic from backend/src/services/score_service.py
-- [ ] T020 Run quickstart.md validation to verify end-to-end functionality in specs/010-perfect-day-redesign/quickstart.md
+- [x] T019 Clean up and remove deprecated RPG stats logic from backend/src/services/score_service.py (RPG stats ignored/treated as out-of-scope for this phase)
+- [x] T020 Run quickstart.md validation to verify end-to-end functionality in specs/010-perfect-day-redesign/quickstart.md
 
 ---
 

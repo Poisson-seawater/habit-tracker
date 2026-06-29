@@ -48,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
         fetchGoals();
       } else if (targetTab === "settings-tab") {
         loadSettingsThresholds();
+        loadBioZoneSettings();
         fetchWeeklyPotentials();
       } else if (targetTab === "softskills-tab") {
         fetchSoftskills();
@@ -66,6 +67,28 @@ document.addEventListener("DOMContentLoaded", () => {
   let showTodayBounties = true;
   const toastNotification = document.getElementById("toast-notification");
   
+  // Typical Day / Agenda Elements and state
+  let loadedTemplates = {};
+  let biologicalZonesCache = null;
+  const toggleAddBlockBtn = document.getElementById("toggle-add-block-btn");
+  const addBlockFormContainer = document.getElementById("add-block-form-container");
+  const cancelAddBlockBtn = document.getElementById("cancel-add-block-btn");
+  const saveBlockBtn = document.getElementById("save-block-btn");
+  const blockTitleInput = document.getElementById("block-title");
+  const blockStartInput = document.getElementById("block-start");
+  const blockEndInput = document.getElementById("block-end");
+  const blockCategorySelect = document.getElementById("block-category");
+  const blockOverlapWarning = document.getElementById("block-overlap-warning");
+
+  const bioZoneMeta = {
+    deep_focus: { label: "Focus profond", emoji: "🧠", color: "#8b5cf6" },
+    physical_peak: { label: "Pic physique", emoji: "💪", color: "#06b6d4" },
+    creative: { label: "Créatif", emoji: "🎨", color: "#eab308" },
+    rest: { label: "Repos", emoji: "🧘", color: "#22c55e" },
+    social: { label: "Social", emoji: "🤝", color: "#f97316" },
+    sleep: { label: "Sommeil", emoji: "😴", color: "#475569" }
+  };
+  
   // Show a glowing premium toast alert
   function showToast(message, isError = false) {
     toastNotification.textContent = message;
@@ -76,6 +99,139 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => {
       toastNotification.style.display = "none";
     }, 4500);
+  }
+
+  function mountPerfectDayRenderingLayout() {
+    const recapSlot = document.getElementById("perfect-day-recap-slot");
+    const budgetSlot = document.getElementById("perfect-day-budget-slot");
+    const agendaPanel = document.getElementById("typical-day-card");
+    const budgetPanel = document.getElementById("effort-budget-panel");
+
+    if (recapSlot && agendaPanel && agendaPanel.parentElement !== recapSlot) {
+      recapSlot.appendChild(agendaPanel);
+    }
+    if (budgetSlot && budgetPanel && budgetPanel.parentElement !== budgetSlot) {
+      budgetSlot.appendChild(budgetPanel);
+    }
+  }
+
+  function getBioZoneMeta(zoneType) {
+    return bioZoneMeta[zoneType] || { label: zoneType || "Zone", emoji: "•", color: "#94a3b8" };
+  }
+
+  async function fetchBiologicalZones(forceRefresh = false) {
+    if (biologicalZonesCache && !forceRefresh) {
+      return biologicalZonesCache;
+    }
+
+    const response = await fetch(`${API_BASE}/biological-zones`);
+    if (!response.ok) {
+      throw new Error("Erreur de chargement de la journée biologique");
+    }
+    biologicalZonesCache = await response.json();
+    return biologicalZonesCache;
+  }
+
+  async function loadBioTimeline(forceRefresh = false) {
+    const bar = document.getElementById("bio-timeline-bar");
+    try {
+      const zones = await fetchBiologicalZones(forceRefresh);
+      renderBioTimeline(zones);
+    } catch (error) {
+      console.error(error);
+      if (bar) {
+        bar.innerHTML = `<div class="bio-timeline-empty">Impossible de charger la journée biologique.</div>`;
+      }
+    }
+  }
+
+  function buildBioTimelineSegments(zones) {
+    const segments = [];
+    zones.forEach(zone => {
+      const startMin = timeToMinutes(zone.start_time);
+      const endMin = timeToMinutes(zone.end_time);
+      if (startMin === endMin) return;
+
+      if (endMin > startMin) {
+        segments.push({
+          zone,
+          startMin,
+          endMin,
+          startLabel: zone.start_time,
+          endLabel: zone.end_time
+        });
+      } else {
+        segments.push({
+          zone,
+          startMin,
+          endMin: 1440,
+          startLabel: zone.start_time,
+          endLabel: "24:00"
+        });
+        segments.push({
+          zone,
+          startMin: 0,
+          endMin,
+          startLabel: "00:00",
+          endLabel: zone.end_time
+        });
+      }
+    });
+    return segments.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+  }
+
+  function renderBioTimeline(zones) {
+    const bar = document.getElementById("bio-timeline-bar");
+    if (!bar) return;
+    bar.innerHTML = "";
+
+    if (!zones || zones.length === 0) {
+      bar.innerHTML = `<div class="bio-timeline-empty">Aucune zone biologique configurée.</div>`;
+      return;
+    }
+
+    const segments = buildBioTimelineSegments(zones);
+    let cursor = 0;
+
+    segments.forEach(segment => {
+      if (segment.startMin > cursor) {
+        const gap = document.createElement("div");
+        gap.className = "bio-zone-gap";
+        gap.style.width = `${((segment.startMin - cursor) / 1440) * 100}%`;
+        gap.title = `Transition libre (${minutesToTime(cursor)} - ${minutesToTime(segment.startMin)})`;
+        bar.appendChild(gap);
+      }
+
+      const zone = segment.zone;
+      const meta = getBioZoneMeta(zone.zone_type);
+      const duration = segment.endMin - segment.startMin;
+      const pct = (duration / 1440) * 100;
+      const block = document.createElement("div");
+      block.className = `bio-zone-block bio-zone-${zone.zone_type}`;
+      block.style.width = `${pct}%`;
+      if (zone.color) {
+        block.style.background = zone.color;
+      }
+      block.title = `${meta.emoji} ${zone.zone_name} - ${meta.label} (${segment.startLabel} - ${segment.endLabel})`;
+
+      if (pct > 4) {
+        const label = document.createElement("span");
+        label.className = "bio-zone-label";
+        label.textContent = pct > 8 ? `${meta.emoji} ${zone.zone_name}` : meta.emoji;
+        block.appendChild(label);
+      }
+
+      bar.appendChild(block);
+      cursor = Math.max(cursor, segment.endMin);
+    });
+
+    if (cursor < 1440) {
+      const gap = document.createElement("div");
+      gap.className = "bio-zone-gap";
+      gap.style.width = `${((1440 - cursor) / 1440) * 100}%`;
+      gap.title = `Transition libre (${minutesToTime(cursor)} - 24:00)`;
+      bar.appendChild(gap);
+    }
   }
 
   // 12 RPG Stats helper mapping
@@ -279,6 +435,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const freqBadge = freqLabels[habit.frequency] ? `<span style="font-size:0.7rem;padding:2px 6px;border-radius:8px;background:rgba(255,255,255,0.08);color:var(--text-muted);margin-left:6px;">${freqLabels[habit.frequency]}</span>` : "";
         const targetBadge = hasTarget ? `<span style="font-size:0.7rem;padding:2px 6px;border-radius:8px;background:${targetReached ? 'rgba(34,197,94,0.22)' : 'rgba(99,102,241,0.18)'};color:var(--text-primary);margin-left:6px;">${todayCount}/${habit.daily_target}${targetReached ? ' ✅' : ''}</span>` : "";
 
+        const effortLabels = {
+          musculaire: "Musculaire 💪",
+          cerveau: "Cerveau 🧠",
+          emotionnel_social: "Social 🤝",
+          creatif_divergent: "Créatif 🎨"
+        };
+        const effortBadge = habit.effort_type ? `<span class="effort-badge effort-${habit.effort_type}" style="margin-left:6px;">${effortLabels[habit.effort_type]} (${habit.effort_duration}h)</span>` : "";
+
+
         let buttonHTML = "";
         if (isCompleted) {
           buttonHTML = `<button class="quest-action-btn completed" disabled>Validé</button>`;
@@ -292,7 +457,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         questItem.innerHTML = `
           <div class="quest-details" data-id="${habit.id}" style="cursor: pointer;">
-            <span class="quest-name">${habit.name}${privateLock}${freqBadge}${targetBadge}</span>
+            <span class="quest-name">${habit.name}${privateLock}${freqBadge}${targetBadge}${effortBadge}</span>
             <span class="quest-desc">${habit.description || ''}</span>
             <span class="quest-reward-tag">Récompense : ${rewards}</span>
           </div>
@@ -546,6 +711,533 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast("Erreur lors du changement de template", true);
     }
   });
+
+  // ==============================================
+  // DAILY SCORES BUDGET GAUGE CALCULATION         //
+  // ==============================================
+  async function updateDailyBudgetGauge() {
+    try {
+      const [templatesResp, profileResp, habitsResp, goalsResp] = await Promise.all([
+        fetch(`${API_BASE}/templates`),
+        fetch(`${API_BASE}/profile`),
+        fetch(`${API_BASE}/habits`),
+        fetch(`${API_BASE}/goals`)
+      ]);
+
+      if (!templatesResp.ok || !profileResp.ok || !habitsResp.ok || !goalsResp.ok) {
+        console.error("Erreur lors de la récupération des données pour la jauge Perfect Day");
+        return;
+      }
+
+      const templates = await templatesResp.json();
+      loadedTemplates = templates; // Save globally so we can add/delete blocks
+      const profile = await profileResp.json();
+      const habits = await habitsResp.json();
+      const goals = await goalsResp.json();
+
+      const activeTemplateName = profile.active_template || "regular";
+      const activeTemplate = templates[activeTemplateName] || {
+        focus_hours: activeTemplateName === "hustle" ? 9.0 : (activeTemplateName === "rest" ? 2.0 : 6.0),
+        min_rest_hours: activeTemplateName === "hustle" ? 6.0 : (activeTemplateName === "rest" ? 10.0 : 8.0),
+        ceilings: null,
+        agenda_json: []
+      };
+
+      const ceilings = activeTemplate.ceilings || {};
+
+      const targetFocus = activeTemplate.focus_hours;
+      const minRest = activeTemplate.min_rest_hours;
+
+      const effortCeilings = {
+        musculaire: ceilings.musculaire !== undefined ? ceilings.musculaire : (activeTemplateName === "hustle" ? 4.0 : (activeTemplateName === "rest" ? 1.0 : 2.0)),
+        cerveau: ceilings.cerveau !== undefined ? ceilings.cerveau : (activeTemplateName === "hustle" ? 4.0 : (activeTemplateName === "rest" ? 1.0 : 2.0)),
+        emotionnel_social: ceilings.emotionnel_social !== undefined ? ceilings.emotionnel_social : (activeTemplateName === "hustle" ? 4.0 : (activeTemplateName === "rest" ? 1.0 : 2.0)),
+        creatif_divergent: ceilings.creatif_divergent !== undefined ? ceilings.creatif_divergent : (activeTemplateName === "hustle" ? 4.0 : (activeTemplateName === "rest" ? 1.0 : 2.0)),
+        total: ceilings.total !== undefined ? ceilings.total : 10.0
+      };
+
+      const jsDay = new Date().getDay();
+      const pythonDay = (jsDay + 6) % 7;
+      
+      const plannedHabits = habits.filter(habit => {
+        if (habit.frequency === "specific_days") {
+          const days = (habit.scheduled_days || "").split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+          return days.includes(pythonDay);
+        }
+        return true;
+      });
+
+      const pinnedSubIds = profile.pinned_substeps || [];
+      const plannedSubsteps = [];
+      pinnedSubIds.forEach(subId => {
+        for (const g of goals) {
+          const s = g.substeps.find(sub => sub.id === subId);
+          if (s) {
+            plannedSubsteps.push(s);
+            break;
+          }
+        }
+      });
+
+      const effortSums = {
+        musculaire: 0.0,
+        cerveau: 0.0,
+        emotionnel_social: 0.0,
+        creatif_divergent: 0.0
+      };
+
+      plannedHabits.forEach(h => {
+        if (h.effort_type && effortSums[h.effort_type] !== undefined) {
+          effortSums[h.effort_type] += (h.effort_duration !== undefined ? h.effort_duration : 1.0);
+        }
+      });
+
+      plannedSubsteps.forEach(s => {
+        if (s.effort_type && effortSums[s.effort_type] !== undefined) {
+          effortSums[s.effort_type] += (s.effort_duration !== undefined ? s.effort_duration : 1.0);
+        }
+      });
+
+      const totalPlannedEffort = Object.values(effortSums).reduce((a, b) => a + b, 0.0);
+      const unplannedTime = Math.max(16.0 - totalPlannedEffort, 0.0);
+
+      const warnings = [];
+
+      Object.keys(effortSums).forEach(cat => {
+        const sum = effortSums[cat];
+        const ceiling = effortCeilings[cat];
+        if (sum > ceiling) {
+          const catName = cat === "cerveau" ? "Cerveau" : (cat === "musculaire" ? "Musculaire" : (cat === "emotionnel_social" ? "Social/Émotionnel" : "Créatif/Divergent"));
+          warnings.push(`⚠️ Dépassement de la limite ${catName} : ${sum.toFixed(1)}h planifiées (max ${ceiling.toFixed(1)}h).`);
+        }
+      });
+
+      if (totalPlannedEffort > effortCeilings.total) {
+        warnings.push(`⚠️ Dépassement de l'effort total maximal : ${totalPlannedEffort.toFixed(1)}h planifiées (max ${effortCeilings.total.toFixed(1)}h).`);
+      }
+
+      let isHustleValid = true;
+      if (activeTemplateName === "hustle") {
+        const minUnplanned = 16.0 * 0.3; // 4.8h
+        if (unplannedTime < minUnplanned) {
+          isHustleValid = false;
+          warnings.push(`⚠️ Journée Hustle invalide : moins de 30% de temps libre (${unplannedTime.toFixed(1)}h restantes sur 16h d'éveil, min ${minUnplanned.toFixed(1)}h requises).`);
+        }
+      }
+
+      const warningsContainer = document.getElementById("effort-warnings-container");
+      if (warningsContainer) {
+        warningsContainer.innerHTML = "";
+        if (warnings.length > 0) {
+          warnings.forEach(w => {
+            const warnEl = document.createElement("div");
+            warnEl.style.cssText = "background: rgba(239, 68, 68, 0.1); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.2); padding: 8px 12px; border-radius: 8px; font-size: 0.78rem; font-weight: 500; display: flex; align-items: center; gap: 6px;";
+            warnEl.textContent = w;
+            warningsContainer.appendChild(warnEl);
+          });
+        } else {
+          const okEl = document.createElement("div");
+          okEl.style.cssText = "background: rgba(34, 197, 94, 0.1); color: var(--accent-green); border: 1px solid rgba(34, 197, 94, 0.2); padding: 8px 12px; border-radius: 8px; font-size: 0.78rem; font-weight: 500; display: flex; align-items: center; gap: 6px;";
+          okEl.textContent = "✅ Budget d'énergie valide et équilibré.";
+          warningsContainer.appendChild(okEl);
+        }
+      }
+
+      const totalText = document.getElementById("effort-total-text");
+      const totalBar = document.getElementById("effort-total-bar");
+      if (totalText) {
+        totalText.textContent = `${totalPlannedEffort.toFixed(1)}h / ${targetFocus.toFixed(1)}h`;
+      }
+      if (totalBar) {
+        const totalPercent = Math.min((totalPlannedEffort / targetFocus) * 100, 100);
+        totalBar.style.width = `${totalPercent}%`;
+        if (totalPlannedEffort > effortCeilings.total || (activeTemplateName === "hustle" && !isHustleValid)) {
+          totalBar.style.background = "var(--accent-red)";
+        } else {
+          totalBar.style.background = "linear-gradient(90deg, var(--accent-cyan), var(--accent-purple))";
+        }
+      }
+
+      const unplannedText = document.getElementById("effort-unplanned-text");
+      const restText = document.getElementById("effort-rest-text");
+      if (unplannedText) {
+        unplannedText.textContent = `Temps libre restant : ${unplannedTime.toFixed(1)}h`;
+      }
+      if (restText) {
+        restText.textContent = `Repos requis : ${minRest.toFixed(1)}h`;
+      }
+
+      const categories = ["cerveau", "musculaire", "social", "creatif"];
+      const keyMap = {
+        cerveau: "cerveau",
+        musculaire: "musculaire",
+        social: "emotionnel_social",
+        creatif: "creatif_divergent"
+      };
+
+      categories.forEach(cat => {
+        const sum = effortSums[keyMap[cat]];
+        const ceiling = effortCeilings[keyMap[cat]];
+        const textEl = document.getElementById(`effort-${cat}-text`);
+        const barEl = document.getElementById(`effort-${cat}-bar`);
+        if (textEl) {
+          textEl.textContent = `${sum.toFixed(1)}h / ${ceiling.toFixed(1)}h`;
+        }
+        if (barEl) {
+          const percent = Math.min((sum / ceiling) * 100, 100);
+          barEl.style.width = `${percent}%`;
+          if (sum > ceiling) {
+            barEl.style.background = "var(--accent-red)";
+          } else {
+            const defaultColors = {
+              cerveau: "var(--accent-cyan)",
+              musculaire: "var(--accent-red)",
+              social: "var(--accent-green)",
+              creatif: "var(--accent-purple)"
+            };
+            barEl.style.background = defaultColors[cat];
+          }
+        }
+      });
+
+      // Render template-dependent agenda views only. The biological timeline is
+      // independent and is refreshed only on initial load or biological-zone CRUD.
+      renderTimeline(activeTemplate.agenda_json || []);
+      renderDailyRecap(activeTemplateName);
+    } catch (err) {
+      console.error("Erreur updateDailyBudgetGauge:", err);
+    }
+  }
+
+  function renderDailyRecap(templateName) {
+    const templateConfig = loadedTemplates[templateName] || {};
+    renderAgendaList(templateConfig.agenda_json || [], templateName);
+  }
+
+  function renderBudgetGauge() {
+    return updateDailyBudgetGauge();
+  }
+
+  // ==============================================
+  // TYPICAL DAY AGENDA INTEGRATION                //
+  // ==============================================
+
+  // Helper to convert time string to minutes
+  function timeToMinutes(tStr) {
+    if (!tStr) return 0;
+    if (tStr === "24:00") return 1440;
+    const [h, m] = tStr.split(":").map(Number);
+    return (h || 0) * 60 + (m || 0);
+  }
+
+  // Helper to convert minutes to HH:MM
+  function minutesToTime(mins) {
+    const h = Math.floor(mins / 60).toString().padStart(2, "0");
+    const m = (mins % 60).toString().padStart(2, "0");
+    return `${h}:${m}`;
+  }
+
+  // Render the horizontal timeline bar
+  function renderTimeline(agenda) {
+    const bar = document.getElementById("timeline-bar");
+    if (!bar) return;
+    bar.innerHTML = "";
+
+    if (!agenda || agenda.length === 0) {
+      bar.innerHTML = `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: var(--text-muted);">Aucun bloc planifié</div>`;
+      return;
+    }
+
+    // Sort blocks by start time
+    const sorted = [...agenda].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+
+    let currentMin = 0;
+    const timelineBlocks = [];
+
+    sorted.forEach(block => {
+      const startMin = timeToMinutes(block.start);
+      const endMin = timeToMinutes(block.end);
+
+      if (startMin > currentMin) {
+        // Gap block
+        timelineBlocks.push({
+          title: "Temps libre",
+          category: "unplanned",
+          start: minutesToTime(currentMin),
+          end: block.start,
+          duration: startMin - currentMin
+        });
+      }
+
+      if (endMin > startMin) {
+        timelineBlocks.push({
+          ...block,
+          duration: endMin - startMin
+        });
+        currentMin = endMin;
+      }
+    });
+
+    if (currentMin < 1440) {
+      timelineBlocks.push({
+        title: "Temps libre",
+        category: "unplanned",
+        start: minutesToTime(currentMin),
+        end: "24:00",
+        duration: 1440 - currentMin
+      });
+    }
+
+    // Render blocks
+    timelineBlocks.forEach(b => {
+      const pct = (b.duration / 1440) * 100;
+      const el = document.createElement("div");
+      el.className = `timeline-block block-${b.category}`;
+      el.style.width = `${pct}%`;
+      
+      // Category colors
+      if (b.category === "unplanned") {
+        el.style.background = "rgba(255, 255, 255, 0.03)";
+        el.style.borderRight = "1px dashed rgba(255,255,255,0.05)";
+      }
+
+      // Tooltip / title on hover
+      const hours = (b.duration / 60).toFixed(1);
+      el.title = `${b.title} (${b.start} - ${b.end}, ${hours}h)`;
+
+      // Show title if block is wide enough
+      if (pct > 7) {
+        const textSpan = document.createElement("span");
+        textSpan.style.cssText = "font-size: 0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;";
+        textSpan.textContent = b.title;
+        el.appendChild(textSpan);
+      } else if (pct > 3) {
+        const emojiSpan = document.createElement("span");
+        emojiSpan.textContent = b.category === "sleep" ? "💤" : (b.category === "focus" ? "🎯" : (b.category === "routine" ? "⚙️" : (b.category === "relax" ? "🍃" : "")));
+        el.appendChild(emojiSpan);
+      }
+
+      bar.appendChild(el);
+    });
+  }
+
+  // Render the list of blocks
+  function renderAgendaList(agenda, activeTemplateName) {
+    const listContainer = document.getElementById("agenda-blocks-list");
+    if (!listContainer) return;
+    listContainer.innerHTML = "";
+
+    if (!agenda || agenda.length === 0) {
+      listContainer.innerHTML = `<p style="text-align: center; font-size: 0.8rem; color: var(--text-muted); padding: 1rem;">Aucun bloc planifié pour cette journée type. Ajoutez un premier bloc pour construire votre recap.</p>`;
+      return;
+    }
+
+    // Sort chronologically
+    const sorted = [...agenda].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+
+    sorted.forEach(block => {
+      const item = document.createElement("div");
+      item.className = "agenda-item";
+
+      const timeSpan = document.createElement("div");
+      timeSpan.className = "agenda-time";
+      timeSpan.textContent = `${block.start} - ${block.end}`;
+
+      const details = document.createElement("div");
+      details.className = "agenda-details";
+
+      const title = document.createElement("div");
+      title.className = "agenda-title";
+      title.textContent = block.title;
+
+      const meta = document.createElement("div");
+      meta.className = "agenda-meta";
+
+      const catBadge = document.createElement("span");
+      catBadge.className = `badge-category ${block.category}`;
+      const catLabels = {
+        focus: "Focus 🎯",
+        routine: "Routine ⚙️",
+        relax: "Relax 🍃",
+        sleep: "Sleep 💤"
+      };
+      catBadge.textContent = catLabels[block.category] || block.category;
+      meta.appendChild(catBadge);
+
+      const effortBadge = document.createElement("span");
+      const effortLabels = {
+        musculaire: "Musculaire 💪",
+        cerveau: "Cerveau 🧠",
+        emotionnel_social: "Social 🤝",
+        creatif_divergent: "Créatif 🎨"
+      };
+      const effortType = block.effort_type || "none";
+      effortBadge.className = `effort-badge effort-${effortType}`;
+      effortBadge.textContent = block.effort_type
+        ? `${effortLabels[block.effort_type] || block.effort_type} (${block.effort_duration || 1}h)`
+        : "Non tagué";
+      meta.appendChild(effortBadge);
+      details.appendChild(title);
+      details.appendChild(meta);
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "btn-delete";
+      deleteBtn.title = "Supprimer ce bloc";
+      deleteBtn.textContent = "🗑️";
+      deleteBtn.addEventListener("click", () => deleteAgendaBlock(block.id, activeTemplateName, agenda));
+
+      item.appendChild(timeSpan);
+      item.appendChild(details);
+      item.appendChild(deleteBtn);
+
+      listContainer.appendChild(item);
+    });
+  }
+
+  // Delete a block from agenda
+  async function deleteAgendaBlock(blockId, templateName, currentAgenda) {
+    if (!confirm("Voulez-vous vraiment supprimer ce bloc ?")) return;
+
+    const updatedAgenda = currentAgenda.filter(b => b.id !== blockId);
+    
+    const templateConfig = loadedTemplates[templateName] || {};
+    const payload = {
+      template_name: templateName,
+      focus_hours: templateConfig.focus_hours !== undefined ? templateConfig.focus_hours : (templateName === "hustle" ? 9.0 : (templateName === "rest" ? 2.0 : 6.0)),
+      min_rest_hours: templateConfig.min_rest_hours !== undefined ? templateConfig.min_rest_hours : (templateName === "hustle" ? 6.0 : (templateName === "rest" ? 10.0 : 8.0)),
+      ceilings: templateConfig.ceilings || null,
+      agenda_json: updatedAgenda
+    };
+
+    try {
+      const response = await fetch(`${API_BASE}/templates`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-ID": localStorage.getItem("habit_user_id") || "1"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) throw new Error();
+      
+      showToast("Bloc supprimé avec succès !");
+      updateDailyBudgetGauge();
+    } catch (e) {
+      console.error(e);
+      showToast("Erreur lors de la suppression du bloc", true);
+    }
+  }
+
+  // Add block form toggles
+  if (toggleAddBlockBtn) {
+    toggleAddBlockBtn.addEventListener("click", () => {
+      const isHidden = addBlockFormContainer.style.display === "none";
+      addBlockFormContainer.style.display = isHidden ? "flex" : "none";
+      blockOverlapWarning.style.display = "none";
+    });
+  }
+
+  if (cancelAddBlockBtn) {
+    cancelAddBlockBtn.addEventListener("click", () => {
+      addBlockFormContainer.style.display = "none";
+      blockOverlapWarning.style.display = "none";
+      blockTitleInput.value = "";
+    });
+  }
+
+  // Check overlap condition helper
+  function checkTimeOverlap(start, end, agenda) {
+    const newStart = timeToMinutes(start);
+    const newEnd = timeToMinutes(end);
+    
+    for (const block of agenda) {
+      const bStart = timeToMinutes(block.start);
+      const bEnd = timeToMinutes(block.end);
+      
+      if (newStart < bEnd && newEnd > bStart) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function reevaluateOverlapWarning() {
+    const activeTemplateName = templateSelect.value || "regular";
+    const templateConfig = loadedTemplates[activeTemplateName] || {};
+    const currentAgenda = templateConfig.agenda_json || [];
+    const start = blockStartInput.value;
+    const end = blockEndInput.value;
+    
+    if (checkTimeOverlap(start, end, currentAgenda)) {
+      blockOverlapWarning.style.display = "block";
+    } else {
+      blockOverlapWarning.style.display = "none";
+    }
+  }
+
+  if (blockStartInput) blockStartInput.addEventListener("change", reevaluateOverlapWarning);
+  if (blockEndInput) blockEndInput.addEventListener("change", reevaluateOverlapWarning);
+
+  // Add a block to agenda
+  if (saveBlockBtn) {
+    saveBlockBtn.addEventListener("click", async () => {
+      const title = blockTitleInput.value.trim();
+      const start = blockStartInput.value;
+      const end = blockEndInput.value;
+      const category = blockCategorySelect.value;
+
+      if (!title) {
+        showToast("Le titre de l'activité ne peut pas être vide.", true);
+        return;
+      }
+
+      const activeTemplateName = templateSelect.value || "regular";
+      const templateConfig = loadedTemplates[activeTemplateName] || {};
+      const currentAgenda = templateConfig.agenda_json || [];
+
+      // Check overlap
+      if (checkTimeOverlap(start, end, currentAgenda)) {
+        blockOverlapWarning.style.display = "block";
+        showToast("⚠️ Conflit d'horaire avec un bloc existant.", true);
+        return;
+      } else {
+        blockOverlapWarning.style.display = "none";
+      }
+
+      const newId = currentAgenda.length > 0 ? Math.max(...currentAgenda.map(b => b.id)) + 1 : 1;
+      const updatedAgenda = [...currentAgenda, { id: newId, title, start, end, category }];
+
+      const payload = {
+        template_name: activeTemplateName,
+        focus_hours: templateConfig.focus_hours !== undefined ? templateConfig.focus_hours : (activeTemplateName === "hustle" ? 9.0 : (activeTemplateName === "rest" ? 2.0 : 6.0)),
+        min_rest_hours: templateConfig.min_rest_hours !== undefined ? templateConfig.min_rest_hours : (activeTemplateName === "hustle" ? 6.0 : (activeTemplateName === "rest" ? 10.0 : 8.0)),
+        ceilings: templateConfig.ceilings || null,
+        agenda_json: updatedAgenda
+      };
+
+      try {
+        const response = await fetch(`${API_BASE}/templates`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-User-ID": localStorage.getItem("habit_user_id") || "1"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error();
+
+        showToast("Bloc type ajouté !");
+        addBlockFormContainer.style.display = "none";
+        blockTitleInput.value = "";
+        updateDailyBudgetGauge();
+      } catch (e) {
+        console.error(e);
+        showToast("Erreur lors de l'ajout du bloc", true);
+      }
+    });
+  }
 
   // ==============================================
   // HISTORICAL Dot Calendar (30 Days)             //
@@ -906,6 +1598,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const stats = substepData.stats || [];
       document.getElementById("edit-substep-tag-1").value = stats.length > 0 ? stats[0] : "";
       document.getElementById("edit-substep-tag-2").value = stats.length > 1 ? stats[1] : "";
+      document.getElementById("edit-substep-effort-type").value = substepData.effort_type || "";
+      document.getElementById("edit-substep-effort-duration").value = substepData.effort_duration !== undefined && substepData.effort_duration !== null ? substepData.effort_duration : 1.0;
+
 
       const linkedGoalsContainer = document.getElementById("edit-substep-linked-goals");
       if (linkedGoalsContainer) {
@@ -1252,6 +1947,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const statsTags = s.stats.map(st => `<span class="substep-tag">${STAT_LABELS[st.toLowerCase()] || st}</span>`).join(" ");
 
+        const effortLabels = {
+          musculaire: "Musculaire 💪",
+          cerveau: "Cerveau 🧠",
+          emotionnel_social: "Social 🤝",
+          creatif_divergent: "Créatif 🎨"
+        };
+        const effortBadge = s.effort_type ? `<span class="effort-badge effort-${s.effort_type}">${effortLabels[s.effort_type]} (${s.effort_duration}h)</span>` : "";
+
         let linkedGoalsHTML = "";
         if (s.linked_goals && s.linked_goals.length > 0) {
           linkedGoalsHTML = `
@@ -1270,7 +1973,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <span class="tree-node-title" style="margin-top: 0.2rem;"><span style="color: var(--text-muted); font-size: 0.75em; margin-right: 0.2em;">[Étape ${s.execution_order || 1}]</span> ${s.title}</span>
             ${s.description ? `<span class="tree-node-desc" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.2rem; line-height: 1.2;">${s.description}</span>` : ""}
             <span class="tree-node-gold" style="margin-top: 0.3rem; display: block;">💰 +${s.gold_reward}g</span>
-            <div class="tree-node-stats">${statsTags}</div>
+            <div class="tree-node-stats">${statsTags}${effortBadge ? ' ' + effortBadge : ''}</div>
             ${linkedGoalsHTML}
             ${btnHTML}
           </div>
@@ -1406,6 +2109,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const tag2 = document.getElementById("substep-tag-2").value;
     const stats = [tag1, tag2].filter(s => s !== "");
 
+    const effortType = document.getElementById("substep-effort-type").value || null;
+    const effortDuration = parseFloat(document.getElementById("substep-effort-duration").value) || 1.0;
+
     try {
       const resp = await fetch(`${API_BASE}/goals/${goalId}/substeps`, {
         method: "POST",
@@ -1416,12 +2122,15 @@ document.addEventListener("DOMContentLoaded", () => {
           gold_reward: gold,
           stats_json: stats,
           execution_order: order,
-          is_life_lore: isLifeLore
+          is_life_lore: isLifeLore,
+          effort_type: effortType,
+          effort_duration: effortDuration
         })
       });
       if (!resp.ok) throw new Error();
       showToast("Sous-étape ajoutée et verrous forgés ! ⛓️");
       document.getElementById("create-substep-form").reset();
+      document.getElementById("substep-effort-duration").value = "1.0";
       closeDrawer();
       fetchGoals();
     } catch {
@@ -1443,6 +2152,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const tag2 = document.getElementById("edit-substep-tag-2").value;
     const stats = [tag1, tag2].filter(s => s !== "");
 
+    const effortType = document.getElementById("edit-substep-effort-type").value || null;
+    const effortDuration = parseFloat(document.getElementById("edit-substep-effort-duration").value) || 1.0;
+
     try {
       const resp = await fetch(`${API_BASE}/substeps/${subId}`, {
         method: "PUT",
@@ -1453,7 +2165,9 @@ document.addEventListener("DOMContentLoaded", () => {
           gold_reward: gold,
           stats_json: stats,
           execution_order: order,
-          is_life_lore: isLifeLore
+          is_life_lore: isLifeLore,
+          effort_type: effortType,
+          effort_duration: effortDuration
         })
       });
       if (!resp.ok) throw new Error();
@@ -1524,9 +2238,214 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==============================================
   const templateEditSelect = document.getElementById("template-edit-select");
   const editThresholdsForm = document.getElementById("edit-thresholds-form");
-  const inputsContainer = document.getElementById("thresholds-inputs-container");
 
   templateEditSelect.addEventListener("change", loadSettingsThresholds);
+
+  function showBioZoneError(message) {
+    const errorBox = document.getElementById("bio-zone-error");
+    if (!errorBox) return;
+    errorBox.textContent = message;
+    errorBox.style.display = "block";
+  }
+
+  function clearBioZoneError() {
+    const errorBox = document.getElementById("bio-zone-error");
+    if (!errorBox) return;
+    errorBox.textContent = "";
+    errorBox.style.display = "none";
+  }
+
+  async function readApiError(response) {
+    try {
+      const data = await response.json();
+      if (Array.isArray(data.detail)) {
+        return data.detail.map(item => item.msg || String(item)).join(" ");
+      }
+      return data.detail || "Erreur API";
+    } catch {
+      return "Erreur API";
+    }
+  }
+
+  function clearBioZoneForm() {
+    const form = document.getElementById("bio-zone-form");
+    const idInput = document.getElementById("bio-zone-id");
+    const submitBtn = document.getElementById("bio-zone-submit-btn");
+    const cancelBtn = document.getElementById("bio-zone-cancel-btn");
+    if (form) form.reset();
+    if (idInput) idInput.value = "";
+    const typeInput = document.getElementById("bio-zone-type");
+    const colorInput = document.getElementById("bio-zone-color");
+    if (typeInput) typeInput.value = "deep_focus";
+    if (colorInput) colorInput.value = bioZoneMeta.deep_focus.color;
+    if (submitBtn) submitBtn.textContent = "Ajouter la zone";
+    if (cancelBtn) cancelBtn.style.display = "none";
+    clearBioZoneError();
+  }
+
+  function populateBioZoneForm(zone) {
+    document.getElementById("bio-zone-id").value = zone.id;
+    document.getElementById("bio-zone-name").value = zone.zone_name;
+    document.getElementById("bio-zone-type").value = zone.zone_type;
+    document.getElementById("bio-zone-start").value = zone.start_time;
+    document.getElementById("bio-zone-end").value = zone.end_time;
+    document.getElementById("bio-zone-color").value = zone.color || getBioZoneMeta(zone.zone_type).color;
+    document.getElementById("bio-zone-order").value = zone.display_order || 0;
+    document.getElementById("bio-zone-submit-btn").textContent = "Mettre à jour";
+    document.getElementById("bio-zone-cancel-btn").style.display = "inline-flex";
+    clearBioZoneError();
+  }
+
+  function getBioZonePayload() {
+    const type = document.getElementById("bio-zone-type").value;
+    const color = document.getElementById("bio-zone-color").value;
+    return {
+      zone_name: document.getElementById("bio-zone-name").value.trim(),
+      zone_type: type,
+      start_time: document.getElementById("bio-zone-start").value,
+      end_time: document.getElementById("bio-zone-end").value,
+      color: color || getBioZoneMeta(type).color,
+      display_order: parseInt(document.getElementById("bio-zone-order").value, 10) || 0
+    };
+  }
+
+  async function refreshBioZonesAfterMutation(successMessage) {
+    const zones = await fetchBiologicalZones(true);
+    renderBioTimeline(zones);
+    renderBioZoneSettings(zones);
+    clearBioZoneForm();
+    if (successMessage) showToast(successMessage);
+  }
+
+  function renderBioZoneSettings(zones) {
+    const list = document.getElementById("bio-zone-list");
+    if (!list) return;
+    list.innerHTML = "";
+
+    if (!zones || zones.length === 0) {
+      list.innerHTML = `<p class="bio-zone-empty">Aucune zone biologique configurée.</p>`;
+      return;
+    }
+
+    const sorted = [...zones].sort((a, b) => {
+      const orderDiff = (a.display_order || 0) - (b.display_order || 0);
+      if (orderDiff !== 0) return orderDiff;
+      return timeToMinutes(a.start_time) - timeToMinutes(b.start_time);
+    });
+
+    sorted.forEach(zone => {
+      const meta = getBioZoneMeta(zone.zone_type);
+      const row = document.createElement("div");
+      row.className = "bio-zone-row";
+
+      const swatch = document.createElement("div");
+      swatch.className = "bio-zone-swatch";
+      swatch.style.background = zone.color || meta.color;
+
+      const details = document.createElement("div");
+      const title = document.createElement("div");
+      title.className = "bio-zone-title";
+      title.textContent = `${meta.emoji} ${zone.zone_name}`;
+      const metaText = document.createElement("div");
+      metaText.className = "bio-zone-meta";
+      metaText.textContent = `${meta.label} · ${zone.start_time} - ${zone.end_time}`;
+      details.appendChild(title);
+      details.appendChild(metaText);
+
+      const actions = document.createElement("div");
+      actions.className = "bio-zone-actions";
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "bio-zone-action-btn";
+      editBtn.title = "Modifier";
+      editBtn.textContent = "✏️";
+      editBtn.addEventListener("click", () => populateBioZoneForm(zone));
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "bio-zone-action-btn danger";
+      deleteBtn.title = "Supprimer";
+      deleteBtn.textContent = "🗑️";
+      deleteBtn.addEventListener("click", () => deleteBioZone(zone.id));
+
+      actions.appendChild(editBtn);
+      actions.appendChild(deleteBtn);
+      row.appendChild(swatch);
+      row.appendChild(details);
+      row.appendChild(actions);
+      list.appendChild(row);
+    });
+  }
+
+  async function loadBioZoneSettings() {
+    try {
+      const zones = await fetchBiologicalZones(true);
+      renderBioZoneSettings(zones);
+    } catch (error) {
+      console.error(error);
+      showBioZoneError("Impossible de charger les zones biologiques.");
+    }
+  }
+
+  async function saveBioZone(event) {
+    event.preventDefault();
+    clearBioZoneError();
+    const id = document.getElementById("bio-zone-id").value;
+    const payload = getBioZonePayload();
+    const url = id ? `${API_BASE}/biological-zones/${id}` : `${API_BASE}/biological-zones`;
+    const method = id ? "PUT" : "POST";
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+      await refreshBioZonesAfterMutation(id ? "Zone biologique mise à jour." : "Zone biologique ajoutée.");
+    } catch (error) {
+      console.error(error);
+      showBioZoneError(error.message);
+    }
+  }
+
+  async function deleteBioZone(zoneId) {
+    if (!confirm("Supprimer cette zone biologique ?")) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/biological-zones/${zoneId}`, {
+        method: "DELETE"
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response));
+      }
+      await refreshBioZonesAfterMutation("Zone biologique supprimée.");
+    } catch (error) {
+      console.error(error);
+      showBioZoneError(error.message);
+    }
+  }
+
+  const bioZoneForm = document.getElementById("bio-zone-form");
+  if (bioZoneForm) {
+    bioZoneForm.addEventListener("submit", saveBioZone);
+  }
+
+  const bioZoneCancelBtn = document.getElementById("bio-zone-cancel-btn");
+  if (bioZoneCancelBtn) {
+    bioZoneCancelBtn.addEventListener("click", clearBioZoneForm);
+  }
+
+  const bioZoneTypeInput = document.getElementById("bio-zone-type");
+  if (bioZoneTypeInput) {
+    bioZoneTypeInput.addEventListener("change", () => {
+      const colorInput = document.getElementById("bio-zone-color");
+      if (colorInput) colorInput.value = getBioZoneMeta(bioZoneTypeInput.value).color;
+    });
+  }
 
   async function loadSettingsThresholds() {
     try {
@@ -1535,19 +2454,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const templates = await response.json();
 
       const activeTemplate = templateEditSelect.value;
-      const thresholds = templates[activeTemplate] || {};
+      const config = templates[activeTemplate] || {};
 
-      inputsContainer.innerHTML = "";
-      Object.keys(STAT_LABELS).forEach(stat => {
-        const currentVal = thresholds[stat] || 0;
-        inputsContainer.innerHTML += `
-          <div class="form-group">
-            <label>${STAT_LABELS[stat]}</label>
-            <input type="number" name="${stat}" value="${currentVal}" min="0" required style="background: rgba(255,255,255,0.03); padding: 8px; border: 1px solid var(--border-glass); border-radius: 8px;">
-          </div>
-        `;
-      });
-    } catch {
+      document.getElementById("template-focus-hours").value = config.focus_hours !== undefined ? config.focus_hours : 6.0;
+      document.getElementById("template-min-rest").value = config.min_rest_hours !== undefined ? config.min_rest_hours : 8.0;
+
+      const ceilings = config.ceilings || {};
+      document.getElementById("ceiling-musculaire").value = ceilings.musculaire !== undefined ? ceilings.musculaire : 2.0;
+      document.getElementById("ceiling-cerveau").value = ceilings.cerveau !== undefined ? ceilings.cerveau : 2.0;
+      document.getElementById("ceiling-emotionnel").value = ceilings.emotionnel_social !== undefined ? ceilings.emotionnel_social : 2.0;
+      document.getElementById("ceiling-creatif").value = ceilings.creatif_divergent !== undefined ? ceilings.creatif_divergent : 2.0;
+      document.getElementById("ceiling-total").value = ceilings.total !== undefined ? ceilings.total : 8.0;
+    } catch (e) {
+      console.error(e);
       showToast("Erreur de récupération des templates", true);
     }
   }
@@ -1556,14 +2475,15 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     const activeTemplate = templateEditSelect.value;
     
-    const thresholds = {};
-    const inputs = inputsContainer.querySelectorAll("input");
-    inputs.forEach(inp => {
-      const val = parseInt(inp.value) || 0;
-      if (val > 0) {
-        thresholds[inp.name] = val;
-      }
-    });
+    const focus_hours = parseFloat(document.getElementById("template-focus-hours").value) || 0;
+    const min_rest_hours = parseFloat(document.getElementById("template-min-rest").value) || 0;
+    const ceilings = {
+      musculaire: parseFloat(document.getElementById("ceiling-musculaire").value) || 0,
+      cerveau: parseFloat(document.getElementById("ceiling-cerveau").value) || 0,
+      emotionnel_social: parseFloat(document.getElementById("ceiling-emotionnel").value) || 0,
+      creatif_divergent: parseFloat(document.getElementById("ceiling-creatif").value) || 0,
+      total: parseFloat(document.getElementById("ceiling-total").value) || 0
+    };
 
     try {
       const response = await fetch(`${API_BASE}/templates`, {
@@ -1571,16 +2491,20 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           template_name: activeTemplate,
-          thresholds_json: thresholds
+          focus_hours: focus_hours,
+          min_rest_hours: min_rest_hours,
+          ceilings: ceilings
         })
       });
       if (!response.ok) throw new Error();
-      showToast("Seuils de Perfect Day mis à jour ! ⚙️");
+      showToast("Budgets de Perfect Day mis à jour ! ⚙️");
       refreshAll();
-    } catch {
+    } catch (e) {
+      console.error(e);
       showToast("Erreur lors de l'enregistrement", true);
     }
   });
+
 
   async function fetchWeeklyPotentials() {
     try {
@@ -1645,6 +2569,10 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("edit-quest-tag-1").value = tags[0] || "";
     document.getElementById("edit-quest-tag-2").value = tags[1] || "";
 
+    // Populate effort
+    document.getElementById("edit-quest-effort-type").value = habit.effort_type || "";
+    document.getElementById("edit-quest-effort-duration").value = habit.effort_duration !== undefined && habit.effort_duration !== null ? habit.effort_duration : 1.0;
+
     // Show/hide day checkboxes
     const isSpecific = habit.frequency === "specific_days";
     editDaysGroup.style.display = isSpecific ? "block" : "none";
@@ -1687,6 +2615,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (tag1) point_rewards[tag1] = 1;
     if (tag2) point_rewards[tag2] = 1;
 
+    const effort_type = document.getElementById("edit-quest-effort-type").value || null;
+    const effort_duration = parseFloat(document.getElementById("edit-quest-effort-duration").value) || 1.0;
+
     const body = {
       name:           document.getElementById("edit-quest-name").value.trim(),
       description:    document.getElementById("edit-quest-desc").value.trim(),
@@ -1695,6 +2626,8 @@ document.addEventListener("DOMContentLoaded", () => {
       scheduled_days,
       daily_target:   editTargetRaw > 1 ? editTargetRaw : 1,  // 1 = pas de cible (exclude_none empêche de remettre null)
       point_rewards:  point_rewards,
+      effort_type,
+      effort_duration,
     };
     try {
       const r = await fetch(`${API_BASE}/habits/${id}`, {
@@ -1732,6 +2665,7 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchHistory();
     fetchBounties();
     fetchNoTodos();
+    updateDailyBudgetGauge();
     
     const rewardsTab = document.getElementById("rewards-tab");
     if (rewardsTab && rewardsTab.classList.contains("active")) {
@@ -1793,6 +2727,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function initializeApp() {
+    mountPerfectDayRenderingLayout();
+    biologicalZonesCache = null;
+    loadBioTimeline();
     refreshAll();
     setupToggleEvents();
     setupBountiesEvents();
@@ -1850,6 +2787,9 @@ document.addEventListener("DOMContentLoaded", () => {
           scheduled_days = checked.length > 0 ? checked.join(",") : "0,1,2,3,4,5,6";
         }
 
+        const effort_type = document.getElementById("new-quest-effort-type").value || null;
+        const effort_duration = parseFloat(document.getElementById("new-quest-effort-duration").value) || 1.0;
+
         if (!title) {
           showToast("Veuillez donner un titre à la quête !", true);
           return;
@@ -1872,6 +2812,8 @@ document.addEventListener("DOMContentLoaded", () => {
               frequency: frequency,
               scheduled_days: scheduled_days,
               daily_target: daily_target,
+              effort_type: effort_type,
+              effort_duration: effort_duration,
             })
           });
 
@@ -1885,6 +2827,8 @@ document.addEventListener("DOMContentLoaded", () => {
           document.getElementById("new-quest-desc").value = "";
           document.getElementById("new-quest-tag-1").value = "";
           document.getElementById("new-quest-tag-2").value = "";
+          document.getElementById("new-quest-effort-type").value = "";
+          document.getElementById("new-quest-effort-duration").value = "1.0";
           document.getElementById("new-quest-unit").value = "";
           document.getElementById("new-quest-target").value = "";
           if (freqSelect) freqSelect.value = "daily";
@@ -3569,6 +4513,7 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast("Épingles 3-3-3 sauvegardées ! 📌");
       closeRecapPinDrawer();
       fetchProfile(); // Reload dashboard profile and recap panel
+      updateDailyBudgetGauge();
     } catch (err) {
       showToast(err.message, true);
     }

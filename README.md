@@ -33,44 +33,47 @@ L'idée de base : transformer la discipline quotidienne en jeu (XP, niveaux, or,
 > idées conservées ici en attendant d'être cadrées dans `specs/`. 
 
 
-- **V3 — intégrations externes** : calendrier employeur, app de todo externe, API professionnelles.
-- **Fin d'objectif par cumul de succès** (ex. 180 succès ≈ 6 mois), statuts abandonné / terminé.
-- **Régulation de la charge cognitive** : limiter les projets et habitudes actifs simultanément.
-- **Système de Punitions** : actions compensatoires constructives face à l'échec d'engagements.
-- **Vision Agenda pour les Todos** : Ajout d'une date d'échéance (*due date*) et d'une date de planification (*do date*) pour les Todos.
-- **Plugin MCP / Assistant IA** : Développement de connecteurs facilitant l'accès et la création d'emploi du temps par une IA.
-- **Perfect Day Agenda automatisé** : Liaison des habitudes à une durée associée pour pré-remplir l'agenda du Perfect Day par défaut.
-- **Simplification du système de statistiques** : Évolution vers un système de progression plus simple (les statistiques augmentent avec les niveaux globaux, et l'échec d'une habitude entraîne une perte de points de statistique).
+
+
+
+
+
+Connexion et liaisons des habitudes directement à des compétences (softskills) ou objectifs majeurs. Des que je met des objectifs dans 3-3-3 recaps. Sa creer une habitude et quand je les retire, cela les désactivent automatiquement. ET pour les skill et  objectifs dans recap-3-3-3 je dois les remplir selon SMART !
+
+bug:
+- 3-3-3 recap -> les objectifs se font selectionner puis ils n'apparaissent plus 
+- type de journée non visible dans index.
+
+
+Modification
+ - SMART = almost un todo  !
+ - Journée Biologique va dans la page perfect day
+ - Budget d'Énergie Quotidien va dans la page perfect day
+ - Recap 3 - 3 - 3 devient un ligne, apparait juste en base du div gabriel
+ - 🛡️ Activité du Jour (Tags) -> delete !
+ - Chronologie de la Journée Type = montre un vrai calendrier. les heures de la journée apparaissent horizontalement ! A cote de Quete Aujourd'hui. 
+ - Perfect day: 
+  
+
+
+---
+
 - **Évolution des Habitudes** :
-  - Pérennisation du suivi par jalons (90 et 180 succès).
-  - Gestion de plusieurs niveaux de difficulté préparés à l'avance pour une même habitude.
-  - Connexion et liaisons des habitudes directement à des compétences (softskills) ou objectifs majeurs.
+	- Pérennisation du suivi par jalons (90 et 180 succès).
+	- Gestion de plusieurs niveaux de difficulté préparés à l'avance pour une même habitude.
+		- La streak se conserve !
+		- Modifiable dans edition ou quand je creer l'habitude. Par defaut tout ce remplis pareil sauf la description. 
+
+- **Fin d'objectif par cumul de succès** (ex. 180 succès ≈ 6 mois), statuts abandonné / terminé.
+- **Système de Punitions** : actions compensatoires constructives face à l'échec d'engagements.
+
+
+
+
+- **V3 — intégrations externes** : calendrier employeur, app de todo externe, API professionnelles.
+- **Plugin MCP / Assistant IA** : Développement de connecteurs facilitant l'accès et la création d'emploi du temps par une IA.
 - **Accès à distance sécurisé** : Configurer la Raspberry Pi (par exemple via Tailscale, Cloudflare Tunnels ou un reverse proxy sécurisé) afin de pouvoir accéder au site web et à l'API de n'importe où dans le monde.
 
-
-```
-Brainstorm with me DO NOT CODE !
-Le system de 3-3-3 est good ! La visualisation des skills et des objectifs aussi. 
-Mais je veux avoir une séparation entre to do, une action planifier dans le temps et que je planifie dans mon agenda (outside of scope of the app). VS habitudes, ce que je dois faire régulièrement pour mon "developpement perso" et mon statue quo VS nouvelle habitude / changement planifier pour réussir les 3 objectifs selectionner ou les 3 competences selectionner. 
-
-Propose moi des idées
-
-
----
-
-index change. 3-3-3 devient horizontal.
-la colonne de gauche prend un agenda et celle de droite reste ce qu'elle est.
-
-
-
----
-3-3-3: 
-juste les lvl disponible a validé sont affichés !
-Objectif affichage a revoir + UK aussi !
-
-```
-
----
 
 ## 👥 Collaboration & développement
 
