@@ -432,7 +432,14 @@ def _raise_biological_zone_overlap(zone: BiologicalZone):
 # --- Server-side validation helpers ---
 
 VALID_HABIT_TYPES = {"binary", "quantitative"}
-VALID_FREQUENCIES = {"daily", "weekly", "monthly", "custom", "specific_days"}
+VALID_FREQUENCIES = {"daily", "monthly", "custom", "specific_days"}
+VALID_EFFORT_TYPES = {
+    "musculaire",
+    "cerveau",
+    "emotionnel_social",
+    "creatif_divergent",
+    "repos",
+}
 
 
 def _split_habit_version_name(name: str) -> tuple[Optional[int], str]:
@@ -519,6 +526,43 @@ def validate_habit_payload(payload: "HabitCreate"):
     if payload.type == "quantitative" and not payload.unit:
         raise HTTPException(
             status_code=400, detail="A quantitative habit requires a 'unit'."
+        )
+    if (
+        payload.effort_type is not None
+        and payload.effort_type not in VALID_EFFORT_TYPES
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid effort_type '{payload.effort_type}'. Valid: {', '.join(sorted(VALID_EFFORT_TYPES))}",
+        )
+
+
+def normalize_habit_schedule(
+    frequency: Optional[str], scheduled_days: Optional[str]
+) -> str:
+    if frequency == "monthly":
+        return str(agenda_service.monthly_anchor_day(scheduled_days))
+    return scheduled_days or "0,1,2,3,4,5,6"
+
+
+def validate_habit_update_payload(payload_dict: dict):
+    habit_type = payload_dict.get("type")
+    if habit_type is not None and habit_type not in VALID_HABIT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid habit type '{habit_type}'. Valid types: {', '.join(sorted(VALID_HABIT_TYPES))}",
+        )
+    frequency = payload_dict.get("frequency")
+    if frequency is not None and frequency not in VALID_FREQUENCIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid frequency '{frequency}'. Valid: {', '.join(sorted(VALID_FREQUENCIES))}",
+        )
+    effort_type = payload_dict.get("effort_type")
+    if effort_type is not None and effort_type not in VALID_EFFORT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid effort_type '{effort_type}'. Valid: {', '.join(sorted(VALID_EFFORT_TYPES))}",
         )
 
 
@@ -847,8 +891,6 @@ def get_status(
     ]
 
     # Remaining scheduled habits (not yet logged)
-    weekday = today.weekday()
-    model_day_idx = (weekday + 1) % 7
     all_habits = (
         db.query(Habit)
         .filter(
@@ -860,10 +902,10 @@ def get_status(
     )
     remaining = []
     for habit in all_habits:
-        scheduled = str(model_day_idx) in [
-            day.strip() for day in habit.scheduled_days.split(",")
-        ]
-        if not scheduled or habit.id in logged_habit_ids:
+        if (
+            not agenda_service.is_habit_eligible_on_date(habit, today, user)
+            or habit.id in logged_habit_ids
+        ):
             continue
         remaining.append({"habit_id": habit.id, "name": habit.name, "type": habit.type})
 
@@ -2125,8 +2167,8 @@ def get_habits(
         _version_index, base_name = _split_habit_version_name(h.name)
         version_history = _habit_version_history(all_user_habits, base_name)
         completed_this_period = False
-        if h.frequency in ("weekly", "monthly"):
-            cutoff = week_start if h.frequency == "weekly" else month_start
+        if h.frequency == "monthly":
+            cutoff = month_start
             completed_this_period = (
                 db.query(HabitLog)
                 .filter(
@@ -2337,9 +2379,11 @@ def update_habit(
         raise HTTPException(status_code=404, detail="Habit not found.")
 
     # Handle active status transition logic
-    payload_dict = payload.model_dump(exclude_none=True)
+    payload_dict = payload.model_dump(exclude_unset=True)
+    validate_habit_update_payload(payload_dict)
     if (
         "agenda_duration_minutes" in payload_dict
+        and payload_dict["agenda_duration_minutes"] is not None
         and payload_dict["agenda_duration_minutes"] <= 0
     ):
         raise HTTPException(
@@ -2362,6 +2406,13 @@ def update_habit(
                     if h_streak:
                         h_streak.current_streak = 0
             habit.deactivated_at = None
+
+    target_frequency = payload_dict.get("frequency", habit.frequency or "daily")
+    if "frequency" in payload_dict or "scheduled_days" in payload_dict:
+        payload_dict["scheduled_days"] = normalize_habit_schedule(
+            target_frequency,
+            payload_dict.get("scheduled_days", habit.scheduled_days),
+        )
 
     for field, value in payload_dict.items():
         setattr(habit, field, value)
@@ -2489,11 +2540,10 @@ def get_habit_calendar(
         elif is_skipped:
             days_status[day] = "skipped"
         else:
-            weekday = day_date.weekday()
-            model_day_idx = (weekday + 1) % 7
-            is_scheduled = str(model_day_idx) in [
-                d.strip() for d in habit.scheduled_days.split(",")
-            ]
+            user = db.query(User).filter_by(id=user_id).first()
+            is_scheduled = bool(
+                user and agenda_service.is_habit_eligible_on_date(habit, day_date, user)
+            )
 
             if is_scheduled:
                 days_status[day] = "missed"
@@ -2533,7 +2583,9 @@ def create_habit(
         type=payload.type,
         description=payload.description,
         frequency=payload.frequency,
-        scheduled_days=payload.scheduled_days,
+        scheduled_days=normalize_habit_schedule(
+            payload.frequency, payload.scheduled_days
+        ),
         reminder_time=payload.reminder_time,
         is_private=payload.is_private,
         is_reportable=payload.is_reportable,

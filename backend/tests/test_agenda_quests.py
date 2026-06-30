@@ -203,11 +203,14 @@ def test_placement_update_rejects_overlap_and_delete_unplaces(client):
         json={"start_time": "08:15", "duration_minutes": 30},
         headers={"X-User-ID": "1"},
     )
-    assert overlap.status_code == 422
-    assert "Chevauchement" in overlap.json()["detail"]
+    assert overlap.status_code == 200
+    shifted = next(
+        q for q in overlap.json()["placed_quests"] if q["habit_id"] == second_id
+    )
+    assert shifted["start_time"] == "08:45"
 
     invalid_snap = client.put(
-        f"/api/v1/agenda/2026-07-06/quests/{second_id}/placement",
+        f"/api/v1/agenda/2026-07-06/quests/{first_id}/placement",
         json={"start_time": "08:10", "duration_minutes": 30},
         headers={"X-User-ID": "1"},
     )
@@ -218,11 +221,41 @@ def test_placement_update_rejects_overlap_and_delete_unplaces(client):
         headers={"X-User-ID": "1"},
     )
     assert removed.status_code == 200
-    assert removed.json()["placed_quests"] == []
+    assert [q["habit_id"] for q in removed.json()["placed_quests"]] == [second_id]
     assert {q["habit_id"] for q in removed.json()["unplaced_quests"]} == {
         first_id,
-        second_id,
     }
+
+
+def test_placement_auto_shift_rejects_when_gap_is_too_small(client):
+    first_id = add_habit(name="Deep work", agenda_duration_minutes=30)
+    second_id = add_habit(name="Review", agenda_duration_minutes=30)
+    third_id = add_habit(name="Write", agenda_duration_minutes=30)
+
+    assert (
+        client.put(
+            f"/api/v1/agenda/2026-07-06/quests/{first_id}/placement",
+            json={"start_time": "08:00", "duration_minutes": 30},
+            headers={"X-User-ID": "1"},
+        ).status_code
+        == 200
+    )
+    assert (
+        client.put(
+            f"/api/v1/agenda/2026-07-06/quests/{second_id}/placement",
+            json={"start_time": "09:00", "duration_minutes": 30},
+            headers={"X-User-ID": "1"},
+        ).status_code
+        == 200
+    )
+
+    rejected = client.put(
+        f"/api/v1/agenda/2026-07-06/quests/{third_id}/placement",
+        json={"start_time": "08:15", "duration_minutes": 30},
+        headers={"X-User-ID": "1"},
+    )
+    assert rejected.status_code == 422
+    assert "Aucun creneau libre suffisant" in rejected.json()["detail"]
 
 
 def test_save_as_template_reuses_daily_placement_on_future_dates(client):
@@ -259,6 +292,72 @@ def test_budget_totals_include_unplaced_visible_quests(client):
     data = response.json()
     assert data["effort_totals"]["cerveau"] == 3.0
     assert any("cerveau" in warning for warning in data["warnings"])
+
+
+def test_repos_counts_toward_minimum_rest_budget(client):
+    add_habit(name="Nap", effort_type="repos", effort_duration=2.0)
+
+    response = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["effort_totals"]["repos"] == 2.0
+    assert any("Repos planifie insuffisant" in warning for warning in data["warnings"])
+
+
+def test_monthly_quest_uses_day_of_month_anchor(client):
+    monthly_id = add_habit(
+        name="Monthly review",
+        frequency="monthly",
+        scheduled_days="30",
+    )
+
+    due = client.get("/api/v1/agenda?date=2026-07-30", headers={"X-User-ID": "1"})
+    assert due.status_code == 200
+    assert [q["habit_id"] for q in due.json()["unplaced_quests"]] == [monthly_id]
+
+    not_due = client.get("/api/v1/agenda?date=2026-07-29", headers={"X-User-ID": "1"})
+    assert not_due.status_code == 200
+    assert not_due.json()["unplaced_quests"] == []
+
+
+def test_create_monthly_clamps_day_and_weekly_is_rejected(client):
+    weekly = client.post(
+        "/api/v1/habits",
+        json={"name": "Old weekly", "type": "binary", "frequency": "weekly"},
+        headers={"X-User-ID": "1"},
+    )
+    assert weekly.status_code == 400
+
+    monthly = client.post(
+        "/api/v1/habits",
+        json={
+            "name": "Monthly close",
+            "type": "binary",
+            "frequency": "monthly",
+            "scheduled_days": "31",
+        },
+        headers={"X-User-ID": "1"},
+    )
+    assert monthly.status_code == 201
+
+    habits = client.get("/api/v1/habits", headers={"X-User-ID": "1"}).json()
+    created = next(h for h in habits if h["name"] == "Monthly close")
+    assert created["scheduled_days"] == "30"
+
+
+def test_update_can_clear_effort_type_for_rest_of_the_day(client):
+    habit_id = add_habit(name="Clear effort", effort_type="cerveau")
+
+    response = client.put(
+        f"/api/v1/habits/{habit_id}",
+        json={"effort_type": None},
+        headers={"X-User-ID": "1"},
+    )
+    assert response.status_code == 200
+
+    habits = client.get("/api/v1/habits", headers={"X-User-ID": "1"}).json()
+    updated = next(h for h in habits if h["id"] == habit_id)
+    assert updated["effort_type"] is None
 
 
 def test_archive_and_unarchive_are_explicit(client):

@@ -8,6 +8,7 @@ from src.database.models import (
     Streak,
     Todo,
 )
+from src.services.agenda_service import is_habit_eligible_on_date
 
 
 def calculate_daily_score(
@@ -44,6 +45,10 @@ def calculate_daily_score(
         .all()
     )
 
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        return None
+
     # 3. Get all active habits for the user
     habits = (
         db.query(Habit)
@@ -56,16 +61,7 @@ def calculate_daily_score(
     )
 
     # 4. Check if all scheduled habits are completed/skipped today
-    weekday = date.weekday()
-    model_day_idx = (weekday + 1) % 7  # 0=Sun, 1=Mon, ..., 6=Sat
-
-    scheduled_habits = []
-    for h in habits:
-        scheduled = str(model_day_idx) in [
-            d.strip() for d in h.scheduled_days.split(",")
-        ]
-        if scheduled:
-            scheduled_habits.append(h)
+    scheduled_habits = [h for h in habits if is_habit_eligible_on_date(h, date, user)]
 
     # Group logs by habit
     logs_by_habit = {}
@@ -148,10 +144,6 @@ def update_streaks(db: Session, user_id: int, date: datetime.date):
             ):
                 perf_streak.current_streak = 0
 
-    # 2. Update Individual Habit Streaks
-    weekday = date.weekday()
-    model_day_idx = (weekday + 1) % 7
-
     habits = (
         db.query(Habit)
         .filter(
@@ -161,11 +153,13 @@ def update_streaks(db: Session, user_id: int, date: datetime.date):
         )
         .all()
     )
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        db.commit()
+        return
+
     for habit in habits:
-        scheduled = str(model_day_idx) in [
-            day.strip() for day in habit.scheduled_days.split(",")
-        ]
-        if not scheduled:
+        if not is_habit_eligible_on_date(habit, date, user):
             continue
 
         start_dt = datetime.datetime.combine(date, datetime.time.min)
@@ -208,11 +202,7 @@ def update_streaks(db: Session, user_id: int, date: datetime.date):
         )
         last_scheduled_date = None
         while test_date >= limit_date:
-            t_weekday = test_date.weekday()
-            t_model_day_idx = (t_weekday + 1) % 7
-            if str(t_model_day_idx) in [
-                day.strip() for day in habit.scheduled_days.split(",")
-            ]:
+            if is_habit_eligible_on_date(habit, test_date, user):
                 last_scheduled_date = test_date
                 break
             test_date -= datetime.timedelta(days=1)

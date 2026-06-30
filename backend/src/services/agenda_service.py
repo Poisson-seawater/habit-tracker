@@ -22,7 +22,17 @@ EFFORT_TYPES = {
     "cerveau",
     "emotionnel_social",
     "creatif_divergent",
+    "repos",
 }
+
+EFFORT_CEILING_TYPES = {
+    "musculaire",
+    "cerveau",
+    "emotionnel_social",
+    "creatif_divergent",
+}
+
+AGENDA_BUFFER_MINUTES = 15
 
 DEFAULT_CEILINGS = {
     "rest": {
@@ -65,6 +75,29 @@ SEGMENT_KIND_MAP = {
 def day_index_for_date(date_value: datetime.date) -> int:
     """Return the project convention: 0=Sunday, 1=Monday, ..., 6=Saturday."""
     return (date_value.weekday() + 1) % 7
+
+
+def monthly_anchor_day(
+    value: Optional[str], default_date: Optional[datetime.date] = None
+) -> int:
+    raw = str(value or "").split(",", 1)[0].strip()
+    try:
+        day = int(raw)
+    except ValueError:
+        fallback = default_date or datetime.date.today()
+        day = fallback.day
+    if day < 1:
+        fallback = default_date or datetime.date.today()
+        day = fallback.day
+    return min(day, 30)
+
+
+def is_monthly_due_on_date(anchor_day: int, date_value: datetime.date) -> bool:
+    import calendar
+
+    last_day = calendar.monthrange(date_value.year, date_value.month)[1]
+    due_day = min(anchor_day, last_day)
+    return date_value.day == due_day
 
 
 def is_valid_time_string(value: str) -> bool:
@@ -321,7 +354,15 @@ def is_habit_eligible_on_date(
             return False
 
     frequency = habit.frequency or "daily"
-    if frequency not in {"daily", "weekly", "monthly", "custom", "specific_days"}:
+    if frequency == "monthly":
+        return is_monthly_due_on_date(
+            monthly_anchor_day(
+                habit.scheduled_days,
+                habit.created_at.date() if habit.created_at else None,
+            ),
+            date_value,
+        )
+    if frequency not in {"daily", "custom", "specific_days"}:
         return False
 
     day_index = str(day_index_for_date(date_value))
@@ -496,7 +537,9 @@ def _ranges_overlap(left: tuple[int, int], right: tuple[int, int]) -> bool:
     return left[0] < right[1] and right[0] < left[1]
 
 
-def _compute_effort(quest_items: list[dict], ceilings: dict) -> dict:
+def _compute_effort(
+    quest_items: list[dict], ceilings: dict, min_rest_hours: float
+) -> dict:
     totals = {key: 0.0 for key in EFFORT_TYPES}
     warnings = []
     incomplete = []
@@ -509,7 +552,7 @@ def _compute_effort(quest_items: list[dict], ceilings: dict) -> dict:
             continue
         totals[effort_type] += float(effort_duration)
 
-    total = sum(totals.values())
+    total = sum(totals[key] for key in EFFORT_CEILING_TYPES)
     totals["total"] = total
 
     labels = {
@@ -529,6 +572,10 @@ def _compute_effort(quest_items: list[dict], ceilings: dict) -> dict:
     )
     if total > total_ceiling:
         warnings.append(f"Budget total depasse: {total:.1f}h / {total_ceiling:.1f}h.")
+    if min_rest_hours > 0 and totals["repos"] < min_rest_hours:
+        warnings.append(
+            f"Repos planifie insuffisant: {totals['repos']:.1f}h / {float(min_rest_hours):.1f}h minimum."
+        )
 
     return {
         "totals": totals,
@@ -625,7 +672,11 @@ def build_agenda_response(
             unplaced_quests.append(item)
         all_items.append(item)
 
-    effort = _compute_effort(all_items, template_config["ceilings"])
+    effort = _compute_effort(
+        all_items,
+        template_config["ceilings"],
+        template_config["min_rest_hours"],
+    )
     placed_quests.sort(key=lambda item: time_to_minutes(item["start_time"]))
     unplaced_quests.sort(key=lambda item: item["name"].lower())
 
@@ -671,6 +722,60 @@ def _validate_placement_time(start_time: str, duration_minutes: int) -> tuple[in
     return start_min, end_min
 
 
+def _placement_busy_range(item: dict) -> Optional[tuple[int, int]]:
+    placement_range = _effective_placement_range(item)
+    if not placement_range:
+        return None
+    return (placement_range[0], placement_range[1] + AGENDA_BUFFER_MINUTES)
+
+
+def _resolve_auto_shifted_range(
+    requested_start: int,
+    duration_minutes: int,
+    placed_items: list[dict],
+) -> tuple[int, int, bool]:
+    requested_busy = (
+        requested_start,
+        requested_start + duration_minutes + AGENDA_BUFFER_MINUTES,
+    )
+    busy_ranges = []
+    for item in placed_items:
+        busy_range = _placement_busy_range(item)
+        if busy_range:
+            busy_ranges.append((busy_range[0], busy_range[1], item))
+    busy_ranges.sort(key=lambda value: value[0])
+
+    conflict = None
+    for busy_start, busy_end, item in busy_ranges:
+        if _ranges_overlap(requested_busy, (busy_start, busy_end)):
+            conflict = (busy_start, busy_end, item)
+            break
+
+    if not conflict:
+        return requested_start, requested_start + duration_minutes, False
+
+    shifted_start = conflict[1]
+    shifted_end = shifted_start + duration_minutes
+    if shifted_end > 1440:
+        raise HTTPException(
+            status_code=422,
+            detail="Aucun creneau libre suffisant avant 24:00 apres le buffer.",
+        )
+
+    shifted_busy_end = shifted_end + AGENDA_BUFFER_MINUTES
+    for busy_start, _busy_end, item in busy_ranges:
+        if busy_start < shifted_start:
+            continue
+        if shifted_busy_end > busy_start:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Aucun creneau libre suffisant avant {item['name']} ({item['start_time']}).",
+            )
+        break
+
+    return shifted_start, shifted_end, True
+
+
 def update_placement(
     db: Session,
     user_id: int,
@@ -693,15 +798,14 @@ def update_placement(
 
     agenda, _ = build_agenda_response(db, user_id, date_value)
     if not allow_overlap:
-        for item in agenda["placed_quests"]:
-            if item["habit_id"] == habit_id:
-                continue
-            existing_range = _effective_placement_range(item)
-            if existing_range and _ranges_overlap(target_range, existing_range):
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"Chevauchement avec {item['name']} ({item['start_time']}).",
-                )
+        placed_without_current = [
+            item for item in agenda["placed_quests"] if item["habit_id"] != habit_id
+        ]
+        shifted_start, shifted_end, _shifted = _resolve_auto_shifted_range(
+            target_range[0], duration, placed_without_current
+        )
+        target_range = (shifted_start, shifted_end)
+        start_time = minutes_to_time(shifted_start)
 
     placement = (
         db.query(DailyAgendaPlacement)

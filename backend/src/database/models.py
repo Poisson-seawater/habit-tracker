@@ -71,7 +71,9 @@ class Habit(Base):
     name = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
     type = Column(String, nullable=False)  # "binary" or "quantitative"
-    frequency = Column(String, default="daily")  # "daily", "weekly", "custom"
+    frequency = Column(
+        String, default="daily"
+    )  # "daily", "monthly", "custom", "specific_days"
     scheduled_days = Column(
         String, default="0,1,2,3,4,5,6"
     )  # Comma-separated Mon-Sun (0=Sun, 1=Mon, ..., 6=Sat)
@@ -88,7 +90,7 @@ class Habit(Base):
     deactivated_at = Column(DateTime, nullable=True)
     effort_type = Column(
         String, nullable=True
-    )  # "musculaire", "cerveau", "emotionnel_social", "creatif_divergent"
+    )  # "musculaire", "cerveau", "emotionnel_social", "creatif_divergent", "repos"
     effort_duration = Column(Float, default=1.0, nullable=False)
     source_type = Column(String, nullable=True, default="manual")
     source_ref = Column(String, nullable=True)
@@ -297,7 +299,7 @@ class SubStep(Base):
     is_life_lore = Column(Boolean, default=False, nullable=False)
     effort_type = Column(
         String, nullable=True
-    )  # "musculaire", "cerveau", "emotionnel_social", "creatif_divergent"
+    )  # "musculaire", "cerveau", "emotionnel_social", "creatif_divergent", "repos"
     effort_duration = Column(Float, default=1.0, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.now)
 

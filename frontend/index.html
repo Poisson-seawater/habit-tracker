@@ -925,29 +925,19 @@
                 <button type="button" class="floating-add-btn" id="agenda-refresh-btn" title="Rafraîchir l'agenda">↻</button>
               </div>
 
-              <div class="agenda-save-row">
-                <button type="button" class="agenda-save-btn" data-template="rest">Sauver rest</button>
-                <button type="button" class="agenda-save-btn" data-template="regular">Sauver regular</button>
-                <button type="button" class="agenda-save-btn" data-template="hustle">Sauver hustle</button>
+              <div class="agenda-save-row" id="agenda-save-row">
+                <button type="button" class="agenda-save-btn" data-template="rest" style="display: none;">Sauver rest</button>
+                <button type="button" class="agenda-save-btn" data-template="regular" style="display: none;">Sauver regular</button>
+                <button type="button" class="agenda-save-btn" data-template="hustle" style="display: none;">Sauver hustle</button>
               </div>
 
               <div id="agenda-warnings" class="agenda-warnings"></div>
               <div id="agenda-effort-summary" class="agenda-effort-summary"></div>
 
               <div class="agenda-workspace">
-                <aside class="agenda-unplaced-panel">
-                  <h3>Quêtes visibles</h3>
-                  <div id="agenda-unplaced-list" class="agenda-unplaced-list">
-                    <p class="agenda-empty">Chargement...</p>
-                  </div>
-                </aside>
-
                 <div class="agenda-timeline-panel">
                   <div class="timeline-container agenda-drop-container">
-                    <div class="timeline-bar agenda-timeline-bar" id="timeline-bar"></div>
-                    <div class="agenda-slot-grid" id="agenda-slot-grid"></div>
-                    <div class="timeline-labels">
-                      <span>00:00</span>
+                    <div class="agenda-time-rail" aria-hidden="true">
                       <span>04:00</span>
                       <span>08:00</span>
                       <span>12:00</span>
@@ -955,13 +945,10 @@
                       <span>20:00</span>
                       <span>24:00</span>
                     </div>
-                  </div>
-
-                  <div class="agenda-section-header">
-                    <h3>Placements du jour</h3>
-                  </div>
-                  <div id="agenda-blocks-list" class="agenda-placed-list">
-                    <p class="agenda-empty">Aucune quête placée.</p>
+                    <div class="agenda-vertical-stage">
+                      <div class="timeline-bar agenda-timeline-bar" id="timeline-bar"></div>
+                      <div class="agenda-slot-grid" id="agenda-slot-grid"></div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -977,9 +964,9 @@
           <!-- Quests Widget (Habits Check-ins) -->
           <section class="glass-card quests-panel">
             <h2 class="section-header">
-              <span id="quests-panel-title">🎯 Quêtes Actives (Aujourd'hui)</span>
+              <span id="quests-panel-title">🎯 Quêtes à placer</span>
               <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <button class="floating-add-btn" id="toggle-quests-view-btn" title="Voir les autres jours">➡️</button>
+                <button class="floating-add-btn" id="toggle-quests-view-btn" title="Voir les autres jours" style="display: none;">➡️</button>
                 <button class="floating-add-btn" id="open-quest-inline-btn">+ Quête</button>
               </div>
             </h2>
@@ -1009,9 +996,9 @@
                   <select id="new-quest-frequency" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
                     <option value="daily">Quotidien</option>
                     <option value="specific_days">Jours spécifiques</option>
-                    <option value="weekly">Hebdomadaire</option>
                     <option value="monthly">Mensuel</option>
                   </select>
+                  <div id="new-quest-frequency-note" class="form-helper-text"></div>
                 </div>
                 <div class="form-group" id="scheduled-days-group" style="display: none;">
                   <label>Jours</label>
@@ -1031,22 +1018,18 @@
                 <div class="form-group">
                   <label>Type d'effort</label>
                   <select id="new-quest-effort-type" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
-                    <option value="">Aucun</option>
+                    <option value="">Rest of the day</option>
                     <option value="musculaire">Musculaire 💪</option>
                     <option value="cerveau">Cerveau 🧠</option>
                     <option value="emotionnel_social">Social / Émotionnel 🤝</option>
                     <option value="creatif_divergent">Créatif / Divergent 🎨</option>
+                    <option value="repos">Repos 🧘</option>
                   </select>
                 </div>
                 <div class="form-group">
-                  <label>Durée d'effort (h)</label>
-                  <input type="number" id="new-quest-effort-duration" step="0.5" min="0" max="16" placeholder="ex: 1.0" value="1.0" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
+                  <label>Durée (min)</label>
+                  <input type="number" id="new-quest-duration" step="15" min="15" max="480" placeholder="ex: 60" value="60" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
                 </div>
-              </div>
-
-              <div class="form-group">
-                <label>Durée agenda par défaut (min)</label>
-                <input type="number" id="new-quest-agenda-duration" step="15" min="15" max="480" placeholder="ex: 30" value="60" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%; box-sizing: border-box;">
               </div>
 
 
@@ -1771,9 +1754,9 @@
         <select id="edit-quest-frequency" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;">
           <option value="daily">Quotidien</option>
           <option value="specific_days">Jours spécifiques</option>
-          <option value="weekly">Hebdomadaire</option>
           <option value="monthly">Mensuel</option>
         </select>
+        <div id="edit-quest-frequency-note" class="form-helper-text"></div>
       </div>
       <div class="form-group">
         <label>Unité (si quantitatif)</label>
@@ -1788,21 +1771,18 @@
       <div class="form-group">
         <label>Type d'effort</label>
         <select id="edit-quest-effort-type" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;">
-          <option value="">Aucun</option>
+          <option value="">Rest of the day</option>
           <option value="musculaire">Musculaire 💪</option>
           <option value="cerveau">Cerveau 🧠</option>
           <option value="emotionnel_social">Social / Émotionnel 🤝</option>
           <option value="creatif_divergent">Créatif / Divergent 🎨</option>
+          <option value="repos">Repos 🧘</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Durée d'effort (h)</label>
-        <input type="number" id="edit-quest-effort-duration" step="0.5" min="0" max="16" placeholder="ex: 1.0" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
+        <label>Durée (min)</label>
+        <input type="number" id="edit-quest-duration" step="15" min="15" max="480" placeholder="ex: 60" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
       </div>
-    </div>
-    <div class="form-group">
-      <label>Durée agenda par défaut (min)</label>
-      <input type="number" id="edit-quest-agenda-duration" step="15" min="15" max="480" placeholder="ex: 30" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
     </div>
 
     <div class="form-group" id="edit-scheduled-days-group" style="display:none;">

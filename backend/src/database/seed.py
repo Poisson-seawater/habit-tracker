@@ -208,7 +208,7 @@ def seed_db():
                 "name": "nage",
                 "description": "Session piscine ou natation cardio.",
                 "type": "quantitative",
-                "frequency": "weekly",
+                "frequency": "specific_days",
                 "scheduled_days": "2,4",  # Tue, Thu
                 "reminder_time": "12:00",
                 "is_private": False,

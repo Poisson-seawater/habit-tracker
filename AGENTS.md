@@ -5,7 +5,6 @@ shell commands, and other important information, read the current plan:
 
 **NEXT STEP FOR AGENT SESSIONS:**
 The final specifications for the Google Calendar & Tasks API Integration have been defined in [google-calendar-integration-brainstorm.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/google-calendar-integration-brainstorm.md).
-When initiating the next session, you MUST start by asking Gabriel for the "GO d'implémentation" (approval to implement) before writing any code or initiating any implementation.
 
 **CRITICAL RULE FOR COMMANDS:**
 Whenever you add, modify, or delete any Telegram Bot commands in the code, you MUST update the `COMMANDS-INDEX.md` document at the root of the project to ensure the command index is always accurate and up-to-date.

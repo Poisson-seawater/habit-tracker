@@ -68,6 +68,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const toastNotification = document.getElementById("toast-notification");
   
   // Typical Day / Agenda Elements and state
+  const AGENDA_START_MINUTES = 4 * 60;
+  const AGENDA_END_MINUTES = 24 * 60;
+  const AGENDA_TOTAL_MINUTES = AGENDA_END_MINUTES - AGENDA_START_MINUTES;
+  const AGENDA_SLOT_MINUTES = 15;
+  const AGENDA_BUFFER_MINUTES = 15;
   let loadedTemplates = {};
   let biologicalZonesCache = null;
   const toggleAddBlockBtn = document.getElementById("toggle-add-block-btn");
@@ -84,7 +89,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const agendaDayTypeBadge = document.getElementById("agenda-day-type-badge");
   const agendaWarnings = document.getElementById("agenda-warnings");
   const agendaEffortSummary = document.getElementById("agenda-effort-summary");
-  const agendaUnplacedList = document.getElementById("agenda-unplaced-list");
   const agendaSlotGrid = document.getElementById("agenda-slot-grid");
   let questAgendaState = null;
 
@@ -131,6 +135,75 @@ document.addEventListener("DOMContentLoaded", () => {
   function getAgendaDate() {
     if (agendaDateInput && agendaDateInput.value) return agendaDateInput.value;
     return todayDateString();
+  }
+
+  function monthlyAnchorDay(value, fallbackDate = new Date()) {
+    const parsed = parseInt(String(value || "").split(",")[0], 10);
+    const fallbackDay = fallbackDate instanceof Date && !isNaN(fallbackDate)
+      ? fallbackDate.getDate()
+      : new Date().getDate();
+    const day = Number.isInteger(parsed) && parsed >= 1 ? parsed : fallbackDay;
+    return Math.min(day, 30);
+  }
+
+  function dateFromInput(value) {
+    if (!value) return new Date();
+    const parts = value.split("-").map(part => parseInt(part, 10));
+    if (parts.length !== 3 || parts.some(part => isNaN(part))) return new Date();
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+
+  function nextMonthlyOccurrence(anchorDay, fromDate = new Date()) {
+    for (let offset = 0; offset < 14; offset += 1) {
+      const candidate = new Date(fromDate.getFullYear(), fromDate.getMonth() + offset, 1);
+      const lastDay = new Date(candidate.getFullYear(), candidate.getMonth() + 1, 0).getDate();
+      const dueDay = Math.min(anchorDay, lastDay);
+      candidate.setDate(dueDay);
+      candidate.setHours(0, 0, 0, 0);
+      const today = new Date(fromDate);
+      today.setHours(0, 0, 0, 0);
+      if (candidate >= today) return candidate;
+    }
+    return fromDate;
+  }
+
+  function formatDateFr(date) {
+    return date.toLocaleDateString("fr-CA", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+  }
+
+  function monthlyFrequencyNote(anchorDay) {
+    const next = nextMonthlyOccurrence(anchorDay, dateFromInput(getAgendaDate()));
+    return `Chaque mois le ${anchorDay}. Prochaine occurrence : ${formatDateFr(next)}.`;
+  }
+
+  function updateFrequencyNote(selectEl, noteEl, anchorValue = null) {
+    if (!selectEl || !noteEl) return;
+    if (selectEl.value !== "monthly") {
+      noteEl.textContent = "";
+      return;
+    }
+    noteEl.textContent = monthlyFrequencyNote(monthlyAnchorDay(anchorValue));
+  }
+
+  function isHabitDueOnDate(habit, dateValue = new Date()) {
+    const frequency = habit.frequency || "daily";
+    if (frequency === "monthly") {
+      const lastDay = new Date(dateValue.getFullYear(), dateValue.getMonth() + 1, 0).getDate();
+      return dateValue.getDate() === Math.min(monthlyAnchorDay(habit.scheduled_days, dateValue), lastDay);
+    }
+    if (frequency === "daily" || frequency === "specific_days" || frequency === "custom") {
+      const modelDay = dateValue.getDay();
+      const days = (habit.scheduled_days || "")
+        .split(",")
+        .map(s => parseInt(s.trim(), 10))
+        .filter(n => !isNaN(n));
+      return days.includes(modelDay);
+    }
+    return false;
   }
 
   async function fetchBiologicalZones(forceRefresh = false) {
@@ -343,135 +416,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!habitsResponse.ok) throw new Error("Erreur habits API");
       const habits = await habitsResponse.json();
       allHabitsCache = habits;
-
-      const profileResponse = await fetch(`${API_BASE}/profile`);
-      if (!profileResponse.ok) throw new Error("Erreur profile API");
-      const profileData = await profileResponse.json();
-      
-      const completedIds = profileData.completed_habit_ids || [];
-      questsListContainer.innerHTML = "";
-
-      // Project weekday convention: 0=Sun, 1=Mon, ..., 6=Sat
-      const jsDay = new Date().getDay();
-      const modelDay = jsDay;
-
-      const visibleHabits = habits.filter(habit => {
-        const isScheduledToday = (() => {
-          if (habit.frequency === "specific_days") {
-            const days = (habit.scheduled_days || "").split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-            return days.includes(modelDay);
-          }
-          return true; // daily, weekly, monthly always visible
-        })();
-        return showTodayQuests ? isScheduledToday : !isScheduledToday;
-      });
-
-      const toggleQuestsBtn = document.getElementById("toggle-quests-view-btn");
       const questsPanelTitle = document.getElementById("quests-panel-title");
       if (questsPanelTitle) {
-        questsPanelTitle.textContent = showTodayQuests ? "🎯 Quêtes Actives (Aujourd'hui)" : "🎯 Quêtes Actives (Autres jours)";
+        questsPanelTitle.textContent = "🎯 Quêtes à placer";
       }
-      if (toggleQuestsBtn) {
-        toggleQuestsBtn.textContent = showTodayQuests ? "➡️" : "⬅️";
-        toggleQuestsBtn.title = showTodayQuests ? "Voir les quêtes des autres jours" : "Retour aux quêtes d'aujourd'hui";
-      }
-
-      if (visibleHabits.length === 0) {
-        const noQuestsMsg = showTodayQuests ? "Aucune quête prévue aujourd'hui." : "Aucune quête prévue pour les autres jours.";
-        questsListContainer.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem; text-align: center;">${noQuestsMsg}</p>`;
-        return;
-      }
-
-      const freqLabels = { daily: "", specific_days: "", weekly: "Hebdo", monthly: "Mensuel" };
-
-      visibleHabits.forEach(habit => {
-        const questItem = document.createElement("div");
-        questItem.className = "quest-item";
-
-        const hasTarget = habit.daily_target && habit.daily_target > 1;
-        const todayCount = habit.today_count || 0;
-        const targetReached = hasTarget && todayCount >= habit.daily_target;
-        const isPeriodic = habit.frequency === "weekly" || habit.frequency === "monthly";
-        // Targeted habits never lock: extra reps keep giving XP (e.g. 3/2).
-        const isCompleted = hasTarget ? false : (isPeriodic ? (habit.completed_this_period || false) : completedIds.includes(habit.id));
-        const privateLock = habit.is_private ? " 🔒" : "";
-        const freqBadge = freqLabels[habit.frequency] ? `<span style="font-size:0.7rem;padding:2px 6px;border-radius:8px;background:rgba(255,255,255,0.08);color:var(--text-muted);margin-left:6px;">${freqLabels[habit.frequency]}</span>` : "";
-        const targetBadge = hasTarget ? `<span style="font-size:0.7rem;padding:2px 6px;border-radius:8px;background:${targetReached ? 'rgba(34,197,94,0.22)' : 'rgba(99,102,241,0.18)'};color:var(--text-primary);margin-left:6px;">${todayCount}/${habit.daily_target}${targetReached ? ' ✅' : ''}</span>` : "";
-
-        const effortLabels = {
-          musculaire: "Musculaire 💪",
-          cerveau: "Cerveau 🧠",
-          emotionnel_social: "Social 🤝",
-          creatif_divergent: "Créatif 🎨"
-        };
-        const effortBadge = habit.effort_type ? `<span class="effort-badge effort-${habit.effort_type}" style="margin-left:6px;">${effortLabels[habit.effort_type]} (${habit.effort_duration}h)</span>` : "";
-        const habitPayload = encodeURIComponent(JSON.stringify(habit));
-
-
-        let buttonHTML = "";
-        if (isCompleted) {
-          buttonHTML = `<button class="quest-action-btn completed" disabled>Validé</button>`;
-        } else {
-          if (habit.type === "binary") {
-            buttonHTML = `<button class="quest-action-btn done-action-btn" data-id="${habit.id}">Valider</button>`;
-          } else {
-            buttonHTML = `<button class="quest-action-btn log-action-btn" data-id="${habit.id}" data-unit="${habit.unit || ''}">Logger</button>`;
-          }
-        }
-
-        questItem.innerHTML = `
-          <div class="quest-details" data-id="${habit.id}" style="cursor: pointer;">
-            <span class="quest-name">${habit.name}${privateLock}${freqBadge}${targetBadge}${effortBadge}</span>
-            <span class="quest-desc">${habit.description || ''}</span>
-          </div>
-          <div class="quest-action" style="display:flex;gap:6px;align-items:center;">
-            ${buttonHTML}
-            <button class="quest-edit-btn" data-habit="${habitPayload}" title="Modifier la quête" aria-label="Modifier la quête">✏️</button>
-          </div>
-        `;
-        questsListContainer.appendChild(questItem);
-      });
-
-      document.querySelectorAll(".quest-details").forEach(el => {
-        el.addEventListener("click", () => {
-          const id = parseInt(el.getAttribute("data-id"));
-          const habit = visibleHabits.find(h => h.id === id);
-          if (habit) openHabitDetailModal(habit);
-        });
-      });
-
-      document.querySelectorAll(".quest-edit-btn").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const habit = JSON.parse(decodeURIComponent(btn.getAttribute("data-habit")));
-          openEditQuestModal(habit);
-        });
-      });
-
-      // Bind check-ins
-      document.querySelectorAll(".done-action-btn").forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          const habitId = btn.getAttribute("data-id");
-          await submitQuestLog(habitId, "done");
-        });
-      });
-
-      document.querySelectorAll(".log-action-btn").forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          const habitId = btn.getAttribute("data-id");
-          const unit = btn.getAttribute("data-unit");
-          const val = prompt(`Combien de ${unit || 'points'} voulez-vous logger ?`);
-          if (val === null) return;
-          const amt = parseInt(val);
-          if (isNaN(amt) || amt <= 0) {
-            alert("Veuillez entrer une valeur positive valide.");
-            return;
-          }
-          await submitQuestLog(habitId, "log", amt);
-        });
-      });
+      await loadQuestAgenda(false);
     } catch (error) {
       console.error(error);
       questsListContainer.innerHTML = `<p style="color: var(--accent-red); font-size: 0.9rem; text-align: center;">Erreur de chargement des quêtes.</p>`;
@@ -750,16 +699,7 @@ document.addEventListener("DOMContentLoaded", () => {
         total: ceilings.total !== undefined ? ceilings.total : 10.0
       };
 
-      const jsDay = new Date().getDay();
-      const modelDay = jsDay;
-      
-      const plannedHabits = habits.filter(habit => {
-        if (habit.frequency === "specific_days") {
-          const days = (habit.scheduled_days || "").split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-          return days.includes(modelDay);
-        }
-        return true;
-      });
+      const plannedHabits = habits.filter(habit => isHabitDueOnDate(habit, dateFromInput(getAgendaDate())));
 
       const pinnedSubIds = profile.pinned_substeps || [];
       const plannedSubsteps = [];
@@ -777,7 +717,8 @@ document.addEventListener("DOMContentLoaded", () => {
         musculaire: 0.0,
         cerveau: 0.0,
         emotionnel_social: 0.0,
-        creatif_divergent: 0.0
+        creatif_divergent: 0.0,
+        repos: 0.0
       };
 
       plannedHabits.forEach(h => {
@@ -792,7 +733,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
 
-      const totalPlannedEffort = Object.values(effortSums).reduce((a, b) => a + b, 0.0);
+      const totalPlannedEffort = ["musculaire", "cerveau", "emotionnel_social", "creatif_divergent"]
+        .reduce((sum, key) => sum + effortSums[key], 0.0);
       const unplannedTime = Math.max(16.0 - totalPlannedEffort, 0.0);
 
       const warnings = [];
@@ -808,6 +750,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (totalPlannedEffort > effortCeilings.total) {
         warnings.push(`⚠️ Dépassement de l'effort total maximal : ${totalPlannedEffort.toFixed(1)}h planifiées (max ${effortCeilings.total.toFixed(1)}h).`);
+      }
+      if (effortSums.repos < minRest) {
+        warnings.push(`⚠️ Repos planifié insuffisant : ${effortSums.repos.toFixed(1)}h planifiées (min ${minRest.toFixed(1)}h).`);
       }
 
       let isHustleValid = true;
@@ -894,10 +839,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
 
-      // Render template-dependent agenda views only. The biological timeline is
-      // independent and is refreshed only on initial load or biological-zone CRUD.
-      renderTimeline(activeTemplate.agenda_json || []);
-      renderDailyRecap(activeTemplateName);
+      // The quest agenda is rendered from GET /agenda so per-date placements
+      // remain the source of truth for the dashboard timeline.
     } catch (err) {
       console.error("Erreur updateDailyBudgetGauge:", err);
     }
@@ -969,21 +912,24 @@ document.addEventListener("DOMContentLoaded", () => {
       cerveau: "Cerveau",
       musculaire: "Musculaire",
       emotionnel_social: "Social",
-      creatif_divergent: "Créatif"
+      creatif_divergent: "Créatif",
+      repos: "Repos"
     };
     const totals = data.effort_totals || {};
     const ceilings = data.ceilings || {};
-    const keys = ["cerveau", "musculaire", "emotionnel_social", "creatif_divergent"];
+    const minRest = Number(data.min_rest_hours || 0);
+    const keys = ["cerveau", "musculaire", "emotionnel_social", "creatif_divergent", "repos"];
     agendaEffortSummary.innerHTML = keys.map(key => {
       const total = Number(totals[key] || 0);
-      const ceiling = Number(ceilings[key] || 0);
-      const pct = ceiling > 0 ? Math.min((total / ceiling) * 100, 100) : 0;
-      const over = ceiling > 0 && total > ceiling;
+      const target = key === "repos" ? minRest : Number(ceilings[key] || 0);
+      const pct = target > 0 ? Math.min((total / target) * 100, 100) : 0;
+      const over = key === "repos" ? (target > 0 && total < target) : (target > 0 && total > target);
+      const comparator = key === "repos" ? "min" : "";
       return `
         <div class="agenda-effort-item ${over ? "over" : ""}">
           <div class="agenda-effort-top">
             <span>${labels[key]}</span>
-            <strong>${total.toFixed(1)}h / ${ceiling.toFixed(1)}h</strong>
+            <strong>${total.toFixed(1)}h / ${target.toFixed(1)}h ${comparator}</strong>
           </div>
           <div class="agenda-effort-track"><span style="width:${pct}%;"></span></div>
         </div>
@@ -1008,9 +954,16 @@ document.addEventListener("DOMContentLoaded", () => {
       event.dataTransfer.effectAllowed = "move";
     });
 
+    const effortLabels = {
+      musculaire: "Musculaire",
+      cerveau: "Cerveau",
+      emotionnel_social: "Social",
+      creatif_divergent: "Créatif",
+      repos: "Repos"
+    };
     const effortLabel = item.effort_type
-      ? `${item.effort_type.replace("_", " ")} ${item.effort_duration || 0}h`
-      : "effort à définir";
+      ? `${effortLabels[item.effort_type] || item.effort_type.replace("_", " ")} ${item.effort_duration || 0}h`
+      : "Rest of the day";
     const sourceLabel = item.source_label || (item.source_type === "manual" ? "manuel" : item.source_type);
     const configText = item.needs_configuration ? `<span class="agenda-config-flag">à configurer</span>` : "";
     const timeText = placed ? `<span class="agenda-time-chip">${item.start_time} · ${item.duration_minutes}min</span>` : `<span class="agenda-time-chip">${item.duration_minutes || item.agenda_duration_minutes || 60}min</span>`;
@@ -1043,24 +996,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderAgendaLists(data) {
-    if (agendaUnplacedList) {
-      agendaUnplacedList.innerHTML = "";
+    if (questsListContainer) {
+      questsListContainer.innerHTML = "";
       const unplaced = data.unplaced_quests || [];
       if (unplaced.length === 0) {
-        agendaUnplacedList.innerHTML = `<p class="agenda-empty">Aucune quête visible non placée.</p>`;
+        questsListContainer.innerHTML = `<p class="agenda-empty">Aucune quête à placer.</p>`;
       } else {
-        unplaced.forEach(item => agendaUnplacedList.appendChild(renderAgendaQuestCard(item, false)));
-      }
-    }
-
-    const placedList = document.getElementById("agenda-blocks-list");
-    if (placedList) {
-      placedList.innerHTML = "";
-      const placed = data.placed_quests || [];
-      if (placed.length === 0) {
-        placedList.innerHTML = `<p class="agenda-empty">Aucune quête placée.</p>`;
-      } else {
-        placed.forEach(item => placedList.appendChild(renderAgendaQuestCard(item, true)));
+        unplaced.forEach(item => questsListContainer.appendChild(renderAgendaQuestCard(item, false)));
       }
     }
   }
@@ -1068,26 +1010,67 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderAgendaDropGrid() {
     if (!agendaSlotGrid) return;
     agendaSlotGrid.innerHTML = "";
-    for (let minute = 0; minute < 1440; minute += 15) {
+    const dropSurface = agendaSlotGrid.parentElement || agendaSlotGrid;
+
+    const clearHoverSlot = () => {
+      agendaSlotGrid.classList.remove("drag-over");
+      agendaSlotGrid.querySelectorAll(".agenda-slot.drag-over").forEach(slot => {
+        slot.classList.remove("drag-over");
+      });
+    };
+
+    const getDropTime = (event) => {
+      const rect = dropSurface.getBoundingClientRect();
+      const relativeY = Math.min(Math.max(event.clientY - rect.top, 0), rect.height);
+      const rawMinutes = AGENDA_START_MINUTES + (relativeY / rect.height) * AGENDA_TOTAL_MINUTES;
+      const snappedMinutes = Math.round(rawMinutes / AGENDA_SLOT_MINUTES) * AGENDA_SLOT_MINUTES;
+      const clampedMinutes = Math.min(
+        Math.max(snappedMinutes, AGENDA_START_MINUTES),
+        AGENDA_END_MINUTES - AGENDA_SLOT_MINUTES
+      );
+      return minutesToTime(clampedMinutes);
+    };
+
+    const highlightHoverSlot = (time) => {
+      agendaSlotGrid.classList.add("drag-over");
+      agendaSlotGrid.querySelectorAll(".agenda-slot.drag-over").forEach(slot => {
+        slot.classList.remove("drag-over");
+      });
+      agendaSlotGrid.querySelector(`[data-time="${time}"]`)?.classList.add("drag-over");
+    };
+
+    dropSurface.ondragover = (event) => {
+      event.preventDefault();
+      highlightHoverSlot(getDropTime(event));
+    };
+    dropSurface.ondragleave = (event) => {
+      if (!dropSurface.contains(event.relatedTarget)) {
+        clearHoverSlot();
+      }
+    };
+    dropSurface.ondrop = async (event) => {
+      event.preventDefault();
+      const startTime = getDropTime(event);
+      clearHoverSlot();
+      const habitId = event.dataTransfer.getData("text/plain");
+      const quest = agendaQuestById(habitId);
+      await placeAgendaQuest(
+        habitId,
+        startTime,
+        quest ? quest.duration_minutes || quest.agenda_duration_minutes : null
+      );
+    };
+
+    for (let minute = AGENDA_START_MINUTES; minute < AGENDA_END_MINUTES; minute += AGENDA_SLOT_MINUTES) {
       const slot = document.createElement("button");
       slot.type = "button";
       slot.className = "agenda-slot";
       slot.dataset.time = minutesToTime(minute);
+      slot.tabIndex = -1;
+      slot.setAttribute("aria-hidden", "true");
       if (minute % 60 === 0) {
         slot.textContent = minutesToTime(minute);
       }
-      slot.addEventListener("dragover", (event) => {
-        event.preventDefault();
-        slot.classList.add("drag-over");
-      });
-      slot.addEventListener("dragleave", () => slot.classList.remove("drag-over"));
-      slot.addEventListener("drop", async (event) => {
-        event.preventDefault();
-        slot.classList.remove("drag-over");
-        const habitId = event.dataTransfer.getData("text/plain");
-        const quest = agendaQuestById(habitId);
-        await placeAgendaQuest(habitId, slot.dataset.time, quest ? quest.duration_minutes || quest.agenda_duration_minutes : null);
-      });
       agendaSlotGrid.appendChild(slot);
     }
   }
@@ -1098,27 +1081,44 @@ document.addEventListener("DOMContentLoaded", () => {
     bar.innerHTML = "";
     bar.classList.add("agenda-timeline-bar");
 
+    const visibleRange = (start, duration) => {
+      const end = start + duration;
+      const clippedStart = Math.max(start, AGENDA_START_MINUTES);
+      const clippedEnd = Math.min(end, AGENDA_END_MINUTES);
+      if (clippedEnd <= clippedStart) return null;
+      return {
+        top: ((clippedStart - AGENDA_START_MINUTES) / AGENDA_TOTAL_MINUTES) * 100,
+        height: ((clippedEnd - clippedStart) / AGENDA_TOTAL_MINUTES) * 100
+      };
+    };
+
     (data.segments || []).forEach(segment => {
       const start = timeToMinutes(segment.start);
       const end = timeToMinutes(segment.end);
       if (end <= start) return;
+      const range = visibleRange(start, end - start);
+      if (!range) return;
       const el = document.createElement("div");
       el.className = `agenda-template-segment segment-${segment.kind || "admin"}`;
-      el.style.left = `${(start / 1440) * 100}%`;
-      el.style.width = `${((end - start) / 1440) * 100}%`;
+      el.style.top = `${range.top}%`;
+      el.style.height = `${range.height}%`;
       el.title = `${segment.title || segment.kind} (${segment.start} - ${segment.end})`;
       bar.appendChild(el);
     });
 
+    let visiblePlacedCount = 0;
     (data.placed_quests || []).forEach(item => {
       const start = timeToMinutes(item.start_time);
       const duration = Number(item.duration_minutes || item.agenda_duration_minutes || 60);
+      const range = visibleRange(start, duration);
+      if (!range) return;
+      visiblePlacedCount += 1;
       const block = document.createElement("div");
       block.className = `agenda-quest-block ${item.needs_configuration ? "needs-config" : ""}`;
       block.draggable = true;
       block.dataset.habitId = item.habit_id;
-      block.style.left = `${(start / 1440) * 100}%`;
-      block.style.width = `${(duration / 1440) * 100}%`;
+      block.style.top = `${range.top}%`;
+      block.style.height = `${range.height}%`;
       block.title = `${item.name} (${item.start_time}, ${duration}min)`;
       block.textContent = item.name;
       block.addEventListener("dragstart", (event) => {
@@ -1126,14 +1126,30 @@ document.addEventListener("DOMContentLoaded", () => {
         event.dataTransfer.effectAllowed = "move";
       });
       bar.appendChild(block);
+
+      const bufferRange = visibleRange(start + duration, AGENDA_BUFFER_MINUTES);
+      if (bufferRange) {
+        const buffer = document.createElement("div");
+        buffer.className = "agenda-buffer-block";
+        buffer.style.top = `${bufferRange.top}%`;
+        buffer.style.height = `${bufferRange.height}%`;
+        buffer.title = `Buffer 15min après ${item.name}`;
+        bar.appendChild(buffer);
+      }
     });
 
-    if ((data.placed_quests || []).length === 0) {
+    if (visiblePlacedCount === 0) {
       const empty = document.createElement("div");
       empty.className = "agenda-timeline-empty";
-      empty.textContent = "Glissez une quête sur la grille de 15 minutes.";
+      empty.textContent = "Glissez une quête entre 04:00 et 24:00.";
       bar.appendChild(empty);
     }
+  }
+
+  function updateAgendaSaveButtons(dayType) {
+    document.querySelectorAll(".agenda-save-btn").forEach(btn => {
+      btn.style.display = btn.dataset.template === dayType ? "inline-flex" : "none";
+    });
   }
 
   function renderQuestAgenda(data) {
@@ -1145,6 +1161,7 @@ document.addEventListener("DOMContentLoaded", () => {
       agendaDayTypeBadge.textContent = data.day_type || "regular";
       agendaDayTypeBadge.dataset.template = data.day_type || "regular";
     }
+    updateAgendaSaveButtons(data.day_type || "regular");
     renderAgendaEffortSummary(data);
     renderAgendaDropGrid();
     renderAgendaTimeline(data);
@@ -1162,8 +1179,8 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error(error);
       if (showErrors) showToast(error.message, true);
-      if (agendaUnplacedList) {
-        agendaUnplacedList.innerHTML = `<p class="agenda-empty error">Erreur de chargement de l'agenda.</p>`;
+      if (questsListContainer) {
+        questsListContainer.innerHTML = `<p class="agenda-empty error">Erreur de chargement de l'agenda.</p>`;
       }
       return null;
     }
@@ -1183,7 +1200,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!response.ok) throw new Error((await response.json()).detail || "Placement refusé");
       const data = await response.json();
       renderQuestAgenda(data);
-      showToast(`Quête placée à ${startTime}.`);
+      const placed = (data.placed_quests || []).find(item => String(item.habit_id) === String(habitId));
+      const finalTime = placed ? placed.start_time : startTime;
+      const shifted = finalTime !== startTime ? " (auto-décalée)" : "";
+      showToast(`Quête placée à ${finalTime}${shifted}.`);
     } catch (error) {
       console.error(error);
       showToast(error.message, true);
@@ -2859,6 +2879,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const editQuestVersionList = document.getElementById("edit-quest-version-list");
   const addEditQuestVersionBtn = document.getElementById("add-edit-quest-version-btn");
   const editQuestSourceMeta = document.getElementById("edit-quest-source-meta");
+  const editQuestFrequencyNote = document.getElementById("edit-quest-frequency-note");
   const archiveQuestBtn = document.getElementById("archive-quest-btn");
   let activeEditQuest = null;
 
@@ -2977,8 +2998,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Populate effort
     document.getElementById("edit-quest-effort-type").value = habit.effort_type || "";
-    document.getElementById("edit-quest-effort-duration").value = habit.effort_duration !== undefined && habit.effort_duration !== null ? habit.effort_duration : 1.0;
-    document.getElementById("edit-quest-agenda-duration").value = habit.agenda_duration_minutes || 60;
+    const editDuration = habit.agenda_duration_minutes || Math.max(15, Math.round((habit.effort_duration || 1.0) * 60));
+    document.getElementById("edit-quest-duration").value = editDuration;
+    updateFrequencyNote(editFreqSelect, editQuestFrequencyNote, habit.scheduled_days);
 
     if (editQuestSourceMeta) {
       const sourceType = habit.source_type || "manual";
@@ -3016,6 +3038,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (editFreqSelect) {
     editFreqSelect.addEventListener("change", () => {
       editDaysGroup.style.display = editFreqSelect.value === "specific_days" ? "block" : "none";
+      updateFrequencyNote(editFreqSelect, editQuestFrequencyNote, activeEditQuest ? activeEditQuest.scheduled_days : null);
     });
   }
 
@@ -3046,6 +3069,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("edit-quest-unit").value = refreshedHabit.unit || "";
         document.getElementById("edit-quest-target").value = refreshedHabit.daily_target || "";
         editFreqSelect.value = refreshedHabit.frequency || "daily";
+        updateFrequencyNote(editFreqSelect, editQuestFrequencyNote, refreshedHabit.scheduled_days);
         renderEditQuestDescriptionFields(refreshedHabit);
       }
     } catch (e) {
@@ -3060,12 +3084,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (frequency === "specific_days") {
       const checked = Array.from(editDaysGroup.querySelectorAll("input:checked")).map(cb => cb.value);
       scheduled_days = checked.length > 0 ? checked.join(",") : "0,1,2,3,4,5,6";
+    } else if (frequency === "monthly") {
+      scheduled_days = String(monthlyAnchorDay(activeEditQuest ? activeEditQuest.scheduled_days : null));
     }
     const editTargetRaw = parseInt(document.getElementById("edit-quest-target").value);
     
     const effort_type = document.getElementById("edit-quest-effort-type").value || null;
-    const effort_duration = parseFloat(document.getElementById("edit-quest-effort-duration").value) || 1.0;
-    const agenda_duration_minutes = parseInt(document.getElementById("edit-quest-agenda-duration").value, 10) || 60;
+    const agenda_duration_minutes = parseInt(document.getElementById("edit-quest-duration").value, 10) || 60;
+    const effort_duration = agenda_duration_minutes / 60;
     const descriptionUpdates = collectQuestVersionDescriptionUpdates();
     const activeDescription = descriptionUpdates.find((update) => String(update.id) === String(id));
 
@@ -3243,10 +3269,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // Show/hide day checkboxes based on frequency selection
     const freqSelect = document.getElementById("new-quest-frequency");
     const daysGroup = document.getElementById("scheduled-days-group");
+    const newQuestFrequencyNote = document.getElementById("new-quest-frequency-note");
     if (freqSelect && daysGroup) {
       freqSelect.addEventListener("change", () => {
         daysGroup.style.display = freqSelect.value === "specific_days" ? "block" : "none";
+        updateFrequencyNote(freqSelect, newQuestFrequencyNote);
       });
+      updateFrequencyNote(freqSelect, newQuestFrequencyNote);
     }
 
     if (submitQuestBtn) {
@@ -3263,11 +3292,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (frequency === "specific_days") {
           const checked = Array.from(document.querySelectorAll("#new-quest-days input:checked")).map(cb => cb.value);
           scheduled_days = checked.length > 0 ? checked.join(",") : "0,1,2,3,4,5,6";
+        } else if (frequency === "monthly") {
+          scheduled_days = String(monthlyAnchorDay(null));
         }
 
         const effort_type = document.getElementById("new-quest-effort-type").value || null;
-        const effort_duration = parseFloat(document.getElementById("new-quest-effort-duration").value) || 1.0;
-        const agenda_duration_minutes = parseInt(document.getElementById("new-quest-agenda-duration").value, 10) || Math.max(15, Math.round(effort_duration * 60));
+        const agenda_duration_minutes = parseInt(document.getElementById("new-quest-duration").value, 10) || 60;
+        const effort_duration = agenda_duration_minutes / 60;
 
         if (!title) {
           showToast("Veuillez donner un titre à la quête !", true);
@@ -3301,12 +3332,12 @@ document.addEventListener("DOMContentLoaded", () => {
           document.getElementById("new-quest-name").value = "";
           document.getElementById("new-quest-desc").value = "";
           document.getElementById("new-quest-effort-type").value = "";
-          document.getElementById("new-quest-effort-duration").value = "1.0";
-          document.getElementById("new-quest-agenda-duration").value = "60";
+          document.getElementById("new-quest-duration").value = "60";
           document.getElementById("new-quest-unit").value = "";
           document.getElementById("new-quest-target").value = "";
           if (freqSelect) freqSelect.value = "daily";
           if (daysGroup) { daysGroup.style.display = "none"; daysGroup.querySelectorAll("input").forEach(cb => cb.checked = false); }
+          updateFrequencyNote(freqSelect, newQuestFrequencyNote);
           
           questForm.style.display = "none";
           openQuestBtn.textContent = "+ Quête";
