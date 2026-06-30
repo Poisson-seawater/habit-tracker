@@ -357,6 +357,8 @@ def create_branch_with_skills(
     color: str,
     pale_color: str,
     skills: List[Dict[str, Any]],
+    do_date: Optional[str] = None,
+    due_date: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create one branch and all its skills in a single atomic file replace."""
     global _tree_config, _tree_config_mtime
@@ -387,7 +389,12 @@ def create_branch_with_skills(
         for new_id in new_ids:
             full_skill_branch_map[new_id] = key
 
-        branches[key] = {"color": color, "pale_color": pale_color}
+        branches[key] = {
+            "color": color,
+            "pale_color": pale_color,
+            "do_date": do_date if do_date else None,
+            "due_date": due_date if due_date else None,
+        }
         normalized_skills = []
         for skill_data in skills:
             prerequisites = skill_data.get("prerequisites", [])
@@ -446,12 +453,24 @@ def create_branch_with_skills(
         _tree_config_mtime = os.path.getmtime(config_path)
 
     return {
-        "branch": {"key": key, "color": color, "pale_color": pale_color},
+        "branch": {
+            "key": key,
+            "color": color,
+            "pale_color": pale_color,
+            "do_date": do_date if do_date else None,
+            "due_date": due_date if due_date else None,
+        },
         "skills": normalized_skills,
     }
 
 
-def create_branch(key: str, color: str, pale_color: str) -> Dict[str, Any]:
+def create_branch(
+    key: str,
+    color: str,
+    pale_color: str,
+    do_date: Optional[str] = None,
+    due_date: Optional[str] = None,
+) -> Dict[str, Any]:
     """Create a new branch key and its colors."""
     config = load_tree_config(force_reload=True)
     if "branches" not in config:
@@ -459,13 +478,29 @@ def create_branch(key: str, color: str, pale_color: str) -> Dict[str, Any]:
     if key in config["branches"]:
         raise ValueError(f"Branch '{key}' already exists.")
 
-    config["branches"][key] = {"color": color, "pale_color": pale_color}
+    config["branches"][key] = {
+        "color": color,
+        "pale_color": pale_color,
+        "do_date": do_date if do_date else None,
+        "due_date": due_date if due_date else None,
+    }
     save_tree_config(config)
-    return {"key": key, "color": color, "pale_color": pale_color}
+    return {
+        "key": key,
+        "color": color,
+        "pale_color": pale_color,
+        "do_date": do_date if do_date else None,
+        "due_date": due_date if due_date else None,
+    }
 
 
 def update_branch(
-    old_key: str, new_key: str, color: str, pale_color: str
+    old_key: str,
+    new_key: str,
+    color: str,
+    pale_color: str,
+    do_date: Optional[str] = None,
+    due_date: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Update a branch's color and optionally rename its key."""
     config = load_tree_config(force_reload=True)
@@ -475,7 +510,12 @@ def update_branch(
     if old_key != new_key and new_key in config["branches"]:
         raise ValueError(f"Branch '{new_key}' already exists.")
 
-    branch_data = {"color": color, "pale_color": pale_color}
+    branch_data = {
+        "color": color,
+        "pale_color": pale_color,
+        "do_date": do_date if do_date else None,
+        "due_date": due_date if due_date else None,
+    }
 
     if old_key != new_key:
         del config["branches"][old_key]
@@ -487,7 +527,13 @@ def update_branch(
         config["branches"][old_key] = branch_data
 
     save_tree_config(config)
-    return {"key": new_key, "color": color, "pale_color": pale_color}
+    return {
+        "key": new_key,
+        "color": color,
+        "pale_color": pale_color,
+        "do_date": do_date if do_date else None,
+        "due_date": due_date if due_date else None,
+    }
 
 
 def delete_branch(db: Session, key: str) -> Dict[str, Any]:

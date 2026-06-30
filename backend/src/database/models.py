@@ -55,6 +55,9 @@ class User(Base):
     biological_zones = relationship(
         "BiologicalZone", back_populates="user", cascade="all, delete-orphan"
     )
+    agenda_placements = relationship(
+        "DailyAgendaPlacement", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Habit(Base):
@@ -87,11 +90,19 @@ class Habit(Base):
         String, nullable=True
     )  # "musculaire", "cerveau", "emotionnel_social", "creatif_divergent"
     effort_duration = Column(Float, default=1.0, nullable=False)
+    source_type = Column(String, nullable=True, default="manual")
+    source_ref = Column(String, nullable=True)
+    auto_managed = Column(Boolean, default=False, nullable=False)
+    archived_at = Column(DateTime, nullable=True)
+    agenda_duration_minutes = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.now)
 
     user = relationship("User", back_populates="habits")
     logs = relationship(
         "HabitLog", back_populates="habit", cascade="all, delete-orphan"
+    )
+    agenda_placements = relationship(
+        "DailyAgendaPlacement", back_populates="habit", cascade="all, delete-orphan"
     )
 
 
@@ -149,6 +160,39 @@ class BiologicalZone(Base):
     display_order = Column(Integer, default=0, nullable=False)
 
     user = relationship("User", back_populates="biological_zones")
+
+
+class DailyAgendaPlacement(Base):
+    __tablename__ = "daily_agenda_placements"
+    __table_args__ = (
+        UniqueConstraint("user_id", "date", "habit_id", name="uix_daily_agenda_slot"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    date = Column(Date, nullable=False, index=True)
+    habit_id = Column(
+        Integer,
+        ForeignKey("habits.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    start_time = Column(String, nullable=True)
+    duration_minutes = Column(Integer, nullable=False)
+    status = Column(String, default="planned", nullable=False)
+    actual_minutes = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.now)
+    updated_at = Column(
+        DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now
+    )
+
+    user = relationship("User", back_populates="agenda_placements")
+    habit = relationship("Habit", back_populates="agenda_placements")
 
 
 class DailyScore(Base):
@@ -228,6 +272,8 @@ class Goal(Base):
     completed = Column(Boolean, default=False)
     completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.now)
+    do_date = Column(Date, nullable=True)
+    due_date = Column(Date, nullable=True)
 
     user = relationship("User", back_populates="goals")
     substep_links = relationship(

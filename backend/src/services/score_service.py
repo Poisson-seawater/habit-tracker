@@ -45,7 +45,15 @@ def calculate_daily_score(
     )
 
     # 3. Get all active habits for the user
-    habits = db.query(Habit).filter_by(user_id=user_id, is_active=True).all()
+    habits = (
+        db.query(Habit)
+        .filter(
+            Habit.user_id == user_id,
+            Habit.is_active == True,
+            Habit.archived_at == None,
+        )
+        .all()
+    )
 
     # 4. Check if all scheduled habits are completed/skipped today
     weekday = date.weekday()
@@ -144,7 +152,15 @@ def update_streaks(db: Session, user_id: int, date: datetime.date):
     weekday = date.weekday()
     model_day_idx = (weekday + 1) % 7
 
-    habits = db.query(Habit).filter_by(user_id=user_id, is_active=True).all()
+    habits = (
+        db.query(Habit)
+        .filter(
+            Habit.user_id == user_id,
+            Habit.is_active == True,
+            Habit.archived_at == None,
+        )
+        .all()
+    )
     for habit in habits:
         scheduled = str(model_day_idx) in [
             day.strip() for day in habit.scheduled_days.split(",")

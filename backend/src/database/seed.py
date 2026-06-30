@@ -6,6 +6,7 @@ from src.database.models import (
     Habit,
     PerfectDayTemplate,
     BiologicalZone,
+    DailyAgendaPlacement,
     Todo,
     Goal,
     SubStep,
@@ -601,6 +602,41 @@ def _run_migrations():
                 db.commit()
                 print("Migration v16 (habits) applied successfully.")
 
+            # v20: Add agenda quest source, explicit archive, and default duration.
+            agenda_habit_columns = {
+                "source_type": "ALTER TABLE habits ADD COLUMN source_type TEXT DEFAULT 'manual'",
+                "source_ref": "ALTER TABLE habits ADD COLUMN source_ref TEXT",
+                "auto_managed": "ALTER TABLE habits ADD COLUMN auto_managed BOOLEAN DEFAULT 0 NOT NULL",
+                "archived_at": "ALTER TABLE habits ADD COLUMN archived_at DATETIME",
+                "agenda_duration_minutes": "ALTER TABLE habits ADD COLUMN agenda_duration_minutes INTEGER",
+            }
+            missing_agenda_columns = [
+                name for name in agenda_habit_columns.keys() if name not in columns
+            ]
+            if missing_agenda_columns:
+                print(
+                    "Running migration v20: adding agenda source/archive fields to habits..."
+                )
+                for column_name in missing_agenda_columns:
+                    db.execute(text(agenda_habit_columns[column_name]))
+                if "source_type" in missing_agenda_columns:
+                    db.execute(
+                        text(
+                            "UPDATE habits SET source_type = 'manual' "
+                            "WHERE source_type IS NULL OR source_type = ''"
+                        )
+                    )
+                if "agenda_duration_minutes" in missing_agenda_columns:
+                    db.execute(
+                        text(
+                            "UPDATE habits SET agenda_duration_minutes = "
+                            "CAST(COALESCE(effort_duration, 1.0) * 60 AS INTEGER) "
+                            "WHERE agenda_duration_minutes IS NULL"
+                        )
+                    )
+                db.commit()
+                print("Migration v20 (habits agenda fields) applied successfully.")
+
         if "substeps" in inspector.get_table_names():
             columns = [c["name"] for c in inspector.get_columns("substeps")]
             if "effort_type" not in columns:
@@ -649,6 +685,61 @@ def _run_migrations():
             seed_default_biological_zones(db)
             db.commit()
 
+        # v21: Add per-date agenda placements.
+        if "daily_agenda_placements" not in inspector.get_table_names():
+            print("Running migration v21: creating daily_agenda_placements table...")
+            db.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS daily_agenda_placements (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        date DATE NOT NULL,
+                        habit_id INTEGER NOT NULL,
+                        start_time VARCHAR,
+                        duration_minutes INTEGER NOT NULL,
+                        status VARCHAR NOT NULL DEFAULT 'planned',
+                        actual_minutes INTEGER,
+                        created_at DATETIME,
+                        updated_at DATETIME,
+                        FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE,
+                        FOREIGN KEY(habit_id) REFERENCES habits (id) ON DELETE CASCADE,
+                        CONSTRAINT uix_daily_agenda_slot UNIQUE (user_id, date, habit_id)
+                    )
+                    """
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_daily_agenda_placements_user_id "
+                    "ON daily_agenda_placements (user_id)"
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_daily_agenda_placements_date "
+                    "ON daily_agenda_placements (date)"
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_daily_agenda_placements_habit_id "
+                    "ON daily_agenda_placements (habit_id)"
+                )
+            )
+            db.commit()
+            print("Migration v21 (daily_agenda_placements table) applied successfully.")
+
+        # v22: Add do_date and due_date to goals
+        if "goals" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("goals")]
+            if "do_date" not in columns:
+                print("Running migration v22: adding do_date and due_date to goals...")
+                db.execute(text("ALTER TABLE goals ADD COLUMN do_date DATE"))
+                db.execute(text("ALTER TABLE goals ADD COLUMN due_date DATE"))
+                db.commit()
+                print("Migration v22 applied successfully.")
+
         # v19: Destructively remove the legacy RPG stat/tag columns.
         v19_dropped = False
         for table, columns in {
@@ -679,9 +770,9 @@ def _run_migrations():
             ]
 
             # Default agendas
-            default_rest_agenda = '[{"id": 1, "title": "Sommeil / Repos", "start": "00:00", "end": "08:00", "category": "sleep"}, {"id": 2, "title": "Méditation / Relaxation", "start": "09:00", "end": "10:00", "category": "relax"}, {"id": 3, "title": "Marche & Étirements", "start": "12:00", "end": "13:00", "category": "routine"}, {"id": 4, "title": "Lecture & Repos mental", "start": "14:00", "end": "17:00", "category": "relax"}, {"id": 5, "title": "Sommeil", "start": "21:30", "end": "24:00", "category": "sleep"}]'
-            default_regular_agenda = '[{"id": 1, "title": "Sommeil / Récupération", "start": "00:00", "end": "07:00", "category": "sleep"}, {"id": 2, "title": "Routine matinale & Cardio", "start": "07:00", "end": "08:00", "category": "routine"}, {"id": 3, "title": "Focus Deep Work (Projet principal)", "start": "08:30", "end": "12:00", "category": "focus"}, {"id": 4, "title": "Gestion administrative / Travail", "start": "13:00", "end": "15:00", "category": "focus"}, {"id": 5, "title": "Entraînement physique", "start": "17:30", "end": "19:00", "category": "routine"}, {"id": 6, "title": "Détente / Social", "start": "19:00", "end": "22:00", "category": "relax"}, {"id": 7, "title": "Sommeil / Couché", "start": "22:00", "end": "24:00", "category": "sleep"}]'
-            default_hustle_agenda = '[{"id": 1, "title": "Sommeil court", "start": "00:00", "end": "06:00", "category": "sleep"}, {"id": 2, "title": "Cardio & Routine active", "start": "06:00", "end": "07:00", "category": "routine"}, {"id": 3, "title": "Deep Work", "start": "07:30", "end": "12:00", "category": "focus"}, {"id": 4, "title": "Focus Code / Projet", "start": "13:00", "end": "18:00", "category": "focus"}, {"id": 5, "title": "Musculation / Sport", "start": "18:30", "end": "20:00", "category": "routine"}, {"id": 6, "title": "Veille / Apprentissage", "start": "20:00", "end": "22:30", "category": "focus"}, {"id": 7, "title": "Récupération & Couché", "start": "22:30", "end": "24:00", "category": "sleep"}]'
+            default_rest_agenda = '[{"id": 2, "title": "Méditation / Relaxation", "start": "09:00", "end": "10:00", "category": "relax"}, {"id": 3, "title": "Marche & Étirements", "start": "12:00", "end": "13:00", "category": "routine"}, {"id": 4, "title": "Lecture & Repos mental", "start": "14:00", "end": "17:00", "category": "relax"}]'
+            default_regular_agenda = '[{"id": 2, "title": "Routine matinale & Cardio", "start": "07:00", "end": "08:00", "category": "routine"}, {"id": 3, "title": "Focus Deep Work (Projet principal)", "start": "08:30", "end": "12:00", "category": "focus"}, {"id": 4, "title": "Gestion administrative / Travail", "start": "13:00", "end": "15:00", "category": "focus"}, {"id": 5, "title": "Entraînement physique", "start": "17:30", "end": "19:00", "category": "routine"}, {"id": 6, "title": "Détente / Social", "start": "19:00", "end": "22:00", "category": "relax"}]'
+            default_hustle_agenda = '[{"id": 2, "title": "Cardio & Routine active", "start": "06:00", "end": "07:00", "category": "routine"}, {"id": 3, "title": "Deep Work", "start": "07:30", "end": "12:00", "category": "focus"}, {"id": 4, "title": "Focus Code / Projet", "start": "13:00", "end": "18:00", "category": "focus"}, {"id": 5, "title": "Musculation / Sport", "start": "18:30", "end": "20:00", "category": "routine"}, {"id": 6, "title": "Veille / Apprentissage", "start": "20:00", "end": "22:30", "category": "focus"}]'
 
             for uid in user_ids:
                 existing_templates = [

@@ -62,6 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const badgeStatus = document.getElementById("badge-status");
   const templateSelect = document.getElementById("template-select");
   const questsListContainer = document.getElementById("quests-list-container");
+  let allHabitsCache = [];
   let showTodayQuests = true;
   let showTodayBounties = true;
   const toastNotification = document.getElementById("toast-notification");
@@ -78,6 +79,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const blockEndInput = document.getElementById("block-end");
   const blockCategorySelect = document.getElementById("block-category");
   const blockOverlapWarning = document.getElementById("block-overlap-warning");
+  const agendaDateInput = document.getElementById("agenda-date-input");
+  const agendaRefreshBtn = document.getElementById("agenda-refresh-btn");
+  const agendaDayTypeBadge = document.getElementById("agenda-day-type-badge");
+  const agendaWarnings = document.getElementById("agenda-warnings");
+  const agendaEffortSummary = document.getElementById("agenda-effort-summary");
+  const agendaUnplacedList = document.getElementById("agenda-unplaced-list");
+  const agendaSlotGrid = document.getElementById("agenda-slot-grid");
+  let questAgendaState = null;
 
   const bioZoneMeta = {
     deep_focus: { label: "Focus profond", emoji: "🧠", color: "#8b5cf6" },
@@ -102,20 +111,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function mountPerfectDayRenderingLayout() {
     const recapSlot = document.getElementById("perfect-day-recap-slot");
-    const budgetSlot = document.getElementById("settings-budget-slot");
     const agendaPanel = document.getElementById("typical-day-card");
-    const budgetPanel = document.getElementById("effort-budget-panel");
 
     if (recapSlot && agendaPanel && agendaPanel.parentElement !== recapSlot) {
       recapSlot.appendChild(agendaPanel);
-    }
-    if (budgetSlot && budgetPanel && budgetPanel.parentElement !== budgetSlot) {
-      budgetSlot.appendChild(budgetPanel);
     }
   }
 
   function getBioZoneMeta(zoneType) {
     return bioZoneMeta[zoneType] || { label: zoneType || "Zone", emoji: "•", color: "#94a3b8" };
+  }
+
+  function todayDateString() {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  }
+
+  function getAgendaDate() {
+    if (agendaDateInput && agendaDateInput.value) return agendaDateInput.value;
+    return todayDateString();
   }
 
   async function fetchBiologicalZones(forceRefresh = false) {
@@ -132,15 +147,19 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function loadBioTimeline(forceRefresh = false) {
-    const bar = document.getElementById("bio-timeline-bar");
+    const bars = [
+      document.getElementById("bio-timeline-bar"),
+      document.getElementById("bio-timeline-bar-settings")
+    ].filter(el => el !== null);
+
     try {
       const zones = await fetchBiologicalZones(forceRefresh);
       renderBioTimeline(zones);
     } catch (error) {
       console.error(error);
-      if (bar) {
+      bars.forEach(bar => {
         bar.innerHTML = `<div class="bio-timeline-empty">Impossible de charger la journée biologique.</div>`;
-      }
+      });
     }
   }
 
@@ -180,57 +199,64 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderBioTimeline(zones) {
-    const bar = document.getElementById("bio-timeline-bar");
-    if (!bar) return;
-    bar.innerHTML = "";
+    const bars = [
+      document.getElementById("bio-timeline-bar"),
+      document.getElementById("bio-timeline-bar-settings")
+    ].filter(el => el !== null);
 
-    if (!zones || zones.length === 0) {
-      bar.innerHTML = `<div class="bio-timeline-empty">Aucune zone biologique configurée.</div>`;
-      return;
-    }
+    if (bars.length === 0) return;
 
-    const segments = buildBioTimelineSegments(zones);
-    let cursor = 0;
+    bars.forEach(bar => {
+      bar.innerHTML = "";
 
-    segments.forEach(segment => {
-      if (segment.startMin > cursor) {
+      if (!zones || zones.length === 0) {
+        bar.innerHTML = `<div class="bio-timeline-empty">Aucune zone biologique configurée.</div>`;
+        return;
+      }
+
+      const segments = buildBioTimelineSegments(zones);
+      let cursor = 0;
+
+      segments.forEach(segment => {
+        if (segment.startMin > cursor) {
+          const gap = document.createElement("div");
+          gap.className = "bio-zone-gap";
+          gap.style.width = `${((segment.startMin - cursor) / 1440) * 100}%`;
+          gap.title = `Transition libre (${minutesToTime(cursor)} - ${minutesToTime(segment.startMin)})`;
+          bar.appendChild(gap);
+        }
+
+        const zone = segment.zone;
+        const meta = getBioZoneMeta(zone.zone_type);
+        const duration = segment.endMin - segment.startMin;
+        const pct = (duration / 1440) * 100;
+        const block = document.createElement("div");
+        block.className = `bio-zone-block bio-zone-${zone.zone_type}`;
+        block.style.width = `${pct}%`;
+        if (zone.color) {
+          block.style.background = zone.color;
+        }
+        block.title = `${meta.emoji} ${zone.zone_name} - ${meta.label} (${segment.startLabel} - ${segment.endLabel})`;
+
+        if (pct > 4) {
+          const label = document.createElement("span");
+          label.className = "bio-zone-label";
+          label.textContent = pct > 8 ? `${meta.emoji} ${zone.zone_name}` : meta.emoji;
+          block.appendChild(label);
+        }
+
+        bar.appendChild(block);
+        cursor = Math.max(cursor, segment.endMin);
+      });
+
+      if (cursor < 1440) {
         const gap = document.createElement("div");
         gap.className = "bio-zone-gap";
-        gap.style.width = `${((segment.startMin - cursor) / 1440) * 100}%`;
-        gap.title = `Transition libre (${minutesToTime(cursor)} - ${minutesToTime(segment.startMin)})`;
+        gap.style.width = `${((1440 - cursor) / 1440) * 100}%`;
+        gap.title = `Transition libre (${minutesToTime(cursor)} - 24:00)`;
         bar.appendChild(gap);
       }
-
-      const zone = segment.zone;
-      const meta = getBioZoneMeta(zone.zone_type);
-      const duration = segment.endMin - segment.startMin;
-      const pct = (duration / 1440) * 100;
-      const block = document.createElement("div");
-      block.className = `bio-zone-block bio-zone-${zone.zone_type}`;
-      block.style.width = `${pct}%`;
-      if (zone.color) {
-        block.style.background = zone.color;
-      }
-      block.title = `${meta.emoji} ${zone.zone_name} - ${meta.label} (${segment.startLabel} - ${segment.endLabel})`;
-
-      if (pct > 4) {
-        const label = document.createElement("span");
-        label.className = "bio-zone-label";
-        label.textContent = pct > 8 ? `${meta.emoji} ${zone.zone_name}` : meta.emoji;
-        block.appendChild(label);
-      }
-
-      bar.appendChild(block);
-      cursor = Math.max(cursor, segment.endMin);
     });
-
-    if (cursor < 1440) {
-      const gap = document.createElement("div");
-      gap.className = "bio-zone-gap";
-      gap.style.width = `${((1440 - cursor) / 1440) * 100}%`;
-      gap.title = `Transition libre (${minutesToTime(cursor)} - 24:00)`;
-      bar.appendChild(gap);
-    }
   }
 
   // ==============================================
@@ -316,6 +342,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const habitsResponse = await fetch(`${API_BASE}/habits`);
       if (!habitsResponse.ok) throw new Error("Erreur habits API");
       const habits = await habitsResponse.json();
+      allHabitsCache = habits;
 
       const profileResponse = await fetch(`${API_BASE}/profile`);
       if (!profileResponse.ok) throw new Error("Erreur profile API");
@@ -324,15 +351,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const completedIds = profileData.completed_habit_ids || [];
       questsListContainer.innerHTML = "";
 
-      // Today in Python weekday convention (0=Mon … 6=Sun)
+      // Project weekday convention: 0=Sun, 1=Mon, ..., 6=Sat
       const jsDay = new Date().getDay();
-      const pythonDay = (jsDay + 6) % 7;
+      const modelDay = jsDay;
 
       const visibleHabits = habits.filter(habit => {
         const isScheduledToday = (() => {
           if (habit.frequency === "specific_days") {
             const days = (habit.scheduled_days || "").split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-            return days.includes(pythonDay);
+            return days.includes(modelDay);
           }
           return true; // daily, weekly, monthly always visible
         })();
@@ -378,6 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
           creatif_divergent: "Créatif 🎨"
         };
         const effortBadge = habit.effort_type ? `<span class="effort-badge effort-${habit.effort_type}" style="margin-left:6px;">${effortLabels[habit.effort_type]} (${habit.effort_duration}h)</span>` : "";
+        const habitPayload = encodeURIComponent(JSON.stringify(habit));
 
 
         let buttonHTML = "";
@@ -398,7 +426,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
           <div class="quest-action" style="display:flex;gap:6px;align-items:center;">
             ${buttonHTML}
-            <button class="quest-edit-btn" data-habit='${JSON.stringify(habit)}' style="background:rgba(255,255,255,0.05);border:1px solid var(--border-glass);border-radius:8px;padding:6px 10px;color:var(--text-muted);cursor:pointer;font-size:0.8rem;">✏️</button>
+            <button class="quest-edit-btn" data-habit="${habitPayload}" title="Modifier la quête" aria-label="Modifier la quête">✏️</button>
           </div>
         `;
         questsListContainer.appendChild(questItem);
@@ -415,7 +443,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelectorAll(".quest-edit-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
-          const habit = JSON.parse(btn.getAttribute("data-habit"));
+          const habit = JSON.parse(decodeURIComponent(btn.getAttribute("data-habit")));
           openEditQuestModal(habit);
         });
       });
@@ -447,6 +475,32 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error(error);
       questsListContainer.innerHTML = `<p style="color: var(--accent-red); font-size: 0.9rem; text-align: center;">Erreur de chargement des quêtes.</p>`;
+    }
+  }
+
+  async function createQuestVersion(habitId, sourceDescription) {
+    try {
+      const response = await fetch(`${API_BASE}/habits/${habitId}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_description: sourceDescription.trim(),
+          description: ""
+        })
+      });
+
+      if (!response.ok) {
+        const errBody = await response.json();
+        throw new Error(errBody.detail || "Erreur de création");
+      }
+
+      const data = await response.json();
+      showToast(`${data.name} ajoutée !`);
+      return data;
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur: " + error.message, true);
+      return null;
     }
   }
 
@@ -638,6 +692,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // DAILY SCORES BUDGET GAUGE CALCULATION         //
   // ==============================================
   async function updateDailyBudgetGauge() {
+    return loadQuestAgenda();
     try {
       const [templatesResp, profileResp, habitsResp, goalsResp] = await Promise.all([
         fetch(`${API_BASE}/templates`),
@@ -696,12 +751,12 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       const jsDay = new Date().getDay();
-      const pythonDay = (jsDay + 6) % 7;
+      const modelDay = jsDay;
       
       const plannedHabits = habits.filter(habit => {
         if (habit.frequency === "specific_days") {
           const days = (habit.scheduled_days || "").split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-          return days.includes(pythonDay);
+          return days.includes(modelDay);
         }
         return true;
       });
@@ -874,6 +929,300 @@ document.addEventListener("DOMContentLoaded", () => {
     const h = Math.floor(mins / 60).toString().padStart(2, "0");
     const m = (mins % 60).toString().padStart(2, "0");
     return `${h}:${m}`;
+  }
+
+  function agendaQuestById(habitId) {
+    if (!questAgendaState) return null;
+    const all = [
+      ...(questAgendaState.placed_quests || []),
+      ...(questAgendaState.unplaced_quests || [])
+    ];
+    return all.find(q => String(q.habit_id) === String(habitId));
+  }
+
+  function questFromAgendaItem(item) {
+    return {
+      id: item.habit_id,
+      name: item.name,
+      description: item.description || "",
+      type: item.type || "binary",
+      frequency: item.frequency || "daily",
+      scheduled_days: item.scheduled_days || "0,1,2,3,4,5,6",
+      effort_type: item.effort_type || "",
+      effort_duration: item.effort_duration !== undefined && item.effort_duration !== null ? item.effort_duration : 1.0,
+      agenda_duration_minutes: item.agenda_duration_minutes || item.duration_minutes || 60,
+      source_type: item.source_type || "manual",
+      source_ref: item.source_ref || null,
+      source_label: item.source_label || null,
+      auto_managed: !!item.auto_managed,
+      archived_at: item.archived_at || null,
+      is_active: true,
+      unit: item.unit || "",
+      daily_target: item.daily_target || null,
+      version_history: []
+    };
+  }
+
+  function renderAgendaEffortSummary(data) {
+    if (!agendaEffortSummary) return;
+    const labels = {
+      cerveau: "Cerveau",
+      musculaire: "Musculaire",
+      emotionnel_social: "Social",
+      creatif_divergent: "Créatif"
+    };
+    const totals = data.effort_totals || {};
+    const ceilings = data.ceilings || {};
+    const keys = ["cerveau", "musculaire", "emotionnel_social", "creatif_divergent"];
+    agendaEffortSummary.innerHTML = keys.map(key => {
+      const total = Number(totals[key] || 0);
+      const ceiling = Number(ceilings[key] || 0);
+      const pct = ceiling > 0 ? Math.min((total / ceiling) * 100, 100) : 0;
+      const over = ceiling > 0 && total > ceiling;
+      return `
+        <div class="agenda-effort-item ${over ? "over" : ""}">
+          <div class="agenda-effort-top">
+            <span>${labels[key]}</span>
+            <strong>${total.toFixed(1)}h / ${ceiling.toFixed(1)}h</strong>
+          </div>
+          <div class="agenda-effort-track"><span style="width:${pct}%;"></span></div>
+        </div>
+      `;
+    }).join("");
+
+    if (agendaWarnings) {
+      const warnings = data.warnings || [];
+      agendaWarnings.innerHTML = warnings.length
+        ? warnings.map(w => `<div class="agenda-warning">${w}</div>`).join("")
+        : `<div class="agenda-ok">Budget agenda valide.</div>`;
+    }
+  }
+
+  function renderAgendaQuestCard(item, placed = false) {
+    const card = document.createElement("div");
+    card.className = `agenda-quest-card ${placed ? "placed" : "unplaced"} ${item.needs_configuration ? "needs-config" : ""}`;
+    card.draggable = true;
+    card.dataset.habitId = item.habit_id;
+    card.addEventListener("dragstart", (event) => {
+      event.dataTransfer.setData("text/plain", String(item.habit_id));
+      event.dataTransfer.effectAllowed = "move";
+    });
+
+    const effortLabel = item.effort_type
+      ? `${item.effort_type.replace("_", " ")} ${item.effort_duration || 0}h`
+      : "effort à définir";
+    const sourceLabel = item.source_label || (item.source_type === "manual" ? "manuel" : item.source_type);
+    const configText = item.needs_configuration ? `<span class="agenda-config-flag">à configurer</span>` : "";
+    const timeText = placed ? `<span class="agenda-time-chip">${item.start_time} · ${item.duration_minutes}min</span>` : `<span class="agenda-time-chip">${item.duration_minutes || item.agenda_duration_minutes || 60}min</span>`;
+
+    card.innerHTML = `
+      <div class="agenda-quest-main">
+        <strong>${item.name}</strong>
+        <span>${sourceLabel}</span>
+      </div>
+      <div class="agenda-quest-meta">
+        ${timeText}
+        <span>${effortLabel}</span>
+        ${configText}
+      </div>
+      <div class="agenda-quest-actions">
+        <button type="button" class="agenda-small-btn agenda-edit-quest">Configurer</button>
+        ${placed ? `<button type="button" class="agenda-small-btn agenda-unplace-quest">Retirer</button>` : ""}
+      </div>
+    `;
+
+    card.querySelector(".agenda-edit-quest")?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openEditQuestModal(questFromAgendaItem(item));
+    });
+    card.querySelector(".agenda-unplace-quest")?.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      await unplaceAgendaQuest(item.habit_id);
+    });
+    return card;
+  }
+
+  function renderAgendaLists(data) {
+    if (agendaUnplacedList) {
+      agendaUnplacedList.innerHTML = "";
+      const unplaced = data.unplaced_quests || [];
+      if (unplaced.length === 0) {
+        agendaUnplacedList.innerHTML = `<p class="agenda-empty">Aucune quête visible non placée.</p>`;
+      } else {
+        unplaced.forEach(item => agendaUnplacedList.appendChild(renderAgendaQuestCard(item, false)));
+      }
+    }
+
+    const placedList = document.getElementById("agenda-blocks-list");
+    if (placedList) {
+      placedList.innerHTML = "";
+      const placed = data.placed_quests || [];
+      if (placed.length === 0) {
+        placedList.innerHTML = `<p class="agenda-empty">Aucune quête placée.</p>`;
+      } else {
+        placed.forEach(item => placedList.appendChild(renderAgendaQuestCard(item, true)));
+      }
+    }
+  }
+
+  function renderAgendaDropGrid() {
+    if (!agendaSlotGrid) return;
+    agendaSlotGrid.innerHTML = "";
+    for (let minute = 0; minute < 1440; minute += 15) {
+      const slot = document.createElement("button");
+      slot.type = "button";
+      slot.className = "agenda-slot";
+      slot.dataset.time = minutesToTime(minute);
+      if (minute % 60 === 0) {
+        slot.textContent = minutesToTime(minute);
+      }
+      slot.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        slot.classList.add("drag-over");
+      });
+      slot.addEventListener("dragleave", () => slot.classList.remove("drag-over"));
+      slot.addEventListener("drop", async (event) => {
+        event.preventDefault();
+        slot.classList.remove("drag-over");
+        const habitId = event.dataTransfer.getData("text/plain");
+        const quest = agendaQuestById(habitId);
+        await placeAgendaQuest(habitId, slot.dataset.time, quest ? quest.duration_minutes || quest.agenda_duration_minutes : null);
+      });
+      agendaSlotGrid.appendChild(slot);
+    }
+  }
+
+  function renderAgendaTimeline(data) {
+    const bar = document.getElementById("timeline-bar");
+    if (!bar) return;
+    bar.innerHTML = "";
+    bar.classList.add("agenda-timeline-bar");
+
+    (data.segments || []).forEach(segment => {
+      const start = timeToMinutes(segment.start);
+      const end = timeToMinutes(segment.end);
+      if (end <= start) return;
+      const el = document.createElement("div");
+      el.className = `agenda-template-segment segment-${segment.kind || "admin"}`;
+      el.style.left = `${(start / 1440) * 100}%`;
+      el.style.width = `${((end - start) / 1440) * 100}%`;
+      el.title = `${segment.title || segment.kind} (${segment.start} - ${segment.end})`;
+      bar.appendChild(el);
+    });
+
+    (data.placed_quests || []).forEach(item => {
+      const start = timeToMinutes(item.start_time);
+      const duration = Number(item.duration_minutes || item.agenda_duration_minutes || 60);
+      const block = document.createElement("div");
+      block.className = `agenda-quest-block ${item.needs_configuration ? "needs-config" : ""}`;
+      block.draggable = true;
+      block.dataset.habitId = item.habit_id;
+      block.style.left = `${(start / 1440) * 100}%`;
+      block.style.width = `${(duration / 1440) * 100}%`;
+      block.title = `${item.name} (${item.start_time}, ${duration}min)`;
+      block.textContent = item.name;
+      block.addEventListener("dragstart", (event) => {
+        event.dataTransfer.setData("text/plain", String(item.habit_id));
+        event.dataTransfer.effectAllowed = "move";
+      });
+      bar.appendChild(block);
+    });
+
+    if ((data.placed_quests || []).length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "agenda-timeline-empty";
+      empty.textContent = "Glissez une quête sur la grille de 15 minutes.";
+      bar.appendChild(empty);
+    }
+  }
+
+  function renderQuestAgenda(data) {
+    questAgendaState = data;
+    if (agendaDateInput && !agendaDateInput.value) {
+      agendaDateInput.value = data.date || todayDateString();
+    }
+    if (agendaDayTypeBadge) {
+      agendaDayTypeBadge.textContent = data.day_type || "regular";
+      agendaDayTypeBadge.dataset.template = data.day_type || "regular";
+    }
+    renderAgendaEffortSummary(data);
+    renderAgendaDropGrid();
+    renderAgendaTimeline(data);
+    renderAgendaLists(data);
+  }
+
+  async function loadQuestAgenda(showErrors = false) {
+    try {
+      const date = getAgendaDate();
+      const response = await fetch(`${API_BASE}/agenda?date=${encodeURIComponent(date)}`);
+      if (!response.ok) throw new Error((await response.json()).detail || "Erreur agenda");
+      const data = await response.json();
+      renderQuestAgenda(data);
+      return data;
+    } catch (error) {
+      console.error(error);
+      if (showErrors) showToast(error.message, true);
+      if (agendaUnplacedList) {
+        agendaUnplacedList.innerHTML = `<p class="agenda-empty error">Erreur de chargement de l'agenda.</p>`;
+      }
+      return null;
+    }
+  }
+
+  async function placeAgendaQuest(habitId, startTime, durationMinutes = null) {
+    if (!habitId || !startTime) return;
+    try {
+      const date = getAgendaDate();
+      const body = { start_time: startTime };
+      if (durationMinutes) body.duration_minutes = parseInt(durationMinutes, 10);
+      const response = await fetch(`${API_BASE}/agenda/${date}/quests/${habitId}/placement`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!response.ok) throw new Error((await response.json()).detail || "Placement refusé");
+      const data = await response.json();
+      renderQuestAgenda(data);
+      showToast(`Quête placée à ${startTime}.`);
+    } catch (error) {
+      console.error(error);
+      showToast(error.message, true);
+    }
+  }
+
+  async function unplaceAgendaQuest(habitId) {
+    if (!habitId) return;
+    try {
+      const date = getAgendaDate();
+      const response = await fetch(`${API_BASE}/agenda/${date}/quests/${habitId}/placement`, {
+        method: "DELETE"
+      });
+      if (!response.ok) throw new Error((await response.json()).detail || "Retrait refusé");
+      const data = await response.json();
+      renderQuestAgenda(data);
+      showToast("Quête retirée de l'agenda.");
+    } catch (error) {
+      console.error(error);
+      showToast(error.message, true);
+    }
+  }
+
+  async function saveAgendaAsTemplate(templateName) {
+    try {
+      const date = getAgendaDate();
+      const response = await fetch(`${API_BASE}/agenda/${date}/save-as-template`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template_name: templateName })
+      });
+      if (!response.ok) throw new Error((await response.json()).detail || "Sauvegarde refusée");
+      const data = await response.json();
+      showToast(`${data.default_placements_count} placement(s) sauvés pour ${templateName}.`);
+      await loadQuestAgenda(true);
+    } catch (error) {
+      console.error(error);
+      showToast(error.message, true);
+    }
   }
 
   // Render the horizontal timeline bar
@@ -1567,6 +1916,8 @@ document.addEventListener("DOMContentLoaded", () => {
       editIdInput.value = goalData.id;
       titleInput.value = goalData.title;
       descInput.value = goalData.description || "";
+      document.getElementById("goal-do-date-input").value = goalData.do_date || "";
+      document.getElementById("goal-due-date-input").value = goalData.due_date || "";
     } else if (mode === "add-goal") {
       drawerTitle.textContent = "🏆 Nouvel Objectif";
       
@@ -1579,6 +1930,8 @@ document.addEventListener("DOMContentLoaded", () => {
       editIdInput.value = "";
       titleInput.value = "";
       descInput.value = "";
+      document.getElementById("goal-do-date-input").value = "";
+      document.getElementById("goal-due-date-input").value = "";
     } else if (mode === "add-substep") {
       drawerTitle.textContent = "⛓️ Nouvelle Sous-étape";
       
@@ -1629,6 +1982,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==============================================
   async function fetchGoals() {
     try {
+      await fetchProfile();
       const response = await fetch(`${API_BASE}/goals`);
       if (!response.ok) throw new Error("Erreur fetch goals");
       const goals = await response.json();
@@ -1703,6 +2057,17 @@ document.addEventListener("DOMContentLoaded", () => {
           : (isPinned ? 'Retirer du Top 3' : 'Définir comme Top 3');
         const starHTML = `<span class="goal-pin-star ${isPinned ? 'pinned' : ''}" title="${starTitle}" style="cursor: ${starCursor}; margin-left: 0.5rem; font-size: 1.15rem; color: ${isPinned ? 'var(--accent-yellow, #ffb300)' : 'var(--text-muted, #8e9297)'}; transition: color 0.2s;">${isPinned ? '★' : '☆'}</span>`;
 
+        let dateInfoList = [];
+        if (goal.do_date) {
+          const parts = goal.do_date.split("-");
+          dateInfoList.push(`📅 ${parts.length === 3 ? `${parts[2]}/${parts[1]}` : goal.do_date}`);
+        }
+        if (goal.due_date) {
+          const parts = goal.due_date.split("-");
+          dateInfoList.push(`🚨 ${parts.length === 3 ? `${parts[2]}/${parts[1]}` : goal.due_date}`);
+        }
+        const sidebarDateInfo = dateInfoList.length > 0 ? ` • ${dateInfoList.join(" ")}` : "";
+
         item.innerHTML = `
           <div class="goal-selector-title" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
             <span style="display: flex; align-items: center; gap: 0.3rem;">
@@ -1711,7 +2076,7 @@ document.addEventListener("DOMContentLoaded", () => {
             </span>
             <span style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">${percent}%</span>
           </div>
-          <span class="goal-selector-meta">${totalSteps} sous-étape${totalSteps > 1 ? 's' : ''}</span>
+          <span class="goal-selector-meta">${totalSteps} sous-étape${totalSteps > 1 ? 's' : ''}${sidebarDateInfo}</span>
           <div class="goal-selector-progress-track">
             <div class="goal-selector-progress-fill" style="width: ${percent}%;"></div>
           </div>
@@ -1816,12 +2181,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const completedSteps = goal.substeps.filter(s => s.completed).length;
     const percent = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
+    let dateInfoList = [];
+    if (goal.do_date) {
+      const parts = goal.do_date.split("-");
+      dateInfoList.push(`📅 ${parts.length === 3 ? `${parts[2]}/${parts[1]}` : goal.do_date}`);
+    }
+    if (goal.due_date) {
+      const parts = goal.due_date.split("-");
+      dateInfoList.push(`🚨 ${parts.length === 3 ? `${parts[2]}/${parts[1]}` : goal.due_date}`);
+    }
+    const dateText = dateInfoList.length > 0 ? ` • ${dateInfoList.join(" ")}` : "";
+
     // Header with actions
     let headerHTML = `
       <div class="skill-tree-header">
         <div>
           <span class="skill-tree-title">${goal.title} ${goal.completed ? "🎉" : ""}</span>
-          <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.2rem;">${goal.description || 'Arbre de quêtes long terme.'} • ${percent}% complété</p>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.2rem;">${goal.description || 'Arbre de quêtes long terme.'} • ${percent}% complété${dateText}</p>
         </div>
         <div class="skill-tree-actions">
           <button class="tree-icon-btn add-step" id="btn-add-substep" title="Nouvelle Sous-étape" style="font-size: 1.1rem; color: var(--accent-cyan);">➕</button>
@@ -1912,12 +2288,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 2. Column Last: Root Goal itself!
     const goalIsCompleted = goal.completed;
+    let nodeDatesHtml = "";
+    let nodeDatesList = [];
+    if (goal.do_date) {
+      const parts = goal.do_date.split("-");
+      nodeDatesList.push(`📅 ${parts.length === 3 ? `${parts[2]}/${parts[1]}` : goal.do_date}`);
+    }
+    if (goal.due_date) {
+      const parts = goal.due_date.split("-");
+      nodeDatesList.push(`🚨 ${parts.length === 3 ? `${parts[2]}/${parts[1]}` : goal.due_date}`);
+    }
+    if (nodeDatesList.length > 0) {
+      nodeDatesHtml = `<span class="tree-node-desc" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; display: block;">${nodeDatesList.join(" ")}</span>`;
+    }
+
     columnsHTML += `
       <div class="tree-column">
         <div class="tree-node ${goalIsCompleted ? 'completed-node' : 'unlocked-node'}" style="min-height: 120px;">
           <span class="substep-tag" style="background: rgba(234, 179, 8, 0.15); color: var(--accent-gold); font-size: 0.65rem;">OBJECTIF CENTRAL</span>
           <span class="tree-node-title" style="font-size: 1.1rem; color: var(--accent-green); margin-top: 0.3rem;">${goal.title}</span>
-          <span class="tree-node-desc" style="font-size: 0.78rem;">${percent}% complété</span>
+          ${nodeDatesHtml}
+          <span class="tree-node-desc" style="font-size: 0.78rem; margin-top: 0.2rem;">${percent}% complété</span>
         </div>
       </div>
     `;
@@ -1991,6 +2382,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const editId = document.getElementById("edit-goal-id-input").value;
     const title = document.getElementById("goal-title-input").value.trim();
     const desc = document.getElementById("goal-desc-input").value.trim();
+    const doDate = document.getElementById("goal-do-date-input").value || null;
+    const dueDate = document.getElementById("goal-due-date-input").value || null;
 
     try {
       let resp;
@@ -1998,13 +2391,13 @@ document.addEventListener("DOMContentLoaded", () => {
         resp = await fetch(`${API_BASE}/goals/${editId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, description: desc })
+          body: JSON.stringify({ title, description: desc, do_date: doDate, due_date: dueDate })
         });
       } else {
         resp = await fetch(`${API_BASE}/goals`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, description: desc })
+          body: JSON.stringify({ title, description: desc, do_date: doDate, due_date: dueDate })
         });
       }
 
@@ -2358,6 +2751,37 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  let loadedMinRestHours = 8.0;
+
+  function updateBudgetCalculationsAndValidation() {
+    const muscular = parseFloat(document.getElementById("ceiling-musculaire").value) || 0;
+    const cerveau = parseFloat(document.getElementById("ceiling-cerveau").value) || 0;
+    const emotionnel = parseFloat(document.getElementById("ceiling-emotionnel").value) || 0;
+    const creatif = parseFloat(document.getElementById("ceiling-creatif").value) || 0;
+
+    const total = muscular + cerveau + emotionnel + creatif;
+    document.getElementById("ceiling-total").value = total;
+
+    const focusHours = parseFloat(document.getElementById("template-focus-hours").value) || 0;
+    const errorMsg = document.getElementById("budget-error-msg");
+    const saveBtn = editThresholdsForm.querySelector("button[type='submit']");
+
+    if (total > focusHours) {
+      errorMsg.textContent = `⚠️ Le total des plafonds d'effort (${total}h) ne peut pas dépasser l'objectif focus (${focusHours}h).`;
+      errorMsg.style.display = "block";
+      if (saveBtn) saveBtn.disabled = true;
+    } else {
+      errorMsg.style.display = "none";
+      if (saveBtn) saveBtn.disabled = false;
+    }
+  }
+
+  document.getElementById("ceiling-musculaire").addEventListener("input", updateBudgetCalculationsAndValidation);
+  document.getElementById("ceiling-cerveau").addEventListener("input", updateBudgetCalculationsAndValidation);
+  document.getElementById("ceiling-emotionnel").addEventListener("input", updateBudgetCalculationsAndValidation);
+  document.getElementById("ceiling-creatif").addEventListener("input", updateBudgetCalculationsAndValidation);
+  document.getElementById("template-focus-hours").addEventListener("input", updateBudgetCalculationsAndValidation);
+
   async function loadSettingsThresholds() {
     try {
       const response = await fetch(`${API_BASE}/templates`);
@@ -2368,14 +2792,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const config = templates[activeTemplate] || {};
 
       document.getElementById("template-focus-hours").value = config.focus_hours !== undefined ? config.focus_hours : 6.0;
-      document.getElementById("template-min-rest").value = config.min_rest_hours !== undefined ? config.min_rest_hours : 8.0;
+      loadedMinRestHours = config.min_rest_hours !== undefined ? config.min_rest_hours : 8.0;
 
       const ceilings = config.ceilings || {};
       document.getElementById("ceiling-musculaire").value = ceilings.musculaire !== undefined ? ceilings.musculaire : 2.0;
       document.getElementById("ceiling-cerveau").value = ceilings.cerveau !== undefined ? ceilings.cerveau : 2.0;
       document.getElementById("ceiling-emotionnel").value = ceilings.emotionnel_social !== undefined ? ceilings.emotionnel_social : 2.0;
       document.getElementById("ceiling-creatif").value = ceilings.creatif_divergent !== undefined ? ceilings.creatif_divergent : 2.0;
-      document.getElementById("ceiling-total").value = ceilings.total !== undefined ? ceilings.total : 8.0;
+      
+      updateBudgetCalculationsAndValidation();
     } catch (e) {
       console.error(e);
       showToast("Erreur de récupération des templates", true);
@@ -2387,7 +2812,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const activeTemplate = templateEditSelect.value;
     
     const focus_hours = parseFloat(document.getElementById("template-focus-hours").value) || 0;
-    const min_rest_hours = parseFloat(document.getElementById("template-min-rest").value) || 0;
+    const min_rest_hours = loadedMinRestHours;
     const ceilings = {
       musculaire: parseFloat(document.getElementById("ceiling-musculaire").value) || 0,
       cerveau: parseFloat(document.getElementById("ceiling-cerveau").value) || 0,
@@ -2395,6 +2820,11 @@ document.addEventListener("DOMContentLoaded", () => {
       creatif_divergent: parseFloat(document.getElementById("ceiling-creatif").value) || 0,
       total: parseFloat(document.getElementById("ceiling-total").value) || 0
     };
+
+    if (ceilings.total > focus_hours) {
+      showToast("Le total des plafonds dépasse l'objectif focus.", true);
+      return;
+    }
 
     try {
       const response = await fetch(`${API_BASE}/templates`, {
@@ -2424,18 +2854,146 @@ document.addEventListener("DOMContentLoaded", () => {
   const editQuestDrawer  = document.getElementById("edit-quest-drawer");
   const editFreqSelect   = document.getElementById("edit-quest-frequency");
   const editDaysGroup    = document.getElementById("edit-scheduled-days-group");
+  const editQuestDescLabel = document.getElementById("edit-quest-desc-label");
+  const editQuestDescInput = document.getElementById("edit-quest-desc");
+  const editQuestVersionList = document.getElementById("edit-quest-version-list");
+  const addEditQuestVersionBtn = document.getElementById("add-edit-quest-version-btn");
+  const editQuestSourceMeta = document.getElementById("edit-quest-source-meta");
+  const archiveQuestBtn = document.getElementById("archive-quest-btn");
+  let activeEditQuest = null;
+
+  function splitQuestVersionName(name) {
+    const cleanedName = (name || "").trim();
+    for (const prefix of ["Étape ", "Etape "]) {
+      if (cleanedName.startsWith(prefix)) {
+        const remaining = cleanedName.slice(prefix.length);
+        const separatorIndex = remaining.indexOf(" - ");
+        if (separatorIndex > 0) {
+          const versionIndex = parseInt(remaining.slice(0, separatorIndex), 10);
+          const baseName = remaining.slice(separatorIndex + 3).trim();
+          if (!isNaN(versionIndex) && baseName) {
+            return { versionIndex, baseName };
+          }
+        }
+      }
+    }
+    return { versionIndex: null, baseName: cleanedName };
+  }
+
+  function getQuestVersionGroup(habit) {
+    if (habit.version_history && habit.version_history.length > 0) {
+      return habit.version_history
+        .map((version) => ({
+          habit: version,
+          baseName: splitQuestVersionName(version.name).baseName,
+          versionIndex: version.version_index,
+          displayIndex: version.version_index || 1
+        }))
+        .sort((a, b) => a.displayIndex - b.displayIndex || a.habit.id - b.habit.id);
+    }
+
+    const { baseName } = splitQuestVersionName(habit.name);
+    return allHabitsCache
+      .map((candidate) => {
+        const parsed = splitQuestVersionName(candidate.name);
+        return {
+          habit: candidate,
+          baseName: parsed.baseName,
+          versionIndex: parsed.versionIndex,
+          displayIndex: parsed.versionIndex || 1
+        };
+      })
+      .filter((candidate) => candidate.baseName === baseName)
+      .sort((a, b) => a.displayIndex - b.displayIndex || a.habit.id - b.habit.id);
+  }
+
+  function renderEditQuestDescriptionFields(habit) {
+    const versions = getQuestVersionGroup(habit);
+    const hasVersions = versions.length > 1 || versions.some((item) => item.versionIndex !== null);
+    const primaryVersion = hasVersions ? versions[0] : versions.find((item) => item.habit.id === habit.id) || {
+      habit,
+      displayIndex: 1
+    };
+
+    editQuestDescLabel.textContent = hasVersions ? `V${primaryVersion.displayIndex} description` : "Description";
+    editQuestDescInput.value = primaryVersion.habit.description || "";
+    editQuestDescInput.dataset.habitId = primaryVersion.habit.id;
+    editQuestVersionList.innerHTML = "";
+    editQuestVersionList.style.display = hasVersions ? "flex" : "none";
+
+    if (!hasVersions) return;
+
+    versions
+      .filter((item) => item.habit.id !== primaryVersion.habit.id)
+      .forEach((item) => {
+        const block = document.createElement("div");
+        block.className = "quest-version-description-block";
+        block.innerHTML = `
+          <label>V${item.displayIndex} description</label>
+          <input type="text" class="quest-version-description-input" data-habit-id="${item.habit.id}" value="">
+        `;
+        const input = block.querySelector("input");
+        input.value = item.habit.description || "";
+        editQuestVersionList.appendChild(block);
+      });
+  }
+
+  function collectQuestVersionDescriptionUpdates() {
+    const updates = [{
+      id: parseInt(editQuestDescInput.dataset.habitId || document.getElementById("edit-quest-id").value, 10),
+      description: editQuestDescInput.value.trim()
+    }];
+
+    editQuestVersionList.querySelectorAll(".quest-version-description-input").forEach((input) => {
+      updates.push({
+        id: parseInt(input.dataset.habitId, 10),
+        description: input.value.trim()
+      });
+    });
+
+    return updates.filter((update) => !isNaN(update.id));
+  }
+
+  async function saveQuestDescriptionUpdates(descriptionUpdates, skipId = null) {
+    for (const update of descriptionUpdates) {
+      if (skipId !== null && String(update.id) === String(skipId)) continue;
+      const updateResponse = await fetch(`${API_BASE}/habits/${update.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: update.description }),
+      });
+      if (!updateResponse.ok) throw new Error((await updateResponse.json()).detail || "Erreur");
+    }
+  }
 
   function openEditQuestModal(habit) {
+    activeEditQuest = habit;
     document.getElementById("edit-quest-id").value        = habit.id;
     document.getElementById("edit-quest-name").value      = habit.name;
-    document.getElementById("edit-quest-desc").value      = habit.description || "";
     document.getElementById("edit-quest-unit").value      = habit.unit || "";
     document.getElementById("edit-quest-target").value    = habit.daily_target || "";
     editFreqSelect.value = habit.frequency || "daily";
+    renderEditQuestDescriptionFields(habit);
 
     // Populate effort
     document.getElementById("edit-quest-effort-type").value = habit.effort_type || "";
     document.getElementById("edit-quest-effort-duration").value = habit.effort_duration !== undefined && habit.effort_duration !== null ? habit.effort_duration : 1.0;
+    document.getElementById("edit-quest-agenda-duration").value = habit.agenda_duration_minutes || 60;
+
+    if (editQuestSourceMeta) {
+      const sourceType = habit.source_type || "manual";
+      if (sourceType === "manual") {
+        editQuestSourceMeta.style.display = "none";
+        editQuestSourceMeta.textContent = "";
+      } else {
+        editQuestSourceMeta.style.display = "block";
+        editQuestSourceMeta.textContent = habit.source_label || `${sourceType}: ${habit.source_ref || ""}`;
+      }
+    }
+    if (archiveQuestBtn) {
+      archiveQuestBtn.textContent = habit.archived_at ? "Désarchiver" : "Archiver";
+      archiveQuestBtn.dataset.archived = habit.archived_at ? "true" : "false";
+    }
 
     // Show/hide day checkboxes
     const isSpecific = habit.frequency === "specific_days";
@@ -2452,6 +3010,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function closeEditQuestModal() {
     editQuestOverlay.classList.remove("open");
     editQuestDrawer.classList.remove("open");
+    activeEditQuest = null;
   }
 
   if (editFreqSelect) {
@@ -2462,6 +3021,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("close-edit-quest-btn")?.addEventListener("click", closeEditQuestModal);
   editQuestOverlay?.addEventListener("click", closeEditQuestModal);
+
+  addEditQuestVersionBtn?.addEventListener("click", async () => {
+    const id = parseInt(document.getElementById("edit-quest-id").value, 10);
+    if (isNaN(id)) return;
+
+    const activeDescriptionUpdate = collectQuestVersionDescriptionUpdates()
+      .find((update) => update.id === id);
+    const sourceDescription = activeDescriptionUpdate
+      ? activeDescriptionUpdate.description
+      : editQuestDescInput.value.trim();
+
+    try {
+      await saveQuestDescriptionUpdates(collectQuestVersionDescriptionUpdates(), id);
+      const data = await createQuestVersion(id, sourceDescription);
+      if (!data) return;
+
+      await fetchQuests();
+      const refreshedHabit = allHabitsCache.find((habit) => habit.id === data.id) || activeEditQuest;
+      if (refreshedHabit) {
+        activeEditQuest = refreshedHabit;
+        document.getElementById("edit-quest-id").value = refreshedHabit.id;
+        document.getElementById("edit-quest-name").value = refreshedHabit.name;
+        document.getElementById("edit-quest-unit").value = refreshedHabit.unit || "";
+        document.getElementById("edit-quest-target").value = refreshedHabit.daily_target || "";
+        editFreqSelect.value = refreshedHabit.frequency || "daily";
+        renderEditQuestDescriptionFields(refreshedHabit);
+      }
+    } catch (e) {
+      showToast(e.message, true);
+    }
+  });
 
   document.getElementById("save-edit-quest-btn")?.addEventListener("click", async () => {
     const id        = document.getElementById("edit-quest-id").value;
@@ -2475,16 +3065,20 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const effort_type = document.getElementById("edit-quest-effort-type").value || null;
     const effort_duration = parseFloat(document.getElementById("edit-quest-effort-duration").value) || 1.0;
+    const agenda_duration_minutes = parseInt(document.getElementById("edit-quest-agenda-duration").value, 10) || 60;
+    const descriptionUpdates = collectQuestVersionDescriptionUpdates();
+    const activeDescription = descriptionUpdates.find((update) => String(update.id) === String(id));
 
     const body = {
       name:           document.getElementById("edit-quest-name").value.trim(),
-      description:    document.getElementById("edit-quest-desc").value.trim(),
+      description:    activeDescription ? activeDescription.description : editQuestDescInput.value.trim(),
       unit:           document.getElementById("edit-quest-unit").value.trim() || null,
       frequency,
       scheduled_days,
       daily_target:   editTargetRaw > 1 ? editTargetRaw : 1,  // 1 = pas de cible (exclude_none empêche de remettre null)
       effort_type,
       effort_duration,
+      agenda_duration_minutes,
     };
     try {
       const r = await fetch(`${API_BASE}/habits/${id}`, {
@@ -2493,9 +3087,26 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify(body),
       });
       if (!r.ok) throw new Error((await r.json()).detail || "Erreur");
+      await saveQuestDescriptionUpdates(descriptionUpdates, id);
       showToast("Quête mise à jour !");
       closeEditQuestModal();
-      fetchQuests();
+      refreshAll();
+    } catch (e) {
+      showToast(e.message, true);
+    }
+  });
+
+  archiveQuestBtn?.addEventListener("click", async () => {
+    const id = document.getElementById("edit-quest-id").value;
+    if (!id) return;
+    const archived = archiveQuestBtn.dataset.archived === "true";
+    const action = archived ? "unarchive" : "archive";
+    try {
+      const r = await fetch(`${API_BASE}/habits/${id}/${action}`, { method: "POST" });
+      if (!r.ok) throw new Error((await r.json()).detail || "Erreur");
+      showToast(archived ? "Quête désarchivée." : "Quête archivée.");
+      closeEditQuestModal();
+      refreshAll();
     } catch (e) {
       showToast(e.message, true);
     }
@@ -2509,7 +3120,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!r.ok) throw new Error((await r.json()).detail || "Erreur");
       showToast("Quête supprimée.");
       closeEditQuestModal();
-      fetchQuests();
+      refreshAll();
     } catch (e) {
       showToast(e.message, true);
     }
@@ -2583,9 +3194,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function setupAgendaEvents() {
+    if (agendaDateInput && !agendaDateInput.value) {
+      agendaDateInput.value = todayDateString();
+    }
+    agendaDateInput?.addEventListener("change", () => loadQuestAgenda(true));
+    agendaRefreshBtn?.addEventListener("click", () => loadQuestAgenda(true));
+    document.querySelectorAll(".agenda-save-btn").forEach(btn => {
+      btn.addEventListener("click", () => saveAgendaAsTemplate(btn.dataset.template));
+    });
+  }
+
   function initializeApp() {
     mountPerfectDayRenderingLayout();
     biologicalZonesCache = null;
+    setupAgendaEvents();
     loadBioTimeline();
     refreshAll();
     setupToggleEvents();
@@ -2644,6 +3267,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const effort_type = document.getElementById("new-quest-effort-type").value || null;
         const effort_duration = parseFloat(document.getElementById("new-quest-effort-duration").value) || 1.0;
+        const agenda_duration_minutes = parseInt(document.getElementById("new-quest-agenda-duration").value, 10) || Math.max(15, Math.round(effort_duration * 60));
 
         if (!title) {
           showToast("Veuillez donner un titre à la quête !", true);
@@ -2664,6 +3288,7 @@ document.addEventListener("DOMContentLoaded", () => {
               daily_target: daily_target,
               effort_type: effort_type,
               effort_duration: effort_duration,
+              agenda_duration_minutes: agenda_duration_minutes,
             })
           });
 
@@ -2677,6 +3302,7 @@ document.addEventListener("DOMContentLoaded", () => {
           document.getElementById("new-quest-desc").value = "";
           document.getElementById("new-quest-effort-type").value = "";
           document.getElementById("new-quest-effort-duration").value = "1.0";
+          document.getElementById("new-quest-agenda-duration").value = "60";
           document.getElementById("new-quest-unit").value = "";
           document.getElementById("new-quest-target").value = "";
           if (freqSelect) freqSelect.value = "daily";
@@ -2965,6 +3591,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("edit-branch-old-key").value = branchKey;
     document.getElementById("edit-branch-key").value = branchKey;
     document.getElementById("edit-branch-color").value = branchVal.color || "#8b5cf6";
+    document.getElementById("edit-branch-do-date").value = branchVal.do_date || "";
+    document.getElementById("edit-branch-due-date").value = branchVal.due_date || "";
     document.getElementById("delete-branch-btn").style.display = "block";
   }
 
@@ -3031,6 +3659,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const completedSkills = branchSkills.filter(s => s.progress && s.progress.completed).length;
         const percent = totalSkills > 0 ? Math.round((completedSkills / totalSkills) * 100) : 0;
 
+        let bDateList = [];
+        if (branchVal.do_date) {
+          const parts = branchVal.do_date.split("-");
+          bDateList.push(`📅 ${parts.length === 3 ? `${parts[2]}/${parts[1]}` : branchVal.do_date}`);
+        }
+        if (branchVal.due_date) {
+          const parts = branchVal.due_date.split("-");
+          bDateList.push(`🚨 ${parts.length === 3 ? `${parts[2]}/${parts[1]}` : branchVal.due_date}`);
+        }
+        const bDateStr = bDateList.length > 0 ? ` • ${bDateList.join(" ")}` : "";
+
         const item = document.createElement("div");
         item.className = `goal-selector-item ${branchKey === activeBranchKey ? 'active' : ''}`;
         item.innerHTML = `
@@ -3042,7 +3681,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <span style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">${percent}%</span>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.2rem;">
-            <span class="goal-selector-meta">${totalSkills} compétence${totalSkills > 1 ? 's' : ''}</span>
+            <span class="goal-selector-meta">${totalSkills} compétence${totalSkills > 1 ? 's' : ''}${bDateStr}</span>
             <button class="softskill-branch-edit-btn" data-branch="${branchKey}" style="margin: 0; padding: 2px 6px; font-size: 0.75rem;">✏️</button>
           </div>
           <div class="goal-selector-progress-track" style="margin-top: 0.4rem;">
@@ -3231,12 +3870,26 @@ document.addEventListener("DOMContentLoaded", () => {
       const percent = totalSkills > 0 ? Math.round((completedSkills / totalSkills) * 100) : 0;
       const branchCompleted = totalSkills > 0 && completedSkills === totalSkills;
 
+      let branchDateInfo = [];
+      if (branchVal.do_date) {
+        const parts = branchVal.do_date.split("-");
+        branchDateInfo.push(`📅 ${parts.length === 3 ? `${parts[2]}/${parts[1]}` : branchVal.do_date}`);
+      }
+      if (branchVal.due_date) {
+        const parts = branchVal.due_date.split("-");
+        branchDateInfo.push(`🚨 ${parts.length === 3 ? `${parts[2]}/${parts[1]}` : branchVal.due_date}`);
+      }
+      const branchDateHtml = branchDateInfo.length > 0
+        ? `<div style="font-size: 0.62rem; color: var(--text-muted); margin-top: 0.15rem; display: flex; gap: 0.3rem; justify-content: center;">${branchDateInfo.join(" ")}</div>`
+        : "";
+
       columnsHTML += `
         <div class="tree-column">
           <div class="hex-wrapper ${branchCompleted ? 'completed-node' : 'unlocked-node'}" style="--hex-border-color: ${branchColor}; width: 120px; height: 134px;">
             <div class="tree-node">
               <span class="substep-tag" style="background: ${branchColor}22; color: ${branchColor}; font-size: 0.55rem; padding: 2px 6px; border-radius: 4px;">BRANCHE MAÎTRESSE</span>
               <span class="tree-node-title" style="font-size: 0.7rem; color: ${branchColor};">${activeBranchKey.toUpperCase()}</span>
+              ${branchDateHtml}
               <span class="tree-node-desc" style="font-size: 0.72rem;">${percent}% complété</span>
             </div>
           </div>
@@ -3421,7 +4074,10 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("edit-branch-old-key").value = "";
       document.getElementById("edit-branch-key").value = "";
       document.getElementById("edit-branch-color").value = "#8b5cf6";
-      document.getElementById("edit-branch-pale-color").value = "#dddddd";
+      const paleColorEl = document.getElementById("edit-branch-pale-color");
+      if (paleColorEl) paleColorEl.value = "#dddddd";
+      document.getElementById("edit-branch-do-date").value = "";
+      document.getElementById("edit-branch-due-date").value = "";
       document.getElementById("delete-branch-btn").style.display = "none";
     });
   }
@@ -3654,6 +4310,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const newKey = document.getElementById("edit-branch-key").value.trim();
       const color = document.getElementById("edit-branch-color").value;
       const paleColor = getPaleColor(color);
+      const doDate = document.getElementById("edit-branch-do-date").value || null;
+      const dueDate = document.getElementById("edit-branch-due-date").value || null;
       
       try {
         let resp;
@@ -3664,7 +4322,7 @@ document.addEventListener("DOMContentLoaded", () => {
               "Content-Type": "application/json",
               "X-User-ID": localStorage.getItem("user_id") || "1"
             },
-            body: JSON.stringify({ new_key: newKey, color, pale_color: paleColor })
+            body: JSON.stringify({ new_key: newKey, color, pale_color: paleColor, do_date: doDate, due_date: dueDate })
           });
         } else {
           resp = await fetch(`${API_BASE}/softskills/branches`, {
@@ -3673,7 +4331,7 @@ document.addEventListener("DOMContentLoaded", () => {
               "Content-Type": "application/json",
               "X-User-ID": localStorage.getItem("user_id") || "1"
             },
-            body: JSON.stringify({ key: newKey, color, pale_color: paleColor })
+            body: JSON.stringify({ key: newKey, color, pale_color: paleColor, do_date: doDate, due_date: dueDate })
           });
         }
         if (!resp.ok) {
@@ -4352,6 +5010,7 @@ document.addEventListener("DOMContentLoaded", () => {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          pinned_goals: pinnedGoals,
           pinned_substeps: checkedSubsteps,
           pinned_softskills: checkedSkills
         })

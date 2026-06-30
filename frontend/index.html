@@ -647,13 +647,8 @@
     /* Screen 3: Settings Styles */
     .settings-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 2rem;
-    }
-    @media (max-width: 1200px) {
-      .settings-grid {
-        grid-template-columns: 1fr 1fr;
-      }
     }
     @media (max-width: 900px) {
       .settings-grid {
@@ -917,76 +912,58 @@
           <div id="perfect-day-recap-slot">
             <!-- Perfect Day Agenda / Typical Day Timeline -->
             <section class="glass-card typical-day-card" id="typical-day-card">
-              <h2 class="section-header">📅 <span>Chronologie de la Journée Type</span></h2>
-              <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
-                Visualisez et gérez la répartition horaire de votre journée type sélectionnée.
-              </p>
+              <h2 class="section-header">📅 <span>Agenda des Quêtes</span></h2>
 
-              <!-- Horizontal Visual Timeline Bar -->
-              <div class="timeline-container">
-                <div class="timeline-bar" id="timeline-bar">
-                  <!-- Dynamically populated blocks from JS -->
+              <div class="agenda-toolbar">
+                <div class="agenda-toolbar-group">
+                  <label for="agenda-date-input">Date</label>
+                  <input type="date" id="agenda-date-input">
                 </div>
-                <div class="timeline-labels">
-                  <span>00:00</span>
-                  <span>04:00</span>
-                  <span>08:00</span>
-                  <span>12:00</span>
-                  <span>16:00</span>
-                  <span>20:00</span>
-                  <span>24:00</span>
+                <div class="agenda-toolbar-group">
+                  <span id="agenda-day-type-badge" class="agenda-day-type-badge">regular</span>
                 </div>
+                <button type="button" class="floating-add-btn" id="agenda-refresh-btn" title="Rafraîchir l'agenda">↻</button>
               </div>
 
-              <!-- List of Planned Blocks Section -->
-              <div class="agenda-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-top: 1px solid var(--border-glass); padding-top: 1.2rem;">
-                <h3 style="font-size: 1.05rem; margin: 0; color: var(--accent-cyan); font-family: var(--font-display); font-weight: 700;">📋 Liste des Blocs Planifiés</h3>
-                <button class="floating-add-btn" id="toggle-add-block-btn" style="padding: 2px 8px; font-size: 0.75rem;">+ Ajouter</button>
+              <div class="agenda-save-row">
+                <button type="button" class="agenda-save-btn" data-template="rest">Sauver rest</button>
+                <button type="button" class="agenda-save-btn" data-template="regular">Sauver regular</button>
+                <button type="button" class="agenda-save-btn" data-template="hustle">Sauver hustle</button>
               </div>
 
-              <!-- Add Agenda Block Form (Collapsible) -->
-              <div id="add-block-form-container" style="display: none; padding: 1rem; margin-bottom: 1rem; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-glass); border-radius: 12px; font-size: 0.8rem; flex-direction: column; gap: 0.8rem;">
-                <div style="font-weight: 600; color: var(--accent-gold); margin-bottom: 0.3rem;">Ajouter un bloc type</div>
+              <div id="agenda-warnings" class="agenda-warnings"></div>
+              <div id="agenda-effort-summary" class="agenda-effort-summary"></div>
 
-                <div id="block-overlap-warning" style="display: none; color: var(--accent-red); background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 8px; border-radius: 6px; font-size: 0.75rem; margin-bottom: 0.5rem;">
-                  ⚠️ Attention : Ce bloc chevauche une période déjà planifiée !
-                </div>
-
-                <div class="form-group">
-                  <label style="display: block; margin-bottom: 4px; color: var(--text-muted);">Titre de l'activité</label>
-                  <input type="text" id="block-title" placeholder="ex: Focus Deep Work" style="width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 6px; padding: 6px; color: var(--text-primary); outline: none;" required>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
-                  <div class="form-group">
-                    <label style="display: block; margin-bottom: 4px; color: var(--text-muted);">Heure de Début</label>
-                    <input type="time" id="block-start" value="08:00" style="width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 6px; padding: 6px; color: var(--text-primary); outline: none;" required>
+              <div class="agenda-workspace">
+                <aside class="agenda-unplaced-panel">
+                  <h3>Quêtes visibles</h3>
+                  <div id="agenda-unplaced-list" class="agenda-unplaced-list">
+                    <p class="agenda-empty">Chargement...</p>
                   </div>
-                  <div class="form-group">
-                    <label style="display: block; margin-bottom: 4px; color: var(--text-muted);">Heure de Fin</label>
-                    <input type="time" id="block-end" value="10:00" style="width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 6px; padding: 6px; color: var(--text-primary); outline: none;" required>
+                </aside>
+
+                <div class="agenda-timeline-panel">
+                  <div class="timeline-container agenda-drop-container">
+                    <div class="timeline-bar agenda-timeline-bar" id="timeline-bar"></div>
+                    <div class="agenda-slot-grid" id="agenda-slot-grid"></div>
+                    <div class="timeline-labels">
+                      <span>00:00</span>
+                      <span>04:00</span>
+                      <span>08:00</span>
+                      <span>12:00</span>
+                      <span>16:00</span>
+                      <span>20:00</span>
+                      <span>24:00</span>
+                    </div>
+                  </div>
+
+                  <div class="agenda-section-header">
+                    <h3>Placements du jour</h3>
+                  </div>
+                  <div id="agenda-blocks-list" class="agenda-placed-list">
+                    <p class="agenda-empty">Aucune quête placée.</p>
                   </div>
                 </div>
-
-                <div class="form-group">
-                  <label style="display: block; margin-bottom: 4px; color: var(--text-muted);">Catégorie de Focus</label>
-                  <select id="block-category" style="width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 6px; padding: 6px; color: var(--text-primary); outline: none; cursor: pointer;">
-                    <option value="focus">🎯 Focus (Travail/Études)</option>
-                    <option value="routine">⚙️ Routine (Sport/Ménage/Cardio)</option>
-                    <option value="relax">🍃 Relax (Lecture/Social/Chill)</option>
-                    <option value="sleep">💤 Sleep (Sommeil/Sieste)</option>
-                  </select>
-                </div>
-
-                <div style="display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 0.4rem;">
-                  <button type="button" id="cancel-add-block-btn" style="background: none; border: 1px solid var(--border-glass); color: var(--text-muted); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 0.78rem;">Annuler</button>
-                  <button type="button" id="save-block-btn" style="background: var(--accent-cyan); border: none; color: black; font-weight: 600; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 0.78rem;">Sauvegarder</button>
-                </div>
-              </div>
-
-              <!-- List of blocks -->
-              <div id="agenda-blocks-list" style="display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; padding-right: 0.5rem;">
-                <!-- Dynamically populated items from JS -->
               </div>
             </section>
           </div>
@@ -1039,13 +1016,13 @@
                 <div class="form-group" id="scheduled-days-group" style="display: none;">
                   <label>Jours</label>
                   <div id="new-quest-days" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
-                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="0"> Lun</label>
-                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="1"> Mar</label>
-                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="2"> Mer</label>
-                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="3"> Jeu</label>
-                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="4"> Ven</label>
-                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="5"> Sam</label>
-                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="6"> Dim</label>
+                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="1"> Lun</label>
+                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="2"> Mar</label>
+                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="3"> Mer</label>
+                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="4"> Jeu</label>
+                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="5"> Ven</label>
+                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="6"> Sam</label>
+                    <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="0"> Dim</label>
                   </div>
                 </div>
               </div>
@@ -1065,6 +1042,11 @@
                   <label>Durée d'effort (h)</label>
                   <input type="number" id="new-quest-effort-duration" step="0.5" min="0" max="16" placeholder="ex: 1.0" value="1.0" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
                 </div>
+              </div>
+
+              <div class="form-group">
+                <label>Durée agenda par défaut (min)</label>
+                <input type="number" id="new-quest-agenda-duration" step="15" min="15" max="480" placeholder="ex: 30" value="60" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%; box-sizing: border-box;">
               </div>
 
 
@@ -1201,6 +1183,16 @@
             <div class="form-group">
               <label for="goal-desc-input">Description</label>
               <input type="text" id="goal-desc-input" placeholder="ex: Atteindre l'indépendance financière">
+            </div>
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
+              <div class="form-group">
+                <label for="goal-do-date-input">Date Planifiée (Do Date)</label>
+                <input type="date" id="goal-do-date-input" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); font-family: inherit; width: 100%; box-sizing: border-box; outline: none;">
+              </div>
+              <div class="form-group">
+                <label for="goal-due-date-input">Date Limite (Due Date)</label>
+                <input type="date" id="goal-due-date-input" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); font-family: inherit; width: 100%; box-sizing: border-box; outline: none;">
+              </div>
             </div>
             <button type="submit" id="goal-submit-btn" class="quest-action-btn submit-btn" style="margin-top: 0.5rem; width: 100%;">Forger l'Objectif</button>
           </form>
@@ -1404,6 +1396,25 @@
       <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
         <button id="switch-profile-btn" class="nav-tab" style="border-color: var(--accent-red); color: var(--accent-red);">🔌 Changer de profil</button>
       </div>
+
+      <section class="glass-card bio-timeline-panel" id="bio-timeline-panel-settings" style="margin-bottom: 1.5rem;">
+        <h2 class="section-header">🌅 <span>Journée Biologique</span></h2>
+        <div class="bio-timeline-container">
+          <div class="bio-timeline-bar" id="bio-timeline-bar-settings">
+            <div class="bio-timeline-empty">Chargement de la journée biologique...</div>
+          </div>
+          <div class="timeline-labels">
+            <span>00:00</span>
+            <span>04:00</span>
+            <span>08:00</span>
+            <span>12:00</span>
+            <span>16:00</span>
+            <span>20:00</span>
+            <span>24:00</span>
+          </div>
+        </div>
+      </section>
+
       <div class="settings-grid">
         <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); font-size: 0.9rem; padding: 2rem; background: rgba(255,255,255,0.01); border: 1px dashed var(--border-glass); border-radius: 12px; margin-bottom: 1.5rem;">
           ℹ️ Perfect Days = Allocation de budget d'effort. Répartissez votre énergie sans dépasser les plafonds et assurez-vous un repos suffisant !
@@ -1426,15 +1437,9 @@
           
           <form id="edit-thresholds-form" class="modal-form">
             <div id="thresholds-inputs-container" style="display: flex; flex-direction: column; gap: 1rem;">
-              <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div class="form-group">
-                  <label for="template-focus-hours">Objectif Focus (h)</label>
-                  <input type="number" id="template-focus-hours" step="0.5" min="0" max="16" required style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary);">
-                </div>
-                <div class="form-group">
-                  <label for="template-min-rest">Repos Minimum (h)</label>
-                  <input type="number" id="template-min-rest" step="0.5" min="0" max="16" required style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary);">
-                </div>
+              <div class="form-group">
+                <label for="template-focus-hours">Objectif Focus (h)</label>
+                <input type="number" id="template-focus-hours" step="0.5" min="0" max="16" required style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary); width: 100%; box-sizing: border-box;">
               </div>
               <h4 style="font-family: var(--font-display); font-size: 0.95rem; color: var(--accent-cyan); margin-top: 0.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">Plafonds par type d'effort (h)</h4>
               <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
@@ -1459,86 +1464,15 @@
               </div>
               <div class="form-group">
                 <label for="ceiling-total">Plafond Effort Total Cumulé (h)</label>
-                <input type="number" id="ceiling-total" step="0.5" min="0" max="16" required style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary);">
+                <input type="number" id="ceiling-total" step="0.5" min="0" max="16" required style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-muted); cursor: not-allowed; width: 100%; box-sizing: border-box;" readonly>
               </div>
             </div>
+            <div id="budget-error-msg" class="bio-zone-error" style="display: none; margin-top: 1rem; margin-bottom: 0;"></div>
             <button type="submit" class="quest-action-btn submit-btn" style="margin-top: 1.5rem;">Sauvegarder les Budgets</button>
           </form>
         </section>
 
-        <!-- Middle Panel: Perfect Day Effort Budget Gauge -->
-        <div id="settings-budget-slot">
-          <!-- Perfect Day Effort Budget Gauge -->
-          <section class="glass-card effort-budget-panel" id="effort-budget-panel">
-            <h2 class="section-header">⚡ <span>Budget d'Énergie Quotidien</span></h2>
-            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: -1rem;">
-              Répartition de votre budget d'effort pour aujourd'hui.
-            </p>
 
-            <div id="effort-warnings-container" style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem;">
-              <!-- Warnings will be inserted dynamically -->
-            </div>
-
-            <!-- Total Gauge -->
-            <div style="margin-bottom: 1.2rem;">
-              <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px;">
-                <span>Total Focus Planifié</span>
-                <span id="effort-total-text" style="font-weight: 600;">0.0h / 0.0h</span>
-              </div>
-              <div class="xp-bar-container" style="height: 12px; background: rgba(255,255,255,0.03); border-radius: 6px;" title="Total d'effort planifié vs cible focus">
-                <div class="xp-bar-fill" id="effort-total-bar" style="width: 0%; height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple)); transition: width 0.3s ease;"></div>
-              </div>
-              <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
-                <span id="effort-unplanned-text">Temps libre restant : 16.0h</span>
-                <span id="effort-rest-text">Repos requis : 8.0h</span>
-              </div>
-            </div>
-
-            <!-- Categories Grid -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; border-top: 1px solid var(--border-glass); padding-top: 1rem;">
-              <!-- Brain -->
-              <div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
-                  <span>🧠 Cerveau</span>
-                  <span id="effort-cerveau-text" style="font-size: 0.72rem;">0h / 2h</span>
-                </div>
-                <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
-                  <div id="effort-cerveau-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-cyan); transition: width 0.3s ease;"></div>
-                </div>
-              </div>
-              <!-- Muscle -->
-              <div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
-                  <span>💪 Musculaire</span>
-                  <span id="effort-musculaire-text" style="font-size: 0.72rem;">0h / 2h</span>
-                </div>
-                <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
-                  <div id="effort-musculaire-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-red); transition: width 0.3s ease;"></div>
-                </div>
-              </div>
-              <!-- Social -->
-              <div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
-                  <span>🤝 Social / Émot.</span>
-                  <span id="effort-social-text" style="font-size: 0.72rem;">0h / 2h</span>
-                </div>
-                <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
-                  <div id="effort-social-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-green); transition: width 0.3s ease;"></div>
-                </div>
-              </div>
-              <!-- Creative -->
-              <div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
-                  <span>🎨 Créatif / Div.</span>
-                  <span id="effort-creatif-text" style="font-size: 0.72rem;">0h / 2h</span>
-                </div>
-                <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
-                  <div id="effort-creatif-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-purple); transition: width 0.3s ease;"></div>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
 
         <section class="glass-card bio-zone-settings-card" id="bio-zone-settings-section" style="padding: 1.8rem;">
           <h2 class="section-header">🌅 <span>Journée Biologique</span></h2>
@@ -1760,6 +1694,16 @@
           <label>Couleur principale (glow/fond)</label>
           <input type="color" id="edit-branch-color" style="height: 40px; padding: 2px; width: 100%; box-sizing: border-box; background: none; border: 1px solid var(--border-glass); border-radius: 8px;" required>
         </div>
+        <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
+          <div class="form-group">
+            <label for="edit-branch-do-date">Date de début (Do Date)</label>
+            <input type="date" id="edit-branch-do-date" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); font-family: inherit; width: 100%; box-sizing: border-box; outline: none;">
+          </div>
+          <div class="form-group">
+            <label for="edit-branch-due-date">Date limite (Due Date)</label>
+            <input type="date" id="edit-branch-due-date" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); font-family: inherit; width: 100%; box-sizing: border-box; outline: none;">
+          </div>
+        </div>
         <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
           <button type="submit" class="quest-action-btn submit-btn" style="flex: 2; padding: 12px;">💾 Enregistrer la branche</button>
           <button type="button" id="delete-branch-btn" class="quest-action-btn" style="flex: 1; padding: 12px; background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.5); color: #ef4444;">🗑️ Supprimer</button>
@@ -1808,14 +1752,19 @@
       <button id="close-edit-quest-btn" class="drawer-close-btn">&times;</button>
     </div>
     <input type="hidden" id="edit-quest-id">
+    <div id="edit-quest-source-meta" class="quest-source-meta" style="display: none;"></div>
     <div class="form-group">
       <label>Nom</label>
       <input type="text" id="edit-quest-name" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
     </div>
     <div class="form-group">
-      <label>Description</label>
+      <label id="edit-quest-desc-label">Description</label>
       <input type="text" id="edit-quest-desc" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
     </div>
+    <div class="quest-version-controls">
+      <button type="button" id="add-edit-quest-version-btn" class="quest-version-add-btn" title="Ajouter une version" aria-label="Ajouter une version">+</button>
+    </div>
+    <div id="edit-quest-version-list" class="quest-version-list"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
       <div class="form-group">
         <label>Fréquence</label>
@@ -1851,21 +1800,26 @@
         <input type="number" id="edit-quest-effort-duration" step="0.5" min="0" max="16" placeholder="ex: 1.0" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
       </div>
     </div>
+    <div class="form-group">
+      <label>Durée agenda par défaut (min)</label>
+      <input type="number" id="edit-quest-agenda-duration" step="15" min="15" max="480" placeholder="ex: 30" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
+    </div>
 
     <div class="form-group" id="edit-scheduled-days-group" style="display:none;">
       <label>Jours</label>
       <div id="edit-quest-days" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
-        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="0"> Lun</label>
-        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="1"> Mar</label>
-        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="2"> Mer</label>
-        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="3"> Jeu</label>
-        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="4"> Ven</label>
-        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="5"> Sam</label>
-        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="6"> Dim</label>
+        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="1"> Lun</label>
+        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="2"> Mar</label>
+        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="3"> Mer</label>
+        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="4"> Jeu</label>
+        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="5"> Ven</label>
+        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="6"> Sam</label>
+        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="0"> Dim</label>
       </div>
     </div>
     <div style="display:flex;gap:0.8rem;margin-top:0.5rem;">
       <button id="save-edit-quest-btn" class="quest-action-btn" style="flex:1;padding:10px;">Sauvegarder</button>
+      <button id="archive-quest-btn" class="quest-action-btn" style="flex:1;padding:10px;background:rgba(245,158,11,0.16);border-color:rgba(245,158,11,0.35);color:var(--accent-gold);">Archiver</button>
       <button id="delete-quest-btn" class="quest-action-btn" style="flex:1;padding:10px;background:rgba(220,53,69,0.2);border-color:rgba(220,53,69,0.4);color:#ff6b6b;">Supprimer</button>
     </div>
   </div>

@@ -399,6 +399,153 @@ def test_create_habit_valid_still_passes():
     assert response.json()["status"] == "success"
 
 
+def test_create_habit_version_renames_source_and_clones_settings():
+    import datetime
+
+    create_response = client.post(
+        "/api/v1/habits",
+        json={
+            "name": "routine_soir_versions",
+            "type": "binary",
+            "description": "Version initiale",
+            "frequency": "specific_days",
+            "scheduled_days": "0,2,4",
+            "daily_target": 2,
+            "effort_type": "cerveau",
+            "effort_duration": 1.5,
+        },
+    )
+    assert create_response.status_code == 201
+    source_id = create_response.json()["id"]
+
+    db = TestingSessionLocal()
+    try:
+        db.add(
+            Streak(
+                user_id=1,
+                streak_type=f"habit:{source_id}",
+                current_streak=12,
+                max_streak=15,
+                last_incremented=datetime.date.today() - datetime.timedelta(days=1),
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    version_response = client.post(
+        f"/api/v1/habits/{source_id}/versions",
+        json={
+            "source_description": "Version initiale ajustee",
+            "description": "Deuxieme passage",
+        },
+    )
+    assert version_response.status_code == 201
+    version_data = version_response.json()
+    assert version_data["name"] == "Étape 2 - routine_soir_versions"
+    assert version_data["version_index"] == 2
+    version_id = version_data["id"]
+
+    habits_response = client.get("/api/v1/habits")
+    assert habits_response.status_code == 200
+    habits = habits_response.json()
+    assert all(h["id"] != source_id for h in habits)
+    version = next(h for h in habits if h["id"] == version_id)
+
+    assert version["description"] == "Deuxieme passage"
+    assert version["type"] == "binary"
+    assert version["frequency"] == "specific_days"
+    assert version["scheduled_days"] == "0,2,4"
+    assert version["daily_target"] == 2
+    assert version["effort_type"] == "cerveau"
+    assert version["effort_duration"] == 1.5
+    assert version["version_history"] == [
+        {
+            "id": source_id,
+            "name": "Étape 1 - routine_soir_versions",
+            "description": "Version initiale ajustee",
+            "is_active": False,
+            "version_index": 1,
+        },
+        {
+            "id": version_id,
+            "name": "Étape 2 - routine_soir_versions",
+            "description": "Deuxieme passage",
+            "is_active": True,
+            "version_index": 2,
+        },
+    ]
+
+    db = TestingSessionLocal()
+    try:
+        source = db.query(Habit).filter_by(id=source_id).first()
+        new_version = db.query(Habit).filter_by(id=version_id).first()
+        new_streak = (
+            db.query(Streak).filter_by(streak_type=f"habit:{version_id}").first()
+        )
+        assert source.name == "Étape 1 - routine_soir_versions"
+        assert source.description == "Version initiale ajustee"
+        assert source.is_active is False
+        assert source.deactivated_at is not None
+        assert new_version.is_active is True
+        assert new_streak.current_streak == 12
+        assert new_streak.max_streak == 15
+        assert (
+            new_streak.last_incremented
+            == datetime.date.today() - datetime.timedelta(days=1)
+        )
+    finally:
+        db.close()
+
+    third_response = client.post(f"/api/v1/habits/{version_id}/versions", json={})
+    assert third_response.status_code == 201
+    assert third_response.json()["name"] == "Étape 3 - routine_soir_versions"
+
+    habits_response = client.get("/api/v1/habits")
+    habits = habits_response.json()
+    assert all(h["id"] not in {source_id, version_id} for h in habits)
+    assert any(h["id"] == third_response.json()["id"] for h in habits)
+
+
+def test_get_habits_shows_only_latest_active_progression_step():
+    db = TestingSessionLocal()
+    try:
+        db.add_all(
+            [
+                Habit(
+                    user_id=1,
+                    name="Étape 1 - course_progression_filter",
+                    type="binary",
+                    is_active=True,
+                ),
+                Habit(
+                    user_id=1,
+                    name="Étape 2 - course_progression_filter",
+                    type="binary",
+                    is_active=True,
+                ),
+                Habit(
+                    user_id=1,
+                    name="Étape 3 - course_progression_filter",
+                    type="binary",
+                    is_active=True,
+                ),
+            ]
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get("/api/v1/habits")
+    assert response.status_code == 200
+    habits = response.json()
+    names = [habit["name"] for habit in habits]
+
+    assert "Étape 3 - course_progression_filter" in names
+    assert "Étape 1 - course_progression_filter" not in names
+    assert "Étape 2 - course_progression_filter" not in names
+
+
 def test_per_goal_substep_execution_order():
     # 1. Create two goals
     resp_a = client.post(

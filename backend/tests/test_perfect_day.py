@@ -105,11 +105,10 @@ def test_post_template_updates():
         "focus_hours": 7.5,
         "min_rest_hours": 7.0,
         "ceilings": {
-            "musculaire": 3.0,
-            "cerveau": 3.0,
-            "emotionnel_social": 3.0,
-            "creatif_divergent": 3.0,
-            "total": 9.0,
+            "musculaire": 1.5,
+            "cerveau": 1.5,
+            "emotionnel_social": 1.5,
+            "creatif_divergent": 1.5,
         },
     }
 
@@ -125,8 +124,29 @@ def test_post_template_updates():
     data = response.json()
     assert data["regular"]["focus_hours"] == 7.5
     assert data["regular"]["min_rest_hours"] == 7.0
-    assert data["regular"]["ceilings"]["musculaire"] == 3.0
-    assert data["regular"]["ceilings"]["total"] == 9.0
+    assert data["regular"]["ceilings"]["musculaire"] == 1.5
+    assert data["regular"]["ceilings"]["total"] == 6.0
+
+
+# T005: Test POST /api/v1/templates with invalid budget (ceilings total > focus_hours)
+def test_post_template_updates_invalid_budget():
+    payload = {
+        "template_name": "regular",
+        "focus_hours": 5.0,
+        "min_rest_hours": 7.0,
+        "ceilings": {
+            "musculaire": 2.0,
+            "cerveau": 2.0,
+            "emotionnel_social": 2.0,
+            "creatif_divergent": 2.0,
+        },
+    }
+
+    response = client.post(
+        "/api/v1/templates", json=payload, headers={"X-User-ID": "1"}
+    )
+    assert response.status_code == 400
+    assert "ne peut pas dépasser l'objectif focus" in response.json()["detail"]
 
 
 # T009: Test POST /api/v1/habits with effort tags

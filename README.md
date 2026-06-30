@@ -34,44 +34,44 @@ L'idée de base : transformer la discipline quotidienne en jeu (XP, niveaux, or,
 
 
 
-
-
-
-
-Connexion et liaisons des habitudes directement à des compétences (softskills) ou objectifs majeurs. Des que je met des objectifs dans 3-3-3 recaps. Sa creer une habitude et quand je les retire, cela les désactivent automatiquement. ET pour les skill et  objectifs dans recap-3-3-3 je dois les remplir selon SMART !
-
-bug:
-- 3-3-3 recap -> les objectifs se font selectionner puis ils n'apparaissent plus 
-- type de journée non visible dans index.
-
-
-Modification
- - SMART = almost un todo  !
- - Journée Biologique va dans la page perfect day
- - Budget d'Énergie Quotidien va dans la page perfect day
- - Recap 3 - 3 - 3 devient un ligne, apparait juste en base du div gabriel
- - 🛡️ Activité du Jour (Tags) -> delete !
- - Chronologie de la Journée Type = montre un vrai calendrier. les heures de la journée apparaissent horizontalement ! A cote de Quete Aujourd'hui. 
- - Perfect day: 
-  
-
-
 ---
 
+bugs: 
+- sauvegarde do date et due date des skills et objectifs 
+- peux delete un to do !
+
+
+modification work done by IA: 
+Apres Recap 3 - 3 - 3, jai 2 colonne: Agenda et Quest. En bas de la colonne Quest, je les todos.Les 2 colonnes sont de largeur identique.
+
+changement logique affichage: si une quest n'est pas ranger dans agenda, la quest va dans la colonne Quest. Sinon elle va dans la colonne Agenda, a l'heure assigner. 
+
+Colonne agenda: c'est un agenda HORIZONTAL ! Il fait de 4h a 24h. Les heures sont ecrite verticalement, en gris. Les blocs de temps sont horizontal. 
+Je drag une quest de la colonne quest et je la met dans l'agenda !
+
+
+petite modification:les boutons 'sauver' rest, regular et hustle apparaisent en fonction du type de jour. Pas les 3 en meme temps !
+Quand un quest est drag dans l'agenda, un buffer de 15min apparait apres ! Donc si je met une nager a 14h, la durée est 60min, la prochaine quest commence a 15h15.
+
+
+Modification des Quests.
+Supprimer l'option hebdomadaire, jour specifique le fait deja.
+Si je met mensuelle, ca veut dire que je le fais tous les mois. La meme date qu'aujourdhui. Donc si c'est le 30 du mois, ca va le faire le 30 du mois prochain. Si c'est le 31 du mois, ca va le faire le 30 du mois prochain. S'affiche juste en dessous de Fréquence.
+
+Type d'effort: rajoute "Repos" et "Rest of the day".  
+
+Fusionne Durée d'effort (h) avec Durée agenda par défaut (min). 
+
+
+MODIFICATION total
+- L'integration Google agenda (spec fait)
 - **Évolution des Habitudes** :
 	- Pérennisation du suivi par jalons (90 et 180 succès).
-	- Gestion de plusieurs niveaux de difficulté préparés à l'avance pour une même habitude.
-		- La streak se conserve !
-		- Modifiable dans edition ou quand je creer l'habitude. Par defaut tout ce remplis pareil sauf la description. 
-
-- **Fin d'objectif par cumul de succès** (ex. 180 succès ≈ 6 mois), statuts abandonné / terminé.
-- **Système de Punitions** : actions compensatoires constructives face à l'échec d'engagements.
-
-
-
-
-- **V3 — intégrations externes** : calendrier employeur, app de todo externe, API professionnelles.
+	prompts: Il existe un système de paliers à 30j (gain de +100 XP et +50 Or) et 90j (gain de +300 XP et +150 Or) basé sur la streak de l'habitude. QUAND 30j et 90j fait, message telegram qui dis "Bravo pour le streak de 30j / 90j pour 'habit title'! Veux tu monter le niveau de l'habitude ?". ET changement visuel pour les paliers 30, 90, 180. Le titre de l'habitude change de couleur, mauve -> bleu -> argenté OU un emoji spécial ??
 - **Plugin MCP / Assistant IA** : Développement de connecteurs facilitant l'accès et la création d'emploi du temps par une IA.
+	- relier a mon plugin Obsidian de pomodoro pour valider les breaks a la fin de la journée (ex; articulier + ukulele fait -> va valider pour moi !)
+	- plugins de mcp qui me permette de voir mes stats et mes habitudes et contrôler toute l'app a distance via IA.
+- **Système de Punitions** : actions compensatoires constructives face à l'échec d'engagements
 - **Accès à distance sécurisé** : Configurer la Raspberry Pi (par exemple via Tailscale, Cloudflare Tunnels ou un reverse proxy sécurisé) afin de pouvoir accéder au site web et à l'API de n'importe où dans le monde.
 
 

@@ -2,7 +2,7 @@ import datetime
 import json
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, field_validator
 
 from src.database.session import get_db
@@ -30,7 +30,7 @@ from src.services.score_service import (
     add_user_xp,
     cleanup_completed_todos,
 )
-from src.services import softskill_service
+from src.services import agenda_service, softskill_service
 
 router = APIRouter()
 
@@ -157,6 +157,12 @@ class HabitCreate(BaseModel):
     unit: Optional[str] = None
     effort_type: Optional[str] = None
     effort_duration: Optional[float] = 1.0
+    agenda_duration_minutes: Optional[int] = None
+
+
+class HabitVersionCreate(BaseModel):
+    description: Optional[str] = None
+    source_description: Optional[str] = None
 
 
 class TemplateOverride(BaseModel):
@@ -168,7 +174,17 @@ class TemplateSave(BaseModel):
     focus_hours: float = 6.0
     min_rest_hours: float = 8.0
     ceilings: Optional[Dict[str, float]] = None
-    agenda_json: Optional[List[dict]] = None
+    agenda_json: Optional[Any] = None
+
+
+class AgendaPlacementUpdate(BaseModel):
+    start_time: str
+    duration_minutes: Optional[int] = None
+    allow_overlap: Optional[bool] = False
+
+
+class AgendaSaveAsTemplate(BaseModel):
+    template_name: str
 
 
 class TodoCreate(BaseModel):
@@ -191,6 +207,8 @@ class TelegramWebAppSessionCreate(BaseModel):
 class GoalCreate(BaseModel):
     title: str
     description: Optional[str] = None
+    do_date: Optional[datetime.date] = None
+    due_date: Optional[datetime.date] = None
 
 
 class GoalWithSubstepsCreate(GoalCreate):
@@ -239,12 +257,16 @@ class BranchConfig(BaseModel):
     key: str
     color: str
     pale_color: str
+    do_date: Optional[str] = None
+    due_date: Optional[str] = None
 
 
 class BranchUpdate(BaseModel):
     new_key: str
     color: str
     pale_color: str
+    do_date: Optional[str] = None
+    due_date: Optional[str] = None
 
 
 class BranchSkillConfig(BaseModel):
@@ -309,9 +331,9 @@ class SkillUpdate(BaseModel):
 
 
 class PinsUpdate(BaseModel):
-    pinned_substeps: List[int] = []
-    pinned_softskills: List[str] = []
-    pinned_goals: List[int] = []
+    pinned_substeps: Optional[List[int]] = None
+    pinned_softskills: Optional[List[str]] = None
+    pinned_goals: Optional[List[int]] = None
 
 
 GoalWithSubstepsCreate.model_rebuild()
@@ -411,6 +433,76 @@ def _raise_biological_zone_overlap(zone: BiologicalZone):
 
 VALID_HABIT_TYPES = {"binary", "quantitative"}
 VALID_FREQUENCIES = {"daily", "weekly", "monthly", "custom", "specific_days"}
+
+
+def _split_habit_version_name(name: str) -> tuple[Optional[int], str]:
+    cleaned_name = (name or "").strip()
+    for prefix in ("Étape ", "Etape "):
+        if cleaned_name.startswith(prefix):
+            version_part, separator, base_name = cleaned_name[len(prefix) :].partition(
+                " - "
+            )
+            if separator and version_part.isdigit() and base_name.strip():
+                return int(version_part), base_name.strip()
+    return None, cleaned_name
+
+
+def _build_habit_version_name(version_index: int, base_name: str) -> str:
+    return f"Étape {version_index} - {base_name}"
+
+
+def _habit_version_history(user_habits: List[Habit], base_name: str) -> list[dict]:
+    history = []
+    for habit in user_habits:
+        version_index, candidate_base_name = _split_habit_version_name(habit.name)
+        if candidate_base_name != base_name:
+            continue
+        history.append(
+            {
+                "id": habit.id,
+                "name": habit.name,
+                "description": habit.description,
+                "is_active": habit.is_active,
+                "version_index": version_index or 1,
+            }
+        )
+    return sorted(
+        history,
+        key=lambda item: (item["version_index"], item["id"]),
+    )
+
+
+def _latest_visible_habit_versions(habits: List[Habit]) -> List[Habit]:
+    parsed_by_id = {}
+    versioned_bases = set()
+
+    for habit in habits:
+        version_index, base_name = _split_habit_version_name(habit.name)
+        parsed_by_id[habit.id] = (version_index, base_name)
+        if version_index is not None:
+            versioned_bases.add(base_name)
+
+    passthrough_ids = set()
+    latest_by_base = {}
+
+    for habit in habits:
+        version_index, base_name = parsed_by_id[habit.id]
+        if version_index is None and base_name not in versioned_bases:
+            passthrough_ids.add(habit.id)
+            continue
+
+        effective_version_index = version_index or 1
+        current = latest_by_base.get(base_name)
+        if current is None or (effective_version_index, habit.id) > (
+            current[0],
+            current[1].id,
+        ):
+            latest_by_base[base_name] = (effective_version_index, habit)
+
+    visible_ids = passthrough_ids | {
+        habit.id for _version_index, habit in latest_by_base.values()
+    }
+    return [habit for habit in habits if habit.id in visible_ids]
 
 
 def validate_habit_payload(payload: "HabitCreate"):
@@ -624,29 +716,53 @@ def update_profile_pins(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if len(payload.pinned_goals) > 3:
-        raise HTTPException(
-            status_code=400,
-            detail="Vous pouvez sélectionner au maximum 3 objectifs prioritaires (Top 3).",
-        )
+    if payload.pinned_goals is not None:
+        if len(payload.pinned_goals) > 3:
+            raise HTTPException(
+                status_code=400,
+                detail="Vous pouvez sélectionner au maximum 3 objectifs prioritaires (Top 3).",
+            )
+        user.pinned_goals = payload.pinned_goals
 
-    user.pinned_goals = payload.pinned_goals
+        # If pinned_goals is modified but pinned_substeps is not explicitly provided,
+        # we still want to filter the existing pinned_substeps to ensure they belong to the new pinned_goals.
+        if payload.pinned_substeps is None:
+            allowed_substep_ids = set()
+            if user.pinned_goals:
+                links = (
+                    db.query(GoalSubStepLink)
+                    .filter(GoalSubStepLink.goal_id.in_(user.pinned_goals))
+                    .all()
+                )
+                for link in links:
+                    allowed_substep_ids.add(link.substep_id)
+            user.pinned_substeps = [
+                sid
+                for sid in (user.pinned_substeps or [])
+                if sid in allowed_substep_ids
+            ]
 
     # Keep only pinned_substeps that are linked to the pinned_goals
-    allowed_substep_ids = set()
-    if payload.pinned_goals:
-        links = (
-            db.query(GoalSubStepLink)
-            .filter(GoalSubStepLink.goal_id.in_(payload.pinned_goals))
-            .all()
-        )
-        for link in links:
-            allowed_substep_ids.add(link.substep_id)
+    if payload.pinned_substeps is not None:
+        allowed_substep_ids = set()
+        current_pinned_goals = user.pinned_goals or []
+        if current_pinned_goals:
+            links = (
+                db.query(GoalSubStepLink)
+                .filter(GoalSubStepLink.goal_id.in_(current_pinned_goals))
+                .all()
+            )
+            for link in links:
+                allowed_substep_ids.add(link.substep_id)
 
-    user.pinned_substeps = [
-        sid for sid in payload.pinned_substeps if sid in allowed_substep_ids
-    ]
-    user.pinned_softskills = payload.pinned_softskills
+        user.pinned_substeps = [
+            sid for sid in payload.pinned_substeps if sid in allowed_substep_ids
+        ]
+
+    if payload.pinned_softskills is not None:
+        user.pinned_softskills = payload.pinned_softskills
+
+    agenda_service.sync_generated_focus_quests(db, user)
     db.commit()
     return {"status": "success", "message": "Pins updated successfully"}
 
@@ -733,7 +849,15 @@ def get_status(
     # Remaining scheduled habits (not yet logged)
     weekday = today.weekday()
     model_day_idx = (weekday + 1) % 7
-    all_habits = db.query(Habit).filter_by(user_id=user.id, is_active=True).all()
+    all_habits = (
+        db.query(Habit)
+        .filter(
+            Habit.user_id == user.id,
+            Habit.is_active == True,
+            Habit.archived_at == None,
+        )
+        .all()
+    )
     remaining = []
     for habit in all_habits:
         scheduled = str(model_day_idx) in [
@@ -832,6 +956,8 @@ def get_goals(
                 "description": g.description,
                 "completed": g.completed,
                 "completed_at": g.completed_at.isoformat() if g.completed_at else None,
+                "do_date": g.do_date.isoformat() if g.do_date else None,
+                "due_date": g.due_date.isoformat() if g.due_date else None,
                 "substeps": substeps_list,
             }
         )
@@ -854,7 +980,13 @@ def create_goal(
             detail="Limite de 20 objectifs atteinte. Concentrez-vous sur vos objectifs actuels ou supprimez-en.",
         )
 
-    goal = Goal(user_id=user_id, title=payload.title, description=payload.description)
+    goal = Goal(
+        user_id=user_id,
+        title=payload.title,
+        description=payload.description,
+        do_date=payload.do_date,
+        due_date=payload.due_date,
+    )
     db.add(goal)
     db.commit()
     db.refresh(goal)
@@ -881,6 +1013,8 @@ def create_goal_with_substeps(
         user_id=user_id,
         title=payload.title,
         description=payload.description,
+        do_date=payload.do_date,
+        due_date=payload.due_date,
     )
     db.add(goal)
     db.flush()
@@ -961,11 +1095,19 @@ def update_goal(
 
     goal.title = payload.title
     goal.description = payload.description
+    goal.do_date = payload.do_date
+    goal.due_date = payload.due_date
     db.commit()
     db.refresh(goal)
     return {
         "status": "success",
-        "goal": {"id": goal.id, "title": goal.title, "description": goal.description},
+        "goal": {
+            "id": goal.id,
+            "title": goal.title,
+            "description": goal.description,
+            "do_date": goal.do_date.isoformat() if goal.do_date else None,
+            "due_date": goal.due_date.isoformat() if goal.due_date else None,
+        },
     }
 
 
@@ -1263,13 +1405,6 @@ def get_templates(
     default_agendas = {
         "rest": [
             {
-                "id": 1,
-                "title": "Sommeil / Repos",
-                "start": "00:00",
-                "end": "08:00",
-                "category": "sleep",
-            },
-            {
                 "id": 2,
                 "title": "Méditation / Relaxation",
                 "start": "09:00",
@@ -1290,22 +1425,8 @@ def get_templates(
                 "end": "17:00",
                 "category": "relax",
             },
-            {
-                "id": 5,
-                "title": "Sommeil",
-                "start": "21:30",
-                "end": "24:00",
-                "category": "sleep",
-            },
         ],
         "regular": [
-            {
-                "id": 1,
-                "title": "Sommeil / Récupération",
-                "start": "00:00",
-                "end": "07:00",
-                "category": "sleep",
-            },
             {
                 "id": 2,
                 "title": "Routine matinale & Cardio",
@@ -1341,22 +1462,8 @@ def get_templates(
                 "end": "22:00",
                 "category": "relax",
             },
-            {
-                "id": 7,
-                "title": "Sommeil / Couché",
-                "start": "22:00",
-                "end": "24:00",
-                "category": "sleep",
-            },
         ],
         "hustle": [
-            {
-                "id": 1,
-                "title": "Sommeil court",
-                "start": "00:00",
-                "end": "06:00",
-                "category": "sleep",
-            },
             {
                 "id": 2,
                 "title": "Cardio & Routine active",
@@ -1391,13 +1498,6 @@ def get_templates(
                 "start": "20:00",
                 "end": "22:30",
                 "category": "focus",
-            },
-            {
-                "id": 7,
-                "title": "Récupération & Couché",
-                "start": "22:30",
-                "end": "24:00",
-                "category": "sleep",
             },
         ],
     }
@@ -1451,6 +1551,21 @@ def save_template(
     """
     Save custom template configurations.
     """
+    if payload.ceilings:
+        musculaire = payload.ceilings.get("musculaire", 0.0)
+        cerveau = payload.ceilings.get("cerveau", 0.0)
+        emotionnel_social = payload.ceilings.get("emotionnel_social", 0.0)
+        creatif_divergent = payload.ceilings.get("creatif_divergent", 0.0)
+
+        calculated_total = musculaire + cerveau + emotionnel_social + creatif_divergent
+        payload.ceilings["total"] = calculated_total
+
+        if calculated_total > payload.focus_hours:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Le total des plafonds ({calculated_total}h) ne peut pas dépasser l'objectif focus ({payload.focus_hours}h).",
+            )
+
     template = (
         db.query(PerfectDayTemplate)
         .filter_by(user_id=user_id, template_name=payload.template_name)
@@ -1475,6 +1590,70 @@ def save_template(
 
     db.commit()
     return {"status": "success", "template_name": payload.template_name}
+
+
+# --- Manual Quest Agenda ---
+
+
+@router.get("/agenda")
+def get_agenda(
+    date: Optional[datetime.date] = None,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    agenda_date = date or datetime.date.today()
+    response, changed = agenda_service.build_agenda_response(
+        db, user_id=user_id, date_value=agenda_date
+    )
+    if changed:
+        db.commit()
+    return response
+
+
+@router.put("/agenda/{date}/quests/{habit_id}/placement")
+def put_agenda_placement(
+    date: datetime.date,
+    habit_id: int,
+    payload: AgendaPlacementUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    return agenda_service.update_placement(
+        db,
+        user_id=user_id,
+        date_value=date,
+        habit_id=habit_id,
+        start_time=payload.start_time,
+        duration_minutes=payload.duration_minutes,
+        allow_overlap=bool(payload.allow_overlap),
+    )
+
+
+@router.delete("/agenda/{date}/quests/{habit_id}/placement")
+def delete_agenda_placement(
+    date: datetime.date,
+    habit_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    return agenda_service.clear_placement(
+        db, user_id=user_id, date_value=date, habit_id=habit_id
+    )
+
+
+@router.post("/agenda/{date}/save-as-template")
+def save_agenda_disposition(
+    date: datetime.date,
+    payload: AgendaSaveAsTemplate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    return agenda_service.save_agenda_as_template(
+        db,
+        user_id=user_id,
+        date_value=date,
+        template_name=payload.template_name,
+    )
 
 
 @router.get("/biological-zones")
@@ -1903,9 +2082,19 @@ def delete_notodo(
 
 @router.get("/habits")
 def get_habits(
-    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+    include_archived: bool = False,
+    include_inactive: bool = False,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
 ):
-    habits = db.query(Habit).filter_by(user_id=user_id, is_active=True).all()
+    all_user_habits = db.query(Habit).filter_by(user_id=user_id).all()
+    active_habits = [
+        habit
+        for habit in all_user_habits
+        if (include_inactive or habit.is_active)
+        and (include_archived or habit.archived_at is None)
+    ]
+    habits = _latest_visible_habit_versions(active_habits)
     today = datetime.date.today()
     week_start = datetime.datetime.combine(
         today - datetime.timedelta(days=today.weekday()), datetime.time.min
@@ -1933,6 +2122,8 @@ def get_habits(
 
     result = []
     for h in habits:
+        _version_index, base_name = _split_habit_version_name(h.name)
+        version_history = _habit_version_history(all_user_habits, base_name)
         completed_this_period = False
         if h.frequency in ("weekly", "monthly"):
             cutoff = week_start if h.frequency == "weekly" else month_start
@@ -1967,6 +2158,13 @@ def get_habits(
                 "today_count": today_count_by_habit.get(h.id, 0),
                 "effort_type": h.effort_type,
                 "effort_duration": h.effort_duration,
+                "agenda_duration_minutes": h.agenda_duration_minutes,
+                "source_type": h.source_type or "manual",
+                "source_ref": h.source_ref,
+                "source_label": agenda_service._source_label(db, h),
+                "auto_managed": bool(h.auto_managed),
+                "archived_at": h.archived_at.isoformat() if h.archived_at else None,
+                "version_history": version_history,
             }
         )
     return result
@@ -1987,6 +2185,144 @@ class HabitUpdate(BaseModel):
     is_active: Optional[bool] = None
     effort_type: Optional[str] = None
     effort_duration: Optional[float] = None
+    agenda_duration_minutes: Optional[int] = None
+
+
+@router.post("/habits/{habit_id}/versions", status_code=201)
+def create_habit_version(
+    habit_id: int,
+    payload: Optional[HabitVersionCreate] = None,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    source = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Habit not found.")
+
+    if payload is not None and payload.source_description is not None:
+        source.description = payload.source_description
+
+    _source_version_index, base_name = _split_habit_version_name(source.name)
+    used_names = set()
+    max_version_index = 0
+    unversioned_base_habit = None
+    version_group_habits = []
+
+    for existing_habit in db.query(Habit).filter_by(user_id=user_id).all():
+        used_names.add(existing_habit.name)
+        version_index, candidate_base_name = _split_habit_version_name(
+            existing_habit.name
+        )
+        if candidate_base_name != base_name:
+            continue
+        version_group_habits.append(existing_habit)
+        if version_index is None:
+            max_version_index = max(max_version_index, 1)
+            if existing_habit.name == base_name:
+                unversioned_base_habit = existing_habit
+        else:
+            max_version_index = max(max_version_index, version_index)
+
+    if unversioned_base_habit:
+        first_version_name = _build_habit_version_name(1, base_name)
+        if first_version_name not in used_names:
+            unversioned_base_habit.name = first_version_name
+            used_names.add(first_version_name)
+
+    next_version_index = max_version_index + 1
+    next_version_name = _build_habit_version_name(next_version_index, base_name)
+    while next_version_name in used_names:
+        next_version_index += 1
+        next_version_name = _build_habit_version_name(next_version_index, base_name)
+
+    version_description = (
+        payload.description
+        if payload is not None and payload.description is not None
+        else source.description
+    )
+
+    habit = Habit(
+        user_id=user_id,
+        name=next_version_name,
+        type=source.type,
+        description=version_description,
+        frequency=source.frequency,
+        scheduled_days=source.scheduled_days,
+        reminder_time=source.reminder_time,
+        is_private=source.is_private,
+        is_reportable=source.is_reportable,
+        is_mandatory=source.is_mandatory,
+        daily_cap=source.daily_cap,
+        daily_target=source.daily_target,
+        unit=source.unit,
+        effort_type=source.effort_type,
+        effort_duration=source.effort_duration,
+        source_type=source.source_type or "manual",
+        source_ref=source.source_ref,
+        auto_managed=bool(source.auto_managed),
+        archived_at=source.archived_at,
+        agenda_duration_minutes=source.agenda_duration_minutes,
+        is_active=True,
+    )
+    db.add(habit)
+    db.flush()
+
+    now = datetime.datetime.now()
+    for previous_habit in version_group_habits:
+        if previous_habit.id == habit.id:
+            continue
+        if previous_habit.is_active:
+            previous_habit.is_active = False
+            previous_habit.deactivated_at = now
+
+    source_streak = (
+        db.query(Streak)
+        .filter_by(user_id=user_id, streak_type=f"habit:{source.id}")
+        .first()
+    )
+    if not source_streak:
+        candidate_streaks = []
+        for previous_habit in version_group_habits:
+            candidate = (
+                db.query(Streak)
+                .filter_by(user_id=user_id, streak_type=f"habit:{previous_habit.id}")
+                .first()
+            )
+            if candidate:
+                candidate_streaks.append(candidate)
+        source_streak = max(
+            candidate_streaks,
+            key=lambda streak: (
+                streak.current_streak or 0,
+                streak.max_streak or 0,
+                streak.last_incremented or datetime.date.min,
+            ),
+            default=None,
+        )
+
+    if source_streak:
+        new_streak = (
+            db.query(Streak)
+            .filter_by(user_id=user_id, streak_type=f"habit:{habit.id}")
+            .first()
+        )
+        if not new_streak:
+            new_streak = Streak(user_id=user_id, streak_type=f"habit:{habit.id}")
+            db.add(new_streak)
+        new_streak.current_streak = source_streak.current_streak
+        new_streak.max_streak = source_streak.max_streak
+        new_streak.last_incremented = source_streak.last_incremented
+
+    db.commit()
+    db.refresh(habit)
+    return {
+        "id": habit.id,
+        "name": habit.name,
+        "base_name": base_name,
+        "version_index": next_version_index,
+        "source_id": source.id,
+        "status": "success",
+    }
 
 
 @router.put("/habits/{habit_id}")
@@ -2002,6 +2338,13 @@ def update_habit(
 
     # Handle active status transition logic
     payload_dict = payload.model_dump(exclude_none=True)
+    if (
+        "agenda_duration_minutes" in payload_dict
+        and payload_dict["agenda_duration_minutes"] <= 0
+    ):
+        raise HTTPException(
+            status_code=400, detail="agenda_duration_minutes must be positive."
+        )
     if "is_active" in payload_dict:
         new_active = payload_dict["is_active"]
         if new_active is False and habit.is_active is True:
@@ -2024,6 +2367,35 @@ def update_habit(
         setattr(habit, field, value)
     db.commit()
     return {"status": "updated"}
+
+
+@router.post("/habits/{habit_id}/archive")
+def archive_habit(
+    habit_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found.")
+    if habit.archived_at is None:
+        habit.archived_at = datetime.datetime.now()
+    db.commit()
+    return {"status": "archived", "id": habit.id}
+
+
+@router.post("/habits/{habit_id}/unarchive")
+def unarchive_habit(
+    habit_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found.")
+    habit.archived_at = None
+    db.commit()
+    return {"status": "unarchived", "id": habit.id}
 
 
 @router.delete("/habits/{habit_id}")
@@ -2171,6 +2543,15 @@ def create_habit(
         unit=payload.unit,
         effort_type=payload.effort_type,
         effort_duration=payload.effort_duration,
+        source_type="manual",
+        source_ref=None,
+        auto_managed=False,
+        archived_at=None,
+        agenda_duration_minutes=(
+            payload.agenda_duration_minutes
+            if payload.agenda_duration_minutes is not None
+            else int((payload.effort_duration or 1.0) * 60)
+        ),
         is_active=True,
     )
     db.add(habit)
@@ -2286,7 +2667,11 @@ def toggle_softskill_completion(
 def api_create_branch(payload: BranchConfig):
     try:
         return softskill_service.create_branch(
-            payload.key, payload.color, payload.pale_color
+            payload.key,
+            payload.color,
+            payload.pale_color,
+            do_date=payload.do_date,
+            due_date=payload.due_date,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -2300,6 +2685,8 @@ def api_create_branch_with_skills(payload: BranchWithSkillsCreate):
             payload.color,
             payload.pale_color,
             [skill.model_dump() for skill in payload.skills],
+            do_date=payload.do_date,
+            due_date=payload.due_date,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -2309,7 +2696,12 @@ def api_create_branch_with_skills(payload: BranchWithSkillsCreate):
 def api_update_branch(branch_key: str, payload: BranchUpdate):
     try:
         return softskill_service.update_branch(
-            branch_key, payload.new_key, payload.color, payload.pale_color
+            branch_key,
+            payload.new_key,
+            payload.color,
+            payload.pale_color,
+            do_date=payload.do_date,
+            due_date=payload.due_date,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -101,5 +101,21 @@ def test_profile_pins_flow(client):
     response = client.get("/api/v1/profile", headers={"X-User-ID": "1"})
     assert response.status_code == 200
     data = response.json()
+    assert data["pinned_goals"] == [100]
     assert data["pinned_substeps"] == [42, 43]
     assert data["pinned_softskills"] == ["focus", "lecture"]
+
+    # 4. Partial update: update only softskills, omitting pinned_goals and pinned_substeps
+    response = client.put(
+        "/api/v1/profile/pins",
+        json={"pinned_softskills": ["new_skill"]},
+        headers={"X-User-ID": "1"}
+    )
+    assert response.status_code == 200
+
+    response = client.get("/api/v1/profile", headers={"X-User-ID": "1"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["pinned_goals"] == [100]  # preserved
+    assert data["pinned_substeps"] == [42, 43]  # preserved
+    assert data["pinned_softskills"] == ["new_skill"]  # updated
