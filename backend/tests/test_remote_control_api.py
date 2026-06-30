@@ -139,12 +139,10 @@ def test_goal_with_substeps_is_created_together(client):
                 {
                     "title": "Obtenir un passeport",
                     "gold_reward": 50,
-                    "stats_json": ["discipline"],
                 },
                 {
                     "title": "Créer un budget",
                     "gold_reward": 75,
-                    "stats_json": ["finance"],
                 },
             ],
         },
@@ -156,29 +154,6 @@ def test_goal_with_substeps_is_created_together(client):
     try:
         goal = db.query(Goal).one()
         assert len(goal.substep_links) == 2
-    finally:
-        db.close()
-
-
-def test_goal_with_invalid_substep_creates_nothing(client):
-    response = client.post(
-        "/api/v1/goals/with-substeps",
-        headers={"X-User-ID": "1"},
-        json={
-            "title": "Objectif invalide",
-            "substeps": [
-                {
-                    "title": "Étape",
-                    "gold_reward": 10,
-                    "stats_json": ["stat_inconnue"],
-                }
-            ],
-        },
-    )
-    assert response.status_code == 400
-    db = TestingSessionLocal()
-    try:
-        assert db.query(Goal).count() == 0
     finally:
         db.close()
 

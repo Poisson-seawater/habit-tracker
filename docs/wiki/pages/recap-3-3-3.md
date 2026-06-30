@@ -1,6 +1,6 @@
 # Recap 3-3-3
 
-Quand on a beaucoup d'objectifs, de skills et de tâches, on se perd dans les détails et on oublie ce qui compte vraiment pour la journée. Le panneau Recap 3-3-3 règle ce problème : il condense tes 3 grandes priorités du moment en un seul coup d'œil, affiché **au-dessus de la feuille de personnage** sur la page d'accueil du dashboard.
+Quand on a beaucoup d'objectifs, de skills et de tâches, on se perd dans les détails et on oublie ce qui compte vraiment pour la journée. Le panneau Recap 3-3-3 règle ce problème : il condense tes 3 grandes priorités du moment en un seul coup d'œil sur la page d'accueil du dashboard.
 
 ## Ce que le panneau affiche
 
@@ -18,7 +18,7 @@ Le panneau contient trois sections fixes, chacune limitée à 3 items :
 
 **Le crayon** (icône d'édition) à côté de chaque section ouvre un modal qui liste les items disponibles. Tu coches ceux que tu veux épingler (3 maximum), tu enregistres — le panneau se met à jour.
 
-**Valider une allostasie** directement depuis le panneau a le même effet que la valider depuis la boutique : l'état passe en « Validé », les [stats](#/stats-xp-niveau-or) du jour se mettent à jour immédiatement, sans frais d'Or.
+**Valider une allostasie** directement depuis le panneau a le même effet que la valider depuis la boutique : l'état passe en « Validé », sans frais d'Or.
 
 **La flèche de basculement** de la section allostasie switche entre les activités daily et weekly sans recharger la page.
 

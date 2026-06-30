@@ -1,6 +1,6 @@
 # Habitudes (Quêtes)
 
-Une habitude, c'est une action que tu répètes régulièrement, selon un planning. Chaque fois que tu la valides, elle nourrit tes [stats](#/stats-xp-niveau-or) du jour. Et sur la durée, c'est elle qui te fait avancer vers tes [objectifs](#/objectifs).
+Une habitude, c'est une action que tu répètes régulièrement, selon un planning. Chaque fois que tu la valides, elle traite une partie de ton [Perfect Day](#/perfect-day). Et sur la durée, c'est elle qui te fait avancer vers tes [objectifs](#/objectifs).
 
 ## Deux types
 
@@ -13,9 +13,9 @@ Une habitude, c'est une action que tu répètes régulièrement, selon un planni
 
 Une habitude n'est due que certains jours (tous les jours, ou par ex. lundi + mercredi). Elle n'apparaît dans les quêtes du jour que les jours prévus.
 
-## Récompense
+## Effort et Perfect Day
 
-Chaque habitude attribue des points à une ou plusieurs [stats](#/stats-xp-niveau-or). Une habitude quantitative peut avoir un **plafond de points par jour** (daily cap). Les habitudes alimentent le [Perfect Day](#/perfect-day) mais ne donnent **pas** d'XP direct — contrairement aux [primes](#/primes-todo).
+Les habitudes alimentent le [Perfect Day](#/perfect-day) par leur statut : validée, loggée, skippée ou restante. Une habitude quantitative peut avoir un **plafond de log par jour** (daily cap) et une unité. Certaines habitudes portent aussi un type et une durée d'effort (`musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`) pour les budgets de journée. Elles ne donnent **pas** d'XP direct — contrairement aux [primes](#/primes-todo).
 
 ## Séparées des objectifs
 

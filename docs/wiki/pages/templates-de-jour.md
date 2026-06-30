@@ -1,18 +1,17 @@
 # Templates de jour
 
-Selon les jours, tu peux en faire plus ou moins. Le template, c'est le « type de journée » que tu choisis. Il fixe les seuils de stats à atteindre pour décrocher un [Perfect Day](#/perfect-day).
+Selon les jours, tu peux en faire plus ou moins. Le template, c'est le « type de journée » que tu choisis. Il fixe un agenda type et des budgets d'effort pour cadrer ton [Perfect Day](#/perfect-day).
 
-## Les 4 templates
+## Les 3 templates
 
 | Template | Clé(s) | Pour quoi |
 |---|---|---|
-| Semaine | `semaine` | Lundi → vendredi, exigences pleines |
-| Weekend | `weekend` | Samedi → dimanche |
-| Récupération | `recovery` (alias `recup`) | Journée calme, seuils réduits |
-| Malade | `sick` (alias `malade`) | Repos total, seuils minimaux |
+| Rest | `rest` | Journée de repos, récupération, charge faible |
+| Regular | `regular` | Journée normale et soutenable |
+| Hustle | `hustle` | Journée intense, charge haute mais bornée |
 
 ## Bascule
 
-`/set-day <template>` (alias `/template`) change le type de journée et réajuste **instantanément** les seuils. Le bon template évite de « rater » une journée off : un jour malade ne se juge pas avec les exigences d'un jour de semaine.
+`/set-day <template>` (alias `/template`) change le type de journée et recalcule **instantanément** l'état du Perfect Day. Le bon template évite de juger une journée de repos avec les attentes d'une journée intense.
 
-Chaque template a ses propres seuils par [stat](#/stats-xp-niveau-or), configurables dans l'écran Paramètres du site.
+Chaque template a ses propres budgets par catégorie d'effort (`musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`) et son agenda type, configurables dans l'écran Paramètres du site.

@@ -28,8 +28,6 @@ from src.services.score_service import (
     calculate_daily_score,
     update_streaks,
     add_user_xp,
-    ALL_6_STATS,
-    DEFAULT_THRESHOLDS,
     cleanup_completed_todos,
 )
 from src.services import softskill_service
@@ -154,13 +152,11 @@ class HabitCreate(BaseModel):
     is_private: Optional[bool] = False
     is_reportable: Optional[bool] = True
     is_mandatory: Optional[bool] = False
-    point_rewards: Dict[str, int]
     daily_cap: Optional[int] = None
     daily_target: Optional[int] = None
     unit: Optional[str] = None
     effort_type: Optional[str] = None
     effort_duration: Optional[float] = 1.0
-
 
 
 class TemplateOverride(BaseModel):
@@ -169,7 +165,6 @@ class TemplateOverride(BaseModel):
 
 class TemplateSave(BaseModel):
     template_name: str
-    thresholds_json: Optional[Dict[str, int]] = None
     focus_hours: float = 6.0
     min_rest_hours: float = 8.0
     ceilings: Optional[Dict[str, float]] = None
@@ -178,10 +173,6 @@ class TemplateSave(BaseModel):
 
 class TodoCreate(BaseModel):
     title: str
-    stat_reward_1: Optional[str] = None
-    points_reward_1: Optional[int] = 0
-    stat_reward_2: Optional[str] = None
-    points_reward_2: Optional[int] = 0
     xp_reward: Optional[int] = Field(10, ge=0, le=40)  # Max 40 XP
     do_date: Optional[datetime.date] = None
     due_date: Optional[datetime.date] = None
@@ -210,7 +201,6 @@ class SubStepCreate(BaseModel):
     title: str
     description: Optional[str] = None
     gold_reward: Optional[int] = 50
-    stats_json: List[str] = []
     execution_order: int = 1
     is_life_lore: Optional[bool] = False
     effort_type: Optional[str] = None
@@ -221,12 +211,10 @@ class SubStepUpdate(BaseModel):
     title: str
     description: Optional[str] = None
     gold_reward: Optional[int] = 50
-    stats_json: List[str] = []
     execution_order: int = 1
     is_life_lore: Optional[bool] = False
     effort_type: Optional[str] = None
     effort_duration: Optional[float] = 1.0
-
 
 
 class SubStepLinkRequest(BaseModel):
@@ -422,21 +410,7 @@ def _raise_biological_zone_overlap(zone: BiologicalZone):
 # --- Server-side validation helpers ---
 
 VALID_HABIT_TYPES = {"binary", "quantitative"}
-VALID_FREQUENCIES = {"daily", "weekly", "custom"}
-
-
-def _validate_stat_name(stat_name: Optional[str]):
-    """Reject a stat/tag name that is not one of the 6 canonical options. None is allowed."""
-    if stat_name and stat_name not in ALL_6_STATS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unknown tag '{stat_name}'. Valid tags: {', '.join(ALL_6_STATS)}",
-        )
-
-
-def validate_todo_payload(payload: "TodoCreate"):
-    _validate_stat_name(payload.stat_reward_1)
-    _validate_stat_name(payload.stat_reward_2)
+VALID_FREQUENCIES = {"daily", "weekly", "monthly", "custom", "specific_days"}
 
 
 def validate_habit_payload(payload: "HabitCreate"):
@@ -450,22 +424,6 @@ def validate_habit_payload(payload: "HabitCreate"):
             status_code=400,
             detail=f"Invalid frequency '{payload.frequency}'. Valid: {', '.join(sorted(VALID_FREQUENCIES))}",
         )
-    if not payload.point_rewards:
-        raise HTTPException(
-            status_code=400,
-            detail="point_rewards must contain at least one tag.",
-        )
-    if len(payload.point_rewards) > 2:
-        raise HTTPException(
-            status_code=400,
-            detail="You can specify a maximum of 2 tags for a habit.",
-        )
-    for stat in payload.point_rewards.keys():
-        if stat not in ALL_6_STATS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unknown tag '{stat}' in point_rewards. Valid tags: {', '.join(ALL_6_STATS)}",
-            )
     if payload.type == "quantitative" and not payload.unit:
         raise HTTPException(
             status_code=400, detail="A quantitative habit requires a 'unit'."
@@ -565,8 +523,7 @@ def get_profile(
     db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
 ):
     """
-    Fetch the user's profile status, level, active daily template, RPG attributes,
-    and progress towards daily score thresholds.
+    Fetch the user's profile status, level, active daily template, and RPG economy state.
     """
     user = db.query(User).filter_by(id=user_id).first()
     if not user:
@@ -577,9 +534,6 @@ def get_profile(
     score = db.query(DailyScore).filter_by(user_id=user.id, date=today).first()
     if not score:
         score = calculate_daily_score(db, user_id=user.id, date=today)
-
-    # Thresholds are deprecated in the simple tag system
-    thresholds = {}
 
     # Get today's completed habit IDs
     start_dt = datetime.datetime.combine(today, datetime.time.min)
@@ -618,8 +572,6 @@ def get_profile(
             "status": score.status,
             "perfect_day_validated": score.status == "Perfect",
         },
-        "stats": score.actual_stats,
-        "thresholds": thresholds,
         # RPG elements
         "xp": user.xp,
         "level": user.level,
@@ -654,7 +606,6 @@ def get_user_life_lore(
             "description": s.description or "",
             "completed_at": s.completed_at.isoformat() if s.completed_at else None,
             "gold_reward": s.gold_reward,
-            "stats": s.stats_json or [],
         }
         for s in substeps
     ]
@@ -714,9 +665,6 @@ def get_status(
 
     today = datetime.date.today()
     score = calculate_daily_score(db, user_id=user.id, date=today)
-
-    # Thresholds are deprecated in the simple tag system
-    thresholds = {}
 
     # Today's logs, grouped by type
     start_dt = datetime.datetime.combine(today, datetime.time.min)
@@ -818,10 +766,6 @@ def get_status(
         "perfect_day": {
             "status": score.status,
             "validated": score.status == "Perfect",
-            "thresholds": thresholds,
-            "actual": {
-                stat: score.actual_stats.get(stat.lower(), 0) for stat in thresholds
-            },
         },
         "streak": {
             "current": perf_streak.current_streak if perf_streak else 0,
@@ -830,7 +774,6 @@ def get_status(
         "xp": user.xp,
         "level": user.level,
         "gold": user.gold,
-        "stats": score.actual_stats,
         "completed": completed,
         "skipped": skipped,
         "remaining": remaining,
@@ -874,7 +817,6 @@ def get_goals(
                     "completed_at": (
                         s.completed_at.isoformat() if s.completed_at else None
                     ),
-                    "stats": s.stats_json or [],
                     "execution_order": link.execution_order,
                     "linked_goals": other_goals,
                     "is_life_lore": s.is_life_lore,
@@ -935,10 +877,6 @@ def create_goal_with_substeps(
             detail="Limite de 20 objectifs atteinte. Concentrez-vous sur vos objectifs actuels ou supprimez-en.",
         )
 
-    for substep_payload in payload.substeps:
-        for stat in substep_payload.stats_json:
-            _validate_stat_name(stat)
-
     goal = Goal(
         user_id=user_id,
         title=payload.title,
@@ -954,7 +892,6 @@ def create_goal_with_substeps(
             title=substep_payload.title,
             description=substep_payload.description,
             gold_reward=substep_payload.gold_reward,
-            stats_json=substep_payload.stats_json,
             execution_order=substep_payload.execution_order,
             is_life_lore=substep_payload.is_life_lore or False,
         )
@@ -973,7 +910,6 @@ def create_goal_with_substeps(
                 "title": substep.title,
                 "description": substep.description or "",
                 "gold_reward": substep.gold_reward,
-                "stats": substep.stats_json or [],
                 "execution_order": substep.execution_order,
                 "is_life_lore": substep.is_life_lore,
             }
@@ -1052,7 +988,6 @@ def create_substep(
         title=payload.title,
         description=payload.description,
         gold_reward=payload.gold_reward,
-        stats_json=payload.stats_json,
         execution_order=payload.execution_order,
         is_life_lore=payload.is_life_lore or False,
         effort_type=payload.effort_type,
@@ -1077,7 +1012,6 @@ def create_substep(
             "title": substep.title,
             "description": substep.description or "",
             "gold_reward": substep.gold_reward,
-            "stats": substep.stats_json,
             "execution_order": substep.execution_order,
             "is_life_lore": substep.is_life_lore,
             "effort_type": substep.effort_type,
@@ -1130,7 +1064,7 @@ def update_substep(
     user_id: int = Depends(get_current_user_id),
 ):
     """
-    Update a substep's title, description, gold reward, target stats.
+    Update a substep's title, description, gold reward, and effort metadata.
     Does not overwrite execution_order on individual goal links.
     """
     substep = db.query(SubStep).filter_by(id=substep_id, user_id=user_id).first()
@@ -1140,7 +1074,6 @@ def update_substep(
     substep.title = payload.title
     substep.description = payload.description
     substep.gold_reward = payload.gold_reward
-    substep.stats_json = payload.stats_json
     substep.execution_order = payload.execution_order
     substep.is_life_lore = payload.is_life_lore or False
     substep.effort_type = payload.effort_type
@@ -1156,7 +1089,6 @@ def update_substep(
             "title": substep.title,
             "description": substep.description or "",
             "gold_reward": substep.gold_reward,
-            "stats": substep.stats_json,
             "execution_order": substep.execution_order,
             "is_life_lore": substep.is_life_lore,
             "effort_type": substep.effort_type,
@@ -1297,36 +1229,213 @@ def get_templates(
         result[t.template_name] = {
             "focus_hours": t.focus_hours,
             "min_rest_hours": t.min_rest_hours,
-            "ceilings": t.ceilings_json or {
-                "musculaire": 1.0 if t.template_name == "rest" else (4.0 if t.template_name == "hustle" else 2.0),
-                "cerveau": 1.0 if t.template_name == "rest" else (4.0 if t.template_name == "hustle" else 2.0),
-                "emotionnel_social": 1.0 if t.template_name == "rest" else (4.0 if t.template_name == "hustle" else 2.0),
-                "creatif_divergent": 1.0 if t.template_name == "rest" else (4.0 if t.template_name == "hustle" else 2.0),
-                "total": 4.0 if t.template_name == "rest" else (10.0 if t.template_name == "hustle" else 8.0),
+            "ceilings": t.ceilings_json
+            or {
+                "musculaire": (
+                    1.0
+                    if t.template_name == "rest"
+                    else (4.0 if t.template_name == "hustle" else 2.0)
+                ),
+                "cerveau": (
+                    1.0
+                    if t.template_name == "rest"
+                    else (4.0 if t.template_name == "hustle" else 2.0)
+                ),
+                "emotionnel_social": (
+                    1.0
+                    if t.template_name == "rest"
+                    else (4.0 if t.template_name == "hustle" else 2.0)
+                ),
+                "creatif_divergent": (
+                    1.0
+                    if t.template_name == "rest"
+                    else (4.0 if t.template_name == "hustle" else 2.0)
+                ),
+                "total": (
+                    4.0
+                    if t.template_name == "rest"
+                    else (10.0 if t.template_name == "hustle" else 8.0)
+                ),
             },
-            "thresholds_json": t.thresholds_json,
             "agenda_json": t.agenda_json or [],
         }
 
     default_agendas = {
-        "rest": [{"id": 1, "title": "Sommeil / Repos", "start": "00:00", "end": "08:00", "category": "sleep"}, {"id": 2, "title": "Méditation / Relaxation", "start": "09:00", "end": "10:00", "category": "relax"}, {"id": 3, "title": "Marche & Étirements", "start": "12:00", "end": "13:00", "category": "routine"}, {"id": 4, "title": "Lecture & Repos mental", "start": "14:00", "end": "17:00", "category": "relax"}, {"id": 5, "title": "Sommeil", "start": "21:30", "end": "24:00", "category": "sleep"}],
-        "regular": [{"id": 1, "title": "Sommeil / Récupération", "start": "00:00", "end": "07:00", "category": "sleep"}, {"id": 2, "title": "Routine matinale & Cardio", "start": "07:00", "end": "08:00", "category": "routine"}, {"id": 3, "title": "Focus Deep Work (Projet principal)", "start": "08:30", "end": "12:00", "category": "focus"}, {"id": 4, "title": "Gestion administrative / Travail", "start": "13:00", "end": "15:00", "category": "focus"}, {"id": 5, "title": "Entraînement physique", "start": "17:30", "end": "19:00", "category": "routine"}, {"id": 6, "title": "Détente / Social", "start": "19:00", "end": "22:00", "category": "relax"}, {"id": 7, "title": "Sommeil / Couché", "start": "22:00", "end": "24:00", "category": "sleep"}],
-        "hustle": [{"id": 1, "title": "Sommeil court", "start": "00:00", "end": "06:00", "category": "sleep"}, {"id": 2, "title": "Cardio & Routine active", "start": "06:00", "end": "07:00", "category": "routine"}, {"id": 3, "title": "Deep Work", "start": "07:30", "end": "12:00", "category": "focus"}, {"id": 4, "title": "Focus Code / Projet", "start": "13:00", "end": "18:00", "category": "focus"}, {"id": 5, "title": "Musculation / Sport", "start": "18:30", "end": "20:00", "category": "routine"}, {"id": 6, "title": "Veille / Apprentissage", "start": "20:00", "end": "22:30", "category": "focus"}, {"id": 7, "title": "Récupération & Couché", "start": "22:30", "end": "24:00", "category": "sleep"}],
+        "rest": [
+            {
+                "id": 1,
+                "title": "Sommeil / Repos",
+                "start": "00:00",
+                "end": "08:00",
+                "category": "sleep",
+            },
+            {
+                "id": 2,
+                "title": "Méditation / Relaxation",
+                "start": "09:00",
+                "end": "10:00",
+                "category": "relax",
+            },
+            {
+                "id": 3,
+                "title": "Marche & Étirements",
+                "start": "12:00",
+                "end": "13:00",
+                "category": "routine",
+            },
+            {
+                "id": 4,
+                "title": "Lecture & Repos mental",
+                "start": "14:00",
+                "end": "17:00",
+                "category": "relax",
+            },
+            {
+                "id": 5,
+                "title": "Sommeil",
+                "start": "21:30",
+                "end": "24:00",
+                "category": "sleep",
+            },
+        ],
+        "regular": [
+            {
+                "id": 1,
+                "title": "Sommeil / Récupération",
+                "start": "00:00",
+                "end": "07:00",
+                "category": "sleep",
+            },
+            {
+                "id": 2,
+                "title": "Routine matinale & Cardio",
+                "start": "07:00",
+                "end": "08:00",
+                "category": "routine",
+            },
+            {
+                "id": 3,
+                "title": "Focus Deep Work (Projet principal)",
+                "start": "08:30",
+                "end": "12:00",
+                "category": "focus",
+            },
+            {
+                "id": 4,
+                "title": "Gestion administrative / Travail",
+                "start": "13:00",
+                "end": "15:00",
+                "category": "focus",
+            },
+            {
+                "id": 5,
+                "title": "Entraînement physique",
+                "start": "17:30",
+                "end": "19:00",
+                "category": "routine",
+            },
+            {
+                "id": 6,
+                "title": "Détente / Social",
+                "start": "19:00",
+                "end": "22:00",
+                "category": "relax",
+            },
+            {
+                "id": 7,
+                "title": "Sommeil / Couché",
+                "start": "22:00",
+                "end": "24:00",
+                "category": "sleep",
+            },
+        ],
+        "hustle": [
+            {
+                "id": 1,
+                "title": "Sommeil court",
+                "start": "00:00",
+                "end": "06:00",
+                "category": "sleep",
+            },
+            {
+                "id": 2,
+                "title": "Cardio & Routine active",
+                "start": "06:00",
+                "end": "07:00",
+                "category": "routine",
+            },
+            {
+                "id": 3,
+                "title": "Deep Work",
+                "start": "07:30",
+                "end": "12:00",
+                "category": "focus",
+            },
+            {
+                "id": 4,
+                "title": "Focus Code / Projet",
+                "start": "13:00",
+                "end": "18:00",
+                "category": "focus",
+            },
+            {
+                "id": 5,
+                "title": "Musculation / Sport",
+                "start": "18:30",
+                "end": "20:00",
+                "category": "routine",
+            },
+            {
+                "id": 6,
+                "title": "Veille / Apprentissage",
+                "start": "20:00",
+                "end": "22:30",
+                "category": "focus",
+            },
+            {
+                "id": 7,
+                "title": "Récupération & Couché",
+                "start": "22:30",
+                "end": "24:00",
+                "category": "sleep",
+            },
+        ],
     }
 
     # Fill in missing templates with defaults
     for name in ["rest", "regular", "hustle"]:
         if name not in result:
             default_ceilings = {
-                "rest": {"musculaire": 1.0, "cerveau": 1.0, "emotionnel_social": 1.0, "creatif_divergent": 1.0, "total": 4.0},
-                "regular": {"musculaire": 2.0, "cerveau": 2.0, "emotionnel_social": 2.0, "creatif_divergent": 2.0, "total": 8.0},
-                "hustle": {"musculaire": 4.0, "cerveau": 4.0, "emotionnel_social": 4.0, "creatif_divergent": 4.0, "total": 10.0},
+                "rest": {
+                    "musculaire": 1.0,
+                    "cerveau": 1.0,
+                    "emotionnel_social": 1.0,
+                    "creatif_divergent": 1.0,
+                    "total": 4.0,
+                },
+                "regular": {
+                    "musculaire": 2.0,
+                    "cerveau": 2.0,
+                    "emotionnel_social": 2.0,
+                    "creatif_divergent": 2.0,
+                    "total": 8.0,
+                },
+                "hustle": {
+                    "musculaire": 4.0,
+                    "cerveau": 4.0,
+                    "emotionnel_social": 4.0,
+                    "creatif_divergent": 4.0,
+                    "total": 10.0,
+                },
             }[name]
             result[name] = {
-                "focus_hours": 2.0 if name == "rest" else (9.0 if name == "hustle" else 6.0),
-                "min_rest_hours": 10.0 if name == "rest" else (7.0 if name == "hustle" else 8.0),
+                "focus_hours": (
+                    2.0 if name == "rest" else (9.0 if name == "hustle" else 6.0)
+                ),
+                "min_rest_hours": (
+                    10.0 if name == "rest" else (7.0 if name == "hustle" else 8.0)
+                ),
                 "ceilings": default_ceilings,
-                "thresholds_json": None,
                 "agenda_json": default_agendas[name],
             }
 
@@ -1354,7 +1463,6 @@ def save_template(
             focus_hours=payload.focus_hours,
             min_rest_hours=payload.min_rest_hours,
             ceilings_json=payload.ceilings,
-            thresholds_json=payload.thresholds_json,
             agenda_json=payload.agenda_json,
         )
         db.add(template)
@@ -1362,8 +1470,6 @@ def save_template(
         template.focus_hours = payload.focus_hours
         template.min_rest_hours = payload.min_rest_hours
         template.ceilings_json = payload.ceilings
-        if payload.thresholds_json is not None:
-            template.thresholds_json = payload.thresholds_json
         if payload.agenda_json is not None:
             template.agenda_json = payload.agenda_json
 
@@ -1387,7 +1493,9 @@ def get_biological_zones(
         zones = (
             db.query(BiologicalZone)
             .filter(BiologicalZone.user_id == user_id)
-            .order_by(BiologicalZone.start_time.asc(), BiologicalZone.display_order.asc())
+            .order_by(
+                BiologicalZone.start_time.asc(), BiologicalZone.display_order.asc()
+            )
             .all()
         )
     return [_biological_zone_to_dict(zone) for zone in zones]
@@ -1480,42 +1588,6 @@ def delete_biological_zone(
     return {"status": "deleted", "id": zone_id}
 
 
-@router.get("/quests/daily-stats-potentials")
-def get_daily_stats_potentials(
-    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
-):
-    """
-    Calculate potential statistic totals group by day of the week.
-    Scheduled days represented by 0 (Sunday) to 6 (Saturday).
-    """
-    habits = db.query(Habit).filter_by(user_id=user_id, is_active=True).all()
-    day_names = [
-        "Sunday",
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-    ]
-    potentials = {day: {stat: 0 for stat in ALL_6_STATS} for day in day_names}
-
-    for h in habits:
-        scheduled_days = [
-            int(d.strip()) for d in h.scheduled_days.split(",") if d.strip().isdigit()
-        ]
-        for d_idx in scheduled_days:
-            if 0 <= d_idx < 7:
-                day_name = day_names[d_idx]
-                for stat, reward_points in h.point_rewards.items():
-                    stat_key = stat.lower()
-                    if stat_key in potentials[day_name]:
-                        # Sum potential values
-                        potentials[day_name][stat_key] += reward_points
-
-    return potentials
-
-
 # --- Log habits ---
 
 
@@ -1567,7 +1639,6 @@ def create_log(
             return {
                 "log_id": existing.id,
                 "status": "already_logged",
-                "affected_stats": habit.point_rewards,
             }
 
     log = HabitLog(
@@ -1582,14 +1653,13 @@ def create_log(
     db.commit()
     db.refresh(log)
 
-    # Recalculate daily stats and save to DailyScore (no direct XP awarded for habits logs in V2!)
+    # Recalculate daily Perfect Day state (no direct XP awarded for habit logs).
     score = calculate_daily_score(db, user_id=user_id, date=today)
     update_streaks(db, user_id=user_id, date=today)
 
     return {
         "log_id": log.id,
         "status": "logged",
-        "affected_stats": habit.point_rewards,
         "daily_score_status": score.status,
     }
 
@@ -1608,15 +1678,22 @@ def change_profile_template(
     """
     t_name = payload.template_name.lower()
     t_map = {
-        "semaine": "week",
-        "week": "week",
-        "weekend": "weekend",
-        "recovery": "recup",
-        "recup": "recup",
-        "sick": "malade",
-        "malade": "malade",
+        "normal": "regular",
+        "regular": "regular",
+        "semaine": "regular",
+        "week": "regular",
+        "weekend": "regular",
+        "repos": "rest",
+        "rest": "rest",
+        "recovery": "rest",
+        "recup": "rest",
+        "hustle": "hustle",
+        "rush": "hustle",
+        "sick": "rest",
+        "malade": "rest",
+        "default": "regular",
     }
-    matched_name = t_map.get(t_name, "week")
+    matched_name = t_map.get(t_name, "regular")
 
     today = datetime.date.today()
     score = calculate_daily_score(
@@ -1631,7 +1708,7 @@ def change_profile_template(
     }
 
 
-# --- Todos / Primes with Custom XP and Stats Rewards ---
+# --- Todos / Primes with Custom XP ---
 
 
 @router.get("/todos")
@@ -1652,10 +1729,6 @@ def get_todos(
         {
             "id": t.id,
             "title": t.title,
-            "stat_reward_1": t.stat_reward_1,
-            "points_reward_1": t.points_reward_1,
-            "stat_reward_2": t.stat_reward_2,
-            "points_reward_2": t.points_reward_2,
             "xp_reward": t.xp_reward,
             "is_completed": t.is_completed,
             "created_at": t.created_at.isoformat() if t.created_at else None,
@@ -1676,14 +1749,9 @@ def create_todo(
     """
     Create a custom todo (bounty). Max XP is 40.
     """
-    validate_todo_payload(payload)
     todo = Todo(
         user_id=user_id,
         title=payload.title,
-        stat_reward_1=payload.stat_reward_1,
-        points_reward_1=payload.points_reward_1,
-        stat_reward_2=payload.stat_reward_2,
-        points_reward_2=payload.points_reward_2,
         xp_reward=payload.xp_reward,
         is_completed=False,
         do_date=payload.do_date,
@@ -1709,7 +1777,7 @@ def complete_todo(
     user_id: int = Depends(get_current_user_id),
 ):
     """
-    Complete a todo and award its custom XP. Add stats points to current daily scores.
+    Complete a todo and award its custom XP.
     """
     cleanup_completed_todos(db, user_id)
     todo = db.query(Todo).filter_by(id=todo_id, user_id=user_id).first()
@@ -1729,7 +1797,7 @@ def complete_todo(
     # Award permanent XP
     levels_gained = add_user_xp(user, todo.xp_reward)
 
-    # Recalculate daily scores to instantly add Todo stats points
+    # Recalculate daily scores after changing today's task state.
     today = datetime.date.today()
     calculate_daily_score(db, user_id=user_id, date=today)
     update_streaks(db, user_id=user_id, date=today)
@@ -1891,7 +1959,6 @@ def get_habits(
                 "is_private": h.is_private,
                 "is_reportable": h.is_reportable,
                 "is_mandatory": h.is_mandatory,
-                "point_rewards": h.point_rewards,
                 "daily_cap": h.daily_cap,
                 "daily_target": h.daily_target,
                 "unit": h.unit,
@@ -1912,7 +1979,6 @@ class HabitUpdate(BaseModel):
     frequency: Optional[str] = None
     scheduled_days: Optional[str] = None
     unit: Optional[str] = None
-    point_rewards: Optional[Dict[str, int]] = None
     daily_cap: Optional[int] = None
     daily_target: Optional[int] = None
     is_mandatory: Optional[bool] = None
@@ -1921,7 +1987,6 @@ class HabitUpdate(BaseModel):
     is_active: Optional[bool] = None
     effort_type: Optional[str] = None
     effort_duration: Optional[float] = None
-
 
 
 @router.put("/habits/{habit_id}")
@@ -1937,20 +2002,6 @@ def update_habit(
 
     # Handle active status transition logic
     payload_dict = payload.model_dump(exclude_none=True)
-    if "point_rewards" in payload_dict and payload_dict["point_rewards"] is not None:
-        point_rewards = payload_dict["point_rewards"]
-        if len(point_rewards) > 2:
-            raise HTTPException(
-                status_code=400,
-                detail="You can specify a maximum of 2 tags for a habit.",
-            )
-        for stat in point_rewards.keys():
-            if stat not in ALL_6_STATS:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Unknown tag '{stat}'. Valid tags: {', '.join(ALL_6_STATS)}",
-                )
-
     if "is_active" in payload_dict:
         new_active = payload_dict["is_active"]
         if new_active is False and habit.is_active is True:
@@ -2115,7 +2166,6 @@ def create_habit(
         is_private=payload.is_private,
         is_reportable=payload.is_reportable,
         is_mandatory=payload.is_mandatory,
-        point_rewards=payload.point_rewards,
         daily_cap=payload.daily_cap,
         daily_target=payload.daily_target,
         unit=payload.unit,

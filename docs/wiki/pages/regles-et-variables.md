@@ -4,7 +4,7 @@ Cette page liste les pièces du jeu : les commandes, les options, et surtout com
 
 ## La boucle, en bref
 
-Tu logges des [habitudes](#/habitudes) et tu coches des [primes](#/primes-todo). Ça remplit tes 12 [stats](#/stats-xp-niveau-or) du jour, qu'on compare ensuite aux seuils du [template](#/templates-de-jour) actif. Si tous les seuils sont atteints, c'est un [Perfect Day](#/perfect-day) (+5 XP). Puis, à 23h59, la journée se fige et les stats repartent à zéro.
+Tu logges des [habitudes](#/habitudes) et tu coches des [primes](#/primes-todo). Les habitudes planifiées doivent être validées, loggées ou skippées avec une raison. Si tout ce qui était prévu est traité, c'est un [Perfect Day](#/perfect-day) (+5 XP). Les primes donnent de l'XP direct, mais ne remplacent pas les habitudes prévues.
 
 ## Commandes du bot Telegram
 
@@ -13,8 +13,8 @@ Tu logges des [habitudes](#/habitudes) et tu coches des [primes](#/primes-todo).
 | `/done` | `<habitude>` | Valide une habitude binaire (refuse si déjà faite, ou si quantitative) |
 | `/log` | `<habitude> <valeur><unité>` | Enregistre une habitude quantitative (vérifie l'unité) |
 | `/skip` | `<habitude> raison: <texte>` | Saute une habitude sans casser le streak (raison obligatoire) |
-| `/status` | *(aucun)* | Perfect Day, seuils, streak, or, niveau/XP, quêtes faites/skippées/restantes, No-Todos échoués |
-| `/set-day` *(alias `/template`)* | `<template>` | Change le type de journée : `semaine`, `weekend`, `recovery`, `sick` |
+| `/status` | *(aucun)* | Perfect Day, streak, or, niveau/XP, quêtes faites/skippées/restantes, No-Todos échoués |
+| `/set-day` *(alias `/template`)* | `<template>` | Change le type de journée : `rest`, `regular`, `hustle` |
 | `/liste` | `todo` \| `habit` \| `notodo` | Liste ce qui reste (todo/habit) ou les règles à tenir (notodo) |
 | `/add` | `todo` \| `notodo` \| `habit` `<titre>` | Ajoute une tâche, une règle, ou guide la création d'une habitude |
 | `/add_habit` | `binary` \| `quant` `<titre> [unité]` | Crée une habitude avec des valeurs par défaut |
@@ -31,10 +31,9 @@ Tu logges des [habitudes](#/habitudes) et tu coches des [primes](#/primes-todo).
 |---|---|---|
 | Type d'habitude | binaire / quantitative | binaire = `/done` ; quantitative = `/log` avec unité |
 | Fréquence d'habitude | jours de la semaine | l'habitude n'est due que les jours planifiés |
-| Plafond journalier (cap) | points max / jour | borne l'apport d'une habitude quantitative |
-| Récompense d'habitude | points par stat | combien chaque stat monte quand l'habitude est faite |
-| Template de jour | semaine / weekend / recovery / sick | fixe les seuils du Perfect Day du jour |
-| Seuils du template | points par stat | la barre à atteindre ce jour-là |
+| Plafond journalier (cap) | nombre max / jour | borne les logs d'une habitude quantitative |
+| Budget d'effort | heures par catégorie | plafonne l'effort prévu dans l'agenda |
+| Template de jour | rest / regular / hustle | fixe l'agenda type et les budgets du Perfect Day |
 | XP de prime | 1 à 40 | XP direct gagné en cochant la prime |
 | `is_private` (habitude) | oui / non | comptée pour toi, masquée du recap public |
 | `is_reportable` | oui / non | apparaît ou non dans le bilan du groupe |
@@ -44,13 +43,13 @@ Tu logges des [habitudes](#/habitudes) et tu coches des [primes](#/primes-todo).
 
 **Deux horizons séparés.** Le [Perfect Day](#/perfect-day) (quotidien, éphémère) et les [objectifs](#/objectifs) (long terme, permanents via l'Or) ne se calculent pas l'un l'autre. Le lien est d'**intention** : les [habitudes](#/habitudes) construisent la régularité qui rend les objectifs atteignables, à ton rythme.
 
-**Le Perfect Day vient de deux sources.** Stats des [habitudes](#/habitudes) + stats des [primes](#/primes-todo), comparées aux seuils du [template](#/templates-de-jour) du jour. Aucune des deux seule ne suffit.
+**Le Perfect Day vient des habitudes prévues.** Les [habitudes](#/habitudes) planifiées doivent être traitées. Les [primes](#/primes-todo) ajoutent de l'XP direct, mais ne valident pas une habitude manquante.
 
 **XP ≠ Or.** L'XP (et le niveau) mesure la **régularité** (Perfect Days + primes). L'Or mesure l'**avancement réel** des projets (sous-étapes d'objectifs). Deux monnaies, deux significations.
 
-**Le template protège les jours off.** Basculer en `recovery` / `sick` abaisse les seuils : un jour de repos reste « réussissable ».
+**Le template protège les jours off.** Basculer en `rest` donne un agenda et un budget d'effort adaptés : un jour de repos reste « réussissable ».
 
-**Le streak récompense la constance.** Un `/skip` justifié préserve le streak ; un seuil raté le casse.
+**Le streak récompense la constance.** Un `/skip` justifié préserve le streak ; une habitude prévue laissée sans traitement le casse.
 
 **Données partagées bot ↔ site.** Le bot et le site lisent et écrivent dans la même base. Du coup, un `/log` Telegram apparaît aussitôt sur le site.
 

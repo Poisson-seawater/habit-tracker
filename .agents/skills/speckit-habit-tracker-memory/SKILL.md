@@ -150,7 +150,7 @@ In `app.js`, `openDrawer(mode, ...)` handles toggling specific form cards to pre
 - **`mode === "edit-substep"`**: Displays only `#edit-substep-section` populated with existing substep data.
 
 ### Habit Detail Drawer & Calendar
-- **Interactive Habit View**: Clicking on a habit card slides out the `#habit-detail-drawer` containing badges for current and max streak, a list of stat rewards, and a monthly interactive calendar grid (`#habit-detail-calendar-grid`).
+- **Interactive Habit View**: Clicking on a habit card slides out the `#habit-detail-drawer` containing badges for current and max streak plus a monthly interactive calendar grid (`#habit-detail-calendar-grid`). Stat reward badges were removed with the RPG stat system.
 - **Calendar Color Codes**: Days are visually distinct based on state classes (`completed`, `skipped`, `missed`, `non-scheduled`, `pre-creation`). Tooltips are rendered dynamically on hover to show the detailed state name.
 - **Deactivation/Reactivation Toggle**: A button inside the drawer allows users to soft-delete (deactivate) or reactivate habits, applying confirmation alerts and calling the soft-delete/update API routes.
 

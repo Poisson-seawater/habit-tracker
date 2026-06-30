@@ -81,7 +81,6 @@ def test_life_lore_flow(client):
             "title": "Sous-objectif classique",
             "description": "Une étape normale",
             "gold_reward": 50,
-            "stats_json": ["force"],
             "execution_order": 1,
         },
         headers={"X-User-ID": "1"},
@@ -97,7 +96,6 @@ def test_life_lore_flow(client):
             "title": "Forger Excalibur",
             "description": "Une étape légendaire gravée dans l'histoire de ma vie",
             "gold_reward": 100,
-            "stats_json": ["force", "finance"],
             "execution_order": 2,
             "is_life_lore": True,
         },
@@ -142,7 +140,7 @@ def test_life_lore_flow(client):
     assert lore_history[0]["id"] == lore_substep_id
     assert lore_history[0]["title"] == "Forger Excalibur"
     assert lore_history[0]["gold_reward"] == 100
-    assert "force" in lore_history[0]["stats"]
+    assert "stats" not in lore_history[0]
 
     # 8. Update classic subgoal to be life lore
     response = client.put(
@@ -151,7 +149,6 @@ def test_life_lore_flow(client):
             "title": "Sous-objectif classique promu",
             "description": "Devenu légendaire !",
             "gold_reward": 75,
-            "stats_json": ["force"],
             "execution_order": 1,
             "is_life_lore": True,
         },

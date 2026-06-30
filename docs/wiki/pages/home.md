@@ -15,11 +15,11 @@ Une petite boucle, toujours la même. Au fil de la journée, tu valides tes [hab
 
 À l'inverse, tu as peut-être des [No-Todo](#/no-todo) : des règles que tu t'engages à ne pas enfreindre. Si tu craques, tu le déclares avec `/fail`, et ça se voit dans ton bilan.
 
-Chaque validation fait monter tes 12 [stats](#/stats-xp-niveau-or) du jour. Et `/status` te dit à tout moment ce qu'il te reste pour atteindre les seuils de ton [template](#/templates-de-jour) du jour.
+Chaque validation fait avancer ton [Perfect Day](#/perfect-day) : les habitudes planifiées doivent être validées ou skippées avec une raison. `/status` te dit à tout moment ce qui est fait, skippé ou encore restant.
 
-Quand toutes les stats cibles passent leur seuil, c'est un [Perfect Day](#/perfect-day). À la clé : +5 XP, et ta série continue. C'est la récompense de la journée.
+Quand toutes les habitudes prévues sont traitées, c'est un Perfect Day. À la clé : +5 XP, et ta série continue. C'est la récompense de la journée.
 
-Puis, à 23h59, la journée se fige. Le bot publie le bilan de la guilde dans le groupe. Le lendemain, tes stats repartent de zéro — page blanche.
+Puis, à 21h30, la journée se fige. Le bot publie le bilan de la guilde dans le groupe.
 
 Tes grands projets, eux, avancent en parallèle, sur leur propre écran. Chaque sous-étape d'[objectif](#/objectifs) que tu coches te rapporte de l'Or. Le quotidien entretient la régularité ; les objectifs marquent la vraie progression.
 
@@ -37,6 +37,6 @@ Deux inquiétudes reviennent toujours, et elles sont légitimes.
 
 **« Mes amis vont voir tout ce que je note ? »** Tu n'as pas forcément envie que le groupe sache que ta to-do du jour, c'est « acheter un cadeau à ma blonde ». Pas de souci : une [habitude](#/habitudes) marquée privée (`is_private`) compte pour ton [Perfect Day](#/perfect-day), mais reste masquée du recap public — juste comptée dans un total. Et dès que tu as posté une fois dans le groupe, tu peux parler au bot en message privé.
 
-**« Et un jour où c'est la catastrophe parce que je suis malade ? »** Tu ne vas pas casser ta série juste parce que ton corps a lâché. C'est à ça que servent les [templates de jour](#/templates-de-jour). Bascule en `sick` ou `recovery` : les seuils baissent, donc une journée au ralenti reste réussissable. Et si c'est juste une habitude précise qui saute, `/skip <habitude> raison: <texte>` l'excuse pour aujourd'hui sans casser ton streak. La raison est obligatoire — c'est un garde-fou honnête.
+**« Et un jour où c'est la catastrophe parce que je suis malade ? »** Tu ne vas pas casser ta série juste parce que ton corps a lâché. C'est à ça que servent les [templates de jour](#/templates-de-jour). Bascule en `rest` : la journée se juge avec un rythme de récupération. Et si c'est juste une habitude précise qui saute, `/skip <habitude> raison: <texte>` l'excuse pour aujourd'hui sans casser ton streak. La raison est obligatoire — c'est un garde-fou honnête.
 
 **« J'ai trop d'objectifs et de skills, je me perds. »** C'est exactement pour ça qu'existe le [Recap 3-3-3](#/recap-3-3-3) : tu épingles 3 sous-étapes d'objectifs, 3 softskills et tu vois tes 3 activités d'allostasie du jour. Un seul panneau, les vraies priorités, visible dès l'accueil.

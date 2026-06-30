@@ -21,12 +21,14 @@ TEST_DATABASE_URL = f"sqlite:///{TEST_DB_FILE}"
 engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 def override_get_db():
     db = TestingSessionLocal()
     try:
         yield db
     finally:
         db.close()
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_test_db():
@@ -59,7 +61,9 @@ def setup_test_db():
         except OSError:
             pass
 
+
 client = TestClient(app)
+
 
 # T001: Test to verify schema contains the new columns
 def test_perfect_day_new_schema_fields():
@@ -76,21 +80,23 @@ def test_perfect_day_new_schema_fields():
     assert hasattr(SubStep, "effort_type")
     assert hasattr(SubStep, "effort_duration")
 
+
 # T005: Test GET /api/v1/templates returns rest, regular, hustle templates with defaults
 def test_get_templates_default():
     response = client.get("/api/v1/templates", headers={"X-User-ID": "1"})
     assert response.status_code == 200
     data = response.json()
-    
+
     assert "rest" in data
     assert "regular" in data
     assert "hustle" in data
-    
+
     # Check default regular settings
     assert data["regular"]["focus_hours"] == 6.0
     assert data["regular"]["min_rest_hours"] == 8.0
     assert data["regular"]["ceilings"]["musculaire"] == 2.0
     assert data["regular"]["ceilings"]["total"] == 8.0
+
 
 # T005: Test POST /api/v1/templates updates template values
 def test_post_template_updates():
@@ -103,14 +109,16 @@ def test_post_template_updates():
             "cerveau": 3.0,
             "emotionnel_social": 3.0,
             "creatif_divergent": 3.0,
-            "total": 9.0
-        }
+            "total": 9.0,
+        },
     }
-    
-    response = client.post("/api/v1/templates", json=payload, headers={"X-User-ID": "1"})
+
+    response = client.post(
+        "/api/v1/templates", json=payload, headers={"X-User-ID": "1"}
+    )
     assert response.status_code == 200
     assert response.json()["status"] == "success"
-    
+
     # Verify updates are retrieved via GET
     response = client.get("/api/v1/templates", headers={"X-User-ID": "1"})
     assert response.status_code == 200
@@ -120,21 +128,20 @@ def test_post_template_updates():
     assert data["regular"]["ceilings"]["musculaire"] == 3.0
     assert data["regular"]["ceilings"]["total"] == 9.0
 
+
 # T009: Test POST /api/v1/habits with effort tags
 def test_create_habit_with_effort():
     payload = {
         "name": "Exercice de code",
         "type": "binary",
-        "point_rewards": {"discipline": 2},
         "effort_type": "cerveau",
-        "effort_duration": 1.5
+        "effort_duration": 1.5,
     }
     response = client.post("/api/v1/habits", json=payload, headers={"X-User-ID": "1"})
     assert response.status_code == 201
     data = response.json()
     assert data["status"] == "success"
     habit_id = data["id"]
-
 
     # Verify via GET
     response = client.get("/api/v1/habits", headers={"X-User-ID": "1"})
@@ -144,13 +151,14 @@ def test_create_habit_with_effort():
     assert habit["effort_type"] == "cerveau"
     assert habit["effort_duration"] == 1.5
 
+
 # T009: Test POST /goals/{goal_id}/substeps with effort tags
 def test_create_substep_with_effort():
     # Create goal first
     response = client.post(
         "/api/v1/goals",
         json={"title": "Master Python", "description": "Learn python internals"},
-        headers={"X-User-ID": "1"}
+        headers={"X-User-ID": "1"},
     )
     assert response.status_code == 201
     goal_id = response.json()["goal"]["id"]
@@ -161,12 +169,10 @@ def test_create_substep_with_effort():
         "description": "Solve 5 problems",
         "gold_reward": 10,
         "effort_type": "cerveau",
-        "effort_duration": 2.0
+        "effort_duration": 2.0,
     }
     response = client.post(
-        f"/api/v1/goals/{goal_id}/substeps",
-        json=payload,
-        headers={"X-User-ID": "1"}
+        f"/api/v1/goals/{goal_id}/substeps", json=payload, headers={"X-User-ID": "1"}
     )
     assert response.status_code == 201
     substep_id = response.json()["substep"]["id"]
@@ -179,4 +185,3 @@ def test_create_substep_with_effort():
     substep = next(s for s in goal["substeps"] if s["id"] == substep_id)
     assert substep["effort_type"] == "cerveau"
     assert substep["effort_duration"] == 2.0
-

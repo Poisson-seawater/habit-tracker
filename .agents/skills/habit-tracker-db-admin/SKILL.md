@@ -31,9 +31,10 @@ Use this skill whenever a task asks to modify Habit Tracker data directly or ind
 ### Add a Habit
 
 - Insert into `habits` with the target `user_id`.
-- Required fields: `name`, `type`, `point_rewards`.
+- Required fields: `name`, `type`.
 - Valid `type`: `binary` or `quantitative`.
 - For quantitative habits, set `unit`; for binary habits, leave `unit` null.
+- Optional effort fields: `effort_type` (`musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`) and `effort_duration`.
 - Use unique habit names per user. Check `(user_id, name)` before insert.
 - If adding through API behavior, mirror `HabitCreate` in `backend/src/api/routes.py`.
 
@@ -47,7 +48,7 @@ Use this skill whenever a task asks to modify Habit Tracker data directly or ind
 
 ### Add or Complete a Todo
 
-- Insert into `todos` with `title`, optional stat rewards, and `xp_reward` between 0 and 40.
+- Insert into `todos` with `title` and `xp_reward` between 0 and 40.
 - To complete, set `is_completed=True` and `completed_at` to current UTC time.
 - Then award XP through existing service behavior where possible and recalculate daily score/streaks.
 
@@ -60,14 +61,14 @@ Use this skill whenever a task asks to modify Habit Tracker data directly or ind
 ### Add Goals and Substeps
 
 - Insert long-term objectives into `goals`.
-- Insert steps into `substeps`, including `gold_reward`, optional `stats_json`, and `execution_order`.
+- Insert steps into `substeps`, including `gold_reward`, `execution_order`, optional `is_life_lore`, and optional effort fields.
 - Link them through `goal_substep_links`.
 - To complete a substep, prefer the API/service route behavior: set `completed=True`, set `completed_at`, add `gold_reward` to the user, and mark parent goals complete only when all linked substeps are complete.
 
 ### Templates and Daily Scores
 
-- Templates live in `perfect_day_templates` as JSON thresholds per user and template key.
-- Valid template keys are `week`, `weekend`, `recup`, and `malade`.
+- Templates live in `perfect_day_templates` with agenda and effort budget data per user and template key.
+- Valid template keys are `rest`, `regular`, and `hustle`.
 - Daily score rows are derived data. Prefer recalculation over manual edits unless fixing a known bad row.
 
 ### Rewards (Boutique)

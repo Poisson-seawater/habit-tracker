@@ -57,7 +57,6 @@ def setup_test_db():
             user_id=1,
             name="Mediter",
             type="binary",
-            point_rewards={"discipline": 1},
             frequency="daily",
         )
         h2 = Habit(
@@ -65,7 +64,6 @@ def setup_test_db():
             user_id=1,
             name="Lecture",
             type="quantitative",
-            point_rewards={"apprendre": 2},
             unit="pages",
             frequency="daily",
         )

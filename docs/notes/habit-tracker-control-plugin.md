@@ -150,7 +150,7 @@ Opérations disponibles :
   `softskill-update`, `softskill-delete`, `softskill-test`.
 
 Le CLI génère de façon stable les slugs et les couleurs de branche. Il n'invente pas
-de description, récompense, statistique, prérequis ou relation métier.
+de description, récompense, effort, prérequis ou relation métier.
 
 ## Contrat serveur ajouté
 

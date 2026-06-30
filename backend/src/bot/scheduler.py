@@ -21,18 +21,8 @@ from src.services.score_service import (
     calculate_daily_score,
     update_streaks,
     add_user_xp,
-    ALL_6_STATS,
 )
 from src.services.reward_service import get_allostasis_purchases_on_date
-
-STAT_LABELS = {
-    "forme_physique": "Forme Physique 💪",
-    "sante": "Santé 🧠",
-    "social": "Social 🤝",
-    "finance": "Finance 💰",
-    "apprendre": "Apprendre 📚",
-    "discipline": "Discipline ⚔️",
-}
 
 
 async def publish_daily_recap():

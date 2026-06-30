@@ -4,28 +4,10 @@ from src.database.models import (
     User,
     Habit,
     HabitLog,
-    PerfectDayTemplate,
     DailyScore,
     Streak,
     Todo,
-    SubStep,
 )
-
-ALL_6_STATS = [
-    "forme_physique",
-    "sante",
-    "social",
-    "finance",
-    "apprendre",
-    "discipline",
-]
-
-DEFAULT_THRESHOLDS = {
-    "week": {"discipline": 11, "apprendre": 6},
-    "weekend": {"sante": 8, "social": 4, "apprendre": 3},
-    "recup": {"sante": 8},
-    "malade": {"sante": 3},
-}
 
 
 def calculate_daily_score(
@@ -34,9 +16,8 @@ def calculate_daily_score(
     """
     Evaluates the daily score for a user on a given date.
     A Perfect Day is achieved if all active, scheduled habits for that day are logged (completed or skipped).
-    We also sum the counts of tags validated today.
     """
-    # 1. Resolve template name (always default/week for backward compatibility)
+    # 1. Resolve template name.
     if not template_name:
         existing_score = (
             db.query(DailyScore).filter_by(user_id=user_id, date=date).first()
@@ -44,7 +25,10 @@ def calculate_daily_score(
         if existing_score:
             template_name = existing_score.template_used
         else:
-            template_name = "default"
+            template_name = "regular"
+
+    if template_name == "default":
+        template_name = "regular"
 
     # 2. Get today's logs
     start_dt = datetime.datetime.combine(date, datetime.time.min)
@@ -65,11 +49,13 @@ def calculate_daily_score(
 
     # 4. Check if all scheduled habits are completed/skipped today
     weekday = date.weekday()
-    model_day_idx = (weekday + 1) % 7 # 0=Sun, 1=Mon, ..., 6=Sat
+    model_day_idx = (weekday + 1) % 7  # 0=Sun, 1=Mon, ..., 6=Sat
 
     scheduled_habits = []
     for h in habits:
-        scheduled = str(model_day_idx) in [d.strip() for d in h.scheduled_days.split(",")]
+        scheduled = str(model_day_idx) in [
+            d.strip() for d in h.scheduled_days.split(",")
+        ]
         if scheduled:
             scheduled_habits.append(h)
 
@@ -84,7 +70,7 @@ def calculate_daily_score(
         is_skipped = any(l.log_type == "skip" for l in h_logs)
         if is_skipped:
             continue
-        
+
         completions = sum(1 for l in h_logs if l.log_type in ["done", "log"])
         if h.daily_target and h.daily_target > 1:
             if completions < h.daily_target:
@@ -99,67 +85,7 @@ def calculate_daily_score(
 
     status = "Perfect" if perfect_valid else "Failed"
 
-    # 5. Populate actual_stats with tag counts
-    actual_stats = {stat: 0 for stat in ALL_6_STATS}
-
-    # Count tags from completed habit logs
-    for log in logs:
-        if log.log_type in ["done", "log"]:
-            habit = db.query(Habit).filter_by(id=log.habit_id, user_id=user_id).first()
-            if habit:
-                tags = []
-                if isinstance(habit.point_rewards, list):
-                    tags = habit.point_rewards
-                elif isinstance(habit.point_rewards, dict):
-                    tags = list(habit.point_rewards.keys())
-                
-                for tag in tags:
-                    tag_key = tag.lower()
-                    actual_stats[tag_key] = actual_stats.get(tag_key, 0) + 1
-
-    # Count tags from completed Todos today
-    completed_todos = (
-        db.query(Todo)
-        .filter(
-            Todo.user_id == user_id,
-            Todo.is_completed == True,
-            Todo.completed_at >= start_dt,
-            Todo.completed_at <= end_dt,
-        )
-        .all()
-    )
-
-    for todo in completed_todos:
-        for t_tag in [todo.stat_reward_1, todo.stat_reward_2]:
-            if t_tag:
-                tag_key = t_tag.lower()
-                actual_stats[tag_key] = actual_stats.get(tag_key, 0) + 1
-
-    # Count tags from completed SubSteps today
-    completed_substeps = (
-        db.query(SubStep)
-        .filter(
-            SubStep.user_id == user_id,
-            SubStep.completed == True,
-            SubStep.completed_at >= start_dt,
-            SubStep.completed_at <= end_dt,
-        )
-        .all()
-    )
-
-    for substep in completed_substeps:
-        substep_tags = []
-        if isinstance(substep.stats_json, list):
-            substep_tags = substep.stats_json
-        elif isinstance(substep.stats_json, dict):
-            substep_tags = list(substep.stats_json.keys())
-        
-        for s_tag in substep_tags:
-            if s_tag:
-                tag_key = s_tag.lower()
-                actual_stats[tag_key] = actual_stats.get(tag_key, 0) + 1
-
-    # 6. Save or update DailyScore
+    # 5. Save or update DailyScore
     score = db.query(DailyScore).filter_by(user_id=user_id, date=date).first()
     if not score:
         score = DailyScore(
@@ -167,13 +93,11 @@ def calculate_daily_score(
             date=date,
             status=status,
             template_used=template_name,
-            actual_stats=actual_stats,
         )
         db.add(score)
     else:
         score.status = status
         score.template_used = template_name
-        score.actual_stats = actual_stats
 
     db.commit()
     return score

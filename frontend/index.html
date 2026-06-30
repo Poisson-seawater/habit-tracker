@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
-  <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et statistiques éphémères.">
-  <link rel="stylesheet" href="css/style.css">
+  <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
+  <link rel="stylesheet" href="css/style.css?v=2">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -647,8 +647,13 @@
     /* Screen 3: Settings Styles */
     .settings-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, 1fr);
       gap: 2rem;
+    }
+    @media (max-width: 1200px) {
+      .settings-grid {
+        grid-template-columns: 1fr 1fr;
+      }
     }
     @media (max-width: 900px) {
       .settings-grid {
@@ -657,29 +662,6 @@
     }
     .thresholds-editor {
       padding: 1.8rem;
-    }
-    .weekly-potentials-card {
-      padding: 1.8rem;
-    }
-    .potentials-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-      font-size: 0.85rem;
-    }
-    .potentials-table th, .potentials-table td {
-      border: 1px solid var(--border-glass);
-      padding: 8px 12px;
-      text-align: left;
-    }
-    .potentials-table th {
-      background: rgba(255, 255, 255, 0.02);
-      font-family: var(--font-display);
-      font-weight: 600;
-      color: var(--accent-cyan);
-    }
-    .potentials-table tr:hover {
-      background: rgba(255, 255, 255, 0.01);
     }
     .bounty-card {
       display: flex;
@@ -880,7 +862,58 @@
           </div>
         </section>
 
-        <div class="perfect-day-rendering-grid">
+        <!-- 3-3-3 Recap Panel -->
+        <section class="glass-card recap-panel" id="recap-3-3-3-panel">
+          <h2 class="section-header">🛡️ <span>Recap 3 - 3 - 3</span></h2>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
+            Gardez le cap sur vos 3 objectifs prioritaires, vos 3 compétences actives et votre allostasie du jour.
+          </p>
+          <div class="recap-grid">
+            
+            <!-- Section 1: Objectifs Majeurs -->
+            <div class="recap-section" id="recap-goals-section">
+              <div class="recap-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">
+                <h3 style="font-size: 0.95rem; margin: 0; color: var(--accent-cyan);">🏆 Objectifs</h3>
+                <button class="recap-edit-btn" id="recap-edit-goals-btn" title="Modifier les objectifs épinglés" style="background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 2px;">✏️</button>
+              </div>
+              <ul class="recap-list" id="recap-goals-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem;">
+                <li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--text-muted);">Chargement...</li>
+              </ul>
+            </div>
+
+            <!-- Section 2: Compétences Clés -->
+            <div class="recap-section" id="recap-skills-section">
+              <div class="recap-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">
+                <h3 style="font-size: 0.95rem; margin: 0; color: var(--accent-cyan);">🧬 Compétences</h3>
+                <button class="recap-edit-btn" id="recap-edit-skills-btn" title="Modifier les compétences épinglées" style="background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 2px;">✏️</button>
+              </div>
+              <ul class="recap-list" id="recap-skills-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem;">
+                <li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--text-muted);">Chargement...</li>
+              </ul>
+            </div>
+
+            <!-- Section 3: Allostasie -->
+            <div class="recap-section" id="recap-allostasis-section">
+              <div class="recap-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">
+                <h3 id="recap-allostasis-title" style="font-size: 0.95rem; margin: 0; color: var(--accent-cyan);">🩹 Allostasie</h3>
+                <button class="recap-edit-btn" id="recap-toggle-allostasis-btn" title="Basculer Daily / Weekly" style="background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 2px;">🔄</button>
+              </div>
+              <ul class="recap-list" id="recap-allostasis-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem;">
+                <li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--text-muted);">Chargement...</li>
+              </ul>
+            </div>
+
+          </div>
+        </section>
+
+      </section>
+
+      <!-- Dashboard Grid -->
+      <main class="dashboard-grid">
+        
+        <!-- Left Column: Recap & Stats -->
+        <div class="left-column-container" style="display: flex; flex-direction: column; gap: 2rem;">
+          
           <div id="perfect-day-recap-slot">
             <!-- Perfect Day Agenda / Typical Day Timeline -->
             <section class="glass-card typical-day-card" id="typical-day-card">
@@ -906,8 +939,8 @@
               </div>
 
               <!-- List of Planned Blocks Section -->
-              <div class="agenda-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; border-top: 1px solid var(--border-glass); padding-top: 1.2rem;">
-                <h3 style="font-size: 0.95rem; margin: 0; color: var(--accent-cyan);">📋 Blocs Planifiés</h3>
+              <div class="agenda-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-top: 1px solid var(--border-glass); padding-top: 1.2rem;">
+                <h3 style="font-size: 1.05rem; margin: 0; color: var(--accent-cyan); font-family: var(--font-display); font-weight: 700;">📋 Liste des Blocs Planifiés</h3>
                 <button class="floating-add-btn" id="toggle-add-block-btn" style="padding: 2px 8px; font-size: 0.75rem;">+ Ajouter</button>
               </div>
 
@@ -952,158 +985,13 @@
               </div>
 
               <!-- List of blocks -->
-              <div id="agenda-blocks-list" style="display: flex; flex-direction: column; gap: 0.6rem; max-height: 280px; overflow-y: auto; padding-right: 4px;">
+              <div id="agenda-blocks-list" style="display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; padding-right: 0.5rem;">
                 <!-- Dynamically populated items from JS -->
               </div>
             </section>
           </div>
-
-          <div id="perfect-day-budget-slot">
-            <!-- Perfect Day Effort Budget Gauge -->
-            <section class="glass-card effort-budget-panel" id="effort-budget-panel">
-              <h2 class="section-header">⚡ <span>Budget d'Énergie Quotidien</span></h2>
-              <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: -1rem;">
-                Répartition de votre budget d'effort pour aujourd'hui.
-              </p>
-
-              <div id="effort-warnings-container" style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem;">
-                <!-- Warnings will be inserted dynamically -->
-              </div>
-
-              <!-- Total Gauge -->
-              <div style="margin-bottom: 1.2rem;">
-                <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px;">
-                  <span>Total Focus Planifié</span>
-                  <span id="effort-total-text" style="font-weight: 600;">0.0h / 0.0h</span>
-                </div>
-                <div class="xp-bar-container" style="height: 12px; background: rgba(255,255,255,0.03); border-radius: 6px;" title="Total d'effort planifié vs cible focus">
-                  <div class="xp-bar-fill" id="effort-total-bar" style="width: 0%; height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple)); transition: width 0.3s ease;"></div>
-                </div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
-                  <span id="effort-unplanned-text">Temps libre restant : 16.0h</span>
-                  <span id="effort-rest-text">Repos requis : 8.0h</span>
-                </div>
-              </div>
-
-              <!-- Categories Grid -->
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; border-top: 1px solid var(--border-glass); padding-top: 1rem;">
-                <!-- Brain -->
-                <div>
-                  <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
-                    <span>🧠 Cerveau</span>
-                    <span id="effort-cerveau-text" style="font-size: 0.72rem;">0h / 2h</span>
-                  </div>
-                  <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
-                    <div id="effort-cerveau-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-cyan); transition: width 0.3s ease;"></div>
-                  </div>
-                </div>
-                <!-- Muscle -->
-                <div>
-                  <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
-                    <span>💪 Musculaire</span>
-                    <span id="effort-musculaire-text" style="font-size: 0.72rem;">0h / 2h</span>
-                  </div>
-                  <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
-                    <div id="effort-musculaire-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-red); transition: width 0.3s ease;"></div>
-                  </div>
-                </div>
-                <!-- Social -->
-                <div>
-                  <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
-                    <span>🤝 Social / Émot.</span>
-                    <span id="effort-social-text" style="font-size: 0.72rem;">0h / 2h</span>
-                  </div>
-                  <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
-                    <div id="effort-social-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-green); transition: width 0.3s ease;"></div>
-                  </div>
-                </div>
-                <!-- Creative -->
-                <div>
-                  <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
-                    <span>🎨 Créatif / Div.</span>
-                    <span id="effort-creatif-text" style="font-size: 0.72rem;">0h / 2h</span>
-                  </div>
-                  <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
-                    <div id="effort-creatif-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-purple); transition: width 0.3s ease;"></div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-        </div>
-      </section>
-
-      <!-- Dashboard Grid -->
-      <main class="dashboard-grid">
-        
-        <!-- Left Column: Recap & Stats -->
-        <div class="left-column-container" style="display: flex; flex-direction: column; gap: 2rem;">
           
-          <!-- 3-3-3 Recap Panel -->
-          <section class="glass-card recap-panel" id="recap-3-3-3-panel">
-            <h2 class="section-header">🛡️ <span>Recap 3 - 3 - 3</span></h2>
-            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
-              Gardez le cap sur vos 3 objectifs prioritaires, vos 3 compétences actives et votre allostasie du jour.
-            </p>
-            <div class="recap-grid">
-              
-              <!-- Section 1: Objectifs Majeurs -->
-              <div class="recap-section" id="recap-goals-section">
-                <div class="recap-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">
-                  <h3 style="font-size: 0.95rem; margin: 0; color: var(--accent-cyan);">🏆 Objectifs</h3>
-                  <button class="recap-edit-btn" id="recap-edit-goals-btn" title="Modifier les objectifs épinglés" style="background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 2px;">✏️</button>
-                </div>
-                <ul class="recap-list" id="recap-goals-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem;">
-                  <li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--text-muted);">Chargement...</li>
-                </ul>
-              </div>
 
-              <!-- Section 2: Compétences Clés -->
-              <div class="recap-section" id="recap-skills-section">
-                <div class="recap-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">
-                  <h3 style="font-size: 0.95rem; margin: 0; color: var(--accent-cyan);">🧬 Compétences</h3>
-                  <button class="recap-edit-btn" id="recap-edit-skills-btn" title="Modifier les compétences épinglées" style="background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 2px;">✏️</button>
-                </div>
-                <ul class="recap-list" id="recap-skills-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem;">
-                  <li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--text-muted);">Chargement...</li>
-                </ul>
-              </div>
-
-              <!-- Section 3: Allostasie -->
-              <div class="recap-section" id="recap-allostasis-section">
-                <div class="recap-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">
-                  <h3 id="recap-allostasis-title" style="font-size: 0.95rem; margin: 0; color: var(--accent-cyan);">🩹 Allostasie</h3>
-                  <button class="recap-edit-btn" id="recap-toggle-allostasis-btn" title="Basculer Daily / Weekly" style="background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 2px;">🔄</button>
-                </div>
-                <ul class="recap-list" id="recap-allostasis-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem;">
-                  <li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--text-muted);">Chargement...</li>
-                </ul>
-              </div>
-
-            </div>
-          </section>
-
-          <!-- Left Column: Ephemeral Daily Character Stats -->
-
-          <section class="glass-card stats-panel">
-            <h2 class="section-header">🛡️ <span>Activité du Jour (Tags)</span></h2>
-            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
-              Visualisez les tags de quêtes, primes et sous-étapes que vous avez validés aujourd'hui !
-            </p>
-            
-            <div class="stats-grid" id="stats-container">
-              <!-- Dynamically populated stats rows will be inserted here -->
-              <p style="text-align: center; color: var(--text-muted);">Chargement de la feuille de personnage...</p>
-            </div>
-            
-            <div id="daily-life-lore-container" style="margin-top: 1.5rem; border-top: 1px solid var(--border-glass); padding-top: 1rem; display: none;">
-              <h3 style="font-family: var(--font-display); font-size: 0.95rem; color: var(--accent-gold); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.3rem;">📖 Life Lore du Jour</h3>
-              <ul id="daily-life-lore-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.85rem;">
-                <!-- Filled dynamically by JS -->
-              </ul>
-            </div>
-          </section>
-          
         </div>
 
         <!-- Right Column: Quests & Todos -->
@@ -1164,21 +1052,6 @@
 
               <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
                 <div class="form-group">
-                  <label>Tag lié 1</label>
-                  <select id="new-quest-tag-1" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
-                    <option value="">Aucun</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>Tag lié 2</label>
-                  <select id="new-quest-tag-2" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
-                    <option value="">Aucun</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
-                <div class="form-group">
                   <label>Type d'effort</label>
                   <select id="new-quest-effort-type" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
                     <option value="">Aucun</option>
@@ -1228,21 +1101,6 @@
                   <input type="number" id="new-bounty-xp" value="20" min="1" max="40" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%; box-sizing: border-box;">
                 </div>
               </div>
-              <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
-                <div class="form-group">
-                  <label for="new-bounty-tag-1">Tag lié 1</label>
-                  <select id="new-bounty-tag-1" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
-                    <option value="">Aucun</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="new-bounty-tag-2">Tag lié 2</label>
-                  <select id="new-bounty-tag-2" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); width: 100%;">
-                    <option value="">Aucun</option>
-                  </select>
-                </div>
-              </div>
-
               <div class="form-grid">
                 <div class="form-group">
                   <label for="new-bounty-do-date">Date Planifiée (Do Date)</label>
@@ -1375,22 +1233,6 @@
             </div>
             <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem;">
               <div class="form-group">
-                <label>Tag cible 1</label>
-                <select id="substep-tag-1" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
-                  <option value="">Aucun</option>
-                  <!-- Populated by JS -->
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Tag cible 2</label>
-                <select id="substep-tag-2" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
-                  <option value="">Aucun</option>
-                  <!-- Populated by JS -->
-                </select>
-              </div>
-            </div>
-            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem;">
-              <div class="form-group">
                 <label>Type d'effort</label>
                 <select id="substep-effort-type" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); width: 100%;">
                   <option value="">Aucun</option>
@@ -1408,7 +1250,7 @@
             <div class="form-group checkbox-group" style="margin-top: 0.8rem;">
               <label class="checkbox-label" style="margin-top: 0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                 <input type="checkbox" id="substep-life-lore-input" style="cursor: pointer;">
-                <span>📖 Marquer comme Life Lore (apparaît dans les stats et l'histoire)</span>
+                <span>📖 Marquer comme Life Lore (apparaît dans l'histoire)</span>
               </label>
             </div>
             <button type="submit" class="quest-action-btn submit-btn" style="margin-top: 0.5rem; width: 100%;">Ajouter Étape</button>
@@ -1445,22 +1287,6 @@
             </div>
             <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem;">
               <div class="form-group">
-                <label>Tag cible 1</label>
-                <select id="edit-substep-tag-1" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
-                  <option value="">Aucun</option>
-                  <!-- Populated by JS -->
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Tag cible 2</label>
-                <select id="edit-substep-tag-2" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary);">
-                  <option value="">Aucun</option>
-                  <!-- Populated by JS -->
-                </select>
-              </div>
-            </div>
-            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem;">
-              <div class="form-group">
                 <label>Type d'effort</label>
                 <select id="edit-substep-effort-type" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); width: 100%;">
                   <option value="">Aucun</option>
@@ -1478,7 +1304,7 @@
             <div class="form-group checkbox-group" style="margin-top: 0.8rem;">
               <label class="checkbox-label" style="margin-top: 0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                 <input type="checkbox" id="edit-substep-life-lore-input" style="cursor: pointer;">
-                <span>📖 Marquer comme Life Lore (apparaît dans les stats et l'histoire)</span>
+                <span>📖 Marquer comme Life Lore (apparaît dans l'histoire)</span>
               </label>
             </div>
             <div style="display: flex; gap: 0.8rem; margin-top: 0.8rem;">
@@ -1640,6 +1466,80 @@
           </form>
         </section>
 
+        <!-- Middle Panel: Perfect Day Effort Budget Gauge -->
+        <div id="settings-budget-slot">
+          <!-- Perfect Day Effort Budget Gauge -->
+          <section class="glass-card effort-budget-panel" id="effort-budget-panel">
+            <h2 class="section-header">⚡ <span>Budget d'Énergie Quotidien</span></h2>
+            <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: -1rem;">
+              Répartition de votre budget d'effort pour aujourd'hui.
+            </p>
+
+            <div id="effort-warnings-container" style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem;">
+              <!-- Warnings will be inserted dynamically -->
+            </div>
+
+            <!-- Total Gauge -->
+            <div style="margin-bottom: 1.2rem;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px;">
+                <span>Total Focus Planifié</span>
+                <span id="effort-total-text" style="font-weight: 600;">0.0h / 0.0h</span>
+              </div>
+              <div class="xp-bar-container" style="height: 12px; background: rgba(255,255,255,0.03); border-radius: 6px;" title="Total d'effort planifié vs cible focus">
+                <div class="xp-bar-fill" id="effort-total-bar" style="width: 0%; height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple)); transition: width 0.3s ease;"></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
+                <span id="effort-unplanned-text">Temps libre restant : 16.0h</span>
+                <span id="effort-rest-text">Repos requis : 8.0h</span>
+              </div>
+            </div>
+
+            <!-- Categories Grid -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; border-top: 1px solid var(--border-glass); padding-top: 1rem;">
+              <!-- Brain -->
+              <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
+                  <span>🧠 Cerveau</span>
+                  <span id="effort-cerveau-text" style="font-size: 0.72rem;">0h / 2h</span>
+                </div>
+                <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
+                  <div id="effort-cerveau-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-cyan); transition: width 0.3s ease;"></div>
+                </div>
+              </div>
+              <!-- Muscle -->
+              <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
+                  <span>💪 Musculaire</span>
+                  <span id="effort-musculaire-text" style="font-size: 0.72rem;">0h / 2h</span>
+                </div>
+                <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
+                  <div id="effort-musculaire-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-red); transition: width 0.3s ease;"></div>
+                </div>
+              </div>
+              <!-- Social -->
+              <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
+                  <span>🤝 Social / Émot.</span>
+                  <span id="effort-social-text" style="font-size: 0.72rem;">0h / 2h</span>
+                </div>
+                <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
+                  <div id="effort-social-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-green); transition: width 0.3s ease;"></div>
+                </div>
+              </div>
+              <!-- Creative -->
+              <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 4px;">
+                  <span>🎨 Créatif / Div.</span>
+                  <span id="effort-creatif-text" style="font-size: 0.72rem;">0h / 2h</span>
+                </div>
+                <div style="height: 6px; background: rgba(255,255,255,0.03); border-radius: 3px; position: relative;">
+                  <div id="effort-creatif-bar" style="width: 0%; height: 100%; border-radius: 3px; background: var(--accent-purple); transition: width 0.3s ease;"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
         <section class="glass-card bio-zone-settings-card" id="bio-zone-settings-section" style="padding: 1.8rem;">
           <h2 class="section-header">🌅 <span>Journée Biologique</span></h2>
           <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
@@ -1696,37 +1596,6 @@
             </div>
           </form>
         </section>
-
-        <!-- Right Panel: Weekly Potential Stats Summation (Hidden) -->
-        <div class="widgets-container" style="display: none;">
-          
-          <section class="glass-card weekly-potentials-card">
-            <h2 class="section-header">📊 <span>Potentiel Hebdomadaire des Stats</span></h2>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
-              Cette table dynamique additionne les points de statistiques potentiels disponibles chaque jour de la semaine en fonction des jours planifiés de vos quêtes actives.
-            </p>
-            <div style="overflow-x: auto;">
-              <table class="potentials-table" id="potentials-table-element">
-                <thead>
-                  <tr>
-                    <th>Stat</th>
-                    <th>Lun ⚔️</th>
-                    <th>Mar ⚔️</th>
-                    <th>Mer ⚔️</th>
-                    <th>Jeu ⚔️</th>
-                    <th>Ven ⚔️</th>
-                    <th>Sam 💤</th>
-                    <th>Dim 💤</th>
-                  </tr>
-                </thead>
-                <tbody id="potentials-table-body">
-                  <!-- Javascript will populate this -->
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-        </div>
 
       </div>
     </div>
@@ -1968,21 +1837,6 @@
     </div>
     <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:1rem;">
       <div class="form-group">
-        <label>Tag lié 1</label>
-        <select id="edit-quest-tag-1" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;">
-          <option value="">Aucun</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Tag lié 2</label>
-        <select id="edit-quest-tag-2" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;">
-          <option value="">Aucun</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:1rem;">
-      <div class="form-group">
         <label>Type d'effort</label>
         <select id="edit-quest-effort-type" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;">
           <option value="">Aucun</option>
@@ -2025,11 +1879,6 @@
     </div>
     <div style="display: flex; flex-direction: column; gap: 1rem;">
       <p id="habit-detail-desc-val" style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;"></p>
-      
-      <!-- Stats / Rewards Row -->
-      <div id="habit-detail-rewards" style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.8rem; background: rgba(255,255,255,0.02); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-glass);">
-        <!-- Populated dynamically -->
-      </div>
 
       <!-- Streaks Badges Panel -->
       <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">

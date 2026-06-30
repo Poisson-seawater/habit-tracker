@@ -76,9 +76,6 @@ class Habit(Base):
     is_private = Column(Boolean, default=False)
     is_reportable = Column(Boolean, default=True)
     is_mandatory = Column(Boolean, default=False)
-    point_rewards = Column(
-        JSON, nullable=False
-    )  # dict mapping stats e.g. {"discipline": 2, "force": 3}
     daily_cap = Column(Integer, nullable=True)  # Cap on points for quantitative habits
     daily_target = Column(
         Integer, nullable=True
@@ -86,7 +83,9 @@ class Habit(Base):
     unit = Column(String, nullable=True)  # Unit e.g. "min", "km"
     is_active = Column(Boolean, default=True)
     deactivated_at = Column(DateTime, nullable=True)
-    effort_type = Column(String, nullable=True)  # "musculaire", "cerveau", "emotionnel_social", "creatif_divergent"
+    effort_type = Column(
+        String, nullable=True
+    )  # "musculaire", "cerveau", "emotionnel_social", "creatif_divergent"
     effort_duration = Column(Float, default=1.0, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.now)
 
@@ -123,12 +122,7 @@ class PerfectDayTemplate(Base):
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    template_name = Column(
-        String, nullable=False
-    )  # "rest", "regular", "hustle"
-    thresholds_json = Column(
-        JSON, nullable=True
-    )  # dict mapping stats (deprecated)
+    template_name = Column(String, nullable=False)  # "rest", "regular", "hustle"
     focus_hours = Column(Float, default=6.0, nullable=False)
     ceilings_json = Column(JSON, nullable=True)
     min_rest_hours = Column(Float, default=8.0, nullable=False)
@@ -169,7 +163,6 @@ class DailyScore(Base):
     template_used = Column(
         String, nullable=False
     )  # "week", "weekend", "recup", "malade"
-    actual_stats = Column(JSON, nullable=False)  # e.g., {"discipline": 6, "force": 12}
 
     user = relationship("User", back_populates="scores")
 
@@ -199,10 +192,6 @@ class Todo(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     title = Column(String, nullable=False)
-    stat_reward_1 = Column(String, nullable=True)
-    points_reward_1 = Column(Integer, default=0)
-    stat_reward_2 = Column(String, nullable=True)
-    points_reward_2 = Column(Integer, default=0)
     xp_reward = Column(Integer, default=10)  # Custom up to 40 XP
     is_completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.now)
@@ -258,12 +247,11 @@ class SubStep(Base):
     completed = Column(Boolean, default=False)
     completed_at = Column(DateTime, nullable=True)
     description = Column(Text, nullable=True)
-    stats_json = Column(
-        JSON, nullable=True
-    )  # List of related stats e.g. ["force", "finance"]
     execution_order = Column(Integer, default=1)
     is_life_lore = Column(Boolean, default=False, nullable=False)
-    effort_type = Column(String, nullable=True)  # "musculaire", "cerveau", "emotionnel_social", "creatif_divergent"
+    effort_type = Column(
+        String, nullable=True
+    )  # "musculaire", "cerveau", "emotionnel_social", "creatif_divergent"
     effort_duration = Column(Float, default=1.0, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.now)
 

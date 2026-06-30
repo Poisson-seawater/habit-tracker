@@ -110,22 +110,37 @@ def seed_db():
                     "template_name": "rest",
                     "focus_hours": 2.0,
                     "min_rest_hours": 10.0,
-                    "ceilings_json": {"musculaire": 1.0, "cerveau": 1.0, "emotionnel_social": 1.0, "creatif_divergent": 1.0, "total": 4.0},
-                    "thresholds_json": None,
+                    "ceilings_json": {
+                        "musculaire": 1.0,
+                        "cerveau": 1.0,
+                        "emotionnel_social": 1.0,
+                        "creatif_divergent": 1.0,
+                        "total": 4.0,
+                    },
                 },
                 {
                     "template_name": "regular",
                     "focus_hours": 6.0,
                     "min_rest_hours": 8.0,
-                    "ceilings_json": {"musculaire": 2.0, "cerveau": 2.0, "emotionnel_social": 2.0, "creatif_divergent": 2.0, "total": 8.0},
-                    "thresholds_json": None,
+                    "ceilings_json": {
+                        "musculaire": 2.0,
+                        "cerveau": 2.0,
+                        "emotionnel_social": 2.0,
+                        "creatif_divergent": 2.0,
+                        "total": 8.0,
+                    },
                 },
                 {
                     "template_name": "hustle",
                     "focus_hours": 9.0,
                     "min_rest_hours": 7.0,
-                    "ceilings_json": {"musculaire": 4.0, "cerveau": 4.0, "emotionnel_social": 4.0, "creatif_divergent": 4.0, "total": 10.0},
-                    "thresholds_json": None,
+                    "ceilings_json": {
+                        "musculaire": 4.0,
+                        "cerveau": 4.0,
+                        "emotionnel_social": 4.0,
+                        "creatif_divergent": 4.0,
+                        "total": 10.0,
+                    },
                 },
             ]
             for t_info in templates_data:
@@ -135,7 +150,6 @@ def seed_db():
                     focus_hours=t_info["focus_hours"],
                     min_rest_hours=t_info["min_rest_hours"],
                     ceilings_json=t_info["ceilings_json"],
-                    thresholds_json=t_info["thresholds_json"],
                 )
                 db.add(template)
 
@@ -154,7 +168,6 @@ def seed_db():
                 "is_private": False,
                 "is_reportable": False,
                 "is_mandatory": True,
-                "point_rewards": {"discipline": 3},
                 "daily_cap": None,
                 "unit": None,
                 "is_active": True,
@@ -170,7 +183,6 @@ def seed_db():
                 "is_private": False,
                 "is_reportable": True,
                 "is_mandatory": False,
-                "point_rewards": {"apprendre": 8, "discipline": 2},
                 "daily_cap": 8,
                 "unit": "min",
                 "is_active": True,
@@ -186,7 +198,6 @@ def seed_db():
                 "is_private": False,
                 "is_reportable": True,
                 "is_mandatory": False,
-                "point_rewards": {"apprendre": 5, "discipline": 2},
                 "daily_cap": None,
                 "unit": None,
                 "is_active": True,
@@ -202,7 +213,6 @@ def seed_db():
                 "is_private": False,
                 "is_reportable": True,
                 "is_mandatory": False,
-                "point_rewards": {"forme_physique": 16},
                 "daily_cap": 15,
                 "unit": "km",
                 "is_active": True,
@@ -218,7 +228,6 @@ def seed_db():
                 "is_private": True,
                 "is_reportable": False,
                 "is_mandatory": False,
-                "point_rewards": {"sante": 5},
                 "daily_cap": None,
                 "unit": None,
                 "is_active": True,
@@ -237,7 +246,6 @@ def seed_db():
                 is_private=h_info["is_private"],
                 is_reportable=h_info["is_reportable"],
                 is_mandatory=h_info["is_mandatory"],
-                point_rewards=h_info["point_rewards"],
                 daily_cap=h_info["daily_cap"],
                 unit=h_info["unit"],
                 is_active=h_info["is_active"],
@@ -282,7 +290,6 @@ def seed_db():
                 "user_id": 1,
                 "title": "Avoir 500k en actif",
                 "gold_reward": 500,
-                "stats_json": ["finance"],
                 "description": "Accumuler 500k d'actifs nets",
             },
             {
@@ -290,7 +297,6 @@ def seed_db():
                 "user_id": 1,
                 "title": "Acheter un immeuble locatif",
                 "gold_reward": 300,
-                "stats_json": ["finance", "discipline"],
                 "description": "Trouver et acquérir un premier bien de rendement",
             },
             {
@@ -298,7 +304,6 @@ def seed_db():
                 "user_id": 1,
                 "title": "Trouver un bon avocat",
                 "gold_reward": 100,
-                "stats_json": ["discipline"],
                 "description": "Réseauter pour s'entourer d'un expert juridique",
             },
             {
@@ -306,7 +311,6 @@ def seed_db():
                 "user_id": 1,
                 "title": "Avoir de l'argent",
                 "gold_reward": 150,
-                "stats_json": ["finance"],
                 "description": "Constituer une épargne de voyage",
             },
             {
@@ -314,7 +318,6 @@ def seed_db():
                 "user_id": 1,
                 "title": "Avoir un passeport",
                 "gold_reward": 50,
-                "stats_json": ["discipline"],
                 "description": "Faire les démarches à la mairie",
             },
             {
@@ -322,7 +325,6 @@ def seed_db():
                 "user_id": 1,
                 "title": "Créer une feuille de budget",
                 "gold_reward": 75,
-                "stats_json": ["finance", "discipline"],
                 "description": "Suivre ses dépenses mensuelles",
             },
             {
@@ -330,7 +332,6 @@ def seed_db():
                 "user_id": 1,
                 "title": "Achat assurance vie",
                 "gold_reward": 100,
-                "stats_json": ["finance"],
                 "description": "Sécuriser un contrat d'assurance vie",
             },
             {
@@ -338,7 +339,6 @@ def seed_db():
                 "user_id": 1,
                 "title": "Avoir une entrée d'argent stable",
                 "gold_reward": 200,
-                "stats_json": ["finance"],
                 "description": "Garantir un flux financier mensuel régulier",
             },
             {
@@ -346,7 +346,6 @@ def seed_db():
                 "user_id": 1,
                 "title": "Trouver une femme",
                 "gold_reward": 150,
-                "stats_json": ["social"],
                 "description": "Rencontrer sa partenaire de vie idéale",
             },
             {
@@ -354,7 +353,6 @@ def seed_db():
                 "user_id": 1,
                 "title": "La marier",
                 "gold_reward": 250,
-                "stats_json": ["social", "sante"],
                 "description": "Célébrer notre union",
             },
         ]
@@ -365,7 +363,6 @@ def seed_db():
                 title=s_info["title"],
                 description=s_info["description"],
                 gold_reward=s_info["gold_reward"],
-                stats_json=s_info["stats_json"],
             )
             db.add(substep)
         db.flush()
@@ -397,15 +394,11 @@ def seed_db():
             {
                 "user_id": 1,
                 "title": "⚔️ Dompter le Dragon de Fer (Séance Jambes)",
-                "stat_reward_1": "forme_physique",
-                "points_reward_1": 16,
                 "xp_reward": 20,
             },
             {
                 "user_id": 1,
                 "title": "📚 Décoder les Runes (Lire 20 pages de doc)",
-                "stat_reward_1": "apprendre",
-                "points_reward_1": 3,
                 "xp_reward": 10,
             },
         ]
@@ -413,8 +406,6 @@ def seed_db():
             todo = Todo(
                 user_id=t_info["user_id"],
                 title=t_info["title"],
-                stat_reward_1=t_info["stat_reward_1"],
-                points_reward_1=t_info["points_reward_1"],
                 xp_reward=t_info["xp_reward"],
             )
             db.add(todo)
@@ -482,6 +473,24 @@ def _run_migrations():
     db = SessionLocal()
     try:
         inspector = inspect(engine)
+
+        def drop_columns_if_present(table_name, column_names):
+            current_tables = inspector.get_table_names()
+            if table_name not in current_tables:
+                return False
+            columns = {c["name"] for c in inspector.get_columns(table_name)}
+            dropped_any = False
+            for column_name in column_names:
+                if column_name not in columns:
+                    continue
+                print(f"Running migration v19: dropping {table_name}.{column_name}...")
+                db.execute(text(f"ALTER TABLE {table_name} DROP COLUMN {column_name}"))
+                dropped_any = True
+            if dropped_any:
+                db.commit()
+                print(f"Migration v19 ({table_name}) applied successfully.")
+            return dropped_any
+
         # v12: Add execution_order to goal_substep_links
         if "goal_substep_links" in inspector.get_table_names():
             columns = [c["name"] for c in inspector.get_columns("goal_substep_links")]
@@ -539,37 +548,71 @@ def _run_migrations():
 
         # v16: Add effort budget columns to perfect_day_templates, habits, substeps
         if "perfect_day_templates" in inspector.get_table_names():
-            columns = [c["name"] for c in inspector.get_columns("perfect_day_templates")]
+            columns = [
+                c["name"] for c in inspector.get_columns("perfect_day_templates")
+            ]
             if "focus_hours" not in columns:
-                print("Running migration v16: adding focus_hours, ceilings_json, min_rest_hours to perfect_day_templates...")
-                db.execute(text("ALTER TABLE perfect_day_templates ADD COLUMN focus_hours REAL DEFAULT 6.0"))
-                db.execute(text("ALTER TABLE perfect_day_templates ADD COLUMN ceilings_json TEXT"))
-                db.execute(text("ALTER TABLE perfect_day_templates ADD COLUMN min_rest_hours REAL DEFAULT 8.0"))
+                print(
+                    "Running migration v16: adding focus_hours, ceilings_json, min_rest_hours to perfect_day_templates..."
+                )
+                db.execute(
+                    text(
+                        "ALTER TABLE perfect_day_templates ADD COLUMN focus_hours REAL DEFAULT 6.0"
+                    )
+                )
+                db.execute(
+                    text(
+                        "ALTER TABLE perfect_day_templates ADD COLUMN ceilings_json TEXT"
+                    )
+                )
+                db.execute(
+                    text(
+                        "ALTER TABLE perfect_day_templates ADD COLUMN min_rest_hours REAL DEFAULT 8.0"
+                    )
+                )
                 db.commit()
                 print("Migration v16 (perfect_day_templates) applied successfully.")
-            
+
             # v17: Add agenda_json to perfect_day_templates
             if "agenda_json" not in columns:
-                print("Running migration v17: adding agenda_json to perfect_day_templates...")
-                db.execute(text("ALTER TABLE perfect_day_templates ADD COLUMN agenda_json TEXT"))
+                print(
+                    "Running migration v17: adding agenda_json to perfect_day_templates..."
+                )
+                db.execute(
+                    text(
+                        "ALTER TABLE perfect_day_templates ADD COLUMN agenda_json TEXT"
+                    )
+                )
                 db.commit()
                 print("Migration v17 (agenda_json) applied successfully.")
 
         if "habits" in inspector.get_table_names():
             columns = [c["name"] for c in inspector.get_columns("habits")]
             if "effort_type" not in columns:
-                print("Running migration v16: adding effort_type, effort_duration to habits...")
+                print(
+                    "Running migration v16: adding effort_type, effort_duration to habits..."
+                )
                 db.execute(text("ALTER TABLE habits ADD COLUMN effort_type TEXT"))
-                db.execute(text("ALTER TABLE habits ADD COLUMN effort_duration REAL DEFAULT 1.0"))
+                db.execute(
+                    text(
+                        "ALTER TABLE habits ADD COLUMN effort_duration REAL DEFAULT 1.0"
+                    )
+                )
                 db.commit()
                 print("Migration v16 (habits) applied successfully.")
 
         if "substeps" in inspector.get_table_names():
             columns = [c["name"] for c in inspector.get_columns("substeps")]
             if "effort_type" not in columns:
-                print("Running migration v16: adding effort_type, effort_duration to substeps...")
+                print(
+                    "Running migration v16: adding effort_type, effort_duration to substeps..."
+                )
                 db.execute(text("ALTER TABLE substeps ADD COLUMN effort_type TEXT"))
-                db.execute(text("ALTER TABLE substeps ADD COLUMN effort_duration REAL DEFAULT 1.0"))
+                db.execute(
+                    text(
+                        "ALTER TABLE substeps ADD COLUMN effort_duration REAL DEFAULT 1.0"
+                    )
+                )
                 db.commit()
                 print("Migration v16 (substeps) applied successfully.")
 
@@ -606,57 +649,109 @@ def _run_migrations():
             seed_default_biological_zones(db)
             db.commit()
 
+        # v19: Destructively remove the legacy RPG stat/tag columns.
+        v19_dropped = False
+        for table, columns in {
+            "habits": ["point_rewards"],
+            "todos": [
+                "stat_reward_1",
+                "points_reward_1",
+                "stat_reward_2",
+                "points_reward_2",
+            ],
+            "substeps": ["stats_json"],
+            "perfect_day_templates": ["thresholds_json"],
+            "daily_scores": ["actual_stats"],
+        }.items():
+            v19_dropped = drop_columns_if_present(table, columns) or v19_dropped
+        if v19_dropped:
+            inspector = inspect(engine)
+
         # Check if rest, regular, hustle templates exist for each user
         # If not, create them
-        if "perfect_day_templates" in inspector.get_table_names() and "users" in inspector.get_table_names():
+        if (
+            "perfect_day_templates" in inspector.get_table_names()
+            and "users" in inspector.get_table_names()
+        ):
             # Get all user IDs
-            user_ids = [r[0] for r in db.execute(text("SELECT id FROM users")).fetchall()]
-            
+            user_ids = [
+                r[0] for r in db.execute(text("SELECT id FROM users")).fetchall()
+            ]
+
             # Default agendas
             default_rest_agenda = '[{"id": 1, "title": "Sommeil / Repos", "start": "00:00", "end": "08:00", "category": "sleep"}, {"id": 2, "title": "Méditation / Relaxation", "start": "09:00", "end": "10:00", "category": "relax"}, {"id": 3, "title": "Marche & Étirements", "start": "12:00", "end": "13:00", "category": "routine"}, {"id": 4, "title": "Lecture & Repos mental", "start": "14:00", "end": "17:00", "category": "relax"}, {"id": 5, "title": "Sommeil", "start": "21:30", "end": "24:00", "category": "sleep"}]'
             default_regular_agenda = '[{"id": 1, "title": "Sommeil / Récupération", "start": "00:00", "end": "07:00", "category": "sleep"}, {"id": 2, "title": "Routine matinale & Cardio", "start": "07:00", "end": "08:00", "category": "routine"}, {"id": 3, "title": "Focus Deep Work (Projet principal)", "start": "08:30", "end": "12:00", "category": "focus"}, {"id": 4, "title": "Gestion administrative / Travail", "start": "13:00", "end": "15:00", "category": "focus"}, {"id": 5, "title": "Entraînement physique", "start": "17:30", "end": "19:00", "category": "routine"}, {"id": 6, "title": "Détente / Social", "start": "19:00", "end": "22:00", "category": "relax"}, {"id": 7, "title": "Sommeil / Couché", "start": "22:00", "end": "24:00", "category": "sleep"}]'
             default_hustle_agenda = '[{"id": 1, "title": "Sommeil court", "start": "00:00", "end": "06:00", "category": "sleep"}, {"id": 2, "title": "Cardio & Routine active", "start": "06:00", "end": "07:00", "category": "routine"}, {"id": 3, "title": "Deep Work", "start": "07:30", "end": "12:00", "category": "focus"}, {"id": 4, "title": "Focus Code / Projet", "start": "13:00", "end": "18:00", "category": "focus"}, {"id": 5, "title": "Musculation / Sport", "start": "18:30", "end": "20:00", "category": "routine"}, {"id": 6, "title": "Veille / Apprentissage", "start": "20:00", "end": "22:30", "category": "focus"}, {"id": 7, "title": "Récupération & Couché", "start": "22:30", "end": "24:00", "category": "sleep"}]'
 
             for uid in user_ids:
-                existing_templates = [r[0] for r in db.execute(
-                    text("SELECT template_name FROM perfect_day_templates WHERE user_id = :uid"),
-                    {"uid": uid}
-                ).fetchall()]
-                
+                existing_templates = [
+                    r[0]
+                    for r in db.execute(
+                        text(
+                            "SELECT template_name FROM perfect_day_templates WHERE user_id = :uid"
+                        ),
+                        {"uid": uid},
+                    ).fetchall()
+                ]
+
                 # Check rest
                 if "rest" not in existing_templates:
                     db.execute(
-                        text("INSERT INTO perfect_day_templates (user_id, template_name, focus_hours, min_rest_hours, ceilings_json, thresholds_json, agenda_json) VALUES (:uid, 'rest', 2.0, 10.0, :ceilings, 'null', :agenda)"),
-                        {"uid": uid, "ceilings": '{"musculaire": 1.0, "cerveau": 1.0, "emotionnel_social": 1.0, "creatif_divergent": 1.0, "total": 4.0}', "agenda": default_rest_agenda}
+                        text(
+                            "INSERT INTO perfect_day_templates (user_id, template_name, focus_hours, min_rest_hours, ceilings_json, agenda_json) VALUES (:uid, 'rest', 2.0, 10.0, :ceilings, :agenda)"
+                        ),
+                        {
+                            "uid": uid,
+                            "ceilings": '{"musculaire": 1.0, "cerveau": 1.0, "emotionnel_social": 1.0, "creatif_divergent": 1.0, "total": 4.0}',
+                            "agenda": default_rest_agenda,
+                        },
                     )
                 else:
                     db.execute(
-                        text("UPDATE perfect_day_templates SET agenda_json = :agenda WHERE user_id = :uid AND template_name = 'rest' AND (agenda_json IS NULL OR agenda_json = '[]' OR agenda_json = '')"),
-                        {"uid": uid, "agenda": default_rest_agenda}
+                        text(
+                            "UPDATE perfect_day_templates SET agenda_json = :agenda WHERE user_id = :uid AND template_name = 'rest' AND (agenda_json IS NULL OR agenda_json = '[]' OR agenda_json = '')"
+                        ),
+                        {"uid": uid, "agenda": default_rest_agenda},
                     )
-                
+
                 # Check regular
                 if "regular" not in existing_templates:
                     db.execute(
-                        text("INSERT INTO perfect_day_templates (user_id, template_name, focus_hours, min_rest_hours, ceilings_json, thresholds_json, agenda_json) VALUES (:uid, 'regular', 6.0, 8.0, :ceilings, 'null', :agenda)"),
-                        {"uid": uid, "ceilings": '{"musculaire": 2.0, "cerveau": 2.0, "emotionnel_social": 2.0, "creatif_divergent": 2.0, "total": 8.0}', "agenda": default_regular_agenda}
+                        text(
+                            "INSERT INTO perfect_day_templates (user_id, template_name, focus_hours, min_rest_hours, ceilings_json, agenda_json) VALUES (:uid, 'regular', 6.0, 8.0, :ceilings, :agenda)"
+                        ),
+                        {
+                            "uid": uid,
+                            "ceilings": '{"musculaire": 2.0, "cerveau": 2.0, "emotionnel_social": 2.0, "creatif_divergent": 2.0, "total": 8.0}',
+                            "agenda": default_regular_agenda,
+                        },
                     )
                 else:
                     db.execute(
-                        text("UPDATE perfect_day_templates SET agenda_json = :agenda WHERE user_id = :uid AND template_name = 'regular' AND (agenda_json IS NULL OR agenda_json = '[]' OR agenda_json = '')"),
-                        {"uid": uid, "agenda": default_regular_agenda}
+                        text(
+                            "UPDATE perfect_day_templates SET agenda_json = :agenda WHERE user_id = :uid AND template_name = 'regular' AND (agenda_json IS NULL OR agenda_json = '[]' OR agenda_json = '')"
+                        ),
+                        {"uid": uid, "agenda": default_regular_agenda},
                     )
-                
+
                 # Check hustle
                 if "hustle" not in existing_templates:
                     db.execute(
-                        text("INSERT INTO perfect_day_templates (user_id, template_name, focus_hours, min_rest_hours, ceilings_json, thresholds_json, agenda_json) VALUES (:uid, 'hustle', 9.0, 7.0, :ceilings, 'null', :agenda)"),
-                        {"uid": uid, "ceilings": '{"musculaire": 4.0, "cerveau": 4.0, "emotionnel_social": 4.0, "creatif_divergent": 4.0, "total": 10.0}', "agenda": default_hustle_agenda}
+                        text(
+                            "INSERT INTO perfect_day_templates (user_id, template_name, focus_hours, min_rest_hours, ceilings_json, agenda_json) VALUES (:uid, 'hustle', 9.0, 7.0, :ceilings, :agenda)"
+                        ),
+                        {
+                            "uid": uid,
+                            "ceilings": '{"musculaire": 4.0, "cerveau": 4.0, "emotionnel_social": 4.0, "creatif_divergent": 4.0, "total": 10.0}',
+                            "agenda": default_hustle_agenda,
+                        },
                     )
                 else:
                     db.execute(
-                        text("UPDATE perfect_day_templates SET agenda_json = :agenda WHERE user_id = :uid AND template_name = 'hustle' AND (agenda_json IS NULL OR agenda_json = '[]' OR agenda_json = '')"),
-                        {"uid": uid, "agenda": default_hustle_agenda}
+                        text(
+                            "UPDATE perfect_day_templates SET agenda_json = :agenda WHERE user_id = :uid AND template_name = 'hustle' AND (agenda_json IS NULL OR agenda_json = '[]' OR agenda_json = '')"
+                        ),
+                        {"uid": uid, "agenda": default_hustle_agenda},
                     )
             db.commit()
     except Exception as e:

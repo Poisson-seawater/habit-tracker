@@ -14,9 +14,9 @@ markmap:
 - Commandes, variables, interactions
 ## Concepts
 ### [Perfect Day](index.html#/perfect-day)
-- Tous les seuils atteints → +5 XP et streak
+- Habitudes prévues traitées → +5 XP et streak
 ### [Habitudes (Quêtes)](index.html#/habitudes)
-- Actions récurrentes qui nourrissent les stats
+- Actions récurrentes du Perfect Day
 ### [Objectifs](index.html#/objectifs)
 - Sous-étapes → Or permanent
 ### [Softskills](index.html#/softskills)
@@ -24,13 +24,13 @@ markmap:
 ### [Recap 3-3-3](index.html#/recap-3-3-3)
 - Panneau de priorisation : 3 objectifs, 3 skills, 3 allostasies
 ### [Primes (Todos)](index.html#/primes-todo)
-- Tâches du jour : stats + XP direct
+- Tâches du jour : XP direct
 ### [No-Todo](index.html#/no-todo)
 - Règles à ne pas enfreindre (/fail)
 ### [Templates de jour](index.html#/templates-de-jour)
-- semaine / weekend / recovery / sick → seuils
+- rest / regular / hustle → agenda + budgets
 ### [Stats, XP, niveau & or](index.html#/stats-xp-niveau-or)
-- 12 stats éphémères, XP/niveau, Or
+- XP/niveau, Or
 ### [Boutique & Allostasie](index.html#/boutique-recompenses)
 - Achat de récompenses, Allostasie Daily/Weekly
 ## Avancé

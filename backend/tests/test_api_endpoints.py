@@ -50,12 +50,8 @@ def setup_test_db():
         db.add(u)
 
         # Seed V2 PerfectDayTemplates
-        t1 = PerfectDayTemplate(
-            user_id=1, template_name="week", thresholds_json={"discipline": 4}
-        )
-        t2 = PerfectDayTemplate(
-            user_id=1, template_name="weekend", thresholds_json={"sante": 5}
-        )
+        t1 = PerfectDayTemplate(user_id=1, template_name="regular")
+        t2 = PerfectDayTemplate(user_id=1, template_name="rest")
         db.add_all([t1, t2])
 
         # Seed default habits
@@ -64,7 +60,6 @@ def setup_test_db():
             user_id=1,
             name="routine_matin",
             type="binary",
-            point_rewards={"discipline": 2},
             is_active=True,
         )
         h2 = Habit(
@@ -73,7 +68,6 @@ def setup_test_db():
             name="lecture",
             type="quantitative",
             unit="min",
-            point_rewards={"discipline": 2},
             daily_cap=5,
             is_active=True,
         )
@@ -105,8 +99,8 @@ def test_get_profile_endpoint():
     data = response.json()
     assert data["username"] == "Gabriel"
     assert "scores" in data
-    assert "stats" in data
-    assert "thresholds" in data
+    assert "stats" not in data
+    assert "thresholds" not in data
 
 
 def test_get_habits_endpoint():
@@ -156,21 +150,17 @@ def test_post_logs_endpoint():
 
 
 def test_change_template_success():
-    response = client.post(
-        "/api/v1/profile/template", json={"template_name": "weekend"}
-    )
+    response = client.post("/api/v1/profile/template", json={"template_name": "rest"})
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "updated"
-    assert data["active_template"] == "weekend"
+    assert data["active_template"] == "rest"
 
 
 def test_create_and_complete_todo_endpoints():
     payload = {
         "title": "⚔️ Dompter le Dragon de Fer (Séance Jambes)",
         "xp_reward": 30,
-        "stat_reward_1": "discipline",
-        "points_reward_1": 5,
     }
     response = client.post("/api/v1/todos", json=payload)
     assert response.status_code == 201
@@ -196,8 +186,6 @@ def test_todo_with_do_and_due_dates():
     payload = {
         "title": "⚔️ Dompter le Dragon de Fer (Séance Jambes) avec dates",
         "xp_reward": 30,
-        "stat_reward_1": "discipline",
-        "points_reward_1": 5,
         "do_date": "2026-06-27",
         "due_date": "2026-06-30",
     }
@@ -269,7 +257,6 @@ def test_goals_and_substeps_crud():
             "title": "Trouver un bon avocat",
             "description": "Réseauter pour trouver un expert",
             "gold_reward": 200,
-            "stats_json": ["discipline"],
         },
     )
     assert response.status_code == 201
@@ -293,7 +280,6 @@ def test_goals_and_substeps_crud():
             "title": "Trouver un SUPER avocat",
             "description": "Engager le meilleur avocat de la ville",
             "gold_reward": 300,
-            "stats_json": ["discipline"],
             "blocked_by_ids": [],
         },
     )
@@ -354,7 +340,9 @@ def test_get_status_endpoint():
 
     # Perfect Day block + streak are exposed (impossible via other endpoints)
     assert data["perfect_day"]["status"] in ["Perfect", "Failed"]
-    assert "thresholds" in data["perfect_day"]
+    assert "thresholds" not in data["perfect_day"]
+    assert "actual" not in data["perfect_day"]
+    assert "stats" not in data
     assert "current" in data["streak"]
     assert "max" in data["streak"]
 
@@ -374,51 +362,15 @@ def test_get_status_endpoint():
 # --- B3: server-side validation rejects bad data with 400 ---
 
 
-def test_create_todo_rejects_bad_stat():
-    response = client.post(
-        "/api/v1/todos",
-        json={
-            "title": "Todo avec stat fautive",
-            "stat_reward_1": "forcee",  # typo of "force"
-            "points_reward_1": 3,
-        },
-    )
-    assert response.status_code == 400
-    assert "forcee" in response.json()["detail"]
-
-
 def test_create_habit_rejects_bad_type():
     response = client.post(
         "/api/v1/habits",
         json={
             "name": "habit_bad_type",
             "type": "boolean",  # invalid
-            "point_rewards": {"discipline": 2},
         },
     )
     assert response.status_code == 400
-
-
-def test_create_habit_rejects_empty_point_rewards():
-    response = client.post(
-        "/api/v1/habits",
-        json={"name": "habit_empty_pr", "type": "binary", "point_rewards": {}},
-    )
-    assert response.status_code == 400
-    assert "point_rewards" in response.json()["detail"]
-
-
-def test_create_habit_rejects_bad_stat_key():
-    response = client.post(
-        "/api/v1/habits",
-        json={
-            "name": "habit_bad_stat",
-            "type": "binary",
-            "point_rewards": {"forcee": 2},
-        },
-    )
-    assert response.status_code == 400
-    assert "forcee" in response.json()["detail"]
 
 
 def test_create_habit_quantitative_requires_unit():
@@ -427,7 +379,6 @@ def test_create_habit_quantitative_requires_unit():
         json={
             "name": "habit_no_unit",
             "type": "quantitative",
-            "point_rewards": {"forme_physique": 2},
         },
     )
     assert response.status_code == 400
@@ -442,7 +393,6 @@ def test_create_habit_valid_still_passes():
             "type": "quantitative",
             "unit": "rep",
             "daily_cap": 100,
-            "point_rewards": {"forme_physique": 3},
         },
     )
     assert response.status_code == 201
@@ -585,7 +535,6 @@ def test_goal_linked_substep_relations():
             "title": "Shared Step",
             "description": "Shared across A and B",
             "gold_reward": 100,
-            "stats_json": ["discipline"],
         },
     )
     sub_id = r_sub.json()["substep"]["id"]

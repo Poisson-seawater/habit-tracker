@@ -41,9 +41,7 @@ def setup_test_db():
         db.add(u)
 
         # Perfect day template
-        t1 = PerfectDayTemplate(
-            user_id=1, template_name="week", thresholds_json={"discipline": 4}
-        )
+        t1 = PerfectDayTemplate(user_id=1, template_name="regular")
         db.add(t1)
         db.commit()
     finally:
@@ -94,7 +92,6 @@ def test_deactivation_freeze_rules():
             name="Habit 10",
             type="binary",
             frequency="daily",
-            point_rewards={"discipline": 1},
             is_active=True,
             created_at=datetime.datetime.now() - datetime.timedelta(days=100),
         )
@@ -176,7 +173,6 @@ def test_streak_milestone_rewards():
             name="Habit 20",
             type="binary",
             frequency="daily",
-            point_rewards={"discipline": 1},
             is_active=True,
             created_at=datetime.datetime.now() - datetime.timedelta(days=100),
         )
@@ -264,7 +260,6 @@ def test_calendar_endpoint():
             type="binary",
             frequency="specific_days",
             scheduled_days="2",  # Tuesday (0=Sun, 1=Mon, 2=Tue, ..., 6=Sat)
-            point_rewards={"discipline": 1},
             is_active=True,
             created_at=datetime.datetime(2026, 6, 1),
         )

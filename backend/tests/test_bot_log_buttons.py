@@ -33,7 +33,6 @@ def db_session(monkeypatch):
             name="Routine Matin",
             type="binary",
             is_active=True,
-            point_rewards={"discipline": 1},
         )
         session.add(h1)
 
@@ -45,7 +44,6 @@ def db_session(monkeypatch):
             type="quantitative",
             unit="min",
             is_active=True,
-            point_rewards={"apprendre": 2},
         )
         session.add(h2)
 
@@ -56,7 +54,6 @@ def db_session(monkeypatch):
             name="Snooze",
             type="binary",
             is_active=False,
-            point_rewards={"discipline": 1},
         )
         session.add(h3)
 

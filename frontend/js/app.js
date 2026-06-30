@@ -49,7 +49,6 @@ document.addEventListener("DOMContentLoaded", () => {
       } else if (targetTab === "settings-tab") {
         loadSettingsThresholds();
         loadBioZoneSettings();
-        fetchWeeklyPotentials();
       } else if (targetTab === "softskills-tab") {
         fetchSoftskills();
       } else if (targetTab === "rewards-tab") {
@@ -103,7 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function mountPerfectDayRenderingLayout() {
     const recapSlot = document.getElementById("perfect-day-recap-slot");
-    const budgetSlot = document.getElementById("perfect-day-budget-slot");
+    const budgetSlot = document.getElementById("settings-budget-slot");
     const agendaPanel = document.getElementById("typical-day-card");
     const budgetPanel = document.getElementById("effort-budget-panel");
 
@@ -234,46 +233,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 12 RPG Stats helper mapping
-  const STAT_LABELS = {
-    "forme_physique": "Forme Physique 💪",
-    "sante": "Santé 🧠",
-    "social": "Social 🤝",
-    "finance": "Finance 💰",
-    "apprendre": "Apprendre 📚",
-    "discipline": "Discipline ⚔️"
-  };
-
-  // Helper to format stat list for rewards description
-  function formatPointRewards(rewards) {
-    let tags = [];
-    if (Array.isArray(rewards)) {
-      tags = rewards;
-    } else if (rewards && typeof rewards === 'object') {
-      tags = Object.keys(rewards);
-    }
-    return tags.map(stat => `${STAT_LABELS[stat.toLowerCase()] || stat}`).join(", ");
-  }
-
-  const substepStatsDropdowns = [
-    "substep-tag-1", "substep-tag-2",
-    "edit-substep-tag-1", "edit-substep-tag-2",
-    "new-quest-tag-1", "new-quest-tag-2",
-    "edit-quest-tag-1", "edit-quest-tag-2",
-    "new-bounty-tag-1", "new-bounty-tag-2"
-  ];
-  substepStatsDropdowns.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      Object.keys(STAT_LABELS).forEach(stat => {
-        const option = document.createElement("option");
-        option.value = stat;
-        option.textContent = STAT_LABELS[stat];
-        el.appendChild(option);
-      });
-    }
-  });
-
   // ==============================================
   // FETCH PROFILE & DAILY DASHBOARD               //
   // ==============================================
@@ -315,7 +274,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Update template dropdown selection
       if (data.active_template) {
-        templateSelect.value = data.active_template;
+        const tMap = {
+          "normal": "regular",
+          "regular": "regular",
+          "semaine": "regular",
+          "week": "regular",
+          "weekend": "regular",
+          "repos": "rest",
+          "rest": "rest",
+          "recovery": "rest",
+          "recup": "rest",
+          "hustle": "hustle",
+          "rush": "hustle",
+          "sick": "rest",
+          "malade": "rest",
+          "default": "regular"
+        };
+        const mappedTemplateName = tMap[data.active_template.toLowerCase()] || "regular";
+        templateSelect.value = mappedTemplateName;
       }
       
       // Update Daily Status Badge
@@ -325,49 +301,10 @@ document.addEventListener("DOMContentLoaded", () => {
         badgeStatus.classList.add("failed");
       }
 
-      // Update Character Sheet stats rows dynamically as simple tag counters
-      const statsContainer = document.getElementById("stats-container");
-      if (statsContainer) {
-        statsContainer.innerHTML = "";
-        
-        Object.keys(STAT_LABELS).forEach(stat => {
-          const val = data.stats[stat] || 0;
-          
-          const statRow = document.createElement("div");
-          statRow.className = `stat-row stat-${stat}`;
-          
-          statRow.innerHTML = `
-            <div class="stat-label-row" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; width: 100%; box-sizing: border-box;">
-              <span class="stat-name" style="font-weight: 500;">${STAT_LABELS[stat]}</span>
-              <span class="stat-value" style="font-weight: bold; color: ${val > 0 ? 'var(--accent-gold)' : 'var(--text-muted)'}; background: ${val > 0 ? 'rgba(212,163,89,0.15)' : 'rgba(255,255,255,0.03)'}; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">
-                ${val} ${val > 1 ? 'validations' : 'validation'}
-              </span>
-            </div>
-          `;
-          statsContainer.appendChild(statRow);
-        });
-      }
-      // Update Daily Life Lore
-      const loreContainer = document.getElementById("daily-life-lore-container");
-      const loreList = document.getElementById("daily-life-lore-list");
-      if (loreContainer && loreList) {
-        if (data.life_lore_today && data.life_lore_today.length > 0) {
-          loreList.innerHTML = data.life_lore_today.map(item => `
-            <li style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-              <span style="font-weight: 500; color: var(--text-primary);">✨ ${item.title}</span>
-              ${item.description ? `<span style="font-size: 0.75rem; color: var(--text-muted);">${item.description}</span>` : ""}
-            </li>
-          `).join("");
-          loreContainer.style.display = "block";
-        } else {
-          loreContainer.style.display = "none";
-        }
-      }
-
       renderRecapPanel(data);
     } catch (error) {
       console.error(error);
-      showToast("Erreur lors du chargement des statistiques", true);
+      showToast("Erreur lors du chargement du profil", true);
     }
   }
 
@@ -431,7 +368,6 @@ document.addEventListener("DOMContentLoaded", () => {
         // Targeted habits never lock: extra reps keep giving XP (e.g. 3/2).
         const isCompleted = hasTarget ? false : (isPeriodic ? (habit.completed_this_period || false) : completedIds.includes(habit.id));
         const privateLock = habit.is_private ? " 🔒" : "";
-        const rewards = formatPointRewards(habit.point_rewards);
         const freqBadge = freqLabels[habit.frequency] ? `<span style="font-size:0.7rem;padding:2px 6px;border-radius:8px;background:rgba(255,255,255,0.08);color:var(--text-muted);margin-left:6px;">${freqLabels[habit.frequency]}</span>` : "";
         const targetBadge = hasTarget ? `<span style="font-size:0.7rem;padding:2px 6px;border-radius:8px;background:${targetReached ? 'rgba(34,197,94,0.22)' : 'rgba(99,102,241,0.18)'};color:var(--text-primary);margin-left:6px;">${todayCount}/${habit.daily_target}${targetReached ? ' ✅' : ''}</span>` : "";
 
@@ -459,7 +395,6 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="quest-details" data-id="${habit.id}" style="cursor: pointer;">
             <span class="quest-name">${habit.name}${privateLock}${freqBadge}${targetBadge}${effortBadge}</span>
             <span class="quest-desc">${habit.description || ''}</span>
-            <span class="quest-reward-tag">Récompense : ${rewards}</span>
           </div>
           <div class="quest-action" style="display:flex;gap:6px;align-items:center;">
             ${buttonHTML}
@@ -553,19 +488,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById("habit-detail-title-val").textContent = habit.name;
     document.getElementById("habit-detail-desc-val").textContent = habit.description || "Aucune description.";
-
-    const rewardsContainer = document.getElementById("habit-detail-rewards");
-    rewardsContainer.innerHTML = "";
-    const rewards = habit.point_rewards || {};
-    for (const [stat, pts] of Object.entries(rewards)) {
-      const badge = document.createElement("span");
-      badge.style.cssText = "background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.2); color: var(--accent-cyan); padding: 2px 8px; border-radius: 6px; font-weight: 600;";
-      badge.textContent = `${stat.toUpperCase()} +${pts}`;
-      rewardsContainer.appendChild(badge);
-    }
-    if (Object.keys(rewards).length === 0) {
-      rewardsContainer.textContent = "Aucune récompense de statistique.";
-    }
 
     const actionBtn = document.getElementById("deactivate-reactivate-habit-btn");
     if (habit.is_active) {
@@ -735,7 +657,24 @@ document.addEventListener("DOMContentLoaded", () => {
       const habits = await habitsResp.json();
       const goals = await goalsResp.json();
 
-      const activeTemplateName = profile.active_template || "regular";
+      const rawActiveTemplate = profile.active_template || "regular";
+      const tMap = {
+        "normal": "regular",
+        "regular": "regular",
+        "semaine": "regular",
+        "week": "regular",
+        "weekend": "regular",
+        "repos": "rest",
+        "rest": "rest",
+        "recovery": "rest",
+        "recup": "rest",
+        "hustle": "hustle",
+        "rush": "hustle",
+        "sick": "rest",
+        "malade": "rest",
+        "default": "regular"
+      };
+      const activeTemplateName = tMap[rawActiveTemplate.toLowerCase()] || "regular";
       const activeTemplate = templates[activeTemplateName] || {
         focus_hours: activeTemplateName === "hustle" ? 9.0 : (activeTemplateName === "rest" ? 2.0 : 6.0),
         min_rest_hours: activeTemplateName === "hustle" ? 6.0 : (activeTemplateName === "rest" ? 10.0 : 8.0),
@@ -1039,10 +978,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const item = document.createElement("div");
       item.className = "agenda-item";
 
+      // Time pill
       const timeSpan = document.createElement("div");
       timeSpan.className = "agenda-time";
       timeSpan.textContent = `${block.start} - ${block.end}`;
 
+      // Details column
       const details = document.createElement("div");
       details.className = "agenda-details";
 
@@ -1053,37 +994,41 @@ document.addEventListener("DOMContentLoaded", () => {
       const meta = document.createElement("div");
       meta.className = "agenda-meta";
 
+      // Effort type badge (stat-like badge from spec 009)
+      const effortLabels = {
+        musculaire: "💪 Musculaire",
+        cerveau: "🧠 Cerveau",
+        emotionnel_social: "🤝 Social",
+        creatif_divergent: "🎨 Créatif"
+      };
+      const effortType = block.effort_type || "none";
+      if (block.effort_type && effortLabels[block.effort_type]) {
+        const effortBadge = document.createElement("span");
+        effortBadge.className = `effort-badge effort-${effortType}`;
+        effortBadge.textContent = `${effortLabels[block.effort_type]} (+${block.effort_duration || 1} pts)`;
+        meta.appendChild(effortBadge);
+      }
+
+      // Category badge
       const catBadge = document.createElement("span");
       catBadge.className = `badge-category ${block.category}`;
       const catLabels = {
-        focus: "Focus 🎯",
-        routine: "Routine ⚙️",
-        relax: "Relax 🍃",
-        sleep: "Sleep 💤"
+        focus: "FOCUS",
+        routine: "ROUTINE",
+        relax: "RELAX",
+        sleep: "SLEEP"
       };
       catBadge.textContent = catLabels[block.category] || block.category;
       meta.appendChild(catBadge);
 
-      const effortBadge = document.createElement("span");
-      const effortLabels = {
-        musculaire: "Musculaire 💪",
-        cerveau: "Cerveau 🧠",
-        emotionnel_social: "Social 🤝",
-        creatif_divergent: "Créatif 🎨"
-      };
-      const effortType = block.effort_type || "none";
-      effortBadge.className = `effort-badge effort-${effortType}`;
-      effortBadge.textContent = block.effort_type
-        ? `${effortLabels[block.effort_type] || block.effort_type} (${block.effort_duration || 1}h)`
-        : "Non tagué";
-      meta.appendChild(effortBadge);
       details.appendChild(title);
       details.appendChild(meta);
 
+      // Delete button
       const deleteBtn = document.createElement("button");
       deleteBtn.className = "btn-delete";
       deleteBtn.title = "Supprimer ce bloc";
-      deleteBtn.textContent = "🗑️";
+      deleteBtn.innerHTML = "&times;";
       deleteBtn.addEventListener("click", () => deleteAgendaBlock(block.id, activeTemplateName, agenda));
 
       item.appendChild(timeSpan);
@@ -1331,14 +1276,6 @@ document.addEventListener("DOMContentLoaded", () => {
       visibleBounties.forEach(b => {
         const item = document.createElement("div");
         item.className = "bounty-card";
-        
-        let rewardStatsText = "";
-        if (b.stat_reward_1 && b.points_reward_1 > 0) {
-          rewardStatsText += `(+${b.points_reward_1} ${STAT_LABELS[b.stat_reward_1.toLowerCase()] || b.stat_reward_1})`;
-        }
-        if (b.stat_reward_2 && b.points_reward_2 > 0) {
-          rewardStatsText += ` (+${b.points_reward_2} ${STAT_LABELS[b.stat_reward_2.toLowerCase()] || b.stat_reward_2})`;
-        }
 
         let dateInfo = [];
         if (b.do_date) {
@@ -1358,7 +1295,7 @@ document.addEventListener("DOMContentLoaded", () => {
         item.innerHTML = `
           <div class="bounty-info">
             <span class="bounty-title">${b.title}</span>
-            <span class="bounty-xp-tag">🏆 +${b.xp_reward} XP ${rewardStatsText}</span>
+            <span class="bounty-xp-tag">🏆 +${b.xp_reward} XP</span>
             ${dateHtml}
           </div>
           <button class="substep-btn-check ${b.is_completed ? "completed" : ""}" data-id="${b.id}" ${b.is_completed ? "disabled" : ""}>
@@ -1509,9 +1446,6 @@ document.addEventListener("DOMContentLoaded", () => {
         
         const title = titleInput.value.trim();
         const xp = parseInt(xpInput.value) || 10;
-        
-        const tag1 = document.getElementById("new-bounty-tag-1").value || null;
-        const tag2 = document.getElementById("new-bounty-tag-2").value || null;
 
         const doDate = document.getElementById("new-bounty-do-date").value || null;
         const dueDate = document.getElementById("new-bounty-due-date").value || null;
@@ -1528,10 +1462,6 @@ document.addEventListener("DOMContentLoaded", () => {
             body: JSON.stringify({
               title: title,
               xp_reward: xp,
-              stat_reward_1: tag1,
-              points_reward_1: tag1 ? 1 : 0,
-              stat_reward_2: tag2,
-              points_reward_2: tag2 ? 1 : 0,
               do_date: doDate,
               due_date: dueDate
             })
@@ -1541,8 +1471,6 @@ document.addEventListener("DOMContentLoaded", () => {
           showToast("Nouvelle prime publiée au tableau ! ⚔️");
           titleInput.value = "";
           xpInput.value = 20;
-          document.getElementById("new-bounty-tag-1").value = "";
-          document.getElementById("new-bounty-tag-2").value = "";
           document.getElementById("new-bounty-do-date").value = "";
           document.getElementById("new-bounty-due-date").value = "";
           bountyForm.style.display = "none";
@@ -1595,9 +1523,6 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("edit-substep-gold-input").value = substepData.gold_reward;
       document.getElementById("edit-substep-order-input").value = substepData.execution_order || 1;
       document.getElementById("edit-substep-life-lore-input").checked = substepData.is_life_lore || false;
-      const stats = substepData.stats || [];
-      document.getElementById("edit-substep-tag-1").value = stats.length > 0 ? stats[0] : "";
-      document.getElementById("edit-substep-tag-2").value = stats.length > 1 ? stats[1] : "";
       document.getElementById("edit-substep-effort-type").value = substepData.effort_type || "";
       document.getElementById("edit-substep-effort-duration").value = substepData.effort_duration !== undefined && substepData.effort_duration !== null ? substepData.effort_duration : 1.0;
 
@@ -1945,8 +1870,6 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        const statsTags = s.stats.map(st => `<span class="substep-tag">${STAT_LABELS[st.toLowerCase()] || st}</span>`).join(" ");
-
         const effortLabels = {
           musculaire: "Musculaire 💪",
           cerveau: "Cerveau 🧠",
@@ -1973,7 +1896,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <span class="tree-node-title" style="margin-top: 0.2rem;"><span style="color: var(--text-muted); font-size: 0.75em; margin-right: 0.2em;">[Étape ${s.execution_order || 1}]</span> ${s.title}</span>
             ${s.description ? `<span class="tree-node-desc" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.2rem; line-height: 1.2;">${s.description}</span>` : ""}
             <span class="tree-node-gold" style="margin-top: 0.3rem; display: block;">💰 +${s.gold_reward}g</span>
-            <div class="tree-node-stats">${statsTags}${effortBadge ? ' ' + effortBadge : ''}</div>
+            ${effortBadge ? `<div class="tree-node-stats">${effortBadge}</div>` : ""}
             ${linkedGoalsHTML}
             ${btnHTML}
           </div>
@@ -2103,11 +2026,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const gold = parseInt(document.getElementById("substep-gold-input").value) || 0;
     const order = parseInt(document.getElementById("substep-order-input").value) || 1;
     const isLifeLore = document.getElementById("substep-life-lore-input").checked;
-    
-    // Parse tags
-    const tag1 = document.getElementById("substep-tag-1").value;
-    const tag2 = document.getElementById("substep-tag-2").value;
-    const stats = [tag1, tag2].filter(s => s !== "");
 
     const effortType = document.getElementById("substep-effort-type").value || null;
     const effortDuration = parseFloat(document.getElementById("substep-effort-duration").value) || 1.0;
@@ -2120,7 +2038,6 @@ document.addEventListener("DOMContentLoaded", () => {
           title: title,
           description: desc,
           gold_reward: gold,
-          stats_json: stats,
           execution_order: order,
           is_life_lore: isLifeLore,
           effort_type: effortType,
@@ -2146,11 +2063,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const gold = parseInt(document.getElementById("edit-substep-gold-input").value) || 0;
     const order = parseInt(document.getElementById("edit-substep-order-input").value) || 1;
     const isLifeLore = document.getElementById("edit-substep-life-lore-input").checked;
-    
-    // Parse tags
-    const tag1 = document.getElementById("edit-substep-tag-1").value;
-    const tag2 = document.getElementById("edit-substep-tag-2").value;
-    const stats = [tag1, tag2].filter(s => s !== "");
 
     const effortType = document.getElementById("edit-substep-effort-type").value || null;
     const effortDuration = parseFloat(document.getElementById("edit-substep-effort-duration").value) || 1.0;
@@ -2163,7 +2075,6 @@ document.addEventListener("DOMContentLoaded", () => {
           title: title,
           description: desc,
           gold_reward: gold,
-          stats_json: stats,
           execution_order: order,
           is_life_lore: isLifeLore,
           effort_type: effortType,
@@ -2506,48 +2417,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
 
-  async function fetchWeeklyPotentials() {
-    try {
-      const resp = await fetch(`${API_BASE}/quests/daily-stats-potentials`);
-      if (!resp.ok) throw new Error();
-      const potentials = await resp.json();
-
-      const tbody = document.getElementById("potentials-table-body");
-      if (!tbody) return;
-
-      tbody.innerHTML = "";
-      const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-      Object.keys(STAT_LABELS).forEach(stat => {
-        let hasAnyPoints = false;
-        let rowHtml = `<tr><td><strong>${STAT_LABELS[stat]}</strong></td>`;
-        
-        days.forEach(day => {
-          const statsObj = potentials[day] || {};
-          const val = statsObj[stat.toLowerCase()] || 0;
-          if (val > 0) {
-            hasAnyPoints = true;
-            rowHtml += `<td style="color: var(--accent-green); font-weight: bold; text-align: center;">+${val}</td>`;
-          } else {
-            rowHtml += `<td style="color: var(--text-muted); text-align: center;">-</td>`;
-          }
-        });
-        
-        rowHtml += `</tr>`;
-        
-        if (hasAnyPoints) {
-          tbody.innerHTML += rowHtml;
-        }
-      });
-      
-      if (tbody.innerHTML === "") {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 1rem;">Aucune stat planifiée cette semaine</td></tr>`;
-      }
-    } catch {
-      console.error("Erreur de récupération des potentiels");
-    }
-  }
-
   // ==============================================
   // EDIT / DELETE QUEST MODAL
   // ==============================================
@@ -2563,11 +2432,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("edit-quest-unit").value      = habit.unit || "";
     document.getElementById("edit-quest-target").value    = habit.daily_target || "";
     editFreqSelect.value = habit.frequency || "daily";
-
-    // Populate tags
-    const tags = habit.point_rewards ? Object.keys(habit.point_rewards) : [];
-    document.getElementById("edit-quest-tag-1").value = tags[0] || "";
-    document.getElementById("edit-quest-tag-2").value = tags[1] || "";
 
     // Populate effort
     document.getElementById("edit-quest-effort-type").value = habit.effort_type || "";
@@ -2609,12 +2473,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const editTargetRaw = parseInt(document.getElementById("edit-quest-target").value);
     
-    const tag1 = document.getElementById("edit-quest-tag-1").value || null;
-    const tag2 = document.getElementById("edit-quest-tag-2").value || null;
-    const point_rewards = {};
-    if (tag1) point_rewards[tag1] = 1;
-    if (tag2) point_rewards[tag2] = 1;
-
     const effort_type = document.getElementById("edit-quest-effort-type").value || null;
     const effort_duration = parseFloat(document.getElementById("edit-quest-effort-duration").value) || 1.0;
 
@@ -2625,7 +2483,6 @@ document.addEventListener("DOMContentLoaded", () => {
       frequency,
       scheduled_days,
       daily_target:   editTargetRaw > 1 ? editTargetRaw : 1,  // 1 = pas de cible (exclude_none empêche de remettre null)
-      point_rewards:  point_rewards,
       effort_type,
       effort_duration,
     };
@@ -2775,8 +2632,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const desc = document.getElementById("new-quest-desc").value.trim();
         const type = document.getElementById("new-quest-type").value;
         const unit = document.getElementById("new-quest-unit").value.trim();
-        const tag1 = document.getElementById("new-quest-tag-1").value || null;
-        const tag2 = document.getElementById("new-quest-tag-2").value || null;
         const targetRaw = parseInt(document.getElementById("new-quest-target").value);
         const daily_target = targetRaw > 1 ? targetRaw : null;
         const frequency = freqSelect ? freqSelect.value : "daily";
@@ -2795,10 +2650,6 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        const point_rewards = {};
-        if (tag1) point_rewards[tag1] = 1;
-        if (tag2) point_rewards[tag2] = 1;
-
         try {
           const response = await fetch(`${API_BASE}/habits`, {
             method: "POST",
@@ -2808,7 +2659,6 @@ document.addEventListener("DOMContentLoaded", () => {
               description: desc,
               type: type,
               unit: type === "quantitative" ? unit : null,
-              point_rewards: point_rewards,
               frequency: frequency,
               scheduled_days: scheduled_days,
               daily_target: daily_target,
@@ -2825,8 +2675,6 @@ document.addEventListener("DOMContentLoaded", () => {
           
           document.getElementById("new-quest-name").value = "";
           document.getElementById("new-quest-desc").value = "";
-          document.getElementById("new-quest-tag-1").value = "";
-          document.getElementById("new-quest-tag-2").value = "";
           document.getElementById("new-quest-effort-type").value = "";
           document.getElementById("new-quest-effort-duration").value = "1.0";
           document.getElementById("new-quest-unit").value = "";
@@ -4788,7 +4636,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         lifeLoreContent.innerHTML = substeps.map(s => {
           const dateStr = s.completed_at ? new Date(s.completed_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Date inconnue';
-          const statsTags = s.stats.map(st => `<span class="substep-tag" style="font-size: 0.72rem; padding: 2px 6px; background: rgba(124, 58, 237, 0.15); border: 1px solid rgba(124, 58, 237, 0.3); border-radius: 4px; color: var(--accent-purple); font-weight: bold; text-transform: uppercase;">${STAT_LABELS[st.toLowerCase()] || st}</span>`).join(" ");
           return `
             <div class="glass-card" style="padding: 1.2rem; background: rgba(255, 255, 255, 0.015); border-color: rgba(255, 255, 255, 0.05); display: flex; flex-direction: column; gap: 0.5rem;">
               <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
@@ -4798,7 +4645,6 @@ document.addEventListener("DOMContentLoaded", () => {
               ${s.description ? `<p style="font-size: 0.88rem; color: var(--text-secondary); margin: 0; line-height: 1.4;">${s.description}</p>` : ""}
               <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; border-top: 1px solid rgba(255, 255, 255, 0.03); padding-top: 0.5rem;">
                 <span style="font-size: 0.8rem; color: var(--accent-cyan); font-weight: 600;">💰 +${s.gold_reward} Gold</span>
-                <div style="display: flex; gap: 0.3rem;">${statsTags}</div>
               </div>
             </div>
           `;

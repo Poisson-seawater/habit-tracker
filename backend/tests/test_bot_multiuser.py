@@ -19,9 +19,7 @@ def db_session(monkeypatch):
 
     try:
         # Seed test templates
-        semaine = PerfectDayTemplate(
-            user_id=1, template_name="week", thresholds_json={"discipline": 2}
-        )
+        semaine = PerfectDayTemplate(user_id=1, template_name="regular")
         session.add(semaine)
 
         # Seed Gabriel's routine_matin habit (habits are per-user since user isolation)
@@ -32,7 +30,6 @@ def db_session(monkeypatch):
             type="binary",
             frequency="daily",
             scheduled_days="0,1,2,3,4,5,6",
-            point_rewards={"discipline": 2},
             is_active=True,
         )
         session.add(h)
@@ -120,7 +117,6 @@ async def test_bot_command_user_isolation(db_session):
         type="binary",
         frequency="daily",
         scheduled_days="0,1,2,3,4,5,6",
-        point_rewards={"discipline": 2},
         is_active=True,
     )
     db_session.add(jeanne_habit)
@@ -149,11 +145,11 @@ async def test_bot_command_user_isolation(db_session):
     assert len(jeanne_logs) == 1
     assert len(gabriel_logs) == 0
 
-    # Jeanne should have points/score updated, Gabriel's score should not change
+    # Jeanne should have a score updated, Gabriel's score should not change
     jeanne_score = db_session.query(DailyScore).filter_by(user_id=2).first()
     gabriel_score = db_session.query(DailyScore).filter_by(user_id=1).first()
     assert jeanne_score is not None
-    assert jeanne_score.actual_stats.get("discipline", 0) == 1
+    assert jeanne_score.status == "Perfect"
     assert gabriel_score is None
 
 

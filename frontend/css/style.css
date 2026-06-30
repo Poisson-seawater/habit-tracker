@@ -218,67 +218,6 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
-/* 12 RPG Stats Panels */
-.stats-panel {
-  padding: 1.8rem;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.2rem;
-}
-
-.stat-row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.stat-label-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.stat-name {
-  color: var(--text-secondary);
-}
-
-.stat-value {
-  font-family: var(--font-display);
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.stat-progress-track {
-  width: 100%;
-  height: 12px;
-  background: rgba(255,255,255,0.03);
-  border-radius: 6px;
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.05);
-}
-
-.stat-progress-bar {
-  height: 100%;
-  border-radius: 6px;
-  width: 0%;
-  transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
-  background: linear-gradient(90deg, var(--accent-purple), var(--accent-cyan));
-  box-shadow: 0 0 10px var(--accent-purple-glow);
-}
-
-/* Specific HSL tints for stats */
-.stat-forme_physique .stat-progress-bar { background: linear-gradient(90deg, #f87171, #ef4444); }
-.stat-sante .stat-progress-bar { background: linear-gradient(90deg, #34d399, #10b981); }
-.stat-social .stat-progress-bar { background: linear-gradient(90deg, #2dd4bf, #0d9488); }
-.stat-finance .stat-progress-bar { background: linear-gradient(90deg, #a3e635, #84cc16); }
-.stat-apprendre .stat-progress-bar { background: linear-gradient(90deg, #60a5fa, #3b82f6); }
-.stat-discipline .stat-progress-bar { background: linear-gradient(90deg, #a78bfa, #8b5cf6); }
-
 /* Quests (Habits) list */
 .quests-panel {
   padding: 1.8rem;
@@ -1503,9 +1442,9 @@ body {
 }
 
 .recap-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 1.2rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
 }
 
 .recap-item {
@@ -1637,16 +1576,14 @@ body {
    ========================================================================== */
 
 /* 1. Grid layouts improvements for wider screens */
-.recap-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.2rem;
+@media (max-width: 768px) {
+  .recap-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.2rem;
+  }
 }
 
 @media (min-width: 621px) {
-  .recap-grid {
-    grid-template-columns: 1fr;
-  }
   .stats-grid {
     grid-template-columns: 1fr !important;
   }
@@ -1835,8 +1772,7 @@ body {
   }
 
   .quests-panel,
-  .bounties-panel-widget,
-  .stats-panel {
+  .bounties-panel-widget {
     padding: 1.2rem 1rem !important;
   }
   
@@ -1884,8 +1820,7 @@ body {
     width: 96% !important;
   }
 
-  .recap-panel p, 
-  .stats-panel p {
+  .recap-panel p {
     margin-bottom: 1rem !important;
   }
 
@@ -2024,90 +1959,96 @@ body {
 
 /* Agenda list styling */
 .agenda-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.8rem;
+  gap: 1.2rem;
+  padding: 1rem 1.2rem;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-glass);
-  border-radius: 10px;
-  gap: 0.8rem;
-  margin-bottom: 0.5rem;
+  border-radius: 14px;
   transition: var(--transition-smooth);
 }
 .agenda-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
-  transform: translateX(2px);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-glass-hover);
+  transform: translateX(4px);
 }
 .agenda-time {
-  font-family: monospace;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
   color: var(--accent-cyan);
-  font-size: 0.8rem;
+  font-size: 0.95rem;
+  background: rgba(6, 182, 212, 0.1);
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  text-align: center;
+  min-width: 110px;
   white-space: nowrap;
 }
 .agenda-details {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.3rem;
 }
 .agenda-title {
-  font-size: 0.82rem;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 1.05rem;
   color: var(--text-primary);
 }
 .agenda-meta {
   display: flex;
+  gap: 0.8rem;
   align-items: center;
-  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 .badge-category {
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 .badge-category.focus {
-  background: rgba(139, 92, 246, 0.15);
+  background: rgba(139, 92, 246, 0.1);
   color: var(--accent-purple);
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  border: 1px solid rgba(139, 92, 246, 0.2);
 }
 .badge-category.routine {
-  background: rgba(6, 182, 212, 0.15);
+  background: rgba(6, 182, 212, 0.1);
   color: var(--accent-cyan);
-  border: 1px solid rgba(6, 182, 212, 0.3);
+  border: 1px solid rgba(6, 182, 212, 0.2);
 }
 .badge-category.relax {
-  background: rgba(34, 197, 94, 0.15);
+  background: rgba(34, 197, 94, 0.1);
   color: var(--accent-green);
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  border: 1px solid rgba(34, 197, 94, 0.2);
 }
 .badge-category.sleep {
-  background: rgba(148, 163, 184, 0.15);
-  color: #cbd5e1;
-  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
 .btn-delete {
-  background: rgba(239, 68, 68, 0.08);
+  background: rgba(239, 68, 68, 0.1);
   color: var(--accent-red);
   border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 6px;
-  width: 28px;
-  height: 28px;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   transition: var(--transition-smooth);
 }
 .btn-delete:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.25);
+  border-color: var(--accent-red);
+  transform: scale(1.08);
   color: #ff8080;
 }
 
@@ -2202,13 +2143,13 @@ body {
 }
 
 #perfect-day-recap-slot .typical-day-card,
-#perfect-day-budget-slot .effort-budget-panel {
+#settings-budget-slot .effort-budget-panel {
   height: 100%;
   margin: 0;
 }
 
 #perfect-day-recap-slot #agenda-blocks-list {
-  max-height: 430px !important;
+  max-height: 520px !important;
   overflow-y: auto !important;
 }
 

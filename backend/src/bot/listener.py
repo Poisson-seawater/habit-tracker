@@ -30,10 +30,8 @@ from src.bot.parser import parse_command, ParserError
 from src.services.score_service import (
     calculate_daily_score,
     update_streaks,
-    DEFAULT_THRESHOLDS,
     add_user_xp,
     cleanup_completed_todos,
-    ALL_6_STATS,
 )
 from src.bot.scheduler import start_scheduler
 from src.services.reward_service import (
@@ -48,15 +46,6 @@ from src.services.softskill_service import (
     toggle_completion,
 )
 from fastapi import HTTPException
-
-STAT_LABELS = {
-    "forme_physique": "Forme Physique 💪",
-    "sante": "Santé 🧠",
-    "social": "Social 🤝",
-    "finance": "Finance 💰",
-    "apprendre": "Apprendre 📚",
-    "discipline": "Discipline ⚔️",
-}
 
 
 def parse_date_offset(date_str: str) -> datetime.date | None:
@@ -124,24 +113,22 @@ def parse_todo_text(
     return title_str, do_date, due_date
 
 
-def format_stat_rewards(point_rewards: dict) -> str:
-    parts = []
-    for stat, val in point_rewards.items():
-        label = STAT_LABELS.get(stat.lower(), stat.capitalize())
-        parts.append(f"+{val} {label}")
-    return ", ".join(parts)
-
-
 # Maps the words a user can type for /set-day to the internal template keys.
-# The button flow passes the internal keys (week/weekend/recup/malade) directly.
+# The button flow passes the internal keys (rest/regular/hustle) directly.
 TEMPLATE_WORD_MAP = {
-    "semaine": "week",
-    "week": "week",
-    "weekend": "weekend",
-    "recovery": "recup",
-    "recup": "recup",
-    "sick": "malade",
-    "malade": "malade",
+    "normal": "regular",
+    "regular": "regular",
+    "semaine": "regular",
+    "week": "regular",
+    "weekend": "regular",
+    "repos": "rest",
+    "rest": "rest",
+    "recovery": "rest",
+    "recup": "rest",
+    "hustle": "hustle",
+    "rush": "hustle",
+    "sick": "rest",
+    "malade": "rest",
 }
 
 
@@ -208,7 +195,7 @@ def _apply_set_day(db, user_id: int, db_template_name: str) -> str:
     update_streaks(db, user_id=user_id, date=today)
     return (
         f'🩹 Template de journée mis à jour vers : "{score.template_used.upper()}".\n'
-        f"✨ Les seuils de points ont été réajustés pour aujourd'hui !"
+        f"✨ Le Perfect Day est recalculé avec ce rythme."
     )
 
 
@@ -246,7 +233,6 @@ def _create_pending_item(db, user: User, pending: str, title: str) -> str:
                 user_id=user.id,
                 name=title,
                 type="binary",
-                point_rewards={"discipline": 1},
             )
         )
         db.commit()
@@ -261,7 +247,6 @@ def _create_pending_item(db, user: User, pending: str, title: str) -> str:
                 name=name,
                 type="quantitative",
                 unit=unit or None,
-                point_rewards={"discipline": 1},
             )
         )
         db.commit()
@@ -359,17 +344,14 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 score = calculate_daily_score(db, user_id=user.id, date=today)
                 update_streaks(db, user_id=user.id, date=today)
 
-                rewards_str = format_stat_rewards(habit.point_rewards)
                 cap_info = (
-                    f" (Cap journalier : {habit.daily_cap}pts)"
-                    if habit.daily_cap
-                    else ""
+                    f"\nCap journalier : {habit.daily_cap}" if habit.daily_cap else ""
                 )
 
                 context.user_data.pop("pending_log_habit_id", None)
                 await update.message.reply_text(
                     f'📚 {username} a loggé {val}{resolved_unit} pour la quête "{html.escape(habit.name)}" !\n'
-                    f"✨ Stats obtenues : {rewards_str}{cap_info}",
+                    f"Perfect Day recalculé.{cap_info}",
                     parse_mode="HTML",
                 )
                 db.close()
@@ -551,17 +533,15 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             db.add(log)
             db.commit()
 
-            # Recalculate daily stats
+            # Recalculate daily Perfect Day state.
             score = calculate_daily_score(db, user_id=user.id, date=today)
             update_streaks(db, user_id=user.id, date=today)
 
-            rewards_str = format_stat_rewards(habit.point_rewards)
             target_str = (
                 f" ({done_today + 1}/{habit.daily_target})" if has_target else ""
             )
             await update.message.reply_text(
-                f'✅ {username} a complété la routine "{habit_name}"{target_str} !\n'
-                f"✨ Stats obtenues : {rewards_str}"
+                f'✅ {username} a complété la routine "{habit_name}"{target_str} !'
             )
 
         elif cmd == "log":
@@ -623,14 +603,13 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             score = calculate_daily_score(db, user_id=user.id, date=today)
             update_streaks(db, user_id=user.id, date=today)
 
-            rewards_str = format_stat_rewards(habit.point_rewards)
             cap_info = (
-                f" (Cap journalier : {habit.daily_cap}pts)" if habit.daily_cap else ""
+                f"\nCap journalier : {habit.daily_cap}" if habit.daily_cap else ""
             )
 
             await update.message.reply_text(
                 f'📚 {username} a loggé {val}{unit} pour la quête "{html.escape(habit.name)}" !\n'
-                f"✨ Stats obtenues : {rewards_str}{cap_info}",
+                f"Perfect Day recalculé.{cap_info}",
                 parse_mode="HTML",
             )
 
@@ -694,14 +673,6 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             perf_status = (
                 "🟩 Validé !" if score.status == "Perfect" else "🟥 En cours..."
             )
-
-            tag_details = []
-            for stat in ALL_6_STATS:
-                actual = score.actual_stats.get(stat.lower(), 0)
-                if actual > 0:
-                    tag_details.append(
-                        f"{STAT_LABELS.get(stat.lower(), stat)} : {actual}"
-                    )
 
             # Get completed habits list
             start_dt = datetime.datetime.combine(today, datetime.time.min)
@@ -806,7 +777,6 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = (
                 f"⚔️ <b>{html.escape(username)}</b> — Statut de la journée\n\n"
                 f"Perfect Day : {perf_status}\n"
-                f"🏷️ Tags activés : {', '.join(tag_details) if tag_details else 'Aucun'}\n\n"
                 f"🔥 Streak Perfect Day : {perf_streak_val} jours\n"
                 f"💰 Or accumulé : {user.gold} Gold\n"
                 f"⭐ Niveau {user.level} (XP : {user.xp})\n\n"
@@ -854,16 +824,15 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if t_name is None:
                 keyboard = [
                     [
-                        InlineKeyboardButton("📅 Semaine", callback_data="setday:week"),
+                        InlineKeyboardButton("🧘 Rest", callback_data="setday:rest"),
                         InlineKeyboardButton(
-                            "🌴 Weekend", callback_data="setday:weekend"
+                            "⚖️ Regular", callback_data="setday:regular"
                         ),
                     ],
                     [
                         InlineKeyboardButton(
-                            "🛟 Recovery", callback_data="setday:recup"
+                            "🔥 Hustle", callback_data="setday:hustle"
                         ),
-                        InlineKeyboardButton("🤒 Sick", callback_data="setday:malade"),
                     ],
                 ]
                 await update.message.reply_text(
@@ -875,7 +844,7 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             matched_name = TEMPLATE_WORD_MAP.get(t_name.lower())
             if not matched_name:
                 await update.message.reply_text(
-                    "❌ Template inconnu. Choisissez parmi : semaine, weekend, recovery, sick"
+                    "❌ Template inconnu. Choisissez parmi : rest, regular, hustle"
                 )
                 return
 
@@ -988,15 +957,12 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             title = parsed["title"]
             unit = parsed.get("unit", "")
 
-            # Default points for habit creation via bot
-            default_points = {"discipline": 1}
             habit_type_db = "binary" if h_type == "binary" else "quantitative"
 
             habit = Habit(
                 user_id=user.id,
                 name=title,
                 type=habit_type_db,
-                point_rewards=default_points,
                 unit=unit if habit_type_db == "quantitative" else None,
             )
             db.add(habit)
@@ -1614,15 +1580,13 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     score = calculate_daily_score(db, user_id=user.id, date=today)
                     update_streaks(db, user_id=user.id, date=today)
 
-                    rewards_str = format_stat_rewards(habit.point_rewards)
                     target_str = (
                         f" ({done_today + 1}/{habit.daily_target})"
                         if has_target
                         else ""
                     )
                     await query.edit_message_text(
-                        f'✅ <b>{user.username}</b> a complété la routine "{html.escape(habit.name)}"{target_str} !\n'
-                        f"✨ Stats obtenues : {rewards_str}",
+                        f'✅ <b>{user.username}</b> a complété la routine "{html.escape(habit.name)}"{target_str} !',
                         parse_mode="HTML",
                     )
                 else:  # quantitative
@@ -1653,7 +1617,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # Award permanent XP
                 levels_gained = add_user_xp(user, todo.xp_reward)
 
-                # Recalculate daily scores to instantly add Todo stats points
+                # Recalculate daily scores after changing today's task state.
                 today = datetime.date.today()
                 calculate_daily_score(db, user_id=user.id, date=today)
                 update_streaks(db, user_id=user.id, date=today)
