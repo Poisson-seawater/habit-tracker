@@ -6,8 +6,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.database.session import Base, get_db
-from src.database.models import User, Habit, HabitLog, PerfectDayTemplate, Streak
+from src.database.models import (
+    User,
+    Habit,
+    HabitLog,
+    PerfectDayTemplate,
+    Streak,
+    DailyScore,
+)
 from src.main import app
+from src.services import score_service
 
 TEST_DB_FILE = "backend/tests/.test_habit_streaks.db"
 TEST_DATABASE_URL = f"sqlite:///{TEST_DB_FILE}"
@@ -69,11 +77,13 @@ def clean_database():
     try:
         # Truncate tables for each test
         db.query(HabitLog).delete()
+        db.query(DailyScore).delete()
         db.query(Streak).delete()
         db.query(Habit).delete()
         # Reset user
         user = db.query(User).filter(User.id == 1).first()
         if user:
+            user.chat_id = "111"
             user.xp = 0
             user.level = 1
             user.gold = 100
@@ -247,6 +257,137 @@ def test_streak_milestone_rewards():
     finally:
         db.close()
 
+    # Now test 180-day milestone
+    db = TestingSessionLocal()
+    try:
+        user = db.query(User).filter(User.id == 1).first()
+        user.level = 10
+        user.xp = 0
+        user.gold = 100
+        st_rec = db.query(Streak).filter(Streak.streak_type == "habit:20").first()
+        st_rec.current_streak = 179
+        st_rec.last_incremented = datetime.date.today() - datetime.timedelta(days=1)
+
+        # Clear logs first so we can log again
+        db.query(HabitLog).filter(HabitLog.habit_id == 20).delete()
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.post(
+        "/api/v1/logs",
+        json={"habit_id": 20, "log_type": "done"},
+        headers={"X-User-ID": "1"},
+    )
+    assert response.status_code == 200
+
+    # Check 180 days rewards (+500 XP, +200 Gold)
+    db = TestingSessionLocal()
+    try:
+        user = db.query(User).filter(User.id == 1).first()
+        st_rec = db.query(Streak).filter(Streak.streak_type == "habit:20").first()
+        assert st_rec.current_streak == 180
+        assert user.xp == 500
+        # Gold was 100 + 200 reward = 300
+        assert user.gold == 300
+    finally:
+        db.close()
+
+
+def test_update_streaks_returns_milestone_events_without_sending(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        score_service,
+        "send_milestone_notification",
+        lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
+    today = datetime.date.today()
+
+    db = TestingSessionLocal()
+    try:
+        user = db.query(User).filter(User.id == 1).first()
+        user.level = 10
+        user.xp = 0
+        user.gold = 100
+        habit = Habit(
+            id=25,
+            user_id=1,
+            name="Habit <25>",
+            type="binary",
+            frequency="daily",
+            is_active=True,
+            created_at=datetime.datetime.now() - datetime.timedelta(days=100),
+        )
+        db.add(habit)
+        db.add(
+            HabitLog(
+                user_id=1,
+                habit_id=25,
+                log_type="done",
+                timestamp=datetime.datetime.combine(today, datetime.time(hour=9)),
+            )
+        )
+        db.add(
+            Streak(
+                user_id=1,
+                streak_type="habit:25",
+                current_streak=29,
+                max_streak=29,
+                last_incremented=today - datetime.timedelta(days=1),
+            )
+        )
+        db.add(
+            DailyScore(user_id=1, date=today, status="Perfect", template_used="regular")
+        )
+        db.commit()
+
+        events = score_service.update_streaks(db, user_id=1, date=today)
+
+        user = db.query(User).filter(User.id == 1).first()
+        st_rec = db.query(Streak).filter(Streak.streak_type == "habit:25").first()
+        assert st_rec.current_streak == 30
+        assert user.xp == 100
+        assert user.gold == 150
+        assert calls == []
+        assert events == [
+            {
+                "chat_id": "111",
+                "habit_id": 25,
+                "habit_name": "Habit <25>",
+                "milestone": 30,
+            }
+        ]
+    finally:
+        db.close()
+
+
+def test_send_milestone_notification_escapes_html(monkeypatch):
+    import src.config as config
+
+    sent = {}
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+    def fake_post(url, json, timeout):
+        sent["url"] = url
+        sent["json"] = json
+        sent["timeout"] = timeout
+        return Response()
+
+    monkeypatch.setattr(config, "TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setattr(score_service.httpx, "post", fake_post)
+
+    score_service.send_milestone_notification("111", 25, "Habit <25> & test", 30)
+
+    assert "bottest-token/sendMessage" in sent["url"]
+    assert "Habit &lt;25&gt; &amp; test" in sent["json"]["text"]
+    assert (
+        sent["json"]["reply_markup"]["inline_keyboard"][0][0]["callback_data"]
+        == "lvlup:25"
+    )
+
 
 def test_calendar_endpoint():
     # Setup a custom frequency habit (Tuesdays only)
@@ -319,3 +460,62 @@ def test_calendar_endpoint():
     assert response.status_code == 200
     data_may = response.json()
     assert data_may["days"]["15"] == "pre-creation"
+
+
+def test_perform_habit_levelup():
+    db = TestingSessionLocal()
+    try:
+        # Create a habit and a streak
+        h = Habit(
+            id=40,
+            user_id=1,
+            name="Méditation",
+            type="binary",
+            frequency="daily",
+            is_active=True,
+            created_at=datetime.datetime.now() - datetime.timedelta(days=10),
+        )
+        db.add(h)
+        st = Streak(user_id=1, streak_type="habit:40", current_streak=15, max_streak=15)
+        db.add(st)
+        db.commit()
+    finally:
+        db.close()
+
+    # Call the level up API endpoint
+    response = client.post(
+        "/api/v1/habits/40/versions",
+        json={
+            "description": "New level description",
+            "source_description": "Updated old description",
+        },
+        headers={"X-User-ID": "1"},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["version_index"] == 2
+    assert data["base_name"] == "Méditation"
+
+    # Verify database state
+    db = TestingSessionLocal()
+    try:
+        old_habit = db.query(Habit).filter(Habit.id == 40).first()
+        assert old_habit.is_active is False
+        assert old_habit.description == "Updated old description"
+
+        new_habit = db.query(Habit).filter(Habit.name == "Étape 2 - Méditation").first()
+        assert new_habit is not None
+        assert new_habit.is_active is True
+        assert new_habit.description == "New level description"
+
+        # Verify streak was copied
+        new_streak = (
+            db.query(Streak)
+            .filter(Streak.streak_type == f"habit:{new_habit.id}")
+            .first()
+        )
+        assert new_streak is not None
+        assert new_streak.current_streak == 15
+    finally:
+        db.close()

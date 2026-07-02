@@ -71,7 +71,7 @@ def client():
 def test_capabilities(client):
     response = client.get("/api/v1/capabilities")
     assert response.status_code == 200
-    assert response.json()["protocol_version"] == 1
+    assert response.json()["protocol_version"] == 2
 
 
 def test_idempotent_write_replays_without_duplicate(client):

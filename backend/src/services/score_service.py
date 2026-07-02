@@ -1,4 +1,7 @@
 import datetime
+import html
+from typing import Optional
+import httpx
 from sqlalchemy.orm import Session
 from src.database.models import (
     User,
@@ -107,15 +110,17 @@ def calculate_daily_score(
     return score
 
 
-def update_streaks(db: Session, user_id: int, date: datetime.date):
+def update_streaks(db: Session, user_id: int, date: datetime.date) -> list[dict]:
     """
     Updates perfect day streaks and individual habit streaks.
+    Returns milestone notification events to dispatch after DB state is committed.
     """
     score = db.query(DailyScore).filter_by(user_id=user_id, date=date).first()
     if not score:
-        return
+        return []
 
     yesterday = date - datetime.timedelta(days=1)
+    milestone_events = []
 
     # 1. Update Perfect Day Streak
     perf_streak = (
@@ -156,7 +161,7 @@ def update_streaks(db: Session, user_id: int, date: datetime.date):
     user = db.query(User).filter_by(id=user_id).first()
     if not user:
         db.commit()
-        return
+        return []
 
     for habit in habits:
         if not is_habit_eligible_on_date(habit, date, user):
@@ -220,13 +225,29 @@ def update_streaks(db: Session, user_id: int, date: datetime.date):
                 h_streak.last_incremented = date
 
                 # Award milestone rewards
-                user = db.query(User).filter_by(id=user_id).first()
+                milestone = None
                 if h_streak.current_streak == 30:
                     user.gold += 50
                     add_user_xp(user, 100)
+                    milestone = 30
                 elif h_streak.current_streak == 90:
                     user.gold += 150
                     add_user_xp(user, 300)
+                    milestone = 90
+                elif h_streak.current_streak == 180:
+                    user.gold += 200
+                    add_user_xp(user, 500)
+                    milestone = 180
+
+                if milestone and user.chat_id:
+                    milestone_events.append(
+                        {
+                            "chat_id": user.chat_id,
+                            "habit_id": habit.id,
+                            "habit_name": habit.name,
+                            "milestone": milestone,
+                        }
+                    )
             elif is_skipped:
                 h_streak.last_incremented = date
             else:
@@ -237,6 +258,7 @@ def update_streaks(db: Session, user_id: int, date: datetime.date):
                     h_streak.current_streak = 0
 
     db.commit()
+    return milestone_events
 
 
 def add_user_xp(user: User, xp_gained: int) -> list:
@@ -274,3 +296,200 @@ def cleanup_completed_todos(db: Session, user_id: int):
         Todo.completed_at < today_start,
     ).delete(synchronize_session=False)
     db.commit()
+
+
+def split_habit_version_name(name: str) -> tuple[Optional[int], str]:
+    cleaned_name = (name or "").strip()
+    for prefix in ("Étape ", "Etape "):
+        if cleaned_name.startswith(prefix):
+            version_part, separator, base_name = cleaned_name[len(prefix) :].partition(
+                " - "
+            )
+            if separator and version_part.isdigit() and base_name.strip():
+                return int(version_part), base_name.strip()
+    return None, cleaned_name
+
+
+def build_habit_version_name(version_index: int, base_name: str) -> str:
+    return f"Étape {version_index} - {base_name}"
+
+
+def perform_habit_levelup(
+    db: Session,
+    user_id: int,
+    habit_id: int,
+    description: Optional[str] = None,
+    source_description: Optional[str] = None,
+) -> Habit:
+    source = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
+    if not source:
+        raise ValueError("Habit not found.")
+
+    try:
+        _source_version_index, base_name = split_habit_version_name(source.name)
+        used_names = set()
+        max_version_index = 0
+        unversioned_base_habit = None
+        version_group_habits = []
+
+        if source_description is not None:
+            source.description = source_description
+        new_description = description if description is not None else source.description
+
+        for existing_habit in db.query(Habit).filter_by(user_id=user_id).all():
+            used_names.add(existing_habit.name)
+            v_idx, candidate_base_name = split_habit_version_name(existing_habit.name)
+            if candidate_base_name != base_name:
+                continue
+            version_group_habits.append(existing_habit)
+            if v_idx is None:
+                max_version_index = max(max_version_index, 1)
+                if existing_habit.name == base_name:
+                    unversioned_base_habit = existing_habit
+            else:
+                max_version_index = max(max_version_index, v_idx)
+
+        if unversioned_base_habit:
+            first_version_name = build_habit_version_name(1, base_name)
+            if first_version_name not in used_names:
+                unversioned_base_habit.name = first_version_name
+                used_names.add(first_version_name)
+
+        next_version_index = max_version_index + 1
+        next_version_name = build_habit_version_name(next_version_index, base_name)
+        while next_version_name in used_names:
+            next_version_index += 1
+            next_version_name = build_habit_version_name(next_version_index, base_name)
+
+        habit = Habit(
+            user_id=user_id,
+            name=next_version_name,
+            type=source.type,
+            description=new_description,
+            frequency=source.frequency,
+            scheduled_days=source.scheduled_days,
+            reminder_time=source.reminder_time,
+            is_private=source.is_private,
+            is_reportable=source.is_reportable,
+            is_mandatory=source.is_mandatory,
+            daily_cap=source.daily_cap,
+            daily_target=source.daily_target,
+            unit=source.unit,
+            effort_type=source.effort_type,
+            effort_duration=source.effort_duration,
+            source_type=source.source_type or "manual",
+            source_ref=source.source_ref,
+            auto_managed=bool(source.auto_managed),
+            archived_at=source.archived_at,
+            agenda_duration_minutes=source.agenda_duration_minutes,
+            is_active=True,
+        )
+        db.add(habit)
+        db.flush()
+
+        now = datetime.datetime.now()
+        for previous_habit in version_group_habits:
+            if previous_habit.id == habit.id:
+                continue
+            if previous_habit.is_active:
+                previous_habit.is_active = False
+                previous_habit.deactivated_at = now
+
+        source_streak = (
+            db.query(Streak)
+            .filter_by(user_id=user_id, streak_type=f"habit:{source.id}")
+            .first()
+        )
+        if not source_streak:
+            candidate_streaks = []
+            for previous_habit in version_group_habits:
+                candidate = (
+                    db.query(Streak)
+                    .filter_by(
+                        user_id=user_id, streak_type=f"habit:{previous_habit.id}"
+                    )
+                    .first()
+                )
+                if candidate:
+                    candidate_streaks.append(candidate)
+            if candidate_streaks:
+                source_streak = max(
+                    candidate_streaks,
+                    key=lambda s: (
+                        s.current_streak or 0,
+                        s.max_streak or 0,
+                        s.last_incremented or datetime.date.min,
+                    ),
+                )
+
+        if source_streak:
+            new_streak = (
+                db.query(Streak)
+                .filter_by(user_id=user_id, streak_type=f"habit:{habit.id}")
+                .first()
+            )
+            if not new_streak:
+                new_streak = Streak(user_id=user_id, streak_type=f"habit:{habit.id}")
+                db.add(new_streak)
+            new_streak.current_streak = source_streak.current_streak
+            new_streak.max_streak = source_streak.max_streak
+            new_streak.last_incremented = source_streak.last_incremented
+
+        db.commit()
+        db.refresh(habit)
+        return habit
+    except Exception:
+        db.rollback()
+        raise
+
+
+def send_milestone_notification(
+    chat_id: str, habit_id: int, habit_name: str, milestone: int
+):
+    from src.config import TELEGRAM_BOT_TOKEN
+
+    if not TELEGRAM_BOT_TOKEN or not chat_id:
+        return
+
+    emoji = "🥉" if milestone == 30 else ("🥈" if milestone == 90 else "🥇")
+    safe_habit_name = html.escape(habit_name or "")
+    text = (
+        f"Bravo pour le streak de {milestone}j pour '{safe_habit_name}' ! {emoji}\n"
+        "Veux-tu monter le niveau de l'habitude ?"
+    )
+
+    reply_markup = {
+        "inline_keyboard": [
+            [
+                {"text": "Oui, monter le niveau", "callback_data": f"lvlup:{habit_id}"},
+                {
+                    "text": "Non, garder le niveau",
+                    "callback_data": f"lvlkeep:{habit_id}",
+                },
+            ]
+        ]
+    }
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "reply_markup": reply_markup,
+    }
+
+    try:
+        response = httpx.post(url, json=payload, timeout=5)
+        response.raise_for_status()
+    except Exception as e:
+        print(f"Error sending milestone notification to Telegram: {e}")
+
+
+def dispatch_milestone_notifications(events: list[dict]):
+    for event in events or []:
+        send_milestone_notification(
+            event.get("chat_id"),
+            int(event.get("habit_id")),
+            event.get("habit_name") or "",
+            int(event.get("milestone")),
+        )

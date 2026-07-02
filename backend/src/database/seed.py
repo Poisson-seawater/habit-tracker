@@ -7,6 +7,8 @@ from src.database.models import (
     PerfectDayTemplate,
     BiologicalZone,
     DailyAgendaPlacement,
+    AuthDevice,
+    AuthSession,
     Todo,
     Goal,
     SubStep,
@@ -90,6 +92,7 @@ def seed_db():
                 "xp": 0,
                 "level": 1,
                 "gold": 0,
+                "is_admin": True,
             }
         ]
         for u_info in users_data:
@@ -100,6 +103,7 @@ def seed_db():
                 xp=u_info["xp"],
                 level=u_info["level"],
                 gold=u_info["gold"],
+                is_admin=u_info["is_admin"],
             )
             db.add(user)
         db.flush()  # Make sure users are created to get foreign keys
@@ -739,6 +743,163 @@ def _run_migrations():
                 db.execute(text("ALTER TABLE goals ADD COLUMN due_date DATE"))
                 db.commit()
                 print("Migration v22 applied successfully.")
+
+        # v23: Add Google integration columns to users and todos
+        if "users" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("users")]
+            if "google_refresh_token" not in columns:
+                print(
+                    "Running migration v23: adding Google credentials/resource columns to users..."
+                )
+                db.execute(
+                    text("ALTER TABLE users ADD COLUMN google_refresh_token TEXT")
+                )
+                db.execute(
+                    text("ALTER TABLE users ADD COLUMN google_access_token TEXT")
+                )
+                db.execute(
+                    text("ALTER TABLE users ADD COLUMN google_token_expiry DATETIME")
+                )
+                db.execute(
+                    text("ALTER TABLE users ADD COLUMN google_calendar_id VARCHAR")
+                )
+                db.execute(
+                    text("ALTER TABLE users ADD COLUMN google_tasks_list_id VARCHAR")
+                )
+                db.commit()
+                print("Migration v23 (users) applied successfully.")
+
+        if "todos" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("todos")]
+            if "google_due_event_id" not in columns:
+                print(
+                    "Running migration v23: adding Google reference columns to todos..."
+                )
+                db.execute(
+                    text("ALTER TABLE todos ADD COLUMN google_due_event_id VARCHAR")
+                )
+                db.execute(
+                    text("ALTER TABLE todos ADD COLUMN google_do_task_id VARCHAR")
+                )
+                db.commit()
+                print("Migration v23 (todos) applied successfully.")
+
+        # v24: Add web authentication columns and device/session tables.
+        if "users" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("users")]
+            auth_user_columns = {
+                "password_hash": "ALTER TABLE users ADD COLUMN password_hash TEXT",
+                "password_salt": "ALTER TABLE users ADD COLUMN password_salt VARCHAR",
+                "password_changed_at": "ALTER TABLE users ADD COLUMN password_changed_at DATETIME",
+                "is_admin": "ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0 NOT NULL",
+            }
+            missing_auth_columns = [
+                name for name in auth_user_columns if name not in columns
+            ]
+            if missing_auth_columns:
+                print("Running migration v24: adding web auth columns to users...")
+                for column_name in missing_auth_columns:
+                    db.execute(text(auth_user_columns[column_name]))
+                db.commit()
+                print("Migration v24 (users auth columns) applied successfully.")
+
+            admin_count = db.execute(
+                text("SELECT COUNT(*) FROM users WHERE is_admin = 1")
+            ).scalar()
+            if not admin_count:
+                first_user_id = db.execute(
+                    text("SELECT id FROM users ORDER BY id LIMIT 1")
+                ).scalar()
+                if first_user_id is not None:
+                    db.execute(
+                        text("UPDATE users SET is_admin = 1 WHERE id = :uid"),
+                        {"uid": first_user_id},
+                    )
+                    db.commit()
+
+        if "auth_devices" not in inspector.get_table_names():
+            print("Running migration v24: creating auth_devices table...")
+            db.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS auth_devices (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        device_token_hash VARCHAR(64) NOT NULL UNIQUE,
+                        display_name VARCHAR,
+                        status VARCHAR NOT NULL DEFAULT 'pending',
+                        user_agent TEXT,
+                        created_ip VARCHAR,
+                        first_seen_at DATETIME NOT NULL,
+                        last_seen_at DATETIME NOT NULL,
+                        approved_at DATETIME,
+                        revoked_at DATETIME,
+                        approved_by_user_id INTEGER,
+                        FOREIGN KEY(approved_by_user_id) REFERENCES users (id) ON DELETE SET NULL
+                    )
+                    """
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_auth_devices_device_token_hash "
+                    "ON auth_devices (device_token_hash)"
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_auth_devices_status "
+                    "ON auth_devices (status)"
+                )
+            )
+            db.commit()
+            print("Migration v24 (auth_devices) applied successfully.")
+
+        if "auth_sessions" not in inspector.get_table_names():
+            print("Running migration v24: creating auth_sessions table...")
+            db.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS auth_sessions (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        session_token_hash VARCHAR(64) NOT NULL UNIQUE,
+                        user_id INTEGER NOT NULL,
+                        device_id INTEGER NOT NULL,
+                        created_at DATETIME NOT NULL,
+                        last_seen_at DATETIME NOT NULL,
+                        expires_at DATETIME NOT NULL,
+                        revoked_at DATETIME,
+                        FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE,
+                        FOREIGN KEY(device_id) REFERENCES auth_devices (id) ON DELETE CASCADE
+                    )
+                    """
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_auth_sessions_session_token_hash "
+                    "ON auth_sessions (session_token_hash)"
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_auth_sessions_user_id "
+                    "ON auth_sessions (user_id)"
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_auth_sessions_device_id "
+                    "ON auth_sessions (device_id)"
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_auth_sessions_expires_at "
+                    "ON auth_sessions (expires_at)"
+                )
+            )
+            db.commit()
+            print("Migration v24 (auth_sessions) applied successfully.")
 
         # v19: Destructively remove the legacy RPG stat/tag columns.
         v19_dropped = False

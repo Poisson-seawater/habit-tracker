@@ -15,7 +15,7 @@ import uuid
 from pathlib import Path
 
 
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 PLAN_TTL_SECONDS = 600
 DEFAULT_BASE_URL = "http://192.168.0.199:5000"
 BRANCH_PALETTE = [
@@ -39,6 +39,8 @@ QUERY_PATHS = {
     "history": "/api/v1/history",
     "templates": "/api/v1/templates",
     "potentials": "/api/v1/quests/daily-stats-potentials",
+    "agenda": "/api/v1/agenda",
+    "biological-zones": "/api/v1/biological-zones",
 }
 
 PLAN_OPERATIONS = {
@@ -53,8 +55,44 @@ PLAN_OPERATIONS = {
     "habit-create": ("POST", "/api/v1/habits", "habits"),
     "habit-update": ("PUT", "/api/v1/habits/{id}", "habits"),
     "habit-delete": ("DELETE", "/api/v1/habits/{id}", "habits"),
+    "habit-archive": ("POST", "/api/v1/habits/{id}/archive", "habits"),
+    "habit-unarchive": ("POST", "/api/v1/habits/{id}/unarchive", "habits"),
+    "habit-levelup": ("POST", "/api/v1/habits/{id}/versions", "habits"),
     "todo-create": ("POST", "/api/v1/todos", "todos"),
+    "todo-update": ("PUT", "/api/v1/todos/{id}", "todos"),
+    "todo-delete": ("DELETE", "/api/v1/todos/{id}", "todos"),
     "notodo-create": ("POST", "/api/v1/notodos", "notodos"),
+    "notodo-delete": ("DELETE", "/api/v1/notodos/{id}", "notodos"),
+    "biological-zone-create": (
+        "POST",
+        "/api/v1/biological-zones",
+        "biological-zones",
+    ),
+    "biological-zone-update": (
+        "PUT",
+        "/api/v1/biological-zones/{id}",
+        "biological-zones",
+    ),
+    "biological-zone-delete": (
+        "DELETE",
+        "/api/v1/biological-zones/{id}",
+        "biological-zones",
+    ),
+    "agenda-placement-set": (
+        "PUT",
+        "/api/v1/agenda/{date}/quests/{habit_id}/placement",
+        "agenda",
+    ),
+    "agenda-placement-clear": (
+        "DELETE",
+        "/api/v1/agenda/{date}/quests/{habit_id}/placement",
+        "agenda",
+    ),
+    "agenda-save-as-template": (
+        "POST",
+        "/api/v1/agenda/{date}/save-as-template",
+        "agenda",
+    ),
     "template-save": ("POST", "/api/v1/templates", "templates"),
     "pins-update": ("PUT", "/api/v1/profile/pins", "profile"),
     "reward-create": ("POST", "/api/v1/rewards", "rewards"),
@@ -224,14 +262,17 @@ def read_config():
 
 
 class ApiClient:
-    def __init__(self, base_url, user_id=None, timeout=8.0):
+    def __init__(self, base_url, user_id=None, api_token=None, timeout=8.0):
         self.base_url = validate_base_url(base_url)
         self.user_id = user_id
+        self.api_token = api_token
         self.timeout = timeout
 
     def request(self, method, path, payload=None, idempotency_key=None):
         body = None
         headers = {"Accept": "application/json"}
+        if self.api_token:
+            headers["Authorization"] = f"Bearer {self.api_token}"
         if self.user_id is not None:
             headers["X-User-ID"] = str(self.user_id)
         if payload is not None:
@@ -289,8 +330,10 @@ def resolve_one(items, target, label_key, kind):
     return candidates[0]
 
 
-def resolve_user(base_url, username):
-    users = ApiClient(base_url).request("GET", "/api/v1/users")
+def resolve_user(base_url, username, api_token):
+    users = ApiClient(base_url, api_token=api_token).request(
+        "GET", "/api/v1/auth/users"
+    )
     return resolve_one(users, username, "username", "user")
 
 
@@ -315,7 +358,7 @@ def api_error_payload(exc):
         payload["path"] = exc.path
     if exc.status == 404 and exc.path == "/api/v1/capabilities":
         payload["hint"] = (
-            "The Habit Tracker server does not expose protocol version 1. "
+            "The Habit Tracker server does not expose protocol version 2. "
             "Deploy a backend version that provides "
             "GET /api/v1/capabilities before configuring this plugin."
         )
@@ -324,11 +367,16 @@ def api_error_payload(exc):
 
 def configured_client():
     config = read_config()
-    user = resolve_user(config["base_url"], config["username"])
+    api_token = config.get("api_token")
+    if not api_token:
+        raise HabitCtlError(
+            "Missing api_token in configuration. Run configure with --api-token."
+        )
+    user = resolve_user(config["base_url"], config["username"], api_token)
     if config.get("user_id") != user["id"]:
         config["user_id"] = user["id"]
         write_config(config)
-    return ApiClient(config["base_url"], user["id"]), config, user
+    return ApiClient(config["base_url"], user["id"], api_token), config, user
 
 
 def compact_query(resource, payload, name=None):
@@ -382,6 +430,22 @@ def compact_query(resource, payload, name=None):
                 {field: item.get(field) for field in fields} for item in payload
             ],
         }
+    if resource == "biological-zones":
+        if name:
+            return resolve_one(payload, name, "zone_name", "biological zone")
+        return {
+            "count": len(payload),
+            "items": [
+                {
+                    "id": item["id"],
+                    "zone_name": item["zone_name"],
+                    "zone_type": item["zone_type"],
+                    "start_time": item["start_time"],
+                    "end_time": item["end_time"],
+                }
+                for item in payload
+            ],
+        }
     if resource == "softskills":
         skills = payload.get("skills", [])
         if name:
@@ -405,8 +469,8 @@ def compact_query(resource, payload, name=None):
 
 def command_configure(args):
     base_url = validate_base_url(args.base_url)
-    user = resolve_user(base_url, args.username)
-    capabilities = ApiClient(base_url, user["id"]).request(
+    user = resolve_user(base_url, args.username, args.api_token)
+    capabilities = ApiClient(base_url, user["id"], args.api_token).request(
         "GET", "/api/v1/capabilities"
     )
     validate_protocol(capabilities)
@@ -414,10 +478,18 @@ def command_configure(args):
         "base_url": base_url,
         "username": user["username"],
         "user_id": user["id"],
+        "api_token": args.api_token,
         "protocol_version": PROTOCOL_VERSION,
     }
     write_config(config)
-    return {"status": "configured", **config}
+    return {
+        "status": "configured",
+        "base_url": config["base_url"],
+        "username": config["username"],
+        "user_id": config["user_id"],
+        "protocol_version": config["protocol_version"],
+        "api_token_configured": True,
+    }
 
 
 def command_doctor(_args):
@@ -447,6 +519,9 @@ def command_query(args):
             "GET",
             f"/api/v1/habits/{habit['id']}/calendar?{query}",
         )
+    if args.resource == "agenda" and args.date:
+        query = urllib.parse.urlencode({"date": args.date})
+        return client.request("GET", f"{QUERY_PATHS['agenda']}?{query}")
     payload = client.request("GET", QUERY_PATHS[args.resource])
     return compact_query(args.resource, payload, args.name)
 
@@ -562,6 +637,14 @@ def operation_request(client, operation, data):
                 "title",
                 "substep",
             )
+        elif operation == "habit-unarchive":
+            items, label, kind = (
+                client.request(
+                    "GET", f"{QUERY_PATHS['habits']}?include_archived=true"
+                ),
+                "name",
+                "habit",
+            )
         elif operation.startswith("habit-"):
             items, label, kind = (
                 client.request("GET", QUERY_PATHS["habits"]),
@@ -573,6 +656,28 @@ def operation_request(client, operation, data):
                 client.request("GET", QUERY_PATHS["rewards"]),
                 "title",
                 "reward",
+            )
+        elif operation.startswith("todo-"):
+            items, label, kind = (
+                [
+                    item
+                    for item in client.request("GET", QUERY_PATHS["todos"])
+                    if not item["is_completed"]
+                ],
+                "title",
+                "todo",
+            )
+        elif operation.startswith("notodo-"):
+            items, label, kind = (
+                client.request("GET", QUERY_PATHS["notodos"]),
+                "title",
+                "no-todo",
+            )
+        elif operation.startswith("biological-zone-"):
+            items, label, kind = (
+                client.request("GET", QUERY_PATHS["biological-zones"]),
+                "zone_name",
+                "biological zone",
             )
         else:
             raise HabitCtlError("Cannot resolve the operation target.")
@@ -613,6 +718,28 @@ def operation_request(client, operation, data):
         skills = client.request("GET", QUERY_PATHS["softskills"])["skills"]
         skill = resolve_one(skills, target, "name", "softskill")
         path_template = path_template.format(skill_id=skill["id"])
+
+    if "{date}" in path_template:
+        date_value = payload.pop("date", None) or dt.date.today().isoformat()
+        if "{habit_id}" in path_template:
+            habit_target = payload.pop("habit", None)
+            if not habit_target:
+                raise HabitCtlError(
+                    "This operation requires a 'habit' field."
+                )
+            habit = resolve_one(
+                client.request("GET", QUERY_PATHS["habits"]),
+                habit_target,
+                "name",
+                "habit",
+            )
+            path_template = path_template.format(
+                date=date_value, habit_id=habit["id"]
+            )
+        else:
+            path_template = path_template.format(date=date_value)
+        if operation == "agenda-placement-clear":
+            payload = None
 
     if operation == "substep-link":
         goal_target = payload.pop("goal", None)
@@ -865,6 +992,7 @@ def build_parser():
     configure = subparsers.add_parser("configure")
     configure.add_argument("--base-url", default=DEFAULT_BASE_URL)
     configure.add_argument("--username", required=True)
+    configure.add_argument("--api-token", required=True)
     configure.set_defaults(handler=command_configure)
 
     doctor = subparsers.add_parser("doctor")
@@ -877,6 +1005,7 @@ def build_parser():
     query.add_argument("--name")
     query.add_argument("--year", type=int, default=dt.date.today().year)
     query.add_argument("--month", type=int, default=dt.date.today().month)
+    query.add_argument("--date", help="YYYY-MM-DD, for the agenda resource")
     query.set_defaults(handler=command_query)
 
     action = subparsers.add_parser("act")

@@ -1,6 +1,17 @@
 import datetime
+import hashlib
+import hmac
 import json
-from fastapi import APIRouter, Depends, HTTPException, Header
+import secrets
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Header,
+    Request,
+    Response,
+)
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, field_validator
@@ -22,6 +33,8 @@ from src.database.models import (
     UserSoftskillProgress,
     Reward,
     RemoteOperation,
+    AuthDevice,
+    AuthSession,
 )
 from src.database.seed import seed_default_biological_zones
 from src.services.score_service import (
@@ -29,8 +42,26 @@ from src.services.score_service import (
     update_streaks,
     add_user_xp,
     cleanup_completed_todos,
+    dispatch_milestone_notifications,
 )
 from src.services import agenda_service, softskill_service
+from fastapi.responses import RedirectResponse
+from src.database.session import SessionLocal
+from src.services.google_sync_service import (
+    get_google_auth_url,
+    exchange_auth_code,
+    export_typical_day_timeline,
+    sync_todo_created,
+    sync_todo_updated,
+    sync_todo_completed,
+    sync_todo_deleted,
+)
+from src.config import (
+    AUTH_BOOTSTRAP_CODE,
+    AUTH_COOKIE_SECURE,
+    AUTH_SESSION_DAYS,
+    HABIT_API_TOKEN,
+)
 
 router = APIRouter()
 
@@ -194,6 +225,13 @@ class TodoCreate(BaseModel):
     due_date: Optional[datetime.date] = None
 
 
+class TodoUpdate(BaseModel):
+    title: Optional[str] = None
+    xp_reward: Optional[int] = Field(None, ge=0, le=40)
+    do_date: Optional[datetime.date] = None
+    due_date: Optional[datetime.date] = None
+
+
 class NoTodoCreate(BaseModel):
     title: str
 
@@ -202,6 +240,32 @@ class TelegramWebAppSessionCreate(BaseModel):
     id: int
     username: Optional[str] = None
     first_name: Optional[str] = None
+
+
+class AuthBootstrapRequest(BaseModel):
+    bootstrap_code: str
+    password: str = Field(..., min_length=8)
+    user_id: Optional[int] = None
+    username: Optional[str] = None
+    device_name: Optional[str] = None
+
+
+class AuthDeviceRequest(BaseModel):
+    device_name: Optional[str] = None
+
+
+class AuthLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class AuthPasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8)
+
+
+class AuthAdminPasswordRequest(BaseModel):
+    new_password: str = Field(..., min_length=8)
 
 
 class GoalCreate(BaseModel):
@@ -339,24 +403,285 @@ class PinsUpdate(BaseModel):
 GoalWithSubstepsCreate.model_rebuild()
 
 
-# --- Multi-User Dependency ---
+# --- Authentication helpers ---
+
+AUTH_SESSION_COOKIE = "habit_session"
+AUTH_DEVICE_COOKIE = "habit_device"
+AUTH_PBKDF2_ITERATIONS = 210_000
+AUTH_DEVICE_STATUSES = {"pending", "approved", "revoked"}
+
+
+def _now() -> datetime.datetime:
+    return datetime.datetime.now()
+
+
+def _hash_secret(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _new_secret() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def _hash_password(password: str, salt: str) -> str:
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        AUTH_PBKDF2_ITERATIONS,
+    )
+    return digest.hex()
+
+
+def _set_user_password(user: User, password: str) -> None:
+    salt = secrets.token_urlsafe(24)
+    user.password_salt = salt
+    user.password_hash = _hash_password(password, salt)
+    user.password_changed_at = _now()
+
+
+def _verify_user_password(user: User, password: str) -> bool:
+    if not user.password_hash or not user.password_salt:
+        return False
+    candidate = _hash_password(password, user.password_salt)
+    return hmac.compare_digest(candidate, user.password_hash)
+
+
+def _auth_is_configured(db: Session) -> bool:
+    return db.query(User).filter(User.password_hash.isnot(None)).first() is not None
+
+
+def _legacy_auth_allowed(db: Session) -> bool:
+    return not AUTH_BOOTSTRAP_CODE and not _auth_is_configured(db)
+
+
+def _client_ip(request: Request) -> Optional[str]:
+    return request.client.host if request.client else None
+
+
+def _auth_user_to_dict(user: User) -> dict:
+    return {"id": user.id, "username": user.username, "is_admin": bool(user.is_admin)}
+
+
+def _device_to_dict(device: AuthDevice) -> dict:
+    return {
+        "id": device.id,
+        "display_name": device.display_name,
+        "status": device.status,
+        "user_agent": device.user_agent,
+        "created_ip": device.created_ip,
+        "first_seen_at": device.first_seen_at.isoformat()
+        if device.first_seen_at
+        else None,
+        "last_seen_at": device.last_seen_at.isoformat()
+        if device.last_seen_at
+        else None,
+        "approved_at": device.approved_at.isoformat() if device.approved_at else None,
+        "revoked_at": device.revoked_at.isoformat() if device.revoked_at else None,
+        "approved_by_user_id": device.approved_by_user_id,
+    }
+
+
+def _set_cookie(response: Response, key: str, value: str, max_age: int) -> None:
+    response.set_cookie(
+        key=key,
+        value=value,
+        max_age=max_age,
+        httponly=True,
+        secure=AUTH_COOKIE_SECURE,
+        samesite="lax",
+        path="/",
+    )
+
+
+def _clear_cookie(response: Response, key: str) -> None:
+    response.delete_cookie(key=key, path="/")
+
+
+def _get_device_from_cookie(
+    request: Request, db: Session
+) -> tuple[Optional[AuthDevice], Optional[str]]:
+    raw_token = request.cookies.get(AUTH_DEVICE_COOKIE)
+    if not raw_token:
+        return None, None
+    device = (
+        db.query(AuthDevice)
+        .filter(AuthDevice.device_token_hash == _hash_secret(raw_token))
+        .first()
+    )
+    return device, raw_token
+
+
+def _ensure_device(
+    request: Request,
+    response: Response,
+    db: Session,
+    display_name: Optional[str] = None,
+    status: str = "pending",
+) -> tuple[AuthDevice, str]:
+    if status not in AUTH_DEVICE_STATUSES:
+        raise ValueError(f"Invalid device status: {status}")
+    device, raw_token = _get_device_from_cookie(request, db)
+    now = _now()
+    if device and raw_token:
+        device.last_seen_at = now
+        if display_name:
+            device.display_name = display_name
+        db.commit()
+        return device, raw_token
+
+    raw_token = _new_secret()
+    device = AuthDevice(
+        device_token_hash=_hash_secret(raw_token),
+        display_name=display_name,
+        status=status,
+        user_agent=request.headers.get("user-agent"),
+        created_ip=_client_ip(request),
+        first_seen_at=now,
+        last_seen_at=now,
+    )
+    db.add(device)
+    db.commit()
+    db.refresh(device)
+    _set_cookie(
+        response,
+        AUTH_DEVICE_COOKIE,
+        raw_token,
+        max_age=60 * 60 * 24 * 365,
+    )
+    return device, raw_token
+
+
+def _machine_user_id(
+    authorization: Optional[str], x_user_id: Optional[str]
+) -> Optional[int]:
+    if not authorization:
+        return None
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(status_code=401, detail="Invalid authorization header.")
+    if not HABIT_API_TOKEN or not hmac.compare_digest(token, HABIT_API_TOKEN):
+        raise HTTPException(status_code=401, detail="Invalid API token.")
+    if not x_user_id:
+        raise HTTPException(status_code=400, detail="X-User-ID is required.")
+    try:
+        return int(x_user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid X-User-ID.") from exc
+
+
+def _session_user(
+    request: Request,
+    db: Session,
+    touch: bool = True,
+) -> Optional[User]:
+    raw_session = request.cookies.get(AUTH_SESSION_COOKIE)
+    if not raw_session:
+        return None
+    session = (
+        db.query(AuthSession)
+        .filter(AuthSession.session_token_hash == _hash_secret(raw_session))
+        .first()
+    )
+    if not session or session.revoked_at or session.expires_at <= _now():
+        return None
+    device, raw_device_token = _get_device_from_cookie(request, db)
+    if not device or not raw_device_token:
+        return None
+    if device.id != session.device_id or device.status != "approved":
+        return None
+    if touch:
+        now = _now()
+        session.last_seen_at = now
+        device.last_seen_at = now
+        db.commit()
+    return session.user
+
+
+def _create_auth_session(
+    response: Response, db: Session, user: User, device: AuthDevice
+) -> AuthSession:
+    raw_session = _new_secret()
+    now = _now()
+    session = AuthSession(
+        session_token_hash=_hash_secret(raw_session),
+        user_id=user.id,
+        device_id=device.id,
+        created_at=now,
+        last_seen_at=now,
+        expires_at=now + datetime.timedelta(days=AUTH_SESSION_DAYS),
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    _set_cookie(
+        response,
+        AUTH_SESSION_COOKIE,
+        raw_session,
+        max_age=60 * 60 * 24 * AUTH_SESSION_DAYS,
+    )
+    return session
 
 
 def get_current_user_id(
+    request: Request,
+    db: Session = Depends(get_db),
     user_id: Optional[int] = None,
     x_user_id: Optional[str] = Header(None, alias="X-User-ID"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> int:
     """
-    Dependency to resolve the current user ID, falling back to Gabriel (ID 1).
+    Resolve the current user from a web session or machine API token.
+
+    Legacy X-User-ID fallback is only kept for unconfigured local development.
+    Once AUTH_BOOTSTRAP_CODE is set or any password exists, X-User-ID alone is
+    rejected.
     """
-    if x_user_id:
-        try:
-            return int(x_user_id)
-        except ValueError:
-            pass
-    if user_id is not None:
-        return user_id
-    return 1
+    machine_user_id = _machine_user_id(authorization, x_user_id)
+    if machine_user_id is not None:
+        return machine_user_id
+
+    session_user = _session_user(request, db)
+    if session_user:
+        return session_user.id
+
+    if _legacy_auth_allowed(db):
+        if x_user_id:
+            try:
+                return int(x_user_id)
+            except ValueError:
+                pass
+        if user_id is not None:
+            return user_id
+        return 1
+
+    raise HTTPException(status_code=401, detail="Authentication required.")
+
+
+def _require_admin_user(db: Session, user_id: int) -> User:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin privileges required.")
+    return user
+
+
+def _require_approved_device_or_machine(
+    request: Request,
+    db: Session,
+    x_user_id: Optional[str],
+    authorization: Optional[str],
+) -> None:
+    machine_user_id = _machine_user_id(authorization, x_user_id)
+    if machine_user_id is not None:
+        return
+    device, _raw_token = _get_device_from_cookie(request, db)
+    if device and device.status == "approved":
+        return
+    if _legacy_auth_allowed(db):
+        return
+    raise HTTPException(status_code=403, detail="Device approval required.")
 
 
 def _biological_zone_to_dict(zone: BiologicalZone) -> dict:
@@ -569,10 +894,242 @@ def validate_habit_update_payload(payload_dict: dict):
 # --- Users & Profile Route ---
 
 
+@router.get("/auth/status")
+def get_auth_status(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    device, _raw_device_token = _get_device_from_cookie(request, db)
+    user = _session_user(request, db, touch=False)
+    bootstrap_required = not _auth_is_configured(db)
+    device_status = device.status if device else "missing"
+    users = []
+    if device and device.status == "approved" and not bootstrap_required:
+        users = [_auth_user_to_dict(user) for user in db.query(User).all()]
+    return {
+        "authenticated": user is not None,
+        "user": _auth_user_to_dict(user) if user else None,
+        "bootstrap_required": bootstrap_required,
+        "bootstrap_configured": bool(AUTH_BOOTSTRAP_CODE),
+        "legacy_open": _legacy_auth_allowed(db),
+        "device": _device_to_dict(device) if device else None,
+        "device_status": device_status,
+        "users": users,
+    }
+
+
+@router.post("/auth/bootstrap")
+def bootstrap_auth(
+    payload: AuthBootstrapRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    if _auth_is_configured(db):
+        raise HTTPException(status_code=409, detail="Authentication is already set up.")
+    if not AUTH_BOOTSTRAP_CODE:
+        raise HTTPException(
+            status_code=503,
+            detail="AUTH_BOOTSTRAP_CODE is not configured on the server.",
+        )
+    if not hmac.compare_digest(payload.bootstrap_code, AUTH_BOOTSTRAP_CODE):
+        raise HTTPException(status_code=403, detail="Invalid bootstrap code.")
+
+    query = db.query(User)
+    if payload.user_id is not None:
+        user = query.filter(User.id == payload.user_id).first()
+    elif payload.username:
+        user = query.filter(User.username == payload.username).first()
+    else:
+        user = query.order_by(User.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    _set_user_password(user, payload.password)
+    user.is_admin = True
+    device, _raw_device_token = _ensure_device(
+        request,
+        response,
+        db,
+        display_name=payload.device_name,
+        status="approved",
+    )
+    now = _now()
+    device.status = "approved"
+    device.approved_at = now
+    device.revoked_at = None
+    device.approved_by_user_id = user.id
+    device.last_seen_at = now
+    db.commit()
+    _create_auth_session(response, db, user, device)
+    return {
+        "status": "success",
+        "user": _auth_user_to_dict(user),
+        "device": _device_to_dict(device),
+    }
+
+
+@router.post("/auth/devices/request")
+def request_device_access(
+    payload: AuthDeviceRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    device, _raw_device_token = _ensure_device(
+        request,
+        response,
+        db,
+        display_name=payload.device_name,
+        status="pending",
+    )
+    return {
+        "status": device.status,
+        "device": _device_to_dict(device),
+        "bootstrap_required": not _auth_is_configured(db),
+    }
+
+
+@router.post("/auth/login")
+def login(
+    payload: AuthLoginRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    device, _raw_device_token = _get_device_from_cookie(request, db)
+    if not device:
+        device, _raw_device_token = _ensure_device(request, response, db)
+    if device.status != "approved":
+        raise HTTPException(status_code=403, detail="Device approval required.")
+
+    user = db.query(User).filter(User.username == payload.username).first()
+    if not user or not _verify_user_password(user, payload.password):
+        raise HTTPException(status_code=401, detail="Invalid username or password.")
+    _create_auth_session(response, db, user, device)
+    return {"status": "success", "user": _auth_user_to_dict(user)}
+
+
+@router.post("/auth/logout")
+def logout(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    raw_session = request.cookies.get(AUTH_SESSION_COOKIE)
+    if raw_session:
+        session = (
+            db.query(AuthSession)
+            .filter(AuthSession.session_token_hash == _hash_secret(raw_session))
+            .first()
+        )
+        if session and not session.revoked_at:
+            session.revoked_at = _now()
+            db.commit()
+    _clear_cookie(response, AUTH_SESSION_COOKIE)
+    return {"status": "success"}
+
+
+@router.get("/auth/users")
+def get_auth_users(
+    request: Request,
+    db: Session = Depends(get_db),
+    x_user_id: Optional[str] = Header(None, alias="X-User-ID"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+):
+    _require_approved_device_or_machine(request, db, x_user_id, authorization)
+    users = db.query(User).all()
+    return [_auth_user_to_dict(user) for user in users]
+
+
+@router.get("/auth/devices")
+def list_auth_devices(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    _require_admin_user(db, user_id)
+    devices = db.query(AuthDevice).order_by(AuthDevice.last_seen_at.desc()).all()
+    return [_device_to_dict(device) for device in devices]
+
+
+@router.post("/auth/devices/{device_id}/approve")
+def approve_auth_device(
+    device_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    _require_admin_user(db, user_id)
+    device = db.query(AuthDevice).filter(AuthDevice.id == device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found.")
+    now = _now()
+    device.status = "approved"
+    device.approved_at = now
+    device.revoked_at = None
+    device.approved_by_user_id = user_id
+    device.last_seen_at = now
+    db.commit()
+    return {"status": "approved", "device": _device_to_dict(device)}
+
+
+@router.post("/auth/devices/{device_id}/revoke")
+def revoke_auth_device(
+    device_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    _require_admin_user(db, user_id)
+    device = db.query(AuthDevice).filter(AuthDevice.id == device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found.")
+    now = _now()
+    device.status = "revoked"
+    device.revoked_at = now
+    db.query(AuthSession).filter(
+        AuthSession.device_id == device.id, AuthSession.revoked_at.is_(None)
+    ).update({"revoked_at": now}, synchronize_session=False)
+    db.commit()
+    return {"status": "revoked", "device": _device_to_dict(device)}
+
+
+@router.post("/auth/password")
+def change_own_password(
+    payload: AuthPasswordChangeRequest,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not _verify_user_password(user, payload.current_password):
+        raise HTTPException(status_code=401, detail="Invalid current password.")
+    _set_user_password(user, payload.new_password)
+    db.commit()
+    return {"status": "success"}
+
+
+@router.post("/auth/users/{target_user_id}/password")
+def admin_set_user_password(
+    target_user_id: int,
+    payload: AuthAdminPasswordRequest,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    _require_admin_user(db, user_id)
+    target = db.query(User).filter(User.id == target_user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found.")
+    _set_user_password(target, payload.new_password)
+    db.commit()
+    return {"status": "success", "user": _auth_user_to_dict(target)}
+
+
 @router.get("/capabilities")
 def get_capabilities():
     return {
-        "protocol_version": 1,
+        "protocol_version": 2,
+        "auth": {
+            "machine_header": "Authorization: Bearer <HABIT_API_TOKEN>",
+            "user_header": "X-User-ID",
+        },
         "idempotency": {
             "header": "Idempotency-Key",
             "recovery_endpoint": "/api/v1/remote-operations/{key}",
@@ -616,10 +1173,16 @@ def get_remote_operation(
 
 
 @router.get("/users")
-def get_users(db: Session = Depends(get_db)):
+def get_users(
+    request: Request,
+    db: Session = Depends(get_db),
+    x_user_id: Optional[str] = Header(None, alias="X-User-ID"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+):
     """
     Fetch all users for the login/profile selection screen.
     """
+    _require_approved_device_or_machine(request, db, x_user_id, authorization)
     users = db.query(User).all()
     return [{"id": u.id, "username": u.username} for u in users]
 
@@ -1815,6 +2378,7 @@ def delete_biological_zone(
 @router.post("/logs")
 def create_log(
     payload: LogCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ):
@@ -1876,7 +2440,9 @@ def create_log(
 
     # Recalculate daily Perfect Day state (no direct XP awarded for habit logs).
     score = calculate_daily_score(db, user_id=user_id, date=today)
-    update_streaks(db, user_id=user_id, date=today)
+    milestone_events = update_streaks(db, user_id=user_id, date=today)
+    if milestone_events:
+        background_tasks.add_task(dispatch_milestone_notifications, milestone_events)
 
     return {
         "log_id": log.id,
@@ -1891,6 +2457,7 @@ def create_log(
 @router.post("/profile/template")
 def change_profile_template(
     payload: TemplateOverride,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ):
@@ -1920,7 +2487,9 @@ def change_profile_template(
     score = calculate_daily_score(
         db, user_id=user_id, date=today, template_name=matched_name
     )
-    update_streaks(db, user_id=user_id, date=today)
+    milestone_events = update_streaks(db, user_id=user_id, date=today)
+    if milestone_events:
+        background_tasks.add_task(dispatch_milestone_notifications, milestone_events)
 
     return {
         "status": "updated",
@@ -1964,6 +2533,7 @@ def get_todos(
 @router.post("/todos", status_code=201)
 def create_todo(
     payload: TodoCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ):
@@ -1980,6 +2550,13 @@ def create_todo(
     )
     db.add(todo)
     db.commit()
+    db.refresh(todo)
+
+    # Sync to Google if connected
+    user = db.query(User).filter_by(id=user_id).first()
+    if user and user.google_refresh_token:
+        background_tasks.add_task(sync_todo_created, user_id, todo.id, SessionLocal)
+
     return {
         "status": "success",
         "todo": {
@@ -1991,9 +2568,68 @@ def create_todo(
     }
 
 
+@router.put("/todos/{todo_id}")
+def update_todo(
+    todo_id: int,
+    payload: TodoUpdate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Update an active todo/bounty.
+    """
+    cleanup_completed_todos(db, user_id)
+    todo = db.query(Todo).filter_by(id=todo_id, user_id=user_id).first()
+    if not todo:
+        raise HTTPException(status_code=404, detail="Bounty not found")
+    if todo.is_completed:
+        raise HTTPException(
+            status_code=400, detail="Completed bounties cannot be edited"
+        )
+
+    fields_set = payload.model_fields_set
+    if "title" in fields_set:
+        title = (payload.title or "").strip()
+        if not title:
+            raise HTTPException(status_code=422, detail="Title cannot be empty")
+        todo.title = title
+    if "xp_reward" in fields_set and payload.xp_reward is not None:
+        todo.xp_reward = payload.xp_reward
+    if "do_date" in fields_set:
+        todo.do_date = payload.do_date
+    if "due_date" in fields_set:
+        todo.due_date = payload.due_date
+
+    db.commit()
+    db.refresh(todo)
+
+    # Sync to Google if connected
+    user = db.query(User).filter_by(id=user_id).first()
+    if user and user.google_refresh_token:
+        background_tasks.add_task(sync_todo_updated, user_id, todo.id, SessionLocal)
+
+    return {
+        "status": "success",
+        "todo": {
+            "id": todo.id,
+            "title": todo.title,
+            "xp_reward": todo.xp_reward,
+            "is_completed": todo.is_completed,
+            "created_at": todo.created_at.isoformat() if todo.created_at else None,
+            "completed_at": (
+                todo.completed_at.isoformat() if todo.completed_at else None
+            ),
+            "do_date": todo.do_date.isoformat() if todo.do_date else None,
+            "due_date": todo.due_date.isoformat() if todo.due_date else None,
+        },
+    }
+
+
 @router.post("/todos/{todo_id}/complete")
 def complete_todo(
     todo_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ):
@@ -2021,9 +2657,15 @@ def complete_todo(
     # Recalculate daily scores after changing today's task state.
     today = datetime.date.today()
     calculate_daily_score(db, user_id=user_id, date=today)
-    update_streaks(db, user_id=user_id, date=today)
+    milestone_events = update_streaks(db, user_id=user_id, date=today)
 
     db.commit()
+    if milestone_events:
+        background_tasks.add_task(dispatch_milestone_notifications, milestone_events)
+
+    # Sync to Google if connected
+    if user.google_refresh_token:
+        background_tasks.add_task(sync_todo_completed, user_id, todo.id, SessionLocal)
 
     return {
         "status": "success",
@@ -2032,6 +2674,37 @@ def complete_todo(
         "new_level": user.level,
         "new_xp": user.xp,
     }
+
+
+@router.delete("/todos/{todo_id}")
+def delete_todo(
+    todo_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Delete a todo/bounty.
+    """
+    cleanup_completed_todos(db, user_id)
+    todo = db.query(Todo).filter_by(id=todo_id, user_id=user_id).first()
+    if not todo:
+        raise HTTPException(status_code=404, detail="Bounty not found")
+
+    event_id = todo.google_due_event_id
+    task_id = todo.google_do_task_id
+
+    db.delete(todo)
+    db.commit()
+
+    # Sync to Google if connected
+    user = db.query(User).filter_by(id=user_id).first()
+    if user and user.google_refresh_token and (event_id or task_id):
+        background_tasks.add_task(
+            sync_todo_deleted, user_id, event_id, task_id, SessionLocal
+        )
+
+    return {"status": "success", "message": "Bounty deleted successfully."}
 
 
 # --- No-Todos ---
@@ -2162,6 +2835,26 @@ def get_habits(
             today_count_by_habit.get(log.habit_id, 0) + 1
         )
 
+    current_streak_by_habit_id = {}
+    habit_ids = [habit.id for habit in habits]
+    if habit_ids:
+        streak_rows = (
+            db.query(Streak)
+            .filter(
+                Streak.user_id == user_id,
+                Streak.streak_type.in_([f"habit:{habit_id}" for habit_id in habit_ids]),
+            )
+            .all()
+        )
+        for streak in streak_rows:
+            if not streak.streak_type.startswith("habit:"):
+                continue
+            try:
+                habit_id = int(streak.streak_type.split(":", 1)[1])
+            except ValueError:
+                continue
+            current_streak_by_habit_id[habit_id] = streak.current_streak or 0
+
     result = []
     for h in habits:
         _version_index, base_name = _split_habit_version_name(h.name)
@@ -2207,6 +2900,7 @@ def get_habits(
                 "auto_managed": bool(h.auto_managed),
                 "archived_at": h.archived_at.isoformat() if h.archived_at else None,
                 "version_history": version_history,
+                "current_streak": current_streak_by_habit_id.get(h.id, 0),
             }
         )
     return result
@@ -2241,127 +2935,27 @@ def create_habit_version(
     if not source:
         raise HTTPException(status_code=404, detail="Habit not found.")
 
-    if payload is not None and payload.source_description is not None:
-        source.description = payload.source_description
-
-    _source_version_index, base_name = _split_habit_version_name(source.name)
-    used_names = set()
-    max_version_index = 0
-    unversioned_base_habit = None
-    version_group_habits = []
-
-    for existing_habit in db.query(Habit).filter_by(user_id=user_id).all():
-        used_names.add(existing_habit.name)
-        version_index, candidate_base_name = _split_habit_version_name(
-            existing_habit.name
-        )
-        if candidate_base_name != base_name:
-            continue
-        version_group_habits.append(existing_habit)
-        if version_index is None:
-            max_version_index = max(max_version_index, 1)
-            if existing_habit.name == base_name:
-                unversioned_base_habit = existing_habit
-        else:
-            max_version_index = max(max_version_index, version_index)
-
-    if unversioned_base_habit:
-        first_version_name = _build_habit_version_name(1, base_name)
-        if first_version_name not in used_names:
-            unversioned_base_habit.name = first_version_name
-            used_names.add(first_version_name)
-
-    next_version_index = max_version_index + 1
-    next_version_name = _build_habit_version_name(next_version_index, base_name)
-    while next_version_name in used_names:
-        next_version_index += 1
-        next_version_name = _build_habit_version_name(next_version_index, base_name)
-
-    version_description = (
-        payload.description
-        if payload is not None and payload.description is not None
-        else source.description
+    from src.services.score_service import (
+        perform_habit_levelup,
+        split_habit_version_name,
     )
 
-    habit = Habit(
-        user_id=user_id,
-        name=next_version_name,
-        type=source.type,
-        description=version_description,
-        frequency=source.frequency,
-        scheduled_days=source.scheduled_days,
-        reminder_time=source.reminder_time,
-        is_private=source.is_private,
-        is_reportable=source.is_reportable,
-        is_mandatory=source.is_mandatory,
-        daily_cap=source.daily_cap,
-        daily_target=source.daily_target,
-        unit=source.unit,
-        effort_type=source.effort_type,
-        effort_duration=source.effort_duration,
-        source_type=source.source_type or "manual",
-        source_ref=source.source_ref,
-        auto_managed=bool(source.auto_managed),
-        archived_at=source.archived_at,
-        agenda_duration_minutes=source.agenda_duration_minutes,
-        is_active=True,
+    new_habit = perform_habit_levelup(
+        db,
+        user_id,
+        habit_id,
+        description=payload.description if payload is not None else None,
+        source_description=payload.source_description if payload is not None else None,
     )
-    db.add(habit)
-    db.flush()
 
-    now = datetime.datetime.now()
-    for previous_habit in version_group_habits:
-        if previous_habit.id == habit.id:
-            continue
-        if previous_habit.is_active:
-            previous_habit.is_active = False
-            previous_habit.deactivated_at = now
+    _, base_name = split_habit_version_name(new_habit.name)
+    v_idx, _ = split_habit_version_name(new_habit.name)
 
-    source_streak = (
-        db.query(Streak)
-        .filter_by(user_id=user_id, streak_type=f"habit:{source.id}")
-        .first()
-    )
-    if not source_streak:
-        candidate_streaks = []
-        for previous_habit in version_group_habits:
-            candidate = (
-                db.query(Streak)
-                .filter_by(user_id=user_id, streak_type=f"habit:{previous_habit.id}")
-                .first()
-            )
-            if candidate:
-                candidate_streaks.append(candidate)
-        source_streak = max(
-            candidate_streaks,
-            key=lambda streak: (
-                streak.current_streak or 0,
-                streak.max_streak or 0,
-                streak.last_incremented or datetime.date.min,
-            ),
-            default=None,
-        )
-
-    if source_streak:
-        new_streak = (
-            db.query(Streak)
-            .filter_by(user_id=user_id, streak_type=f"habit:{habit.id}")
-            .first()
-        )
-        if not new_streak:
-            new_streak = Streak(user_id=user_id, streak_type=f"habit:{habit.id}")
-            db.add(new_streak)
-        new_streak.current_streak = source_streak.current_streak
-        new_streak.max_streak = source_streak.max_streak
-        new_streak.last_incremented = source_streak.last_incremented
-
-    db.commit()
-    db.refresh(habit)
     return {
-        "id": habit.id,
-        "name": habit.name,
+        "id": new_habit.id,
+        "name": new_habit.name,
         "base_name": base_name,
-        "version_index": next_version_index,
+        "version_index": v_idx,
         "source_id": source.id,
         "status": "success",
     }
@@ -2976,3 +3570,108 @@ def purchase_reward_endpoint(
     from src.services.reward_service import purchase_reward
 
     return purchase_reward(db, user_id, reward_id)
+
+
+# --- Google Calendar & Tasks Integration Endpoints ---
+
+
+class GoogleExportTimelineRequest(BaseModel):
+    start_date: str
+    end_date: str
+
+    @field_validator("start_date", "end_date")
+    @classmethod
+    def validate_dates(cls, v):
+        try:
+            datetime.date.fromisoformat(v)
+            return v
+        except ValueError:
+            raise ValueError("Must be YYYY-MM-DD format")
+
+
+@router.get("/auth/google/login")
+def google_login(user_id: int):
+    """
+    Redirect the user to Google OAuth page.
+    """
+    auth_url = get_google_auth_url(user_id)
+    return RedirectResponse(url=auth_url)
+
+
+@router.get("/auth/google/callback")
+async def google_callback(code: str, state: str, db: Session = Depends(get_db)):
+    """
+    Callback endpoint for Google OAuth redirection.
+    """
+    try:
+        user_id = int(state)
+        await exchange_auth_code(user_id, code, db)
+        return RedirectResponse(url="/index.html?tab=settings-tab&google_success=true")
+    except Exception as e:
+        print(f"Google Callback Auth Error: {e}")
+        return RedirectResponse(
+            url=f"/index.html?tab=settings-tab&google_error={str(e)}"
+        )
+
+
+@router.get("/auth/google/status")
+def google_status(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Return Google integration status for the calling user.
+    """
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "is_connected": user.google_refresh_token is not None,
+        "calendar_id": user.google_calendar_id,
+        "tasks_list_id": user.google_tasks_list_id,
+    }
+
+
+@router.post("/auth/google/disconnect")
+def google_disconnect(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Disconnect Google Account.
+    """
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.google_refresh_token = None
+    user.google_access_token = None
+    user.google_token_expiry = None
+    user.google_calendar_id = None
+    user.google_tasks_list_id = None
+    db.commit()
+
+    return {"status": "success", "message": "Disconnected successfully."}
+
+
+@router.post("/agenda/export-google")
+def export_google_timeline(
+    payload: GoogleExportTimelineRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Export biological zones and placements/segments to Google Calendar.
+    """
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user or not user.google_refresh_token:
+        raise HTTPException(status_code=400, detail="Google account not connected.")
+
+    start = datetime.date.fromisoformat(payload.start_date)
+    end = datetime.date.fromisoformat(payload.end_date)
+
+    background_tasks.add_task(export_typical_day_timeline, user_id, start, end, db)
+
+    return {"status": "queued", "message": "Export task has been scheduled."}

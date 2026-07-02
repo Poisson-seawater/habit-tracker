@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=2">
+  <link rel="stylesheet" href="css/style.css?v=3">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -778,10 +778,11 @@
   <!-- Login Overlay (Multi-user Isolation) -->
   <div id="login-overlay" style="display: none;">
     <div class="login-modal glass-card">
-      <h2 style="font-family: var(--font-display); color: var(--accent-gold); margin-bottom: 0.5rem; text-align: center;">Bienvenue</h2>
-      <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; margin-bottom: 2rem;">Sélectionnez votre profil pour accéder à vos données isolées.</p>
+      <h2 id="login-title" style="font-family: var(--font-display); color: var(--accent-gold); margin-bottom: 0.5rem; text-align: center;">Bienvenue</h2>
+      <p id="login-message" style="color: var(--text-muted); font-size: 0.9rem; text-align: center; margin-bottom: 1.2rem;">Connexion sécurisée requise.</p>
+      <div id="login-error" class="bio-zone-error" style="display: none; width: 100%; margin-bottom: 1rem;"></div>
       <div id="login-users-container" class="login-users-grid">
-        <p style="text-align: center; color: var(--text-muted);">Chargement des profils...</p>
+        <p style="text-align: center; color: var(--text-muted);">Vérification de l'accès...</p>
       </div>
     </div>
   </div>
@@ -1380,6 +1381,47 @@
         <button id="switch-profile-btn" class="nav-tab" style="border-color: var(--accent-red); color: var(--accent-red);">🔌 Changer de profil</button>
       </div>
 
+      <section class="glass-card auth-settings-card" id="auth-settings-section" style="padding: 1.8rem; margin-bottom: 1.5rem;">
+        <h2 class="section-header">🔐 <span>Sécurité & Appareils</span></h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
+          Gérez le mot de passe du compte courant et les appareils autorisés à ouvrir le site.
+        </p>
+
+        <form id="auth-password-form" class="auth-settings-form" style="margin-bottom: 1.5rem;">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="auth-current-password">Mot de passe actuel</label>
+              <input type="password" id="auth-current-password" autocomplete="current-password" required>
+            </div>
+            <div class="form-group">
+              <label for="auth-new-password">Nouveau mot de passe</label>
+              <input type="password" id="auth-new-password" autocomplete="new-password" minlength="8" required>
+            </div>
+          </div>
+          <button type="submit" class="quest-action-btn" style="width: auto;">Changer mon mot de passe</button>
+        </form>
+
+        <div id="auth-admin-panel" style="display: none;">
+          <div id="auth-device-list" class="auth-device-list">
+            <p class="bio-zone-empty">Chargement des appareils...</p>
+          </div>
+
+          <form id="auth-admin-password-form" class="auth-settings-form" style="margin-top: 1.5rem;">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="auth-admin-user">Compte</label>
+                <select id="auth-admin-user"></select>
+              </div>
+              <div class="form-group">
+                <label for="auth-admin-new-password">Nouveau mot de passe</label>
+                <input type="password" id="auth-admin-new-password" autocomplete="new-password" minlength="8" required>
+              </div>
+            </div>
+            <button type="submit" class="quest-action-btn" style="width: auto;">Réinitialiser le mot de passe</button>
+          </form>
+        </div>
+      </section>
+
       <section class="glass-card bio-timeline-panel" id="bio-timeline-panel-settings" style="margin-bottom: 1.5rem;">
         <h2 class="section-header">🌅 <span>Journée Biologique</span></h2>
         <div class="bio-timeline-container">
@@ -1512,6 +1554,60 @@
               <button type="submit" id="bio-zone-submit-btn" class="quest-action-btn">Ajouter la zone</button>
             </div>
           </form>
+        </section>
+
+        <!-- Google Calendar & Tasks Integration -->
+        <section class="glass-card google-integration-panel" style="grid-column: 1 / -1; padding: 1.8rem; margin-top: 1rem;">
+          <h2 class="section-header">📅 <span>Intégration Google Calendar & Tasks</span></h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
+            Synchronisez vos quêtes (due dates sur Google Calendar et do dates sur Google Tasks) et exportez manuellement votre Perfect Day.
+          </p>
+
+          <div id="google-status-container" style="display: flex; flex-direction: column; gap: 1rem;">
+            <div id="google-connection-status" style="display: flex; align-items: center; gap: 10px; font-weight: bold;">
+              <span>Statut :</span>
+              <span id="google-status-badge" class="quest-status-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid #ef4444;">Non connecté</span>
+            </div>
+
+            <div id="google-actions-disconnected" style="display: block;">
+              <a id="google-connect-link" href="#" class="quest-action-btn submit-btn" style="display: inline-block; width: auto; text-decoration: none; padding: 10px 20px; font-family: inherit; font-size: 0.9rem; text-align: center; border-radius: 8px;">
+                🔗 Associer mon compte Google
+              </a>
+            </div>
+
+            <div id="google-actions-connected" style="display: none; border-top: 1px solid var(--border-glass); padding-top: 1.5rem; margin-top: 0.5rem;">
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 4px;">
+                <div><strong>ID Agenda :</strong> <code id="google-cal-id" style="color: var(--accent-cyan); font-family: monospace;">...</code></div>
+                <div><strong>ID Liste des Tâches :</strong> <code id="google-tasks-id" style="color: var(--accent-cyan); font-family: monospace;">...</code></div>
+              </div>
+
+              <!-- Export typical day timeline -->
+              <div class="google-export-box" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass); border-radius: 12px; padding: 1.2rem;">
+                <h4 style="margin-top: 0; color: var(--accent-cyan); margin-bottom: 0.5rem; font-family: var(--font-display);">🚀 Export manuel de la Perfect Day</h4>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+                  Générez les segments de votre journée idéale ainsi que vos zones biologiques et placements sur votre Google Calendar. Les anciens événements générés sur cette période seront nettoyés au préalable.
+                </p>
+                <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+                  <div class="form-group" style="margin: 0; min-width: 150px;">
+                    <label for="google-export-start" style="font-size: 0.75rem;">Date de début</label>
+                    <input type="date" id="google-export-start" style="padding: 6px; font-size: 0.85rem;">
+                  </div>
+                  <div class="form-group" style="margin: 0; min-width: 150px;">
+                    <label for="google-export-end" style="font-size: 0.75rem;">Date de fin</label>
+                    <input type="date" id="google-export-end" style="padding: 6px; font-size: 0.85rem;">
+                  </div>
+                  <button id="google-export-btn" class="quest-action-btn submit-btn" style="padding: 10px 15px; font-size: 0.85rem; width: auto; margin: 0;">
+                    📤 Lancer l'exportation
+                  </button>
+                </div>
+                <div id="google-export-status" style="margin-top: 1rem; font-size: 0.85rem; color: var(--accent-cyan); font-weight: bold; display: none;"></div>
+              </div>
+
+              <button id="google-disconnect-btn" class="quest-action-btn" style="margin-top: 1.5rem; width: auto; padding: 8px 16px; background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.5); color: #ef4444;">
+                🔌 Déconnecter mon compte Google
+              </button>
+            </div>
+          </div>
         </section>
 
       </div>
@@ -1804,6 +1900,39 @@
     </div>
   </div>
 
+  <!-- Edit Bounty / Todo Modal -->
+  <div id="edit-bounty-overlay" class="drawer-overlay"></div>
+  <div id="edit-bounty-drawer" class="creators-drawer">
+    <div class="drawer-header">
+      <span class="drawer-title">✏️ Modifier la Prime</span>
+      <button id="close-edit-bounty-btn" class="drawer-close-btn">&times;</button>
+    </div>
+    <input type="hidden" id="edit-bounty-id">
+    <div class="form-group">
+      <label for="edit-bounty-title">Titre</label>
+      <input type="text" id="edit-bounty-title" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
+    </div>
+    <div class="form-group">
+      <label for="edit-bounty-xp">Récompense XP (Max 40)</label>
+      <input type="number" id="edit-bounty-xp" min="0" max="40" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
+    </div>
+    <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
+      <div class="form-group">
+        <label for="edit-bounty-do-date">Date Planifiée (Do Date)</label>
+        <input type="date" id="edit-bounty-do-date" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);font-family:inherit;width:100%;box-sizing:border-box;">
+      </div>
+      <div class="form-group">
+        <label for="edit-bounty-due-date">Date Limite (Due Date)</label>
+        <input type="date" id="edit-bounty-due-date" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);font-family:inherit;width:100%;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="display:flex;gap:0.8rem;margin-top:0.5rem;">
+      <button id="save-edit-bounty-btn" class="quest-action-btn" style="flex:2;padding:10px;">Sauvegarder</button>
+      <button id="delete-edit-bounty-btn" class="quest-action-btn" style="flex:1;padding:10px;background:rgba(239, 68, 68, 0.15);border-color:rgba(239, 68, 68, 0.5);color:#ef4444;">Supprimer</button>
+      <button id="cancel-edit-bounty-btn" class="quest-action-btn" style="flex:1;padding:10px;background:rgba(255,255,255,0.05);color:var(--text-secondary);">Annuler</button>
+    </div>
+  </div>
+
   <!-- Habit Detail & Calendar Modal -->
   <div id="habit-detail-overlay" class="drawer-overlay"></div>
   <div id="habit-detail-drawer" class="creators-drawer" style="max-width: 480px; overflow-y: auto;">
@@ -1975,6 +2104,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.1"></script>
+  <script src="js/app.js?v=1.0.2"></script>
 </body>
 </html>

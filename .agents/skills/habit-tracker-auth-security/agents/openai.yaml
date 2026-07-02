@@ -1,0 +1,4 @@
+interface:
+  display_name: "Habit Tracker Auth Security"
+  short_description: "Remember auth and device security design"
+  default_prompt: "Use $habit-tracker-auth-security when modifying Habit Tracker authentication, approved devices, or machine API tokens."

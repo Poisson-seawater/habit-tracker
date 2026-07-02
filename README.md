@@ -32,48 +32,10 @@ L'idée de base : transformer la discipline quotidienne en jeu (XP, niveaux, or,
 
 > idées conservées ici en attendant d'être cadrées dans `specs/`. 
 
-
-
----
-
-bugs: 
-- sauvegarde do date et due date des skills et objectifs 
-- peux delete un to do !
-
-
-modification work done by IA: 
-Apres Recap 3 - 3 - 3, jai 2 colonne: Agenda et Quest. En bas de la colonne Quest, je les todos.Les 2 colonnes sont de largeur identique.
-
-changement logique affichage: si une quest n'est pas ranger dans agenda, la quest va dans la colonne Quest. Sinon elle va dans la colonne Agenda, a l'heure assigner. 
-
-Colonne agenda: c'est un agenda HORIZONTAL ! Il fait de 4h a 24h. Les heures sont ecrite verticalement, en gris. Les blocs de temps sont horizontal. 
-Je drag une quest de la colonne quest et je la met dans l'agenda !
-
-
-petite modification:les boutons 'sauver' rest, regular et hustle apparaisent en fonction du type de jour. Pas les 3 en meme temps !
-Quand un quest est drag dans l'agenda, un buffer de 15min apparait apres ! Donc si je met une nager a 14h, la durée est 60min, la prochaine quest commence a 15h15.
-
-
-Modification des Quests.
-Supprimer l'option hebdomadaire, jour specifique le fait deja.
-Si je met mensuelle, ca veut dire que je le fais tous les mois. La meme date qu'aujourdhui. Donc si c'est le 30 du mois, ca va le faire le 30 du mois prochain. Si c'est le 31 du mois, ca va le faire le 30 du mois prochain. S'affiche juste en dessous de Fréquence.
-
-Type d'effort: rajoute "Repos" et "Rest of the day".  
-
-Fusionne Durée d'effort (h) avec Durée agenda par défaut (min). 
-
-
 MODIFICATION total
 - L'integration Google agenda (spec fait)
-- **Évolution des Habitudes** :
-	- Pérennisation du suivi par jalons (90 et 180 succès).
-	prompts: Il existe un système de paliers à 30j (gain de +100 XP et +50 Or) et 90j (gain de +300 XP et +150 Or) basé sur la streak de l'habitude. QUAND 30j et 90j fait, message telegram qui dis "Bravo pour le streak de 30j / 90j pour 'habit title'! Veux tu monter le niveau de l'habitude ?". ET changement visuel pour les paliers 30, 90, 180. Le titre de l'habitude change de couleur, mauve -> bleu -> argenté OU un emoji spécial ??
-- **Plugin MCP / Assistant IA** : Développement de connecteurs facilitant l'accès et la création d'emploi du temps par une IA.
-	- relier a mon plugin Obsidian de pomodoro pour valider les breaks a la fin de la journée (ex; articulier + ukulele fait -> va valider pour moi !)
-	- plugins de mcp qui me permette de voir mes stats et mes habitudes et contrôler toute l'app a distance via IA.
 - **Système de Punitions** : actions compensatoires constructives face à l'échec d'engagements
 - **Accès à distance sécurisé** : Configurer la Raspberry Pi (par exemple via Tailscale, Cloudflare Tunnels ou un reverse proxy sécurisé) afin de pouvoir accéder au site web et à l'API de n'importe où dans le monde.
-
 
 ## 👥 Collaboration & développement
 
@@ -99,6 +61,11 @@ Télécommande IA sans MCP :
 [fonctionnement du plugin](./docs/notes/habit-tracker-control-plugin.md),
 [migration SQLite v9](./docs/notes/database-v9-remote-operations.md) et
 [décision d'architecture](./docs/adr/002-plugin-habit-tracker-control.md).
+
+- Plugin (recommandé) : [`plugins/habit-tracker-control/`](./plugins/habit-tracker-control/)
+  — CLI `scripts/habitctl.py` + skills `query`/`action`/`manage`.
+- Skill globale (ancienne, hors dépôt) : `~/.claude/skills/habit-tracker/SKILL.md`
+  — parle à l'API en `curl` direct, sans passer par le CLI du plugin.
 
 ---
 
@@ -145,8 +112,14 @@ Mini App Telegram : exposer l'API en HTTPS, mettre l'URL publique `/mini-app/` d
 | `ENV` | `development` | `development` en local, `production` sur le Pi. |
 | `TIMEZONE` | `America/Toronto` | Fuseau pour les scores du jour et les rappels. |
 | `DATABASE_URL` | `sqlite:////data/habit_tracker.db` | Chemin SQLite. À laisser vide en local : fallback auto vers `backend/data/`. |
+| `AUTH_BOOTSTRAP_CODE` | `long-code-secret` | Code temporaire requis pour créer le premier mot de passe admin et approuver le premier appareil. |
+| `HABIT_API_TOKEN` | `long-api-token` | Token machine pour le plugin `habit-tracker-control` et les appels API non navigateur. |
+| `AUTH_SESSION_DAYS` | `30` | Durée des sessions web en jours. |
+| `AUTH_COOKIE_SECURE` | `false` | Mettre `true` uniquement si le dashboard est servi en HTTPS. |
 
-> En local, tu peux ne renseigner que les variables Telegram : le reste a des valeurs par défaut.
+> En local, tu peux ne renseigner que les variables Telegram si tu veux garder le
+> mode legacy non authentifié. Sur la Pi, définis `AUTH_BOOTSTRAP_CODE` et
+> `HABIT_API_TOKEN` avant de déployer.
 
 ---
 

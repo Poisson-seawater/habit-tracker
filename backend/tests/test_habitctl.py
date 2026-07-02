@@ -61,6 +61,31 @@ class ResolutionClient:
         raise AssertionError(path)
 
 
+class TargetResolutionClient:
+    def __init__(self):
+        self.calls = []
+
+    def request(self, method, path, payload=None, idempotency_key=None):
+        self.calls.append((method, path, payload, idempotency_key))
+        assert method == "GET"
+        if path == "/api/v1/habits":
+            return [{"id": 24, "name": "test", "archived_at": None}]
+        if path == "/api/v1/habits?include_archived=true":
+            return [
+                {"id": 24, "name": "test", "archived_at": "2026-06-30T00:00:00"}
+            ]
+        if path == "/api/v1/todos":
+            return [
+                {"id": 12, "title": "Active bounty", "is_completed": False},
+                {"id": 13, "title": "Done bounty", "is_completed": True},
+            ]
+        if path == "/api/v1/notodos":
+            return [{"id": 5, "title": "Snoozer", "failed_today": False}]
+        if path == "/api/v1/biological-zones":
+            return [{"id": 2, "zone_name": "Sommeil", "zone_type": "sleep"}]
+        raise AssertionError(path)
+
+
 class ConfigureClient:
     def __init__(self, capabilities=None, error=None):
         self.capabilities = capabilities
@@ -68,7 +93,7 @@ class ConfigureClient:
 
     def request(self, method, path, payload=None, idempotency_key=None):
         assert method == "GET"
-        if path == "/api/v1/users":
+        if path == "/api/v1/auth/users":
             return [{"id": 3, "username": "Gabriel"}]
         if path == "/api/v1/capabilities":
             if self.error:
@@ -228,6 +253,113 @@ def test_link_and_pin_operations_resolve_names_to_ids():
     }
 
 
+def test_todo_update_resolves_active_todo_only():
+    client = TargetResolutionClient()
+    method, path, payload, resource = habitctl.operation_request(
+        client, "todo-update", {"target": "Active", "title": "Renamed"}
+    )
+    assert (method, path, payload, resource) == (
+        "PUT",
+        "/api/v1/todos/12",
+        {"title": "Renamed"},
+        "todos",
+    )
+    with pytest.raises(habitctl.HabitCtlError, match="No todo matches"):
+        habitctl.operation_request(client, "todo-delete", {"target": "Done"})
+
+
+def test_notodo_delete_resolves_by_title():
+    client = TargetResolutionClient()
+    method, path, payload, resource = habitctl.operation_request(
+        client, "notodo-delete", {"target": "Snoozer"}
+    )
+    assert (method, path, payload, resource) == (
+        "DELETE",
+        "/api/v1/notodos/5",
+        None,
+        "notodos",
+    )
+
+
+def test_biological_zone_update_resolves_by_zone_name():
+    client = TargetResolutionClient()
+    method, path, payload, resource = habitctl.operation_request(
+        client,
+        "biological-zone-update",
+        {"target": "Sommeil", "end_time": "06:30"},
+    )
+    assert (method, path, payload, resource) == (
+        "PUT",
+        "/api/v1/biological-zones/2",
+        {"end_time": "06:30"},
+        "biological-zones",
+    )
+
+
+def test_habit_unarchive_resolves_including_archived_habits():
+    client = TargetResolutionClient()
+    method, path, payload, resource = habitctl.operation_request(
+        client, "habit-unarchive", {"target": "test"}
+    )
+    assert (method, path, payload, resource) == (
+        "POST",
+        "/api/v1/habits/24/unarchive",
+        {},
+        "habits",
+    )
+    assert ("GET", "/api/v1/habits?include_archived=true", None, None) in client.calls
+
+
+def test_agenda_placement_set_resolves_habit_and_defaults_date(monkeypatch):
+    client = TargetResolutionClient()
+    monkeypatch.setattr(
+        habitctl.dt, "date", SimpleNamespace(today=lambda: SimpleNamespace(
+            isoformat=lambda: "2026-07-01"
+        ))
+    )
+    method, path, payload, resource = habitctl.operation_request(
+        client,
+        "agenda-placement-set",
+        {"habit": "test", "start_time": "06:00", "duration_minutes": 15},
+    )
+    assert (method, path, payload, resource) == (
+        "PUT",
+        "/api/v1/agenda/2026-07-01/quests/24/placement",
+        {"start_time": "06:00", "duration_minutes": 15},
+        "agenda",
+    )
+
+
+def test_agenda_placement_clear_has_no_payload():
+    client = TargetResolutionClient()
+    method, path, payload, resource = habitctl.operation_request(
+        client,
+        "agenda-placement-clear",
+        {"habit": "test", "date": "2026-07-04"},
+    )
+    assert (method, path, payload, resource) == (
+        "DELETE",
+        "/api/v1/agenda/2026-07-04/quests/24/placement",
+        None,
+        "agenda",
+    )
+
+
+def test_agenda_save_as_template_does_not_require_a_habit():
+    client = TargetResolutionClient()
+    method, path, payload, resource = habitctl.operation_request(
+        client,
+        "agenda-save-as-template",
+        {"date": "2026-07-04", "template_name": "hustle"},
+    )
+    assert (method, path, payload, resource) == (
+        "POST",
+        "/api/v1/agenda/2026-07-04/save-as-template",
+        {"template_name": "hustle"},
+        "agenda",
+    )
+
+
 def test_api_error_payload_includes_request_context():
     error = habitctl.ApiError(
         422,
@@ -263,9 +395,9 @@ def test_missing_capabilities_has_deployment_hint():
 def test_protocol_mismatch_reports_versions():
     with pytest.raises(
         habitctl.HabitCtlError,
-        match=r"Expected 1, received 2",
+        match=r"Expected 2, received 1",
     ):
-        habitctl.validate_protocol({"protocol_version": 2})
+        habitctl.validate_protocol({"protocol_version": 1})
 
 
 def test_configure_does_not_write_when_capabilities_are_missing(monkeypatch, tmp_path):
@@ -286,6 +418,7 @@ def test_configure_does_not_write_when_capabilities_are_missing(monkeypatch, tmp
             SimpleNamespace(
                 base_url="http://192.168.0.199:5000",
                 username="Gabriel",
+                api_token="token",
             )
         )
 
@@ -294,15 +427,16 @@ def test_configure_does_not_write_when_capabilities_are_missing(monkeypatch, tmp
 
 def test_configure_does_not_write_on_protocol_mismatch(monkeypatch, tmp_path):
     config_path = tmp_path / "config.json"
-    client = ConfigureClient(capabilities={"protocol_version": 2})
+    client = ConfigureClient(capabilities={"protocol_version": 1})
     monkeypatch.setenv("HABIT_TRACKER_CONFIG", str(config_path))
     monkeypatch.setattr(habitctl, "ApiClient", lambda *_args, **_kwargs: client)
 
-    with pytest.raises(habitctl.HabitCtlError, match="Expected 1, received 2"):
+    with pytest.raises(habitctl.HabitCtlError, match="Expected 2, received 1"):
         habitctl.command_configure(
             SimpleNamespace(
                 base_url="http://192.168.0.199:5000",
                 username="Gabriel",
+                api_token="token",
             )
         )
 

@@ -29,6 +29,17 @@ class User(Base):
     pinned_substeps = Column(JSON, nullable=True, default=list)
     pinned_softskills = Column(JSON, nullable=True, default=list)
     pinned_goals = Column(JSON, nullable=True, default=list)
+    password_hash = Column(Text, nullable=True)
+    password_salt = Column(String, nullable=True)
+    password_changed_at = Column(DateTime, nullable=True)
+    is_admin = Column(Boolean, default=False, nullable=False)
+
+    # Google Calendar & Tasks Integration columns
+    google_refresh_token = Column(Text, nullable=True)
+    google_access_token = Column(Text, nullable=True)
+    google_token_expiry = Column(DateTime, nullable=True)
+    google_calendar_id = Column(String, nullable=True)
+    google_tasks_list_id = Column(String, nullable=True)
 
     logs = relationship("HabitLog", back_populates="user", cascade="all, delete-orphan")
     scores = relationship(
@@ -58,6 +69,50 @@ class User(Base):
     agenda_placements = relationship(
         "DailyAgendaPlacement", back_populates="user", cascade="all, delete-orphan"
     )
+    auth_sessions = relationship(
+        "AuthSession", back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class AuthDevice(Base):
+    __tablename__ = "auth_devices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    display_name = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="pending", index=True)
+    user_agent = Column(Text, nullable=True)
+    created_ip = Column(String, nullable=True)
+    first_seen_at = Column(DateTime, default=datetime.datetime.now, nullable=False)
+    last_seen_at = Column(DateTime, default=datetime.datetime.now, nullable=False)
+    approved_at = Column(DateTime, nullable=True)
+    revoked_at = Column(DateTime, nullable=True)
+    approved_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    device_id = Column(
+        Integer,
+        ForeignKey("auth_devices.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    created_at = Column(DateTime, default=datetime.datetime.now, nullable=False)
+    last_seen_at = Column(DateTime, default=datetime.datetime.now, nullable=False)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    revoked_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", back_populates="auth_sessions")
+    device = relationship("AuthDevice")
 
 
 class Habit(Base):
@@ -244,6 +299,10 @@ class Todo(Base):
     completed_at = Column(DateTime, nullable=True)
     do_date = Column(Date, nullable=True)
     due_date = Column(Date, nullable=True)
+
+    # Google API references
+    google_due_event_id = Column(String, nullable=True)
+    google_do_task_id = Column(String, nullable=True)
 
     user = relationship("User", back_populates="todos")
 

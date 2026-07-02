@@ -13,6 +13,7 @@ from src.database.models import (
     HabitLog,
     PerfectDayTemplate,
     User,
+    Streak,
 )
 from src.services import softskill_service
 
@@ -408,6 +409,7 @@ def habit_to_agenda_item(
     date_value: datetime.date,
     completed_habit_ids: set[int],
     skipped_habit_ids: set[int],
+    current_streak: int = 0,
 ) -> dict:
     duration_minutes = _habit_duration_minutes(habit)
     needs_configuration = bool(
@@ -443,6 +445,7 @@ def habit_to_agenda_item(
         "archived_at": habit.archived_at.isoformat() if habit.archived_at else None,
         "needs_configuration": needs_configuration,
         "status": status,
+        "current_streak": current_streak,
     }
 
 
@@ -606,6 +609,27 @@ def build_agenda_response(
         habit for habit in habits if is_habit_eligible_on_date(habit, date_value, user)
     ]
     eligible_by_id = {habit.id: habit for habit in eligible_habits}
+    current_streak_by_habit_id = {}
+    eligible_ids = list(eligible_by_id)
+    if eligible_ids:
+        streak_rows = (
+            db.query(Streak)
+            .filter(
+                Streak.user_id == user_id,
+                Streak.streak_type.in_(
+                    [f"habit:{habit_id}" for habit_id in eligible_ids]
+                ),
+            )
+            .all()
+        )
+        for streak in streak_rows:
+            if not streak.streak_type.startswith("habit:"):
+                continue
+            try:
+                habit_id = int(streak.streak_type.split(":", 1)[1])
+            except ValueError:
+                continue
+            current_streak_by_habit_id[habit_id] = streak.current_streak or 0
 
     placement_rows = (
         db.query(DailyAgendaPlacement)
@@ -628,7 +652,14 @@ def build_agenda_response(
     all_items = []
 
     for habit in eligible_habits:
-        item = habit_to_agenda_item(db, habit, date_value, completed_ids, skipped_ids)
+        item = habit_to_agenda_item(
+            db,
+            habit,
+            date_value,
+            completed_ids,
+            skipped_ids,
+            current_streak_by_habit_id.get(habit.id, 0),
+        )
         placement = placement_by_habit_id.get(habit.id)
         default = default_by_habit_id.get(habit.id)
 

@@ -54,7 +54,8 @@ mutable est placé dans `/data/softskills_tree.json`, sur le même volume persis
 SQLite. Les écritures utilisent un verrou de fichier et un remplacement atomique.
 
 Le réseau privé peut utiliser HTTP. Une cible HTTP publique est refusée par le CLI ;
-elle doit utiliser HTTPS. Le header `X-User-ID` est conservé pour compatibilité.
+elle doit utiliser HTTPS. Le header `X-User-ID` est conservé comme sélection
+d'utilisateur après validation du token machine `HABIT_API_TOKEN`.
 
 ## Alternatives envisagées
 
@@ -75,7 +76,6 @@ elle doit utiliser HTTPS. Le header `X-User-ID` est conservé pour compatibilit�
 - Les mutations sont prévisibles, auditables et résistantes aux retries.
 - Le plugin dépend de la version de protocole annoncée par `/api/v1/capabilities`.
 - Le backend doit être déployé avant de configurer le CLI contre une instance distante.
-- `X-User-ID` identifie un utilisateur mais n'authentifie pas un appel : l'API doit
-  rester sur un réseau privé ou être placée derrière une vraie couche d'authentification.
+- Les clients machine doivent envoyer `Authorization: Bearer <HABIT_API_TOKEN>` en
+  plus de `X-User-ID`; le dashboard web utilise sessions et appareils approuvés.
 - Les CRUD absents de l'API restent indisponibles au plugin.
-

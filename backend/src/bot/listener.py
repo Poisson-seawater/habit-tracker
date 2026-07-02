@@ -32,6 +32,7 @@ from src.services.score_service import (
     update_streaks,
     add_user_xp,
     cleanup_completed_todos,
+    dispatch_milestone_notifications,
 )
 from src.bot.scheduler import start_scheduler
 from src.services.reward_service import (
@@ -46,6 +47,18 @@ from src.services.softskill_service import (
     toggle_completion,
 )
 from fastapi import HTTPException
+
+
+def _queue_milestone_notifications(events: list[dict]):
+    if events:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            dispatch_milestone_notifications(events)
+        else:
+            loop.create_task(
+                asyncio.to_thread(dispatch_milestone_notifications, events)
+            )
 
 
 def parse_date_offset(date_str: str) -> datetime.date | None:
@@ -192,7 +205,8 @@ def _apply_set_day(db, user_id: int, db_template_name: str) -> str:
     score = calculate_daily_score(
         db, user_id=user_id, date=today, template_name=db_template_name
     )
-    update_streaks(db, user_id=user_id, date=today)
+    milestone_events = update_streaks(db, user_id=user_id, date=today)
+    _queue_milestone_notifications(milestone_events)
     return (
         f'🩹 Template de journée mis à jour vers : "{score.template_used.upper()}".\n'
         f"✨ Le Perfect Day est recalculé avec ce rythme."
@@ -342,7 +356,8 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
                 today = datetime.date.today()
                 score = calculate_daily_score(db, user_id=user.id, date=today)
-                update_streaks(db, user_id=user.id, date=today)
+                milestone_events = update_streaks(db, user_id=user.id, date=today)
+                _queue_milestone_notifications(milestone_events)
 
                 cap_info = (
                     f"\nCap journalier : {habit.daily_cap}" if habit.daily_cap else ""
@@ -535,7 +550,8 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             # Recalculate daily Perfect Day state.
             score = calculate_daily_score(db, user_id=user.id, date=today)
-            update_streaks(db, user_id=user.id, date=today)
+            milestone_events = update_streaks(db, user_id=user.id, date=today)
+            _queue_milestone_notifications(milestone_events)
 
             target_str = (
                 f" ({done_today + 1}/{habit.daily_target})" if has_target else ""
@@ -601,7 +617,8 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             today = datetime.date.today()
             score = calculate_daily_score(db, user_id=user.id, date=today)
-            update_streaks(db, user_id=user.id, date=today)
+            milestone_events = update_streaks(db, user_id=user.id, date=today)
+            _queue_milestone_notifications(milestone_events)
 
             cap_info = (
                 f"\nCap journalier : {habit.daily_cap}" if habit.daily_cap else ""
@@ -636,7 +653,8 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             today = datetime.date.today()
             calculate_daily_score(db, user_id=user.id, date=today)
-            update_streaks(db, user_id=user.id, date=today)
+            milestone_events = update_streaks(db, user_id=user.id, date=today)
+            _queue_milestone_notifications(milestone_events)
 
             await update.message.reply_text(
                 f'⏭️ {username} a skippé la tâche "{habit_name}" pour aujourd\'hui.\n'
@@ -1186,6 +1204,36 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     data = query.data or ""
 
+    # --- Level up milestones -------------------------------------------------
+    if data.startswith("lvlup:") or data.startswith("lvlkeep:"):
+        habit_id = int(data.split(":")[1])
+        db = SessionLocal()
+        try:
+            user = _resolve_user(db, query.from_user)
+            if not user:
+                await query.edit_message_text("Utilisateur non trouvé.")
+                return
+
+            if data.startswith("lvlup:"):
+                from src.services.score_service import perform_habit_levelup
+
+                try:
+                    new_habit = perform_habit_levelup(db, user.id, habit_id)
+                    await query.edit_message_text(
+                        f"📈 Habitude montée de niveau avec succès !\n"
+                        f"Nouveau nom : <b>{new_habit.name}</b>",
+                        parse_mode="HTML",
+                    )
+                except Exception as e:
+                    await query.edit_message_text(
+                        f"Erreur lors du passage au niveau supérieur : {e}"
+                    )
+            else:
+                await query.edit_message_text("Habitude gardée au niveau actuel.")
+        finally:
+            db.close()
+        return
+
     # --- Static help buttons -------------------------------------------------
     if data == "help_doc":
         await query.message.reply_text(
@@ -1578,7 +1626,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     db.commit()
 
                     score = calculate_daily_score(db, user_id=user.id, date=today)
-                    update_streaks(db, user_id=user.id, date=today)
+                    milestone_events = update_streaks(db, user_id=user.id, date=today)
+                    _queue_milestone_notifications(milestone_events)
 
                     target_str = (
                         f" ({done_today + 1}/{habit.daily_target})"
@@ -1620,7 +1669,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # Recalculate daily scores after changing today's task state.
                 today = datetime.date.today()
                 calculate_daily_score(db, user_id=user.id, date=today)
-                update_streaks(db, user_id=user.id, date=today)
+                milestone_events = update_streaks(db, user_id=user.id, date=today)
+                _queue_milestone_notifications(milestone_events)
 
                 db.commit()
 

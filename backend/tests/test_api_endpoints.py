@@ -208,6 +208,74 @@ def test_todo_with_do_and_due_dates():
     assert response.status_code == 200
 
 
+def test_update_todo_endpoint():
+    payload = {
+        "title": "Prime à corriger",
+        "xp_reward": 10,
+        "do_date": "2026-06-27",
+        "due_date": "2026-06-30",
+    }
+    response = client.post("/api/v1/todos", json=payload)
+    assert response.status_code == 201
+    todo_id = response.json()["todo"]["id"]
+
+    response = client.put(
+        f"/api/v1/todos/{todo_id}",
+        json={
+            "title": "Prime corrigée",
+            "xp_reward": 35,
+            "do_date": "2026-07-01",
+            "due_date": None,
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["todo"]["title"] == "Prime corrigée"
+    assert data["todo"]["xp_reward"] == 35
+    assert data["todo"]["do_date"] == "2026-07-01"
+    assert data["todo"]["due_date"] is None
+
+    response = client.get("/api/v1/todos")
+    assert response.status_code == 200
+    todo_item = next(t for t in response.json() if t["id"] == todo_id)
+    assert todo_item["title"] == "Prime corrigée"
+    assert todo_item["xp_reward"] == 35
+    assert todo_item["do_date"] == "2026-07-01"
+    assert todo_item["due_date"] is None
+
+    response = client.put(f"/api/v1/todos/{todo_id}", json={"xp_reward": 41})
+    assert response.status_code == 422
+
+    response = client.post(f"/api/v1/todos/{todo_id}/complete")
+    assert response.status_code == 200
+
+
+def test_delete_todo_endpoint():
+    payload = {
+        "title": "Prime à supprimer",
+        "xp_reward": 10,
+    }
+    response = client.post("/api/v1/todos", json=payload)
+    assert response.status_code == 201
+    todo_id = response.json()["todo"]["id"]
+
+    # Delete Todo
+    response = client.delete(f"/api/v1/todos/{todo_id}")
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+
+    # Verify it is gone
+    response = client.get("/api/v1/todos")
+    assert response.status_code == 200
+    todos = response.json()
+    assert not any(t["id"] == todo_id for t in todos)
+
+    # Delete non-existent
+    response = client.delete(f"/api/v1/todos/{todo_id}")
+    assert response.status_code == 404
+
+
 def test_completed_todos_older_than_today_are_deleted():
     import datetime
 

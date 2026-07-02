@@ -21,6 +21,7 @@ from src.services.score_service import (
     calculate_daily_score,
     update_streaks,
     add_user_xp,
+    dispatch_milestone_notifications,
 )
 from src.services.reward_service import get_allostasis_purchases_on_date
 
@@ -58,7 +59,11 @@ async def publish_daily_recap():
         for user in users:
             # 1. Finalize daily score and streaks
             score = calculate_daily_score(db, user_id=user.id, date=today)
-            update_streaks(db, user_id=user.id, date=today)
+            milestone_events = update_streaks(db, user_id=user.id, date=today)
+            if milestone_events:
+                await asyncio.to_thread(
+                    dispatch_milestone_notifications, milestone_events
+                )
 
             # 2. Award 5 XP if Perfect Day achieved
             xp_gained = 0
@@ -228,6 +233,67 @@ async def publish_daily_recap():
         db.close()
 
 
+async def check_todo_reminders():
+    """
+    Triggered daily at 09:00 AM. Queries incomplete Todos that have a do_date,
+    compares do_date with today, and sends Telegram reminders for J-7, J-3, and J-1.
+    """
+    if not TELEGRAM_BOT_TOKEN:
+        print("⚠️ Scheduler: TELEGRAM_BOT_TOKEN is missing. Reminders aborted.")
+        return
+
+    print("Scheduler: Running daily 09:00 AM Todo reminder checks...")
+    bot = Bot(token=TELEGRAM_BOT_TOKEN)
+    db = SessionLocal()
+
+    try:
+        import zoneinfo
+        from src.config import TIMEZONE
+
+        tz = zoneinfo.ZoneInfo(TIMEZONE)
+        today = datetime.datetime.now(tz).date()
+
+        # Query all users with active chat_ids
+        users = db.query(User).filter(User.chat_id != None).all()
+        for user in users:
+            # Query incomplete Todos for this user that have a do_date
+            todos = (
+                db.query(Todo)
+                .filter(
+                    Todo.user_id == user.id,
+                    Todo.is_completed == False,
+                    Todo.do_date != None,
+                )
+                .all()
+            )
+
+            for todo in todos:
+                delta = (todo.do_date - today).days
+                if delta in [1, 3, 7]:
+                    label = f"J-{delta}"
+                    target_word = "demain" if delta == 1 else f"dans {delta} jours"
+                    message = (
+                        f"⏰ <b>Rappel {label} — Habit RPG Tracker</b>\n\n"
+                        f"⚔️ La quête \"<b>{html.escape(todo.title)}</b>\" est planifiée pour {target_word} (le {todo.do_date.strftime('%d/%m/%Y')}) !\n"
+                        f"XP promise : ⭐ {todo.xp_reward} XP."
+                    )
+                    try:
+                        await bot.send_message(
+                            chat_id=user.chat_id, text=message, parse_mode="HTML"
+                        )
+                        print(
+                            f"Scheduler: Sent {label} reminder for Todo {todo.id} to user {user.username} (chat_id: {user.chat_id})"
+                        )
+                    except Exception as err:
+                        print(
+                            f"Scheduler: Failed to send reminder to user {user.username} (chat_id: {user.chat_id}): {err}"
+                        )
+    except Exception as e:
+        print(f"Scheduler: Error checking Todo reminders: {e}")
+    finally:
+        db.close()
+
+
 def start_scheduler():
     import zoneinfo
     from src.config import TIMEZONE
@@ -235,8 +301,11 @@ def start_scheduler():
     tz = zoneinfo.ZoneInfo(TIMEZONE)
     scheduler = AsyncIOScheduler(timezone=tz)
     scheduler.add_job(publish_daily_recap, "cron", hour=21, minute=30)
+    scheduler.add_job(check_todo_reminders, "cron", hour=9, minute=0)
     scheduler.start()
-    print(f"Scheduler: Daily RPG recap scheduled at 21:30 in timezone {TIMEZONE}.")
+    print(
+        f"Scheduler: Daily RPG recap scheduled at 21:30 and reminders at 09:00 in timezone {TIMEZONE}."
+    )
 
 
 if __name__ == "__main__":

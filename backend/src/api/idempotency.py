@@ -72,6 +72,14 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         key = request.headers.get(IDEMPOTENCY_HEADER)
         if request.method not in MUTATING_METHODS or not key:
             return await call_next(request)
+        if request.url.path.startswith("/api/v1/auth/"):
+            return await call_next(request)
+        if (
+            not request.headers.get("Authorization")
+            and not request.headers.get("X-User-ID")
+            and not request.cookies.get("habit_session")
+        ):
+            return await call_next(request)
         if len(key) > 100:
             return JSONResponse(
                 status_code=400,

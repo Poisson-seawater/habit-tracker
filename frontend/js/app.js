@@ -14,15 +14,16 @@ document.addEventListener("DOMContentLoaded", () => {
     return hex;
   }
 
-  // Override fetch to always include X-User-ID header if logged in
+  // Keep API calls same-origin so HttpOnly auth cookies are sent automatically.
   const originalFetch = window.fetch;
   window.fetch = async function(url, options = {}) {
-    const userId = localStorage.getItem('user_id');
-    if (userId) {
-      options.headers = options.headers || {};
-      options.headers['X-User-ID'] = userId;
+    options.credentials = options.credentials || "same-origin";
+    const response = await originalFetch(url, options);
+    const urlString = typeof url === "string" ? url : (url?.url || "");
+    if (response.status === 401 && !urlString.includes("/auth/")) {
+      showLoginScreen();
     }
-    return originalFetch(url, options);
+    return response;
   };
 
   // Navigation Tabs
@@ -33,10 +34,10 @@ document.addEventListener("DOMContentLoaded", () => {
     tab.addEventListener("click", () => {
       const targetTab = tab.getAttribute("data-tab");
       if (!targetTab) return;
-      
+
       navTabs.forEach(t => t.classList.remove("active"));
       tabContents.forEach(c => c.classList.remove("active"));
-      
+
       tab.classList.add("active");
       const targetElement = document.getElementById(targetTab);
       if (targetElement) {
@@ -49,6 +50,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } else if (targetTab === "settings-tab") {
         loadSettingsThresholds();
         loadBioZoneSettings();
+        loadAuthAdminSettings();
       } else if (targetTab === "softskills-tab") {
         fetchSoftskills();
       } else if (targetTab === "rewards-tab") {
@@ -66,7 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let showTodayQuests = true;
   let showTodayBounties = true;
   const toastNotification = document.getElementById("toast-notification");
-  
+
   // Typical Day / Agenda Elements and state
   const AGENDA_START_MINUTES = 4 * 60;
   const AGENDA_END_MINUTES = 24 * 60;
@@ -100,14 +102,14 @@ document.addEventListener("DOMContentLoaded", () => {
     social: { label: "Social", emoji: "🤝", color: "#f97316" },
     sleep: { label: "Sommeil", emoji: "😴", color: "#475569" }
   };
-  
+
   // Show a glowing premium toast alert
   function showToast(message, isError = false) {
     toastNotification.textContent = message;
     toastNotification.style.display = "block";
     toastNotification.style.border = isError ? "1px solid var(--accent-red)" : "1px solid var(--accent-cyan)";
     toastNotification.style.boxShadow = isError ? "0 8px 24px rgba(239, 68, 68, 0.4)" : "0 8px 24px var(--accent-cyan-glow)";
-    
+
     setTimeout(() => {
       toastNotification.style.display = "none";
     }, 4500);
@@ -339,8 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const response = await fetch(`${API_BASE}/profile`);
       if (!response.ok) {
-        if (response.status === 404) {
-          localStorage.removeItem('user_id');
+        if (response.status === 401 || response.status === 403 || response.status === 404) {
           showLoginScreen();
           return;
         }
@@ -356,7 +357,7 @@ document.addEventListener("DOMContentLoaded", () => {
       charLevel.textContent = `LV.${data.level}`;
       const xpFill = document.getElementById("char-xp-fill");
       const xpText = document.getElementById("char-xp-text");
-      
+
       // Level formula XP needed (L -> L+1) is 10 * 2^(L-1)
       const xpNeeded = 10 * Math.pow(2, data.level - 1);
       const xpPercent = Math.min((data.xp / xpNeeded) * 100, 100);
@@ -392,7 +393,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const mappedTemplateName = tMap[data.active_template.toLowerCase()] || "regular";
         templateSelect.value = mappedTemplateName;
       }
-      
+
       // Update Daily Status Badge
       badgeStatus.textContent = data.scores.perfect_day_validated ? "🏆 Perfect Day !" : "🟥 Journée Incomplète";
       badgeStatus.className = "badge badge-status";
@@ -489,7 +490,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("habit-detail-overlay").classList.add("open");
     document.getElementById("habit-detail-drawer").classList.add("open");
 
-    document.getElementById("habit-detail-title-val").textContent = habit.name;
+    const emoji = getStreakEmoji(habit.current_streak || 0);
+    const emojiPrefix = emoji ? `${emoji} ` : "";
+    document.getElementById("habit-detail-title-val").textContent = `${emojiPrefix}${habit.name}`;
     document.getElementById("habit-detail-desc-val").textContent = habit.description || "Aucune description.";
 
     const actionBtn = document.getElementById("deactivate-reactivate-habit-btn");
@@ -540,7 +543,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const status = data.days[day];
         if (status) {
           cell.classList.add(status);
-          
+
           const stateLabels = {
             completed: "Fait",
             skipped: "Passé (Skip)",
@@ -592,8 +595,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("deactivate-reactivate-habit-btn").addEventListener("click", async () => {
     if (!activeHabitForCalendar) return;
     const newActiveState = !activeHabitForCalendar.is_active;
-    const confirmMsg = newActiveState 
-      ? "Voulez-vous réactiver cette quête ?" 
+    const confirmMsg = newActiveState
+      ? "Voulez-vous réactiver cette quête ?"
       : "Voulez-vous vraiment désactiver cette quête ? Elle ne s'affichera plus dans vos quêtes actives.";
     if (!confirm(confirmMsg)) return;
 
@@ -604,7 +607,7 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({ is_active: newActiveState })
       });
       if (!response.ok) throw new Error("Erreur de mise à jour");
-      
+
       showToast(newActiveState ? "Quête réactivée ! ✨" : "Quête désactivée !");
       activeHabitForCalendar.is_active = newActiveState;
       closeHabitDetail();
@@ -944,6 +947,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function getStreakEmoji(streak) {
+    if (streak >= 180) return "🥇";
+    if (streak >= 90) return "🥈";
+    if (streak >= 30) return "🥉";
+    return "";
+  }
+
   function renderAgendaQuestCard(item, placed = false) {
     const card = document.createElement("div");
     card.className = `agenda-quest-card ${placed ? "placed" : "unplaced"} ${item.needs_configuration ? "needs-config" : ""}`;
@@ -965,28 +975,65 @@ document.addEventListener("DOMContentLoaded", () => {
       ? `${effortLabels[item.effort_type] || item.effort_type.replace("_", " ")} ${item.effort_duration || 0}h`
       : "Rest of the day";
     const sourceLabel = item.source_label || (item.source_type === "manual" ? "manuel" : item.source_type);
-    const configText = item.needs_configuration ? `<span class="agenda-config-flag">à configurer</span>` : "";
-    const timeText = placed ? `<span class="agenda-time-chip">${item.start_time} · ${item.duration_minutes}min</span>` : `<span class="agenda-time-chip">${item.duration_minutes || item.agenda_duration_minutes || 60}min</span>`;
 
-    card.innerHTML = `
-      <div class="agenda-quest-main">
-        <strong>${item.name}</strong>
-        <span>${sourceLabel}</span>
-      </div>
-      <div class="agenda-quest-meta">
-        ${timeText}
-        <span>${effortLabel}</span>
-        ${configText}
-      </div>
-      <div class="agenda-quest-actions">
-        <button type="button" class="agenda-small-btn agenda-edit-quest">Configurer</button>
-        ${placed ? `<button type="button" class="agenda-small-btn agenda-unplace-quest">Retirer</button>` : ""}
-      </div>
-    `;
+    const emoji = getStreakEmoji(item.current_streak || 0);
+    const emojiPrefix = emoji ? `${emoji} ` : "";
+
+    const main = document.createElement("div");
+    main.className = "agenda-quest-main";
+    const title = document.createElement("strong");
+    title.textContent = `${emojiPrefix}${item.name}`;
+    const source = document.createElement("span");
+    source.textContent = sourceLabel;
+    main.append(title, source);
+
+    const meta = document.createElement("div");
+    meta.className = "agenda-quest-meta";
+    const timeChip = document.createElement("span");
+    timeChip.className = "agenda-time-chip";
+    timeChip.textContent = placed
+      ? `${item.start_time} · ${item.duration_minutes}min`
+      : `${item.duration_minutes || item.agenda_duration_minutes || 60}min`;
+    const effort = document.createElement("span");
+    effort.textContent = effortLabel;
+    meta.append(timeChip, effort);
+    if (item.needs_configuration) {
+      const config = document.createElement("span");
+      config.className = "agenda-config-flag";
+      config.textContent = "à configurer";
+      meta.appendChild(config);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "agenda-quest-actions";
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "agenda-small-btn agenda-edit-quest";
+    editBtn.title = "Modifier la quête";
+    editBtn.textContent = "Modifier";
+    const statsBtn = document.createElement("button");
+    statsBtn.type = "button";
+    statsBtn.className = "agenda-small-btn agenda-stats-quest";
+    statsBtn.title = "Statistiques de la quête";
+    statsBtn.textContent = "Stats";
+    actions.append(editBtn, statsBtn);
+    if (placed) {
+      const unplaceBtn = document.createElement("button");
+      unplaceBtn.type = "button";
+      unplaceBtn.className = "agenda-small-btn agenda-unplace-quest";
+      unplaceBtn.textContent = "Retirer";
+      actions.appendChild(unplaceBtn);
+    }
+    card.append(main, meta, actions);
 
     card.querySelector(".agenda-edit-quest")?.addEventListener("click", (event) => {
       event.stopPropagation();
       openEditQuestModal(questFromAgendaItem(item));
+    });
+    card.querySelector(".agenda-stats-quest")?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const habitObj = allHabitsCache.find(h => String(h.id) === String(item.habit_id)) || questFromAgendaItem(item);
+      openHabitDetailModal(habitObj);
     });
     card.querySelector(".agenda-unplace-quest")?.addEventListener("click", async (event) => {
       event.stopPropagation();
@@ -1119,11 +1166,41 @@ document.addEventListener("DOMContentLoaded", () => {
       block.dataset.habitId = item.habit_id;
       block.style.top = `${range.top}%`;
       block.style.height = `${range.height}%`;
-      block.title = `${item.name} (${item.start_time}, ${duration}min)`;
-      block.textContent = item.name;
+
+      const emoji = getStreakEmoji(item.current_streak || 0);
+      const emojiPrefix = emoji ? `${emoji} ` : "";
+      block.title = `${emojiPrefix}${item.name} (${item.start_time}, ${duration}min)`;
+
+      const blockTitle = document.createElement("span");
+      blockTitle.className = "agenda-quest-block-title";
+      blockTitle.textContent = `${emojiPrefix}${item.name}`;
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "agenda-block-edit-btn";
+      editBtn.title = "Modifier la quête";
+      editBtn.setAttribute("aria-label", "Modifier la quête");
+      editBtn.textContent = "✏️";
+      const statsBtn = document.createElement("button");
+      statsBtn.type = "button";
+      statsBtn.className = "agenda-block-stats-btn";
+      statsBtn.title = "Statistiques de la quête";
+      statsBtn.setAttribute("aria-label", "Statistiques de la quête");
+      statsBtn.textContent = "📊";
+      block.append(blockTitle, editBtn, statsBtn);
       block.addEventListener("dragstart", (event) => {
         event.dataTransfer.setData("text/plain", String(item.habit_id));
         event.dataTransfer.effectAllowed = "move";
+      });
+      editBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openEditQuestModal(questFromAgendaItem(item));
+      });
+      statsBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const habitObj = allHabitsCache.find(h => String(h.id) === String(item.habit_id)) || questFromAgendaItem(item);
+        openHabitDetailModal(habitObj);
       });
       bar.appendChild(block);
 
@@ -1302,7 +1379,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const el = document.createElement("div");
       el.className = `timeline-block block-${b.category}`;
       el.style.width = `${pct}%`;
-      
+
       // Category colors
       if (b.category === "unplanned") {
         el.style.background = "rgba(255, 255, 255, 0.03)";
@@ -1413,7 +1490,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!confirm("Voulez-vous vraiment supprimer ce bloc ?")) return;
 
     const updatedAgenda = currentAgenda.filter(b => b.id !== blockId);
-    
+
     const templateConfig = loadedTemplates[templateName] || {};
     const payload = {
       template_name: templateName,
@@ -1434,7 +1511,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (!response.ok) throw new Error();
-      
+
       showToast("Bloc supprimé avec succès !");
       updateDailyBudgetGauge();
     } catch (e) {
@@ -1464,11 +1541,11 @@ document.addEventListener("DOMContentLoaded", () => {
   function checkTimeOverlap(start, end, agenda) {
     const newStart = timeToMinutes(start);
     const newEnd = timeToMinutes(end);
-    
+
     for (const block of agenda) {
       const bStart = timeToMinutes(block.start);
       const bEnd = timeToMinutes(block.end);
-      
+
       if (newStart < bEnd && newEnd > bStart) {
         return true;
       }
@@ -1482,7 +1559,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const currentAgenda = templateConfig.agenda_json || [];
     const start = blockStartInput.value;
     const end = blockEndInput.value;
-    
+
     if (checkTimeOverlap(start, end, currentAgenda)) {
       blockOverlapWarning.style.display = "block";
     } else {
@@ -1565,7 +1642,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const calendarContainer = document.getElementById("calendar-grid-container");
       if (calendarContainer) {
         calendarContainer.innerHTML = "";
-        
+
         const days = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
         days.forEach(day => {
           const header = document.createElement("div");
@@ -1573,7 +1650,7 @@ document.addEventListener("DOMContentLoaded", () => {
           header.textContent = day;
           calendarContainer.appendChild(header);
         });
-        
+
         if (history.length > 0) {
             const firstDayOffset = history[0].weekday;
             for (let i = 0; i < firstDayOffset; i++) {
@@ -1586,10 +1663,10 @@ document.addEventListener("DOMContentLoaded", () => {
         history.forEach(day => {
           const box = document.createElement("div");
           box.className = `calendar-day-box ${day.status}`;
-          
+
           let statusText = day.status === "future" ? "À venir" : "Failed / Incomplet ❌";
           if (day.status === "perfect") statusText = "Perfect Day ! (+5 XP) 🏆";
-          
+
           box.title = `${day.date} : ${statusText}`;
           box.textContent = day.label;
           calendarContainer.appendChild(box);
@@ -1603,6 +1680,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==============================================
   // BOUNTIES (TODOS / PRIMES)                     //
   // ==============================================
+  let activeEditBounty = null;
+
   async function fetchBounties() {
     try {
       const response = await fetch(`${API_BASE}/todos`);
@@ -1657,20 +1736,40 @@ document.addEventListener("DOMContentLoaded", () => {
           const dateStr = parts.length === 3 ? `${parts[2]}/${parts[1]}` : b.due_date;
           dateInfo.push(`🚨 Limite : ${dateStr}`);
         }
-        const dateHtml = dateInfo.length > 0 
-          ? `<span style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; display: inline-flex; gap: 8px;">${dateInfo.join(" | ")}</span>` 
-          : "";
+        const info = document.createElement("div");
+        info.className = "bounty-info";
+        const title = document.createElement("span");
+        title.className = "bounty-title";
+        title.textContent = b.title;
+        const xp = document.createElement("span");
+        xp.className = "bounty-xp-tag";
+        xp.textContent = `🏆 +${b.xp_reward} XP`;
+        info.append(title, xp);
+        if (dateInfo.length > 0) {
+          const dateEl = document.createElement("span");
+          dateEl.style.cssText = "font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; display: inline-flex; gap: 8px;";
+          dateEl.textContent = dateInfo.join(" | ");
+          info.appendChild(dateEl);
+        }
 
-        item.innerHTML = `
-          <div class="bounty-info">
-            <span class="bounty-title">${b.title}</span>
-            <span class="bounty-xp-tag">🏆 +${b.xp_reward} XP</span>
-            ${dateHtml}
-          </div>
-          <button class="substep-btn-check ${b.is_completed ? "completed" : ""}" data-id="${b.id}" ${b.is_completed ? "disabled" : ""}>
-            ${b.is_completed ? "Réclamée" : "Réclamer"}
-          </button>
-        `;
+        const actions = document.createElement("div");
+        actions.className = "bounty-card-actions";
+        const editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.className = "bounty-edit-btn";
+        editBtn.dataset.id = b.id;
+        editBtn.title = "Modifier la prime";
+        editBtn.setAttribute("aria-label", "Modifier la prime");
+        editBtn.textContent = "✏️";
+        const claimBtn = document.createElement("button");
+        claimBtn.className = `substep-btn-check ${b.is_completed ? "completed" : ""}`;
+        claimBtn.dataset.id = b.id;
+        claimBtn.disabled = Boolean(b.is_completed);
+        claimBtn.textContent = b.is_completed ? "Réclamée" : "Réclamer";
+        actions.append(editBtn, claimBtn);
+        item.append(info, actions);
+
+        item.querySelector(".bounty-edit-btn")?.addEventListener("click", () => openEditBountyModal(b));
 
         if (!b.is_completed) {
           const btn = item.querySelector(".substep-btn-check");
@@ -1703,7 +1802,7 @@ document.addEventListener("DOMContentLoaded", () => {
       notodos.forEach(n => {
         const item = document.createElement("li");
         item.className = "bounty-card";
-        
+
         if (n.failed_today) {
           item.style.borderColor = "rgba(239, 68, 68, 0.6)";
           item.style.background = "rgba(239, 68, 68, 0.15)";
@@ -1712,29 +1811,60 @@ document.addEventListener("DOMContentLoaded", () => {
           item.style.background = "rgba(239, 68, 68, 0.05)";
         }
 
-        item.innerHTML = `
-          <div class="bounty-info">
-            <span class="bounty-title" style="color: #ef4444; font-size: 1.05rem;">❌ ${n.title}</span>
-            <span class="goal-selector-meta" style="color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-top: 4px;">
-              ${n.failed_today ? "Échoué aujourd'hui ⚠️" : "Respecté aujourd'hui 🛡️"}
-            </span>
-          </div>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <button class="substep-btn-check ${n.failed_today ? "completed" : ""}" data-id="${n.id}" ${n.failed_today ? "disabled" : ""} style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 0 16px; color: #ef4444; font-family: var(--font-display); font-weight: 600; font-size: 0.85rem; cursor: ${n.failed_today ? "not-allowed" : "pointer"}; transition: var(--transition-smooth); display: inline-flex; align-items: center; justify-content: center; height: 38px; opacity: ${n.failed_today ? 0.6 : 1};" ${n.failed_today ? "" : "onmouseover=\"this.style.background='rgba(239, 68, 68, 0.2)'; this.style.transform='scale(1.02)';\" onmouseout=\"this.style.background='rgba(239, 68, 68, 0.1)'; this.style.transform='scale(1)';\""}>
-              ${n.failed_today ? "Échoué" : "Déclarer Échec"}
-            </button>
-            <button class="notodo-delete-btn" data-id="${n.id}" style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-glass); border-radius: 8px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); cursor: pointer; transition: var(--transition-smooth);" title="Supprimer la règle" onmouseover="this.style.background='rgba(239, 68, 68, 0.15)'; this.style.color='#ef4444'; this.style.transform='scale(1.02)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'; this.style.color='var(--text-muted)'; this.style.transform='scale(1)';">
-              🗑️
-            </button>
-          </div>
-        `;
+        const info = document.createElement("div");
+        info.className = "bounty-info";
+        const title = document.createElement("span");
+        title.className = "bounty-title";
+        title.style.cssText = "color: #ef4444; font-size: 1.05rem;";
+        title.textContent = `❌ ${n.title}`;
+        const status = document.createElement("span");
+        status.className = "goal-selector-meta";
+        status.style.cssText = "color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-top: 4px;";
+        status.textContent = n.failed_today ? "Échoué aujourd'hui ⚠️" : "Respecté aujourd'hui 🛡️";
+        info.append(title, status);
+
+        const actions = document.createElement("div");
+        actions.style.cssText = "display: flex; gap: 8px; align-items: center;";
+        const failBtn = document.createElement("button");
+        failBtn.className = `substep-btn-check ${n.failed_today ? "completed" : ""}`;
+        failBtn.dataset.id = n.id;
+        failBtn.disabled = Boolean(n.failed_today);
+        failBtn.style.cssText = `background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 0 16px; color: #ef4444; font-family: var(--font-display); font-weight: 600; font-size: 0.85rem; cursor: ${n.failed_today ? "not-allowed" : "pointer"}; transition: var(--transition-smooth); display: inline-flex; align-items: center; justify-content: center; height: 38px; opacity: ${n.failed_today ? 0.6 : 1};`;
+        failBtn.textContent = n.failed_today ? "Échoué" : "Déclarer Échec";
+        if (!n.failed_today) {
+          failBtn.addEventListener("mouseover", () => {
+            failBtn.style.background = "rgba(239, 68, 68, 0.2)";
+            failBtn.style.transform = "scale(1.02)";
+          });
+          failBtn.addEventListener("mouseout", () => {
+            failBtn.style.background = "rgba(239, 68, 68, 0.1)";
+            failBtn.style.transform = "scale(1)";
+          });
+        }
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "notodo-delete-btn";
+        deleteBtn.dataset.id = n.id;
+        deleteBtn.style.cssText = "background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-glass); border-radius: 8px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); cursor: pointer; transition: var(--transition-smooth);";
+        deleteBtn.title = "Supprimer la règle";
+        deleteBtn.textContent = "🗑️";
+        deleteBtn.addEventListener("mouseover", () => {
+          deleteBtn.style.background = "rgba(239, 68, 68, 0.15)";
+          deleteBtn.style.color = "#ef4444";
+          deleteBtn.style.transform = "scale(1.02)";
+        });
+        deleteBtn.addEventListener("mouseout", () => {
+          deleteBtn.style.background = "rgba(255, 255, 255, 0.05)";
+          deleteBtn.style.color = "var(--text-muted)";
+          deleteBtn.style.transform = "scale(1)";
+        });
+        actions.append(failBtn, deleteBtn);
+        item.append(info, actions);
 
         if (!n.failed_today) {
           const btn = item.querySelector(".substep-btn-check");
           btn.addEventListener("click", () => failNoTodo(n.id));
         }
 
-        const deleteBtn = item.querySelector(".notodo-delete-btn");
         deleteBtn.addEventListener("click", () => deleteNoTodo(n.id));
 
         container.appendChild(item);
@@ -1750,7 +1880,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const response = await fetch(`${API_BASE}/notodos/${id}/fail`, { method: "POST" });
       if (!response.ok) throw new Error("Erreur fail notodo");
-      
+
       showToast(`Échec de la règle enregistré. Attention à demain ! ⚠️`, true);
       refreshAll();
     } catch (error) {
@@ -1791,6 +1921,89 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function openEditBountyModal(bounty) {
+    activeEditBounty = bounty;
+    document.getElementById("edit-bounty-id").value = bounty.id;
+    document.getElementById("edit-bounty-title").value = bounty.title || "";
+    document.getElementById("edit-bounty-xp").value = bounty.xp_reward || 10;
+    document.getElementById("edit-bounty-do-date").value = bounty.do_date || "";
+    document.getElementById("edit-bounty-due-date").value = bounty.due_date || "";
+    document.getElementById("edit-bounty-overlay")?.classList.add("open");
+    document.getElementById("edit-bounty-drawer")?.classList.add("open");
+  }
+
+  function closeEditBountyModal() {
+    activeEditBounty = null;
+    document.getElementById("edit-bounty-overlay")?.classList.remove("open");
+    document.getElementById("edit-bounty-drawer")?.classList.remove("open");
+  }
+
+  async function saveEditBounty() {
+    const id = document.getElementById("edit-bounty-id").value;
+    const title = document.getElementById("edit-bounty-title").value.trim();
+    const xp = parseInt(document.getElementById("edit-bounty-xp").value, 10);
+    const doDate = document.getElementById("edit-bounty-do-date").value || null;
+    const dueDate = document.getElementById("edit-bounty-due-date").value || null;
+
+    if (!id || !activeEditBounty) return;
+    if (!title) {
+      showToast("Veuillez donner un titre à la prime !", true);
+      return;
+    }
+    if (Number.isNaN(xp) || xp < 0 || xp > 40) {
+      showToast("La récompense XP doit être entre 0 et 40.", true);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/todos/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          xp_reward: xp,
+          do_date: doDate,
+          due_date: dueDate
+        })
+      });
+      if (!response.ok) throw new Error((await response.json()).detail || "Erreur de sauvegarde");
+
+      showToast("Prime mise à jour.");
+      closeEditBountyModal();
+      fetchBounties();
+    } catch (error) {
+      console.error(error);
+      showToast(error.message || "Erreur lors de la modification de la prime", true);
+    }
+  }
+
+  async function deleteBounty(id) {
+    if (!confirm("Voulez-vous vraiment supprimer définitivement cette prime ?")) return;
+    try {
+      const response = await fetch(`${API_BASE}/todos/${id}`, {
+        method: "DELETE"
+      });
+      if (!response.ok) throw new Error("Erreur suppression bounty");
+
+      showToast("Prime supprimée avec succès !");
+      closeEditBountyModal();
+      refreshAll();
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur lors de la suppression de la prime", true);
+    }
+  }
+
+  document.getElementById("close-edit-bounty-btn")?.addEventListener("click", closeEditBountyModal);
+  document.getElementById("cancel-edit-bounty-btn")?.addEventListener("click", closeEditBountyModal);
+  document.getElementById("edit-bounty-overlay")?.addEventListener("click", closeEditBountyModal);
+  document.getElementById("save-edit-bounty-btn")?.addEventListener("click", saveEditBounty);
+  document.getElementById("delete-edit-bounty-btn")?.addEventListener("click", () => {
+    if (activeEditBounty) {
+      deleteBounty(activeEditBounty.id);
+    }
+  });
+
   function setupBountiesEvents() {
     const openBountyBtn = document.getElementById("open-bounty-inline-btn");
     const bountyForm = document.getElementById("bounty-inline-form");
@@ -1812,7 +2025,7 @@ document.addEventListener("DOMContentLoaded", () => {
       submitBountyBtn.addEventListener("click", async () => {
         const titleInput = document.getElementById("new-bounty-title");
         const xpInput = document.getElementById("new-bounty-xp");
-        
+
         const title = titleInput.value.trim();
         const xp = parseInt(xpInput.value) || 10;
 
@@ -1880,7 +2093,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (mode === "edit-substep" && substepData) {
       drawerTitle.textContent = "✏️ Éditer Sous-étape";
-      
+
       document.getElementById("edit-substep-section").style.display = "block";
       document.getElementById("edit-goal-section").style.display = "none";
       document.getElementById("create-substep-section").style.display = "none";
@@ -1926,7 +2139,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     } else if (mode === "edit" && goalData) {
       drawerTitle.textContent = "✏️ Modifier l'Objectif";
-      
+
       document.getElementById("edit-goal-section").style.display = "block";
       document.getElementById("edit-substep-section").style.display = "none";
       document.getElementById("create-substep-section").style.display = "none";
@@ -1940,7 +2153,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("goal-due-date-input").value = goalData.due_date || "";
     } else if (mode === "add-goal") {
       drawerTitle.textContent = "🏆 Nouvel Objectif";
-      
+
       document.getElementById("edit-goal-section").style.display = "block";
       document.getElementById("edit-substep-section").style.display = "none";
       document.getElementById("create-substep-section").style.display = "none";
@@ -1954,21 +2167,21 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("goal-due-date-input").value = "";
     } else if (mode === "add-substep") {
       drawerTitle.textContent = "⛓️ Nouvelle Sous-étape";
-      
+
       document.getElementById("edit-goal-section").style.display = "none";
       document.getElementById("create-substep-section").style.display = "block";
       document.getElementById("links-blockers-section").style.display = "none";
       document.getElementById("edit-substep-section").style.display = "none";
     } else if (mode === "links") {
       drawerTitle.textContent = "🔗 Liaisons & Blocs Avancés";
-      
+
       document.getElementById("edit-goal-section").style.display = "none";
       document.getElementById("create-substep-section").style.display = "none";
       document.getElementById("links-blockers-section").style.display = "block";
       document.getElementById("edit-substep-section").style.display = "none";
     } else {
       drawerTitle.textContent = "✨ Forge d'Objectif";
-      
+
       document.getElementById("edit-goal-section").style.display = "block";
       document.getElementById("create-substep-section").style.display = "block";
       document.getElementById("links-blockers-section").style.display = "block";
@@ -2063,7 +2276,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Render sidebar goal item
         const item = document.createElement("div");
         item.className = `goal-selector-item ${goal.id === activeGoalId ? 'active' : ''}`;
-        
+
         // Calculate progress percentage
         const totalSteps = goal.substeps.length;
         const completedSteps = goal.substeps.filter(s => s.completed).length;
@@ -2140,9 +2353,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 const errData = await resp.json();
                 throw new Error(errData.detail || "Erreur de sauvegarde");
               }
-              
+
               showToast(isPinned ? "Objectif retiré du Top 3 🎯" : "Objectif ajouté au Top 3 ! ⭐");
-              
+
               await fetchProfile();
               await fetchGoals();
             } catch (err) {
@@ -2250,7 +2463,7 @@ document.addEventListener("DOMContentLoaded", () => {
       let nodesHTML = "";
       colSubsteps.forEach(s => {
         const isCompleted = s.completed;
-        
+
         let stateClass = "unlocked-node";
         if (isCompleted) stateClass = "completed-node";
 
@@ -2819,7 +3032,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("ceiling-cerveau").value = ceilings.cerveau !== undefined ? ceilings.cerveau : 2.0;
       document.getElementById("ceiling-emotionnel").value = ceilings.emotionnel_social !== undefined ? ceilings.emotionnel_social : 2.0;
       document.getElementById("ceiling-creatif").value = ceilings.creatif_divergent !== undefined ? ceilings.creatif_divergent : 2.0;
-      
+
       updateBudgetCalculationsAndValidation();
     } catch (e) {
       console.error(e);
@@ -2830,7 +3043,7 @@ document.addEventListener("DOMContentLoaded", () => {
   editThresholdsForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const activeTemplate = templateEditSelect.value;
-    
+
     const focus_hours = parseFloat(document.getElementById("template-focus-hours").value) || 0;
     const min_rest_hours = loadedMinRestHours;
     const ceilings = {
@@ -3088,7 +3301,7 @@ document.addEventListener("DOMContentLoaded", () => {
       scheduled_days = String(monthlyAnchorDay(activeEditQuest ? activeEditQuest.scheduled_days : null));
     }
     const editTargetRaw = parseInt(document.getElementById("edit-quest-target").value);
-    
+
     const effort_type = document.getElementById("edit-quest-effort-type").value || null;
     const agenda_duration_minutes = parseInt(document.getElementById("edit-quest-duration").value, 10) || 60;
     const effort_duration = agenda_duration_minutes / 60;
@@ -3160,46 +3373,287 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchBounties();
     fetchNoTodos();
     updateDailyBudgetGauge();
-    
+
     const rewardsTab = document.getElementById("rewards-tab");
     if (rewardsTab && rewardsTab.classList.contains("active")) {
       fetchRewards();
     }
   }
 
-  // Multi-user Login & Initialization
-  const currentUserId = localStorage.getItem('user_id');
-  if (!currentUserId) {
-    showLoginScreen();
-  } else {
-    initializeApp();
+  // Authentication & Initialization
+  let appInitialized = false;
+  let appEventsBound = false;
+  let refreshIntervalId = null;
+  checkAuthAndStart();
+
+  async function checkAuthAndStart() {
+    const status = await fetchAuthStatus();
+    if (status?.authenticated) {
+      hideLoginScreen();
+      if (!appInitialized) {
+        initializeApp();
+      } else {
+        refreshAll();
+      }
+      return;
+    }
+    renderAuthScreen(status);
   }
 
   async function showLoginScreen() {
-    const overlay = document.getElementById("login-overlay");
-    const usersContainer = document.getElementById("login-users-container");
-    if (overlay) overlay.style.display = "flex";
-    
+    await checkAuthAndStart();
+  }
+
+  async function fetchAuthStatus() {
     try {
-      const resp = await fetch(`${API_BASE}/users`);
-      const users = await resp.json();
-      if (usersContainer) {
-        usersContainer.innerHTML = "";
-        users.forEach(u => {
-          const btn = document.createElement("button");
-          btn.className = "login-user-btn";
-          btn.innerHTML = `<span class="login-user-name">${u.username}</span>`;
-          btn.onclick = () => {
-            localStorage.setItem('user_id', u.id);
-            if (overlay) overlay.style.display = "none";
-            initializeApp();
-          };
-          usersContainer.appendChild(btn);
-        });
-      }
-    } catch (e) {
-      if (usersContainer) usersContainer.innerHTML = "<p style='color: var(--accent-red);'>Erreur de chargement des profils.</p>";
+      const response = await fetch(`${API_BASE}/auth/status`);
+      if (!response.ok) throw new Error("Erreur auth");
+      return await response.json();
+    } catch (error) {
+      return {
+        authenticated: false,
+        bootstrap_required: false,
+        device_status: "error",
+        error: error.message,
+      };
     }
+  }
+
+  function hideLoginScreen() {
+    const overlay = document.getElementById("login-overlay");
+    if (overlay) overlay.style.display = "none";
+  }
+
+  function authShell(title, message, bodyHtml) {
+    const overlay = document.getElementById("login-overlay");
+    const titleEl = document.getElementById("login-title");
+    const messageEl = document.getElementById("login-message");
+    const usersContainer = document.getElementById("login-users-container");
+    const errorEl = document.getElementById("login-error");
+    if (overlay) overlay.style.display = "flex";
+    if (titleEl) titleEl.textContent = title;
+    if (messageEl) messageEl.textContent = message;
+    if (errorEl) {
+      errorEl.style.display = "none";
+      errorEl.textContent = "";
+    }
+    if (usersContainer) usersContainer.innerHTML = bodyHtml;
+  }
+
+  function showAuthError(message) {
+    const errorEl = document.getElementById("login-error");
+    if (errorEl) {
+      errorEl.textContent = message;
+      errorEl.style.display = "block";
+    }
+  }
+
+  function renderAuthScreen(status) {
+    if (!status || status.device_status === "error") {
+      authShell(
+        "Connexion indisponible",
+        "Impossible de joindre le serveur d'authentification.",
+        `<button id="auth-retry-btn" class="quest-action-btn">Réessayer</button>`
+      );
+      document.getElementById("auth-retry-btn")?.addEventListener("click", checkAuthAndStart);
+      return;
+    }
+    if (status.bootstrap_required) {
+      renderBootstrapScreen(status);
+      return;
+    }
+    if (status.device_status === "approved") {
+      renderPasswordLogin(status);
+      return;
+    }
+    renderDeviceRequest(status);
+  }
+
+  function renderBootstrapScreen(status) {
+    const disabled = status.bootstrap_configured ? "" : "disabled";
+    authShell(
+      "Initialisation sécurisée",
+      status.bootstrap_configured
+        ? "Crée le mot de passe admin et approuve cet appareil."
+        : "AUTH_BOOTSTRAP_CODE doit être défini dans l'environnement serveur.",
+      `
+        <form id="auth-bootstrap-form" class="auth-form">
+          <input type="text" id="auth-bootstrap-code" placeholder="Code bootstrap" autocomplete="one-time-code" ${disabled} required>
+          <input type="password" id="auth-bootstrap-password" placeholder="Mot de passe admin" autocomplete="new-password" ${disabled} required minlength="8">
+          <input type="text" id="auth-device-name" placeholder="Nom de cet appareil" ${disabled}>
+          <button type="submit" class="quest-action-btn" ${disabled}>Activer la sécurité</button>
+        </form>
+      `
+    );
+    document.getElementById("auth-bootstrap-form")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        const response = await fetch(`${API_BASE}/auth/bootstrap`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bootstrap_code: document.getElementById("auth-bootstrap-code").value,
+            password: document.getElementById("auth-bootstrap-password").value,
+            device_name: document.getElementById("auth-device-name").value || navigator.userAgent.slice(0, 80),
+          }),
+        });
+        if (!response.ok) throw new Error((await response.json()).detail || "Erreur bootstrap");
+        await checkAuthAndStart();
+      } catch (error) {
+        showAuthError(error.message);
+      }
+    });
+  }
+
+  function renderDeviceRequest(status) {
+    const isPending = status.device_status === "pending";
+    const isRevoked = status.device_status === "revoked";
+    authShell(
+      isPending ? "Appareil en attente" : isRevoked ? "Appareil révoqué" : "Nouvel appareil",
+      isPending
+        ? "Valide cet appareil depuis un ordinateur ou téléphone déjà approuvé."
+        : isRevoked
+          ? "Cet appareil a été révoqué. Efface les cookies ou utilise un autre navigateur pour refaire une demande."
+          : "Demande l'accès depuis cet appareil, puis approuve-le depuis un appareil déjà autorisé.",
+      `
+        <form id="auth-device-form" class="auth-form" style="${isPending || isRevoked ? "display:none;" : ""}">
+          <input type="text" id="auth-device-request-name" placeholder="Nom de cet appareil">
+          <button type="submit" class="quest-action-btn">Demander l'accès</button>
+        </form>
+        <button id="auth-refresh-btn" class="floating-add-btn">Rafraîchir</button>
+      `
+    );
+    document.getElementById("auth-device-form")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        const response = await fetch(`${API_BASE}/auth/devices/request`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            device_name: document.getElementById("auth-device-request-name").value || navigator.userAgent.slice(0, 80),
+          }),
+        });
+        if (!response.ok) throw new Error((await response.json()).detail || "Erreur appareil");
+        await checkAuthAndStart();
+      } catch (error) {
+        showAuthError(error.message);
+      }
+    });
+    document.getElementById("auth-refresh-btn")?.addEventListener("click", checkAuthAndStart);
+  }
+
+  async function renderPasswordLogin(status) {
+    let users = status.users || [];
+    if (!users.length) {
+      try {
+        const response = await fetch(`${API_BASE}/auth/users`);
+        if (response.ok) users = await response.json();
+      } catch (error) {
+        users = [];
+      }
+    }
+    const options = users
+      .map(user => `<option value="${escapeHtml(user.username)}">${escapeHtml(user.username)}</option>`)
+      .join("");
+    authShell(
+      "Connexion",
+      "Entre le mot de passe du compte à ouvrir sur cet appareil approuvé.",
+      `
+        <form id="auth-login-form" class="auth-form">
+          <select id="auth-login-username" required>${options}</select>
+          <input type="password" id="auth-login-password" placeholder="Mot de passe" autocomplete="current-password" required>
+          <button type="submit" class="quest-action-btn">Se connecter</button>
+        </form>
+      `
+    );
+    document.getElementById("auth-login-form")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        const response = await fetch(`${API_BASE}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: document.getElementById("auth-login-username").value,
+            password: document.getElementById("auth-login-password").value,
+          }),
+        });
+        if (!response.ok) throw new Error((await response.json()).detail || "Connexion refusée");
+        await checkAuthAndStart();
+      } catch (error) {
+        showAuthError(error.message);
+      }
+    });
+  }
+
+  async function loadAuthAdminSettings() {
+    const adminPanel = document.getElementById("auth-admin-panel");
+    const deviceList = document.getElementById("auth-device-list");
+    const userSelect = document.getElementById("auth-admin-user");
+    if (!adminPanel || !deviceList) return;
+
+    const status = await fetchAuthStatus();
+    const isAdmin = Boolean(status?.user?.is_admin);
+    adminPanel.style.display = isAdmin ? "block" : "none";
+    if (!isAdmin) return;
+
+    try {
+      const [devicesResp, usersResp] = await Promise.all([
+        fetch(`${API_BASE}/auth/devices`),
+        fetch(`${API_BASE}/auth/users`),
+      ]);
+      if (!devicesResp.ok) throw new Error((await devicesResp.json()).detail || "Erreur appareils");
+      const devices = await devicesResp.json();
+      const users = usersResp.ok ? await usersResp.json() : [];
+      if (userSelect) {
+        userSelect.innerHTML = users
+          .map(user => `<option value="${user.id}">${escapeHtml(user.username)}</option>`)
+          .join("");
+      }
+      renderAuthDeviceList(devices);
+    } catch (error) {
+      deviceList.innerHTML = `<p class="bio-zone-error" style="display:block;">${error.message}</p>`;
+    }
+  }
+
+  function renderAuthDeviceList(devices) {
+    const deviceList = document.getElementById("auth-device-list");
+    if (!deviceList) return;
+    if (!devices.length) {
+      deviceList.innerHTML = `<p class="bio-zone-empty">Aucun appareil enregistré.</p>`;
+      return;
+    }
+    deviceList.innerHTML = devices.map(device => {
+      const name = escapeHtml(device.display_name || "Appareil sans nom");
+      const userAgent = escapeHtml(device.user_agent || "");
+      const seen = device.last_seen_at ? new Date(device.last_seen_at).toLocaleString("fr-CA") : "jamais";
+      const canApprove = device.status !== "approved";
+      const canRevoke = device.status !== "revoked";
+      return `
+        <div class="auth-device-item" data-device-id="${device.id}">
+          <div>
+            <div class="auth-device-name">
+              ${name}
+              <span class="auth-status-badge ${device.status}">${device.status}</span>
+            </div>
+            <div class="auth-device-meta">Dernière activité : ${seen}</div>
+            <div class="auth-device-meta">${userAgent}</div>
+          </div>
+          <div class="auth-device-actions">
+            ${canApprove ? `<button type="button" class="floating-add-btn auth-device-approve">Approuver</button>` : ""}
+            ${canRevoke ? `<button type="button" class="floating-add-btn auth-device-revoke">Révoquer</button>` : ""}
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
   function setupToggleEvents() {
@@ -3232,18 +3686,29 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function initializeApp() {
-    mountPerfectDayRenderingLayout();
+    if (appInitialized) {
+      refreshAll();
+      return;
+    }
+    appInitialized = true;
     biologicalZonesCache = null;
-    setupAgendaEvents();
+    if (!appEventsBound) {
+      mountPerfectDayRenderingLayout();
+      setupAgendaEvents();
+      setupToggleEvents();
+      setupBountiesEvents();
+      setupQuestsEvents();
+      setupNoTodosEvents();
+      setupRewardsEvents();
+      appEventsBound = true;
+    }
     loadBioTimeline();
     refreshAll();
-    setupToggleEvents();
-    setupBountiesEvents();
-    setupQuestsEvents();
-    setupNoTodosEvents();
-    setupRewardsEvents();
     // Auto-sync dashboard every 12 seconds
-    setInterval(refreshAll, 12000);
+    if (refreshIntervalId) {
+      clearInterval(refreshIntervalId);
+    }
+    refreshIntervalId = setInterval(refreshAll, 12000);
   }
 
   // ==============================================
@@ -3328,7 +3793,7 @@ document.addEventListener("DOMContentLoaded", () => {
             throw new Error(errBody.detail || "Erreur de création");
           }
           showToast("Nouvelle quête forgée ! 🎯");
-          
+
           document.getElementById("new-quest-name").value = "";
           document.getElementById("new-quest-desc").value = "";
           document.getElementById("new-quest-effort-type").value = "";
@@ -3338,7 +3803,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (freqSelect) freqSelect.value = "daily";
           if (daysGroup) { daysGroup.style.display = "none"; daysGroup.querySelectorAll("input").forEach(cb => cb.checked = false); }
           updateFrequencyNote(freqSelect, newQuestFrequencyNote);
-          
+
           questForm.style.display = "none";
           openQuestBtn.textContent = "+ Quête";
           refreshAll();
@@ -3387,9 +3852,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
           if (!response.ok) throw new Error("Erreur de création");
           showToast("Nouvelle règle ajoutée ! 🚫");
-          
+
           document.getElementById("new-notodo-title").value = "";
-          
+
           noTodoForm.style.display = "none";
           openNoTodoBtn.textContent = "+ Règle";
           refreshAll();
@@ -3811,7 +4276,7 @@ document.addEventListener("DOMContentLoaded", () => {
               const lineCompleted = (s.progress && s.progress.completed) && (parent.progress && parent.progress.completed);
               const strokeColor = lineCompleted ? parentBranchColor : (s.progress && s.progress.completed ? parentBranchColor : "rgba(255, 255, 255, 0.15)");
               const strokeWidth = lineCompleted ? 3 : 2;
-              
+
               svgLines += `<line x1="${pX}" y1="${pY}" x2="${sX}" y2="${sY}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
             }
           });
@@ -3972,7 +4437,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
           const response = await fetch(`${API_BASE}/softskills/${skillId}/complete`, {
             method: "POST",
-            headers: { 
+            headers: {
               "Content-Type": "application/json",
               "X-User-ID": localStorage.getItem("user_id") || "1"
             },
@@ -4073,7 +4538,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (overlay) overlay.classList.remove("open");
     if (drawer) drawer.classList.remove("open");
     activeSoftskillId = null;
-    
+
     // Clear sidebar highlighting if not highlighting branch
     document.querySelectorAll(".softskill-sidebar-skill-item").forEach(i => i.classList.remove("active"));
   }
@@ -4209,7 +4674,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const resp = await fetch(`${API_BASE}/softskills/skills/${skillId}`, {
           method: "PUT",
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
             "X-User-ID": localStorage.getItem("user_id") || "1"
           },
@@ -4236,7 +4701,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!skillId) return;
       if (!confirm("Voulez-vous vraiment détruire ce softskill et toute sa progression ?")) return;
       try {
-        const resp = await fetch(`${API_BASE}/softskills/skills/${skillId}`, { 
+        const resp = await fetch(`${API_BASE}/softskills/skills/${skillId}`, {
           method: "DELETE",
           headers: { "X-User-ID": localStorage.getItem("user_id") || "1" }
         });
@@ -4260,7 +4725,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const branch = document.getElementById("create-softskill-branch").value;
       const order = parseInt(document.getElementById("create-softskill-execution-order").value) || 1;
       const validationCriterion = document.getElementById("create-softskill-validation-criterion").value.trim();
-      
+
       // Auto-generate unique slug ID
       const skillId = name
         .toLowerCase()
@@ -4274,7 +4739,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast("Le nom de la compétence est invalide pour générer un identifiant.", true);
         return;
       }
-      
+
       const prereqs = Array.from(document.querySelectorAll("#create-softskill-prereqs-container .skill-select"))
         .map(select => select.value)
         .filter(val => val !== "");
@@ -4309,11 +4774,11 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast(`Impossible de forger : la compétence "${invalidNames}" est dans la même branche (${branch}) que la compétence en cours de création.`, true);
         return;
       }
-      
+
       try {
         const resp = await fetch(`${API_BASE}/softskills/skills`, {
           method: "POST",
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
             "X-User-ID": localStorage.getItem("user_id") || "1"
           },
@@ -4343,13 +4808,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const paleColor = getPaleColor(color);
       const doDate = document.getElementById("edit-branch-do-date").value || null;
       const dueDate = document.getElementById("edit-branch-due-date").value || null;
-      
+
       try {
         let resp;
         if (oldKey) {
           resp = await fetch(`${API_BASE}/softskills/branches/${oldKey}`, {
             method: "PUT",
-            headers: { 
+            headers: {
               "Content-Type": "application/json",
               "X-User-ID": localStorage.getItem("user_id") || "1"
             },
@@ -4358,7 +4823,7 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
           resp = await fetch(`${API_BASE}/softskills/branches`, {
             method: "POST",
-            headers: { 
+            headers: {
               "Content-Type": "application/json",
               "X-User-ID": localStorage.getItem("user_id") || "1"
             },
@@ -4386,7 +4851,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!branchKey) return;
       if (!confirm(`ATTENTION: Supprimer la branche '${branchKey}' supprimera TOUS ses softskills associés et leur progression ! Continuer ?`)) return;
       try {
-        const resp = await fetch(`${API_BASE}/softskills/branches/${branchKey}`, { 
+        const resp = await fetch(`${API_BASE}/softskills/branches/${branchKey}`, {
           method: "DELETE",
           headers: { "X-User-ID": localStorage.getItem("user_id") || "1" }
         });
@@ -4409,7 +4874,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const response = await fetch(`${API_BASE}/softskills/${activeSoftskillId}/test`, {
           method: "POST",
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
             "X-User-ID": localStorage.getItem("user_id") || "1"
           },
@@ -4433,11 +4898,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const skill = (softskillsData.skills || []).find(s => s.id === activeSoftskillId);
       if (!skill) return;
       const isCurrentlyCompleted = skill.progress && skill.progress.completed;
-      
+
       try {
         const response = await fetch(`${API_BASE}/softskills/${activeSoftskillId}/complete`, {
           method: "POST",
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
             "X-User-ID": localStorage.getItem("user_id") || "1"
           },
@@ -4530,7 +4995,7 @@ document.addEventListener("DOMContentLoaded", () => {
         costInput.disabled = true;
         oneTimeCheckbox.checked = false;
         oneTimeCheckbox.disabled = true;
-        
+
         if (costGrid) costGrid.style.display = "none";
         if (softskillGroup) {
           softskillGroup.style.display = "none";
@@ -4545,7 +5010,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         costInput.disabled = false;
         oneTimeCheckbox.disabled = false;
-        
+
         if (costGrid) costGrid.style.display = "grid";
         if (softskillGroup) softskillGroup.style.display = "block";
         if (goalGroup) goalGroup.style.display = "block";
@@ -4555,7 +5020,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (reward) {
       drawerTitle.textContent = "✏️ Modifier la Récompense";
       deleteBtn.style.display = "block";
-      
+
       document.getElementById("reward-form-id").value = reward.id;
       document.getElementById("reward-form-title").value = reward.title;
       document.getElementById("reward-form-desc").value = reward.description || "";
@@ -4567,7 +5032,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       drawerTitle.textContent = "🏪 Créer une Récompense";
       deleteBtn.style.display = "none";
-      
+
       document.getElementById("reward-form-id").value = "";
       document.getElementById("reward-form-title").value = "";
       document.getElementById("reward-form-desc").value = "";
@@ -4640,11 +5105,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       filteredRewards.forEach(r => {
         const isAllostasis = r.category === "allostasis_daily" || r.category === "allostasis_weekly";
-        
+
         let buyBtnText = "";
         let buyDisabled = false;
         let cardClass = "";
-        
+
         if (isAllostasis) {
           const isCompleted = !r.is_available;
           buyBtnText = isCompleted ? "✓ Validé" : "Valider";
@@ -4674,17 +5139,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
         let purchasedCountHTML = "";
         if (isAllostasis) {
-          purchasedCountHTML = r.purchased_count > 0 
-            ? `<span class="reward-card-purchased-badge">Validations : ${r.purchased_count} fois</span>` 
+          purchasedCountHTML = r.purchased_count > 0
+            ? `<span class="reward-card-purchased-badge">Validations : ${r.purchased_count} fois</span>`
             : "";
         } else {
-          purchasedCountHTML = r.purchased_count > 0 
-            ? `<span class="reward-card-purchased-badge">Acheté : ${r.purchased_count} fois</span>` 
+          purchasedCountHTML = r.purchased_count > 0
+            ? `<span class="reward-card-purchased-badge">Acheté : ${r.purchased_count} fois</span>`
             : "";
         }
 
-        const costHTML = isAllostasis 
-          ? `<span class="reward-card-cost free" style="color: var(--accent-cyan); font-weight: 700;">Gratuit</span>` 
+        const costHTML = isAllostasis
+          ? `<span class="reward-card-cost free" style="color: var(--accent-cyan); font-weight: 700;">Gratuit</span>`
           : `<span class="reward-card-cost">💰 ${r.gold_cost} Or</span>`;
 
         const card = document.createElement("div");
@@ -4802,7 +5267,7 @@ document.addEventListener("DOMContentLoaded", () => {
           costInput.disabled = true;
           oneTimeCheckbox.checked = false;
           oneTimeCheckbox.disabled = true;
-          
+
           if (costGrid) costGrid.style.display = "none";
           if (softskillGroup) {
             softskillGroup.style.display = "none";
@@ -4817,7 +5282,7 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
           costInput.disabled = false;
           oneTimeCheckbox.disabled = false;
-          
+
           if (costGrid) costGrid.style.display = "grid";
           if (softskillGroup) softskillGroup.style.display = "block";
           if (goalGroup) goalGroup.style.display = "block";
@@ -4835,7 +5300,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const onetime = document.getElementById("reward-form-onetime").checked;
         const softskill = document.getElementById("reward-form-softskill").value || null;
         const category = document.getElementById("reward-form-category").value || "regular";
-        
+
         const goalVal = document.getElementById("reward-form-goal").value;
         const goal = goalVal ? parseInt(goalVal) : null;
 
@@ -4852,7 +5317,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
           const method = id ? "PUT" : "POST";
           const url = id ? `${API_BASE}/rewards/${id}` : `${API_BASE}/rewards`;
-          
+
           const response = await fetch(url, {
             method: method,
             headers: { "Content-Type": "application/json" },
@@ -4950,7 +5415,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const pinnedGoalsList = goals.filter(goal => pinnedGoals.includes(goal.id));
       let substepsHtml = "";
       let hasSubsteps = false;
-      
+
       if (pinnedGoals.length === 0) {
         substepsHtml = `<p style="font-size: 0.82rem; color: var(--accent-yellow); margin: 0; padding: 0.5rem; line-height: 1.4; background: rgba(245, 158, 11, 0.1); border: 1px dashed rgba(245, 158, 11, 0.3); border-radius: 6px;">⚠️ Aucun objectif prioritaire (Top 3) sélectionné.<br>Sélectionnez d'abord vos objectifs prioritaires via l'étoile ★ dans l'onglet <strong>Objectifs</strong>.</p>`;
       } else {
@@ -5012,7 +5477,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Disable extra checkboxes if 3 are checked
   function setupCheckboxLimit(checkboxName) {
     const checkboxes = document.querySelectorAll(`input[name="${checkboxName}"]`);
-    
+
     const updateStates = () => {
       const checkedCount = document.querySelectorAll(`input[name="${checkboxName}"]:checked`).length;
       checkboxes.forEach(cb => {
@@ -5135,7 +5600,7 @@ document.addEventListener("DOMContentLoaded", () => {
           goalsRendered++;
           const li = document.createElement("li");
           li.className = `recap-item ${foundSub.completed ? 'completed' : ''}`;
-          
+
           const icon = foundSub.completed ? "✓" : "☖";
           li.innerHTML = `
             <span class="recap-item-text" title="${foundGoal.title}: ${foundSub.title}">${foundSub.title}</span>
@@ -5181,7 +5646,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const isCompleted = skill.progress && skill.progress.completed;
           const li = document.createElement("li");
           li.className = `recap-item ${isCompleted ? 'completed' : ''}`;
-          
+
           const icon = isCompleted ? "✓" : "☖";
           li.innerHTML = `
             <span class="recap-item-text" title="${skill.branch}: ${skill.name}">${skill.name}</span>
@@ -5222,12 +5687,12 @@ document.addEventListener("DOMContentLoaded", () => {
       allostasisTitle.textContent = allostasisViewMode === "daily" ? "🩹 Allostasie (Jour)" : "🩹 Allostasie (Sem.)";
 
       const listItems = rewards.filter(r => r.category === targetCat);
-      
+
       listItems.forEach(item => {
         const li = document.createElement("li");
         const isCompleted = !item.is_available;
         li.className = `recap-item ${isCompleted ? 'completed' : ''}`;
-        
+
         let actionHTML = "";
         if (isCompleted) {
           actionHTML = `<span class="recap-item-status-icon" style="color: var(--accent-green);">✓ Fait</span>`;
@@ -5285,7 +5750,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (editSkillsBtn) editSkillsBtn.addEventListener("click", openRecapPinDrawer);
   if (closePinDrawerBtn) closePinDrawerBtn.addEventListener("click", closeRecapPinDrawer);
   if (savePinsBtn) savePinsBtn.addEventListener("click", savePinnedItems);
-  
+
   if (toggleAllostasisBtn) {
     toggleAllostasisBtn.addEventListener("click", () => {
       allostasisViewMode = allostasisViewMode === "daily" ? "weekly" : "daily";
@@ -5296,9 +5761,80 @@ document.addEventListener("DOMContentLoaded", () => {
   // Logout Logic
   const switchProfileBtn = document.getElementById("switch-profile-btn");
   if (switchProfileBtn) {
-    switchProfileBtn.addEventListener("click", () => {
-      localStorage.removeItem('user_id');
-      window.location.reload();
+    switchProfileBtn.addEventListener("click", async () => {
+      await fetch(`${API_BASE}/auth/logout`, { method: "POST" });
+      if (refreshIntervalId) {
+        clearInterval(refreshIntervalId);
+        refreshIntervalId = null;
+      }
+      appInitialized = false;
+      showLoginScreen();
+    });
+  }
+
+  const authPasswordForm = document.getElementById("auth-password-form");
+  if (authPasswordForm) {
+    authPasswordForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        const response = await fetch(`${API_BASE}/auth/password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            current_password: document.getElementById("auth-current-password").value,
+            new_password: document.getElementById("auth-new-password").value,
+          }),
+        });
+        if (!response.ok) throw new Error((await response.json()).detail || "Erreur mot de passe");
+        authPasswordForm.reset();
+        showToast("Mot de passe mis à jour.");
+      } catch (error) {
+        showToast(error.message, true);
+      }
+    });
+  }
+
+  const authAdminPasswordForm = document.getElementById("auth-admin-password-form");
+  if (authAdminPasswordForm) {
+    authAdminPasswordForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const targetUserId = document.getElementById("auth-admin-user").value;
+      try {
+        const response = await fetch(`${API_BASE}/auth/users/${targetUserId}/password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            new_password: document.getElementById("auth-admin-new-password").value,
+          }),
+        });
+        if (!response.ok) throw new Error((await response.json()).detail || "Erreur mot de passe");
+        authAdminPasswordForm.reset();
+        showToast("Mot de passe du compte mis à jour.");
+      } catch (error) {
+        showToast(error.message, true);
+      }
+    });
+  }
+
+  const authDeviceList = document.getElementById("auth-device-list");
+  if (authDeviceList) {
+    authDeviceList.addEventListener("click", async (event) => {
+      const item = event.target.closest(".auth-device-item");
+      if (!item) return;
+      const approve = event.target.closest(".auth-device-approve");
+      const revoke = event.target.closest(".auth-device-revoke");
+      if (!approve && !revoke) return;
+      const action = approve ? "approve" : "revoke";
+      try {
+        const response = await fetch(`${API_BASE}/auth/devices/${item.dataset.deviceId}/${action}`, {
+          method: "POST",
+        });
+        if (!response.ok) throw new Error((await response.json()).detail || "Erreur appareil");
+        showToast(approve ? "Appareil approuvé." : "Appareil révoqué.");
+        loadAuthAdminSettings();
+      } catch (error) {
+        showToast(error.message, true);
+      }
     });
   }
 
@@ -5358,4 +5894,157 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // ==============================================
+  // GOOGLE CALENDAR & TASKS INTEGRATION FRONTEND
+  // ==============================================
+
+  async function fetchGoogleStatus() {
+    const badge = document.getElementById("google-status-badge");
+    const actionsDisconnected = document.getElementById("google-actions-disconnected");
+    const actionsConnected = document.getElementById("google-actions-connected");
+    const calIdEl = document.getElementById("google-cal-id");
+    const tasksIdEl = document.getElementById("google-tasks-id");
+    const connectLink = document.getElementById("google-connect-link");
+
+    if (!badge) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/auth/google/status`, {
+        headers: {
+          "X-User-ID": localStorage.getItem("user_id") || "1"
+        }
+      });
+      if (!response.ok) throw new Error("Status check failed");
+      const data = await response.json();
+
+      if (data.is_connected) {
+        badge.textContent = "🟢 Connecté";
+        badge.style.background = "rgba(16, 185, 129, 0.15)";
+        badge.style.color = "#34d399";
+        badge.style.borderColor = "#34d399";
+        actionsDisconnected.style.display = "none";
+        actionsConnected.style.display = "block";
+        if (calIdEl) calIdEl.textContent = data.calendar_id || "...";
+        if (tasksIdEl) tasksIdEl.textContent = data.tasks_list_id || "...";
+      } else {
+        badge.textContent = "Non connecté";
+        badge.style.background = "rgba(239, 68, 68, 0.15)";
+        badge.style.color = "#ef4444";
+        badge.style.borderColor = "#ef4444";
+        actionsDisconnected.style.display = "block";
+        actionsConnected.style.display = "none";
+
+        const currentUserId = localStorage.getItem("user_id") || "1";
+        if (connectLink) {
+          connectLink.href = `${API_BASE}/auth/google/login?user_id=${currentUserId}`;
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching Google status:", err);
+    }
+  }
+
+  // Initialize date inputs for Google Export
+  const exportStartInput = document.getElementById("google-export-start");
+  const exportEndInput = document.getElementById("google-export-end");
+  if (exportStartInput && exportEndInput) {
+    const today = new Date();
+    const future = new Date();
+    future.setDate(today.getDate() + 7);
+
+    exportStartInput.value = today.toISOString().split("T")[0];
+    exportEndInput.value = future.toISOString().split("T")[0];
+  }
+
+  const disconnectBtn = document.getElementById("google-disconnect-btn");
+  if (disconnectBtn) {
+    disconnectBtn.addEventListener("click", async () => {
+      if (!confirm("Voulez-vous vraiment déconnecter votre compte Google ?\nVos quêtes ne seront plus synchronisées.")) return;
+      try {
+        const response = await fetch(`${API_BASE}/auth/google/disconnect`, {
+          method: "POST",
+          headers: {
+            "X-User-ID": localStorage.getItem("user_id") || "1"
+          }
+        });
+        if (response.ok) {
+          showToast("Compte Google déconnecté avec succès.");
+          fetchGoogleStatus();
+        } else {
+          showToast("Échec de la déconnexion.", true);
+        }
+      } catch (err) {
+        showToast("Erreur lors de la déconnexion.", true);
+      }
+    });
+  }
+
+  const exportBtn = document.getElementById("google-export-btn");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", async () => {
+      const start = document.getElementById("google-export-start").value;
+      const end = document.getElementById("google-export-end").value;
+      const statusEl = document.getElementById("google-export-status");
+
+      if (!start || !end) {
+        showToast("Veuillez sélectionner les dates de début et de fin.", true);
+        return;
+      }
+
+      if (statusEl) {
+        statusEl.textContent = "⌛ Exportation en cours de planification...";
+        statusEl.style.display = "block";
+      }
+      exportBtn.disabled = true;
+
+      try {
+        const response = await fetch(`${API_BASE}/agenda/export-google`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-User-ID": localStorage.getItem("user_id") || "1"
+          },
+          body: JSON.stringify({ start_date: start, end_date: end })
+        });
+
+        if (response.ok) {
+          showToast("Tâche d'exportation lancée en arrière-plan ! 🚀");
+          if (statusEl) {
+            statusEl.textContent = "✅ Exportation planifiée avec succès en arrière-plan !";
+            setTimeout(() => { statusEl.style.display = "none"; }, 5000);
+          }
+        } else {
+          const data = await response.json();
+          showToast(data.detail || "Erreur lors de l'exportation.", true);
+          if (statusEl) statusEl.style.display = "none";
+        }
+      } catch (err) {
+        showToast("Erreur réseau.", true);
+        if (statusEl) statusEl.style.display = "none";
+      } finally {
+        exportBtn.disabled = false;
+      }
+    });
+  }
+
+  function checkGoogleCallback() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("google_success")) {
+      showToast("Compte Google associé avec succès ! 🚀");
+      params.delete("google_success");
+      const cleanUrl = window.location.pathname + (params.toString() ? "?" + params.toString() : "") + window.location.hash;
+      window.history.replaceState({}, document.title, cleanUrl);
+    } else if (params.has("google_error")) {
+      const err = params.get("google_error");
+      showToast(`Erreur d'association Google : ${err}`, true);
+      params.delete("google_error");
+      const cleanUrl = window.location.pathname + (params.toString() ? "?" + params.toString() : "") + window.location.hash;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }
+
+  fetchGoogleStatus();
+  checkGoogleCallback();
+
 });

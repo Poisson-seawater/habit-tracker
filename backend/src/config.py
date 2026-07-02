@@ -43,3 +43,21 @@ if DATABASE_URL.startswith("sqlite://") and not DATABASE_URL.startswith("sqlite:
 
 # Timezone Configuration
 TIMEZONE = os.getenv("TIMEZONE", "America/New_York")
+
+# Google Calendar & Tasks Integration Configuration
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.getenv(
+    "GOOGLE_REDIRECT_URI", "http://localhost:5000/api/v1/auth/google/callback"
+)
+GOOGLE_ENCRYPTION_KEY = os.getenv("GOOGLE_ENCRYPTION_KEY", "default-habit-tracker-key-12345")
+
+# Web/API Authentication Configuration
+AUTH_BOOTSTRAP_CODE = os.getenv("AUTH_BOOTSTRAP_CODE", "")
+HABIT_API_TOKEN = os.getenv("HABIT_API_TOKEN", "")
+AUTH_SESSION_DAYS = int(os.getenv("AUTH_SESSION_DAYS", "30"))
+AUTH_COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "false").lower() in {
+    "1",
+    "true",
+    "yes",
+}

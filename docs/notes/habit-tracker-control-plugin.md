@@ -10,7 +10,7 @@ SQLite, ni webhook.
 Question utilisateur
   -> skill spécialisé
   -> plugins/habit-tracker-control/scripts/habitctl.py
-  -> HTTP(S) + X-User-ID + Idempotency-Key
+  -> HTTP(S) + Authorization Bearer + X-User-ID + Idempotency-Key
   -> API FastAPI /api/v1
   -> SQLite ou /data/softskills_tree.json
 ```
@@ -45,12 +45,13 @@ Le CLI se configure une fois :
 ```bash
 python3 plugins/habit-tracker-control/scripts/habitctl.py configure \
   --base-url http://192.168.0.199:5000 \
-  --username Gabriel
+  --username Gabriel \
+  --api-token "$HABIT_API_TOKEN"
 ```
 
 La configuration est enregistrée avec les permissions `0600` dans
 `~/.config/habit-tracker-control/config.json`. Elle contient l'URL, le nom
-d'utilisateur, son ID résolu et la version du protocole.
+d'utilisateur, son ID résolu, le token API machine et la version du protocole.
 
 Le CLI refuse HTTP pour une adresse publique. HTTP est autorisé pour localhost, une
 IP privée ou un nom `.local`. Les variables suivantes permettent d'isoler les tests :
@@ -66,7 +67,7 @@ python3 plugins/habit-tracker-control/scripts/habitctl.py doctor
 ```
 
 `doctor` vérifie `/health`, l'utilisateur et `/api/v1/capabilities`. Le protocole
-actuel est la version `1`.
+actuel est la version `2`.
 
 Les erreurs HTTP conservent le format JSON existant et indiquent aussi la méthode et
 le chemin en cause. Si le serveur ne fournit pas `/api/v1/capabilities`, le CLI
@@ -95,7 +96,8 @@ python3 plugins/habit-tracker-control/scripts/habitctl.py query goals \
 ```
 
 Ressources : `status`, `profile`, `goals`, `habits`, `habit-calendar`, `todos`,
-`notodos`, `softskills`, `rewards`, `history`, `templates`, `potentials`.
+`notodos`, `softskills`, `rewards`, `history`, `templates`, `potentials`, `agenda`
+(accepte `--date YYYY-MM-DD`, défaut aujourd'hui), `biological-zones`.
 
 Les listes volumineuses sont compactées. Un nom est résolu dans cet ordre :
 
@@ -141,21 +143,29 @@ Opérations disponibles :
 
 - objectifs : `goal-create`, `goal-with-substeps`, `goal-update`, `goal-delete` ;
 - sous-étapes : `substep-create`, `substep-update`, `substep-delete`, `substep-link` ;
-- habitudes : `habit-create`, `habit-update`, `habit-delete` ;
-- tâches : `todo-create`, `notodo-create` ;
+- habitudes : `habit-create`, `habit-update`, `habit-delete`, `habit-archive`,
+  `habit-unarchive`, `habit-levelup` ;
+- tâches : `todo-create`, `todo-update`, `todo-delete`, `notodo-create`,
+  `notodo-delete` ;
 - profil : `template-save`, `pins-update` ;
 - récompenses : `reward-create`, `reward-update`, `reward-delete` ;
 - softskills : `softskill-branch-create`, `softskill-branch-with-skills`,
   `softskill-branch-update`, `softskill-branch-delete`, `softskill-create`,
-  `softskill-update`, `softskill-delete`, `softskill-test`.
+  `softskill-update`, `softskill-delete`, `softskill-test` ;
+- zones biologiques : `biological-zone-create`, `biological-zone-update`,
+  `biological-zone-delete` ;
+- agenda : `agenda-placement-set`, `agenda-placement-clear` (champs `habit`,
+  `date` optionnel — défaut aujourd'hui — et pour `-set` :
+  `start_time`/`duration_minutes`/`allow_overlap`), `agenda-save-as-template`
+  (champs `date` optionnel, `template_name`).
 
 Le CLI génère de façon stable les slugs et les couleurs de branche. Il n'invente pas
 de description, récompense, effort, prérequis ou relation métier.
 
 ## Contrat serveur ajouté
 
-`GET /api/v1/capabilities` annonce la version du protocole, le support de
-l'idempotence et les opérations atomiques.
+`GET /api/v1/capabilities` annonce la version du protocole, le mode
+d'authentification machine, le support de l'idempotence et les opérations atomiques.
 
 `GET /api/v1/remote-operations/{key}` permet d'inspecter une mutation. Une même clé
 et une même requête terminée rejouent la réponse mémorisée avec
@@ -193,6 +203,6 @@ Déployer le backend avant de lancer `configure` contre le Pi. Une absence de
 
 ## Limites de sécurité
 
-`X-User-ID` est un mécanisme de sélection d'utilisateur, pas une authentification.
-Le plugin est conçu pour un réseau privé. Une exposition Internet exige HTTPS et une
-authentification placée devant l'API.
+`X-User-ID` est uniquement une sélection d'utilisateur après authentification
+machine. Le plugin doit envoyer `Authorization: Bearer <HABIT_API_TOKEN>`.
+Une exposition Internet exige HTTPS et `AUTH_COOKIE_SECURE=true` pour le dashboard.
