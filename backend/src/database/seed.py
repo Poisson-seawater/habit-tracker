@@ -551,6 +551,24 @@ def _run_migrations():
                 db.commit()
                 print("Migration v15 applied successfully.")
 
+        # v15b: Add pinned_substeps / pinned_softskills to users (model columns
+        # that never had a migration; missing on pre-existing DBs).
+        if "users" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("users")]
+            pinned_columns = {
+                "pinned_substeps": "ALTER TABLE users ADD COLUMN pinned_substeps TEXT DEFAULT '[]'",
+                "pinned_softskills": "ALTER TABLE users ADD COLUMN pinned_softskills TEXT DEFAULT '[]'",
+            }
+            missing_pinned = [name for name in pinned_columns if name not in columns]
+            if missing_pinned:
+                print(
+                    "Running migration v15b: adding pinned_substeps/pinned_softskills to users..."
+                )
+                for column_name in missing_pinned:
+                    db.execute(text(pinned_columns[column_name]))
+                db.commit()
+                print("Migration v15b applied successfully.")
+
         # v16: Add effort budget columns to perfect_day_templates, habits, substeps
         if "perfect_day_templates" in inspector.get_table_names():
             columns = [
