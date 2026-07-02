@@ -21,7 +21,7 @@ Ce document centralise toutes les commandes disponibles pour le bot Telegram.
 | `/liste` | `[todo\|habit\|notodo]` *(optionnel)* | Liste les éléments restants à accomplir (todo/habit) ou les règles à ne pas enfreindre (notodo). **Sans argument : affiche 3 boutons (Todos / Habitudes / No-Todos).** | `/liste` ou `/liste todo` |
 | `/add` | `[todo\|notodo\|habit] [titre] [do:date] [due:date]` *(optionnel)* | Ajoute une nouvelle tâche ou règle. Les todos acceptent `do:` (date planifiée) et `due:` (date limite) au format `today`, `tomorrow`, `DD/MM` ou `YYYY-MM-DD`. **Sans argument : boutons de choix interactif.** | `/add todo Courses do:today due:tomorrow` |
 | `/add_habit` | `[binary\|quant] [titre] [unité]` | Crée une habitude sans récompense de statistique. L'unité est optionnelle pour les habitudes quantitatives. | `/add_habit binary Lecture` |
-| `/fail` | `[nom_notodo]` | Marque une règle No-Todo comme ayant été transgressée pour aujourd'hui. Accepte des morceaux du nom. | `/fail snooze` |
+| `/fail` | `[nom_notodo]` | Marque une règle No-Todo comme ayant été transgressée pour aujourd'hui et crée un log daté pour l'historique. Accepte des morceaux du nom. | `/fail snooze` |
 | `/shop` | `[filtre]` *(optionnel)* | Affiche la boutique de récompenses avec leur coût et statut de verrouillage. Filtres : `toutes`, `dispos`, `verrouillees`. | `/shop dispos` |
 | `/buy` | `[nom_recompense]` *(optionnel)* | Permet d'acheter une récompense ou valider une activité d'allostasie. Sans argument : affiche 3 boutons (Allostasie Day / Allostasie Week / Shop Basic) et n'affiche que ce qui est disponible ou abordable. | `/buy` ou `/buy Netflix` |
 | `/motivation` | *(aucun)* | Liste tes objectifs à long terme pour garder le cap. | `/motivation` |

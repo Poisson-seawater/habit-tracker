@@ -60,6 +60,12 @@ class User(Base):
     notodos = relationship(
         "NoTodo", back_populates="user", cascade="all, delete-orphan"
     )
+    notodo_logs = relationship(
+        "NoTodoLog", back_populates="user", cascade="all, delete-orphan"
+    )
+    day_cycle_policies = relationship(
+        "DayCyclePolicy", back_populates="user", cascade="all, delete-orphan"
+    )
     rewards = relationship(
         "Reward", back_populates="user", cascade="all, delete-orphan"
     )
@@ -319,6 +325,56 @@ class NoTodo(Base):
     failed_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="notodos")
+    logs = relationship("NoTodoLog", back_populates="notodo", passive_deletes=True)
+
+
+class NoTodoLog(Base):
+    __tablename__ = "notodo_logs"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "notodo_id",
+            "date",
+            name="uix_notodo_log_user_rule_date",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    notodo_id = Column(
+        Integer,
+        ForeignKey("notodos.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    title_snapshot = Column(String, nullable=False)
+    date = Column(Date, nullable=False, index=True)
+    timestamp = Column(DateTime, default=datetime.datetime.now, nullable=False)
+
+    user = relationship("User", back_populates="notodo_logs")
+    notodo = relationship("NoTodo", back_populates="logs")
+
+
+class DayCyclePolicy(Base):
+    __tablename__ = "day_cycle_policies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    anchor_date = Column(Date, nullable=False, index=True)
+    effective_from = Column(Date, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.datetime.now, nullable=False)
+
+    user = relationship("User", back_populates="day_cycle_policies")
 
 
 class Goal(Base):

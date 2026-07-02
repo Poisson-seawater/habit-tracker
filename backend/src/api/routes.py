@@ -30,6 +30,8 @@ from src.database.models import (
     SubStep,
     GoalSubStepLink,
     NoTodo,
+    NoTodoLog,
+    DayCyclePolicy,
     UserSoftskillProgress,
     Reward,
     RemoteOperation,
@@ -37,6 +39,18 @@ from src.database.models import (
     AuthSession,
 )
 from src.database.seed import seed_default_biological_zones
+from src.services.day_cycle_service import (
+    active_cycle_payload,
+    cycle_info_for_date,
+    ensure_default_cycle_policy,
+    get_cycle_policies,
+    monday_of_week,
+    resolve_cycle_policy,
+)
+from src.services.notodo_service import (
+    get_notodo_failures_on_date,
+    record_notodo_failure,
+)
 from src.services.score_service import (
     calculate_daily_score,
     update_streaks,
@@ -206,6 +220,10 @@ class TemplateSave(BaseModel):
     min_rest_hours: float = 8.0
     ceilings: Optional[Dict[str, float]] = None
     agenda_json: Optional[Any] = None
+
+
+class CyclePolicyUpdate(BaseModel):
+    anchor_date: datetime.date
 
 
 class AgendaPlacementUpdate(BaseModel):
@@ -748,6 +766,24 @@ def _raise_biological_zone_overlap(zone: BiologicalZone):
     )
 
 
+def _template_emoji(template_name: Optional[str]) -> str:
+    normalized = (template_name or "").strip().lower()
+    if normalized in {"rest", "recup", "recovery", "sick", "malade"}:
+        return "💤"
+    if normalized == "hustle":
+        return "🔥"
+    return "⚖️"
+
+
+def _cycle_policy_payload_for_user(
+    db: Session, user: User, date_value: datetime.date
+) -> dict:
+    ensure_default_cycle_policy(db, user)
+    policies = get_cycle_policies(db, user.id)
+    policy = resolve_cycle_policy(policies, date_value)
+    return active_cycle_payload(policy, date_value)
+
+
 # --- Server-side validation helpers ---
 
 VALID_HABIT_TYPES = {"binary", "quantitative"}
@@ -1274,6 +1310,44 @@ def get_user_life_lore(
     ]
 
 
+@router.get("/profile/cycle")
+def get_profile_cycle(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return _cycle_policy_payload_for_user(db, user, datetime.date.today())
+
+
+@router.put("/profile/cycle")
+def update_profile_cycle(
+    payload: CyclePolicyUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    today = datetime.date.today()
+    ensure_default_cycle_policy(db, user)
+    policy = DayCyclePolicy(
+        user_id=user_id,
+        anchor_date=monday_of_week(payload.anchor_date),
+        effective_from=today,
+    )
+    db.add(policy)
+    db.commit()
+    db.refresh(policy)
+
+    return {
+        "status": "success",
+        "message": "Cycle mis a jour a partir d'aujourd'hui.",
+        "policy": active_cycle_payload(policy, today),
+    }
+
+
 @router.put("/profile/pins")
 def update_profile_pins(
     payload: PinsUpdate,
@@ -1442,16 +1516,13 @@ def get_status(
     )
 
     # No-Todos failed today
-    failed_notodos = (
-        db.query(NoTodo)
-        .filter(
-            NoTodo.user_id == user.id,
-            NoTodo.failed_at >= start_dt,
-            NoTodo.failed_at <= end_dt,
-        )
-        .all()
+    failed_notodo_logs = get_notodo_failures_on_date(
+        db, user_id=user.id, date=today
     )
-    failed_notodos_out = [{"id": n.id, "title": n.title} for n in failed_notodos]
+    failed_notodos_out = [
+        {"id": log.notodo_id, "log_id": log.id, "title": log.title_snapshot}
+        for log in failed_notodo_logs
+    ]
 
     return {
         "username": user.username,
@@ -2688,11 +2759,17 @@ def get_notodos(
         .all()
     )
     today = datetime.date.today()
+    failed_today_ids = {
+        log.notodo_id
+        for log in get_notodo_failures_on_date(db, user_id=user_id, date=today)
+        if log.notodo_id is not None
+    }
     return [
         {
             "id": n.id,
             "title": n.title,
-            "failed_today": n.failed_at is not None and n.failed_at.date() == today,
+            "failed_today": n.id in failed_today_ids
+            or (n.failed_at is not None and n.failed_at.date() == today),
             "created_at": n.created_at.isoformat() if n.created_at else None,
             "failed_at": n.failed_at.isoformat() if n.failed_at else None,
         }
@@ -2731,10 +2808,19 @@ def fail_notodo(
     if not notodo:
         raise HTTPException(status_code=404, detail="No-Todo not found")
 
-    notodo.failed_at = datetime.datetime.now()
+    log = record_notodo_failure(db, user_id=user_id, notodo=notodo)
     db.commit()
 
-    return {"status": "success", "message": "No-Todo marked as failed for today."}
+    return {
+        "status": "success",
+        "message": "No-Todo marked as failed for today.",
+        "log": {
+            "id": log.id,
+            "notodo_id": notodo.id,
+            "date": log.date.isoformat(),
+            "title": log.title_snapshot,
+        },
+    }
 
 
 @router.delete("/notodos/{notodo_id}")
@@ -3176,6 +3262,10 @@ def get_history(
 ):
     import calendar
 
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     today = datetime.date.today()
     _, num_days = calendar.monthrange(today.year, today.month)
     start_date = today.replace(day=1)
@@ -3191,26 +3281,72 @@ def get_history(
         .all()
     )
 
-    score_map = {score.date.isoformat(): score.status for score in scores}
+    score_map = {score.date: score for score in scores}
+    broken_dates = {
+        row[0]
+        for row in db.query(NoTodoLog.date)
+        .filter(
+            NoTodoLog.user_id == user_id,
+            NoTodoLog.date >= start_date,
+            NoTodoLog.date <= today,
+        )
+        .distinct()
+        .all()
+    }
+    start_dt = datetime.datetime.combine(start_date, datetime.time.min)
+    end_dt = datetime.datetime.combine(today, datetime.time.max)
+    broken_dates.update(
+        row[0].date()
+        for row in db.query(NoTodo.failed_at)
+        .filter(
+            NoTodo.user_id == user_id,
+            NoTodo.failed_at >= start_dt,
+            NoTodo.failed_at <= end_dt,
+        )
+        .distinct()
+        .all()
+        if row[0] is not None
+    )
+
+    ensure_default_cycle_policy(db, user)
+    cycle_policies = get_cycle_policies(db, user_id)
 
     history = []
     for i in range(num_days):
         d = start_date + datetime.timedelta(days=i)
-        d_str = d.isoformat()
+        score = score_map.get(d)
+        template = score.template_used if score else None
+        policy = resolve_cycle_policy(cycle_policies, d)
+        cycle_info = cycle_info_for_date(policy, d)
 
         ui_status = "future"
         if d <= today:
-            status = score_map.get(d_str, "Incomplet")
-            ui_status = "failed"
-            if status == "Perfect":
+            if not score or score.status != "Perfect":
+                ui_status = "failed"
+            elif d in broken_dates:
+                ui_status = "broken"
+            else:
                 ui_status = "perfect"
 
         history.append(
             {
-                "date": d_str,
+                "date": d.isoformat(),
                 "status": ui_status,
                 "label": d.strftime("%d"),
                 "weekday": d.weekday(),
+                "template": template,
+                "template_emoji": _template_emoji(template),
+                "cycle_week_type": cycle_info["cycle_week_type"],
+                "cycle_recommendation": cycle_info["cycle_recommendation"],
+                "cycle_week_start": cycle_info["cycle_week_start"].isoformat(),
+                "cycle_week_index": cycle_info["cycle_week_index"],
+                "cycle_policy_id": cycle_info["cycle_policy_id"],
+                "cycle_policy_anchor_date": cycle_info[
+                    "cycle_policy_anchor_date"
+                ].isoformat(),
+                "cycle_policy_effective_from": cycle_info[
+                    "cycle_policy_effective_from"
+                ].isoformat(),
             }
         )
 

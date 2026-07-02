@@ -34,6 +34,10 @@ from src.services.score_service import (
     cleanup_completed_todos,
     dispatch_milestone_notifications,
 )
+from src.services.notodo_service import (
+    get_notodo_failures_on_date,
+    record_notodo_failure,
+)
 from src.bot.scheduler import start_scheduler
 from src.services.reward_service import (
     check_reward_lock,
@@ -677,7 +681,7 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 return
 
-            notodo.failed_at = datetime.datetime.now()
+            record_notodo_failure(db, user_id=user.id, notodo=notodo)
             db.commit()
 
             await update.message.reply_text(
@@ -800,20 +804,13 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"⭐ Niveau {user.level} (XP : {user.xp})\n\n"
             )
 
-            # Get failed NoTodos for today
-            failed_notodos = (
-                db.query(NoTodo)
-                .filter(
-                    NoTodo.user_id == user.id,
-                    NoTodo.failed_at >= start_dt,
-                    NoTodo.failed_at <= end_dt,
-                )
-                .all()
-            )
-
             failed_notodo_lines = []
-            for n in failed_notodos:
-                failed_notodo_lines.append(f"- 🚫 {html.escape(n.title)}")
+            for log in get_notodo_failures_on_date(
+                db, user_id=user.id, date=today
+            ):
+                failed_notodo_lines.append(
+                    f"- 🚫 {html.escape(log.title_snapshot)}"
+                )
 
             if completed_lines:
                 msg += (
