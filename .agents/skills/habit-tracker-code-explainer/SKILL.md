@@ -17,7 +17,7 @@ This skill provides a comprehensive architectural guide of the RPG Accountabilit
 The project is a lightweight, low-memory RPG Accountability system that runs on a Raspberry Pi. It is divided into three primary components sharing a single SQLite database:
 
 1. **Backend API (FastAPI + SQLAlchemy 2.0)**:
-   - Serves REST endpoints for the dashboard and mini-app.
+   - Serves REST endpoints for the dashboard and automation clients.
    - Handled asynchronously with Uvicorn.
    - Mounted in Docker under a strict memory cap of **40 MB**.
 2. **Telegram Bot (`python-telegram-bot`)**:

@@ -38,7 +38,7 @@ On veut un habit tracker perso, façon RPG, qui :
 ### Frontend : Vanilla HTML/CSS/JS (pas de framework)
 
 - Pas de build, pas de `node_modules` à déployer sur le Pi, empreinte mémoire minimale.
-- L'UI reste simple (dashboard + Mini App Telegram) : un framework serait surdimensionné.
+- L'UI reste simple (dashboard statique) : un framework serait surdimensionné.
 - Servi directement en statique par FastAPI.
 
 ### Bot : python-telegram-bot + APScheduler
@@ -58,8 +58,8 @@ On veut un habit tracker perso, façon RPG, qui :
   qu'on n'a pas sur le Pi.
 - **React / Vue pour le front** : écarté — build et taille inutiles pour une UI simple,
   alourdit le déploiement sur le Pi.
-- **App mobile native** : écartée — le bot Telegram + Mini App couvrent le mobile sans
-  coût de dev ni store.
+- **App mobile native** : écartée — le bot Telegram couvre l'usage mobile essentiel
+  sans coût de dev ni store.
 
 ## Conséquences
 

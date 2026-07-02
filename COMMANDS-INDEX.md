@@ -35,4 +35,3 @@ Ce document centralise toutes les commandes disponibles pour le bot Telegram.
 * **Base de données partagée** : Il n'y a pas de communication directe bot ↔ site. Les deux écrivent et lisent la même base SQLite (`./data/`). Tout ce que le bot enregistre apparaît sur le site web instantanément.
 * **Récapitulatif automatique** : À 21h30, le scheduler calcule le score final de chaque joueur, attribue de l'XP et publie le bilan de la guilde dans le groupe.
 * **Sécurité & DM** : En production, le bot ignore tout message venant d'un chat non autorisé. Les messages privés (DM) sont autorisés automatiquement dès qu'un membre a posté au moins 1 fois dans le groupe public.
-* **Mini App Telegram** : La route `/mini-app/` sert une copie mobile du dashboard. Pour un test rapide, elle associe le profil via les données utilisateur Telegram côté client, sans validation cryptographique serveur de `initData`.

@@ -25,7 +25,8 @@ L'idée de base : transformer la discipline quotidienne en jeu (XP, niveaux, or,
 ### Non-goals explicites
 
 - Pas de scaling horizontal, de microservices, de Kubernetes.
-- Pas de mobile natif — le bot Telegram + la Mini App couvrent le besoin mobile.
+- Pas de mobile natif — le bot Telegram couvre les usages mobiles simples, et le
+  dashboard web reste l'interface complète.
 - Pas d'optimisation pour des milliers d'utilisateurs : on optimise pour la **RAM du Pi**, pas pour la charge.
 
 ### Pistes futures (non engagées)
@@ -94,9 +95,6 @@ Les tests :
 PYTHONPATH=backend .venv/bin/pytest backend/tests
 ```
 
-Mini App Telegram : exposer l'API en HTTPS, mettre l'URL publique `/mini-app/` dans
-`TELEGRAM_WEB_APP_URL`, puis utiliser le menu d'aide (`/aide`) pour l'ouvrir.
-
 ---
 
 ## 🔑 Variables d'environnement
@@ -107,7 +105,6 @@ Mini App Telegram : exposer l'API en HTTPS, mettre l'URL publique `/mini-app/` d
 |----------|---------|------|
 | `TELEGRAM_BOT_TOKEN` | `123456:ABC-DEF...` | Token du bot (BotFather). |
 | `TELEGRAM_GROUP_ID` | `-1003912636269` | ID du groupe Telegram autorisé. |
-| `TELEGRAM_WEB_APP_URL` | `https://mon-domaine.example/mini-app/` | URL HTTPS publique de la Mini App. |
 | `API_PORT` | `5000` | Port d'écoute de l'API / dashboard. |
 | `ENV` | `development` | `development` en local, `production` sur le Pi. |
 | `TIMEZONE` | `America/Toronto` | Fuseau pour les scores du jour et les rappels. |

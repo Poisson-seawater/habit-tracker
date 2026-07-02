@@ -110,38 +110,6 @@ def test_get_habits_endpoint():
     assert len(data) >= 2
 
 
-def test_telegram_webapp_session_resolves_existing_user():
-    response = client.post(
-        "/api/v1/telegram-webapp/session",
-        json={"id": 111, "username": "Gabriel", "first_name": "Gabriel"},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["id"] == 1
-    assert data["username"] == "Gabriel"
-
-
-def test_telegram_webapp_session_does_not_rename_existing_chat_id():
-    response = client.post(
-        "/api/v1/telegram-webapp/session",
-        json={"id": 111, "username": "PandaCoffey", "first_name": "Gabriel"},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["id"] == 1
-    assert data["username"] == "Gabriel"
-
-
-def test_telegram_webapp_session_creates_unknown_user():
-    response = client.post(
-        "/api/v1/telegram-webapp/session", json={"id": 333, "first_name": "Alice"}
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["username"] == "Alice"
-    assert data["id"] > 1
-
-
 def test_post_logs_endpoint():
     response = client.post("/api/v1/logs", json={"habit_id": 1, "log_type": "done"})
     assert response.status_code == 200

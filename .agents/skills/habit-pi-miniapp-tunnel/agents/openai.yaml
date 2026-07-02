@@ -1,4 +1,0 @@
-interface:
-  display_name: "Habit Pi Mini App Tunnel"
-  short_description: "Prepare Pi tunnel for Habit Mini App."
-  default_prompt: "Use the habit-pi-miniapp-tunnel skill to prepare the Raspberry Pi and HTTPS tunnel for the Telegram Mini App."

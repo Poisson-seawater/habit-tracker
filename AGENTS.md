@@ -52,7 +52,6 @@ frontend/
   index.html           # dashboard
   js/app.js            # toute la logique front (fetch /api/v1, navigation à onglets)
   css/style.css        # styles (palette HSL sombre, glassmorphism)
-  mini-app/            # Mini App Telegram (prototype, gitignoré — ne va pas sur le Pi)
 docs/
   adr/                 # décisions d'architecture (Architecture Decision Records)
   wiki/                # site de doc d'onboarding généré

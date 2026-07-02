@@ -236,12 +236,6 @@ class NoTodoCreate(BaseModel):
     title: str
 
 
-class TelegramWebAppSessionCreate(BaseModel):
-    id: int
-    username: Optional[str] = None
-    first_name: Optional[str] = None
-
-
 class AuthBootstrapRequest(BaseModel):
     bootstrap_code: str
     password: str = Field(..., min_length=8)
@@ -1185,36 +1179,6 @@ def get_users(
     _require_approved_device_or_machine(request, db, x_user_id, authorization)
     users = db.query(User).all()
     return [{"id": u.id, "username": u.username} for u in users]
-
-
-@router.post("/telegram-webapp/session")
-def create_telegram_webapp_session(
-    payload: TelegramWebAppSessionCreate, db: Session = Depends(get_db)
-):
-    """
-    Prototype Telegram Mini App session resolver.
-    Uses Telegram-provided client data to select or create a local user.
-    """
-    telegram_chat_id = str(payload.id)
-    display_name = payload.username or payload.first_name or f"telegram_{payload.id}"
-
-    user = db.query(User).filter_by(chat_id=telegram_chat_id).first()
-    if not user and payload.username:
-        user = db.query(User).filter_by(username=payload.username).first()
-
-    if not user:
-        user = User(
-            username=display_name, chat_id=telegram_chat_id, xp=0, level=1, gold=0
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    elif user.chat_id != telegram_chat_id:
-        user.chat_id = telegram_chat_id
-        db.commit()
-        db.refresh(user)
-
-    return {"id": user.id, "username": user.username}
 
 
 @router.get("/profile")
