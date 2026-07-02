@@ -1099,6 +1099,7 @@
           </div>
           <div class="calendar-legend">
             <span class="legend-item"><span class="legend-dot failed"></span> Échec / Incomplet</span>
+            <span class="legend-item"><span class="legend-dot broken"></span> Brisée</span>
             <span class="legend-item"><span class="legend-dot perfect"></span> Perfect Day (5 XP)</span>
           </div>
         </div>
@@ -1497,7 +1498,32 @@
           </form>
         </section>
 
-
+        <section class="glass-card day-cycle-settings-card" id="day-cycle-settings-section" style="padding: 1.8rem;">
+          <h2 class="section-header">🗓️ <span>Cycle des Journées</span></h2>
+          <div class="cycle-current-grid">
+            <div class="cycle-current-item">
+              <span class="cycle-current-label">Ancrage actif</span>
+              <strong id="cycle-current-anchor">...</strong>
+            </div>
+            <div class="cycle-current-item">
+              <span class="cycle-current-label">Effet depuis</span>
+              <strong id="cycle-current-effective">...</strong>
+            </div>
+            <div class="cycle-current-item">
+              <span class="cycle-current-label">Cette semaine</span>
+              <strong id="cycle-current-type">...</strong>
+            </div>
+          </div>
+          <form id="day-cycle-form" class="modal-form">
+            <div class="form-group">
+              <label for="cycle-anchor-input">Nouvel ancrage</label>
+              <input type="date" id="cycle-anchor-input" required>
+            </div>
+            <p class="cycle-note">S'applique à partir d'aujourd'hui seulement.</p>
+            <div id="cycle-save-message" class="cycle-save-message" style="display: none;"></div>
+            <button type="submit" id="cycle-save-btn" class="quest-action-btn submit-btn">Sauvegarder le cycle</button>
+          </form>
+        </section>
 
         <section class="glass-card bio-zone-settings-card" id="bio-zone-settings-section" style="padding: 1.8rem;">
           <h2 class="section-header">🌅 <span>Journée Biologique</span></h2>

@@ -49,6 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
         fetchGoals();
       } else if (targetTab === "settings-tab") {
         loadSettingsThresholds();
+        loadCycleSettings();
         loadBioZoneSettings();
         loadAuthAdminSettings();
       } else if (targetTab === "softskills-tab") {
@@ -1633,6 +1634,46 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==============================================
   // HISTORICAL Dot Calendar (30 Days)             //
   // ==============================================
+  function normalizeTemplateName(templateName) {
+    return (templateName || "").trim().toLowerCase();
+  }
+
+  function isRestTemplate(templateName) {
+    return ["rest", "recup", "recovery", "sick", "malade"].includes(normalizeTemplateName(templateName));
+  }
+
+  function isHustleTemplate(templateName) {
+    return normalizeTemplateName(templateName) === "hustle";
+  }
+
+  function historyStatusLabel(day) {
+    if (day.status === "future") return "À venir";
+    if (day.status === "perfect") return "Perfect Day ! (+5 XP) 🏆";
+    if (day.status === "broken") return "Brisée : Perfect côté quêtes, No-Todo brisé ⚠️";
+    return "Échec / Incomplet ❌";
+  }
+
+  function appendHistoryWeekSummary(container, weekDays) {
+    if (!container || !weekDays.length) return;
+
+    const referenceDay = weekDays[weekDays.length - 1] || weekDays[0];
+    const rec = referenceDay.cycle_recommendation || {};
+    const label = rec.label || (referenceDay.cycle_week_type === "chill" ? "Semaine chill" : "Semaine normale");
+    const policyIds = new Set(weekDays.map(day => day.cycle_policy_id).filter(Boolean));
+    const weekTypes = new Set(weekDays.map(day => day.cycle_week_type).filter(Boolean));
+    const adjusted = policyIds.size > 1 || weekTypes.size > 1 ? " · cycle ajusté" : "";
+    const visibleDays = weekDays.filter(day => day.status !== "future");
+    const hustleCount = visibleDays.filter(day => isHustleTemplate(day.template)).length;
+    const restCount = visibleDays.filter(day => isRestTemplate(day.template)).length;
+    const hustleTarget = rec.hustle_max || rec.hustle || "-";
+    const restTarget = rec.rest_max || rec.rest || "-";
+
+    const summary = document.createElement("div");
+    summary.className = "calendar-week-summary";
+    summary.textContent = `${label}${adjusted} · 🔥 ${hustleCount}/${hustleTarget} · 💤 ${restCount}/${restTarget}`;
+    container.appendChild(summary);
+  }
+
   async function fetchHistory() {
     try {
       const response = await fetch(`${API_BASE}/history`);
@@ -1651,26 +1692,46 @@ document.addEventListener("DOMContentLoaded", () => {
           calendarContainer.appendChild(header);
         });
 
+        let cellsInWeek = 0;
+        let currentWeekDays = [];
         if (history.length > 0) {
-            const firstDayOffset = history[0].weekday;
-            for (let i = 0; i < firstDayOffset; i++) {
-              const emptySlot = document.createElement("div");
-              emptySlot.className = "calendar-day-empty";
-              calendarContainer.appendChild(emptySlot);
-            }
+          const firstDayOffset = history[0].weekday;
+          for (let i = 0; i < firstDayOffset; i++) {
+            const emptySlot = document.createElement("div");
+            emptySlot.className = "calendar-day-empty";
+            calendarContainer.appendChild(emptySlot);
+            cellsInWeek++;
+          }
         }
 
         history.forEach(day => {
           const box = document.createElement("div");
           box.className = `calendar-day-box ${day.status}`;
 
-          let statusText = day.status === "future" ? "À venir" : "Failed / Incomplet ❌";
-          if (day.status === "perfect") statusText = "Perfect Day ! (+5 XP) 🏆";
-
-          box.title = `${day.date} : ${statusText}`;
-          box.textContent = day.label;
+          const statusText = historyStatusLabel(day);
+          const templateName = day.template || "default";
+          box.title = `${day.date} : ${statusText} · ${templateName}`;
+          box.innerHTML = `<span class="calendar-day-number">${day.label}</span><span class="calendar-day-template">${day.template_emoji || "⚖️"}</span>`;
           calendarContainer.appendChild(box);
+          currentWeekDays.push(day);
+          cellsInWeek++;
+
+          if (cellsInWeek === 7) {
+            appendHistoryWeekSummary(calendarContainer, currentWeekDays);
+            currentWeekDays = [];
+            cellsInWeek = 0;
+          }
         });
+
+        if (cellsInWeek > 0) {
+          while (cellsInWeek < 7) {
+            const emptySlot = document.createElement("div");
+            emptySlot.className = "calendar-day-empty";
+            calendarContainer.appendChild(emptySlot);
+            cellsInWeek++;
+          }
+          appendHistoryWeekSummary(calendarContainer, currentWeekDays);
+        }
       }
     } catch (error) {
       console.error(error);
@@ -2982,6 +3043,72 @@ document.addEventListener("DOMContentLoaded", () => {
       const colorInput = document.getElementById("bio-zone-color");
       if (colorInput) colorInput.value = getBioZoneMeta(bioZoneTypeInput.value).color;
     });
+  }
+
+  function formatCycleType(policy) {
+    const rec = policy?.cycle_recommendation || {};
+    const label = rec.label || (policy?.cycle_week_type === "chill" ? "Semaine chill" : "Semaine normale");
+    const hustle = rec.hustle || `${rec.hustle_min || "-"}-${rec.hustle_max || "-"}`;
+    const rest = rec.rest || `${rec.rest_max || "-"}`;
+    return `${label} · 🔥 ${hustle} · 💤 ${rest}`;
+  }
+
+  function setCycleMessage(message, isError = false) {
+    const box = document.getElementById("cycle-save-message");
+    if (!box) return;
+    box.textContent = message || "";
+    box.style.display = message ? "block" : "none";
+    box.style.color = isError ? "var(--accent-red)" : "var(--accent-cyan)";
+  }
+
+  async function loadCycleSettings() {
+    const anchorEl = document.getElementById("cycle-current-anchor");
+    const effectiveEl = document.getElementById("cycle-current-effective");
+    const typeEl = document.getElementById("cycle-current-type");
+    const input = document.getElementById("cycle-anchor-input");
+    if (!anchorEl || !effectiveEl || !typeEl || !input) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/profile/cycle`);
+      if (!response.ok) throw new Error(await readApiError(response));
+      const policy = await response.json();
+      anchorEl.textContent = policy.anchor_date;
+      effectiveEl.textContent = policy.effective_from;
+      typeEl.textContent = formatCycleType(policy);
+      input.value = policy.anchor_date;
+      setCycleMessage("");
+    } catch (error) {
+      console.error(error);
+      setCycleMessage(error.message || "Impossible de charger le cycle.", true);
+    }
+  }
+
+  async function saveCycleSettings(event) {
+    event.preventDefault();
+    const input = document.getElementById("cycle-anchor-input");
+    if (!input || !input.value) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/profile/cycle`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ anchor_date: input.value })
+      });
+      if (!response.ok) throw new Error(await readApiError(response));
+      await loadCycleSettings();
+      await fetchHistory();
+      setCycleMessage("Changement appliqué à partir d'aujourd'hui.");
+      showToast("Cycle des journées mis à jour.");
+    } catch (error) {
+      console.error(error);
+      setCycleMessage(error.message || "Erreur lors de l'enregistrement.", true);
+      showToast("Erreur lors de l'enregistrement du cycle", true);
+    }
+  }
+
+  const dayCycleForm = document.getElementById("day-cycle-form");
+  if (dayCycleForm) {
+    dayCycleForm.addEventListener("submit", saveCycleSettings);
   }
 
   let loadedMinRestHours = 8.0;

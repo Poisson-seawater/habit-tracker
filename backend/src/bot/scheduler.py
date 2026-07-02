@@ -14,7 +14,6 @@ from src.database.models import (
     DailyScore,
     Streak,
     Todo,
-    NoTodo,
     SubStep,
 )
 from src.services.score_service import (
@@ -24,6 +23,7 @@ from src.services.score_service import (
     dispatch_milestone_notifications,
 )
 from src.services.reward_service import get_allostasis_purchases_on_date
+from src.services.notodo_service import get_notodo_failures_on_date
 
 
 async def publish_daily_recap():
@@ -134,18 +134,13 @@ async def publish_daily_recap():
                 completed_todos_list.append(f"✅ {html.escape(t.title)} 🌟")
 
             # Check failed NoTodos today
-            failed_notodos = (
-                db.query(NoTodo)
-                .filter(
-                    NoTodo.user_id == user.id,
-                    NoTodo.failed_at >= start_dt,
-                    NoTodo.failed_at <= end_dt,
-                )
-                .all()
-            )
             failed_notodos_list = []
-            for n in failed_notodos:
-                failed_notodos_list.append(f"• {html.escape(n.title)} 🚫")
+            for log in get_notodo_failures_on_date(
+                db, user_id=user.id, date=today
+            ):
+                failed_notodos_list.append(
+                    f"• {html.escape(log.title_snapshot)} 🚫"
+                )
 
             # 4. Format streaks
             perf_streak = (

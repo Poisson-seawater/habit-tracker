@@ -75,6 +75,133 @@ def seed_default_biological_zones(db, user_id=None):
             db.add(BiologicalZone(user_id=user_id, **zone))
 
 
+def _monday_of_week(date_value):
+    return date_value - datetime.timedelta(days=date_value.weekday())
+
+
+def _date_from_db_value(value):
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
+    if isinstance(value, str) and value:
+        try:
+            return datetime.datetime.fromisoformat(value).date()
+        except ValueError:
+            try:
+                return datetime.date.fromisoformat(value[:10])
+            except ValueError:
+                return datetime.date.today()
+    return datetime.date.today()
+
+
+def seed_default_day_cycle_policies(db, user_id=None):
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(db.get_bind())
+    tables = inspector.get_table_names()
+    if "users" not in tables or "day_cycle_policies" not in tables:
+        return
+
+    user_columns = {column["name"] for column in inspector.get_columns("users")}
+    created_at_select = "created_at" if "created_at" in user_columns else "NULL"
+    query = f"SELECT id, {created_at_select} AS created_at FROM users"
+    params = {}
+    if user_id is not None:
+        query += " WHERE id = :user_id"
+        params["user_id"] = user_id
+
+    users = db.execute(text(query), params).fetchall()
+    existing_user_ids = {
+        row[0]
+        for row in db.execute(
+            text("SELECT DISTINCT user_id FROM day_cycle_policies")
+        ).fetchall()
+    }
+
+    now = datetime.datetime.now()
+    for user_row in users:
+        current_user_id = user_row[0]
+        if current_user_id in existing_user_ids:
+            continue
+
+        install_date = _date_from_db_value(user_row[1])
+        db.execute(
+            text(
+                """
+                INSERT INTO day_cycle_policies
+                    (user_id, anchor_date, effective_from, created_at)
+                VALUES
+                    (:user_id, :anchor_date, :effective_from, :created_at)
+                """
+            ),
+            {
+                "user_id": current_user_id,
+                "anchor_date": _monday_of_week(install_date),
+                "effective_from": install_date,
+                "created_at": now,
+            },
+        )
+
+
+def backfill_notodo_logs_from_failed_at(db):
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(db.get_bind())
+    tables = inspector.get_table_names()
+    if "notodos" not in tables or "notodo_logs" not in tables:
+        return
+
+    notodo_columns = {column["name"] for column in inspector.get_columns("notodos")}
+    required_columns = {"id", "user_id", "title", "failed_at"}
+    if not required_columns.issubset(notodo_columns):
+        return
+
+    failed_notodos = db.execute(
+        text(
+            """
+            SELECT id, user_id, title, failed_at
+            FROM notodos
+            WHERE failed_at IS NOT NULL
+            """
+        )
+    ).fetchall()
+    for notodo in failed_notodos:
+        failure_date = _date_from_db_value(notodo[3])
+        existing = db.execute(
+            text(
+                """
+                SELECT id FROM notodo_logs
+                WHERE user_id = :user_id
+                  AND notodo_id = :notodo_id
+                  AND date = :date
+                LIMIT 1
+                """
+            ),
+            {"user_id": notodo[1], "notodo_id": notodo[0], "date": failure_date},
+        ).first()
+        if existing is not None:
+            continue
+
+        db.execute(
+            text(
+                """
+                INSERT INTO notodo_logs
+                    (user_id, notodo_id, title_snapshot, date, timestamp)
+                VALUES
+                    (:user_id, :notodo_id, :title_snapshot, :date, :timestamp)
+                """
+            ),
+            {
+                "user_id": notodo[1],
+                "notodo_id": notodo[0],
+                "title_snapshot": notodo[2],
+                "date": failure_date,
+                "timestamp": notodo[3],
+            },
+        )
+
+
 def seed_db():
     # Drop all tables first to get a clean, updated schema for V2
     Base.metadata.drop_all(bind=engine)
@@ -107,6 +234,7 @@ def seed_db():
             )
             db.add(user)
         db.flush()  # Make sure users are created to get foreign keys
+        seed_default_day_cycle_policies(db)
 
         # 2. Seed Default Templates per User
         for user_id in [1]:
@@ -918,6 +1046,101 @@ def _run_migrations():
             )
             db.commit()
             print("Migration v24 (auth_sessions) applied successfully.")
+
+        # v25: Add dated No-Todo failure logs.
+        if "notodo_logs" not in inspector.get_table_names():
+            print("Running migration v25: creating notodo_logs table...")
+            db.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS notodo_logs (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        notodo_id INTEGER,
+                        title_snapshot VARCHAR NOT NULL,
+                        date DATE NOT NULL,
+                        timestamp DATETIME NOT NULL,
+                        FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE,
+                        FOREIGN KEY(notodo_id) REFERENCES notodos (id) ON DELETE SET NULL,
+                        CONSTRAINT uix_notodo_log_user_rule_date UNIQUE (user_id, notodo_id, date)
+                    )
+                    """
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_notodo_logs_user_id "
+                    "ON notodo_logs (user_id)"
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_notodo_logs_notodo_id "
+                    "ON notodo_logs (notodo_id)"
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_notodo_logs_date "
+                    "ON notodo_logs (date)"
+                )
+            )
+            db.commit()
+            print("Migration v25 (notodo_logs table) applied successfully.")
+            inspector = inspect(engine)
+
+        if (
+            "notodos" in inspector.get_table_names()
+            and "notodo_logs" in inspector.get_table_names()
+        ):
+            backfill_notodo_logs_from_failed_at(db)
+            db.commit()
+
+        # v26: Add non-retroactive day-cycle policy history.
+        if "day_cycle_policies" not in inspector.get_table_names():
+            print("Running migration v26: creating day_cycle_policies table...")
+            db.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS day_cycle_policies (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        anchor_date DATE NOT NULL,
+                        effective_from DATE NOT NULL,
+                        created_at DATETIME NOT NULL,
+                        FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+                    )
+                    """
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_day_cycle_policies_user_id "
+                    "ON day_cycle_policies (user_id)"
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_day_cycle_policies_anchor_date "
+                    "ON day_cycle_policies (anchor_date)"
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_day_cycle_policies_effective_from "
+                    "ON day_cycle_policies (effective_from)"
+                )
+            )
+            db.commit()
+            print("Migration v26 (day_cycle_policies table) applied successfully.")
+            inspector = inspect(engine)
+
+        if (
+            "users" in inspector.get_table_names()
+            and "day_cycle_policies" in inspector.get_table_names()
+        ):
+            seed_default_day_cycle_policies(db)
+            db.commit()
 
         # v19: Destructively remove the legacy RPG stat/tag columns.
         v19_dropped = False
