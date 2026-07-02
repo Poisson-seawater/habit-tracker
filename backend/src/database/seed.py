@@ -765,40 +765,40 @@ def _run_migrations():
         # v23: Add Google integration columns to users and todos
         if "users" in inspector.get_table_names():
             columns = [c["name"] for c in inspector.get_columns("users")]
-            if "google_refresh_token" not in columns:
+            google_user_columns = {
+                "google_refresh_token": "ALTER TABLE users ADD COLUMN google_refresh_token TEXT",
+                "google_access_token": "ALTER TABLE users ADD COLUMN google_access_token TEXT",
+                "google_token_expiry": "ALTER TABLE users ADD COLUMN google_token_expiry DATETIME",
+                "google_calendar_id": "ALTER TABLE users ADD COLUMN google_calendar_id VARCHAR",
+                "google_tasks_list_id": "ALTER TABLE users ADD COLUMN google_tasks_list_id VARCHAR",
+            }
+            missing_google_user_columns = [
+                name for name in google_user_columns if name not in columns
+            ]
+            if missing_google_user_columns:
                 print(
                     "Running migration v23: adding Google credentials/resource columns to users..."
                 )
-                db.execute(
-                    text("ALTER TABLE users ADD COLUMN google_refresh_token TEXT")
-                )
-                db.execute(
-                    text("ALTER TABLE users ADD COLUMN google_access_token TEXT")
-                )
-                db.execute(
-                    text("ALTER TABLE users ADD COLUMN google_token_expiry DATETIME")
-                )
-                db.execute(
-                    text("ALTER TABLE users ADD COLUMN google_calendar_id VARCHAR")
-                )
-                db.execute(
-                    text("ALTER TABLE users ADD COLUMN google_tasks_list_id VARCHAR")
-                )
+                for column_name in missing_google_user_columns:
+                    db.execute(text(google_user_columns[column_name]))
                 db.commit()
                 print("Migration v23 (users) applied successfully.")
 
         if "todos" in inspector.get_table_names():
             columns = [c["name"] for c in inspector.get_columns("todos")]
-            if "google_due_event_id" not in columns:
+            google_todo_columns = {
+                "google_due_event_id": "ALTER TABLE todos ADD COLUMN google_due_event_id VARCHAR",
+                "google_do_task_id": "ALTER TABLE todos ADD COLUMN google_do_task_id VARCHAR",
+            }
+            missing_google_todo_columns = [
+                name for name in google_todo_columns if name not in columns
+            ]
+            if missing_google_todo_columns:
                 print(
                     "Running migration v23: adding Google reference columns to todos..."
                 )
-                db.execute(
-                    text("ALTER TABLE todos ADD COLUMN google_due_event_id VARCHAR")
-                )
-                db.execute(
-                    text("ALTER TABLE todos ADD COLUMN google_do_task_id VARCHAR")
-                )
+                for column_name in missing_google_todo_columns:
+                    db.execute(text(google_todo_columns[column_name]))
                 db.commit()
                 print("Migration v23 (todos) applied successfully.")
 
