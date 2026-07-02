@@ -529,7 +529,7 @@ def _ensure_device(
     response: Response,
     db: Session,
     display_name: Optional[str] = None,
-    status: str = "pending",
+    status: str = "approved",
 ) -> tuple[AuthDevice, str]:
     if status not in AUTH_DEVICE_STATUSES:
         raise ValueError(f"Invalid device status: {status}")
@@ -1011,7 +1011,7 @@ def request_device_access(
         response,
         db,
         display_name=payload.device_name,
-        status="pending",
+        status="approved",
     )
     return {
         "status": device.status,
