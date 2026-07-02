@@ -4,6 +4,14 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 
+class FrontendStaticFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if path in {"", ".", "index.html"} or path.endswith((".js", ".css")):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
+
 def configure_static_serving(app: FastAPI):
     """
     Finds and mounts the frontend static directory to the FastAPI app at root '/'
@@ -58,7 +66,9 @@ def configure_static_serving(app: FastAPI):
             files = os.listdir(frontend_dir)
             if files:
                 app.mount(
-                    "/", StaticFiles(directory=frontend_dir, html=True), name="frontend"
+                    "/",
+                    FrontendStaticFiles(directory=frontend_dir, html=True),
+                    name="frontend",
                 )
                 print(
                     "Static Serving: Successfully mounted frontend static assets "
