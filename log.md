@@ -3,6 +3,18 @@
 > Une entrée par session / push, anti-chronologique. Rédigé par `/doc-sync` avant push.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-07-03 — test(plugin): re-test bout-en-bout de habit-tracker-control contre le Pi
+
+- **Contexte** : validation post-fix X-User-ID (commit `18f9a81`). Test read-only + une seule mutation réversible (`__TEST_PLUGIN__`) contre l'instance de prod (`http://192.168.0.199:5000`, user Gabriel = id 3). Aucun code / compose / DB modifié.
+- **Résultats — tout OK** :
+  - `doctor` : `status: ok`, server `healthy`, user `{id:3, Gabriel, is_admin:true}`, protocol_version 2.
+  - Lectures : `query status/goals/habits/todos/agenda` toutes correctes (3 goals, 11 habits, 2 todos, agenda du 2026-07-03).
+  - Résolution par nom : `query goals --name "nomade"` → id 3 « Nomade life » + substeps.
+  - Mutation réversible : `plan todo-create` → `apply` (todo **id 3** créé, idem-key mémorisée) → vérif `query todos` (3 items) → `plan todo-delete --target "__TEST_PLUGIN__"` (résolu par nom → DELETE `/todos/3`) → `apply` → re-vérif (2 items).
+  - Idempotence : `recover <clé apply create>` renvoie le résultat mémorisé (http 201, même todo id 3) **sans re-création**.
+- **État final = état initial** : 2 todos (id 1, id 2), aucun autre objet touché. Auth `X-User-ID` fonctionnelle de bout en bout (fix `18f9a81` confirmé). Token jamais affiché.
+- Docs : log.md ✔ · code — (aucun changement, test uniquement)
+
 ## 2026-07-02 — feat(google): inversion du mapping do/due (event vs task cochable)
 
 - **Décision produit** : inverser le mapping Google. Avant : `due_date`→événement agenda, `do_date`→Google Task. Après : **`do_date`→événement** (⚔️, jour de travail bloqué dans l'agenda) et **`due_date`→Google Task** (🏆, cochable, cochée à la complétion). Raison : le jour où on bosse mérite un créneau agenda ; l'échéance est ce qu'on « termine ». Le mapping initial du brainstorm (`google-calendar-integration-brainstorm.md` §1) est donc **remplacé** — doc à mettre à jour si on la garde comme référence.
