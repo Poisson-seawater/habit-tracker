@@ -6084,9 +6084,8 @@ document.addEventListener("DOMContentLoaded", () => {
         actionsDisconnected.style.display = "block";
         actionsConnected.style.display = "none";
 
-        const currentUserId = localStorage.getItem("user_id") || "1";
         if (connectLink) {
-          connectLink.href = `${API_BASE}/auth/google/login?user_id=${currentUserId}`;
+          connectLink.href = `${API_BASE}/auth/google/login`;
         }
       }
     } catch (err) {

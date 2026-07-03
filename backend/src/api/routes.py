@@ -3691,9 +3691,12 @@ class GoogleExportTimelineRequest(BaseModel):
 
 
 @router.get("/auth/google/login")
-def google_login(user_id: int):
+def google_login(user_id: int = Depends(get_current_user_id)):
     """
     Redirect the user to Google OAuth page.
+
+    The user is resolved from the authenticated session (same path as
+    /status and /disconnect), not from a client-supplied query param.
     """
     auth_url = get_google_auth_url(user_id)
     return RedirectResponse(url=auth_url)
