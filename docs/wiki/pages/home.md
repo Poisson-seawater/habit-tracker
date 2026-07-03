@@ -19,6 +19,8 @@ Chaque validation fait avancer ton [Perfect Day](#/perfect-day) : les habitudes 
 
 Quand toutes les habitudes prévues sont traitées, c'est un Perfect Day. À la clé : +5 XP, et ta série continue. C'est la récompense de la journée.
 
+Ta vue « Perfect Day » sur le dashboard combine trois blocs : ta [timeline biologique](#/agenda-timeline) (le rythme perso de ta journée), l'agenda du jour, et la jauge de budget d'effort. Tes primes du jour, elles, peuvent se retrouver directement dans ton [Google Agenda et tes Google Tasks](#/sync-google) si tu as connecté ton compte.
+
 Puis, à 21h30, la journée se fige. Le bot publie le bilan de la guilde dans le groupe.
 
 Tes grands projets, eux, avancent en parallèle, sur leur propre écran. Chaque sous-étape d'[objectif](#/objectifs) que tu coches te rapporte de l'Or. Le quotidien entretient la régularité ; les objectifs marquent la vraie progression.
@@ -40,3 +42,7 @@ Deux inquiétudes reviennent toujours, et elles sont légitimes.
 **« Et un jour où c'est la catastrophe parce que je suis malade ? »** Tu ne vas pas casser ta série juste parce que ton corps a lâché. C'est à ça que servent les [templates de jour](#/templates-de-jour). Bascule en `rest` : la journée se juge avec un rythme de récupération. Et si c'est juste une habitude précise qui saute, `/skip <habitude> raison: <texte>` l'excuse pour aujourd'hui sans casser ton streak. La raison est obligatoire — c'est un garde-fou honnête.
 
 **« J'ai trop d'objectifs et de skills, je me perds. »** C'est exactement pour ça qu'existe le [Recap 3-3-3](#/recap-3-3-3) : tu épingles 3 sous-étapes d'objectifs, 3 softskills et tu vois tes 3 activités d'allostasie du jour. Un seul panneau, les vraies priorités, visible dès l'accueil.
+
+**« Je vis déjà dans Google Agenda, je ne vais pas ouvrir un site en plus. »** Pas besoin de choisir : connecte ton compte Google et tes primes planifiées apparaissent comme événement ou tâche dans tes outils habituels. Le détail du mapping et des rappels est dans [Synchronisation Google Calendar & Tasks](#/sync-google).
+
+**« Le Pi est exposé sur Internet, ça ne craint rien ? »** Trois couches filtrent l'accès avant le dashboard : Cloudflare Access (email autorisé), un mot de passe applicatif par joueur, puis un appareil reconnu. Le détail, y compris l'auto-approbation des appareils depuis le 2026-07-02, est dans [Authentification & appareils](#/authentification).

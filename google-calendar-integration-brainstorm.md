@@ -1,113 +1,137 @@
 # Brainstorming : Intégration Google Calendar & Habit Tracker (Spécifications Finales)
 
-Ce document valide les spécifications techniques et fonctionnelles pour l'intégration de **Google Calendar** et **Google Tasks** dans le Habit Tracker.
+Ce document valide les spécifications techniques et fonctionnelles actuelles pour
+l'intégration de **Google Calendar** et **Google Tasks** dans le Habit Tracker.
 
 ---
 
-## 1. Modélisation et Mappage des Données (Todos)
+## 1. Modélisation et mappage des données (Todos)
 
 Un `Todo` dans le Habit Tracker possède deux dates distinctes :
-1. **Due Date (Date limite / Date d'échéance)** : Le jour où la tâche doit impérativement être finie.
-2. **Do Date (Date de planification)** : Le jour où l'utilisateur prévoit de travailler activement sur la tâche.
 
-### Choix d'Architecture : Option B (Hybride)
-*   **Due Date** $\rightarrow$ **Google Calendar Event** (Événement Google Agenda) :
-    *   Créé sous forme d'événement "Toute la journée" ou avec heure de fin.
-    *   Placé dans le **sous-calendrier dédié "Habit RPG Tracker"**.
-*   **Do Date** $\rightarrow$ **Google Task** (Tâche Google Tasks native) :
-    *   Créé via l'API Google Tasks. S'affiche visuellement dans le panneau latéral droit de Google Calendar et dans l'app mobile Google Tasks.
-*   **Rappels (T-7j, T-3j, T-1j)** $\rightarrow$ **Délégués au Bot Telegram local** :
-    *   Puisque l'API Google Tasks ne permet pas de spécifier des rappels fins, le service local d'alertes du Habit Tracker (APScheduler + Telegram Bot listener) s'occupe de notifier Gabriel aux échéances configurées.
+1. **Do Date (date de planification)** : le jour où l'utilisateur prévoit de
+   travailler activement sur la tâche.
+2. **Due Date (date limite / échéance)** : le jour où la tâche doit être finie.
 
----
+### Choix d'architecture : hybride
 
-## 2. Gestion Détaillée des Rappels (Telegram Bot + APScheduler)
-
-Chaque fois qu'un `Todo` est créé ou modifié avec une `do_date` valide :
-
-1.  **Génération des Jobs de Rappel** :
-    *   Le backend calcule trois dates d'envoi :
-        *   **Rappel 1 semaine** : `do_date - 7 jours` à 09:00.
-        *   **Rappel 3 jours** : `do_date - 3 jours` à 09:00.
-        *   **Rappel 1 jour** : `do_date - 1 jour` à 09:00.
-    *   Ces tâches planifiées sont insérées dans **APScheduler** avec un identifiant unique (ex: `todo_reminder_1w_{todo_id}`).
-
-2.  **Notification Telegram** :
-    *   À l'exécution du job, le bot Telegram envoie un message formaté :
-        > 🔔 **Rappel Quête / Tâche** :
-        > **[Titre de la tâche]** est planifiée pour le **[do_date]**.
-        > *Il vous reste X jours pour vous y préparer.*
-        > 
-        > [Accéder au Dashboard] | [Marquer Terminé]
-
-3.  **Gestion des Mises à Jour (Cycle de Vie)** :
-    *   **Si la `do_date` change** : Les anciens jobs de rappel dans APScheduler sont annulés et reprogrammés.
-    *   **Si le Todo est complété ou supprimé** : Les jobs restants sont immédiatement retirés d'APScheduler.
+- **Do Date** -> **Google Calendar Event** :
+  - Créé comme événement journée entière dans le calendrier dédié
+    **Agenda des Quêtes**.
+  - Sert à bloquer visuellement le jour de travail dans l'agenda.
+  - Titre : `⚔️ <titre>`.
+  - Couleur : `colorId=8` (graphite), commune aux todos.
+- **Due Date** -> **Google Task** :
+  - Créée dans la liste **Habit RPG Tracker**.
+  - Sert d'échéance cochable dans Google Tasks.
+  - Titre : `🏆 <titre>`.
+- **Rappels J-7 / J-3 / J-1** -> **Bot Telegram local** :
+  - Les rappels sont basés sur la `do_date`.
+  - Le scheduler lance une vérification quotidienne à 09:00, au lieu de créer un
+    job APScheduler par todo.
 
 ---
 
-## 3. Synchronisation Automatique des Todos
+## 2. Gestion des rappels Telegram
 
-La synchronisation s'effectue en tâche de fond (asynchrone) dans FastAPI.
+Chaque jour à 09:00, le bot exécute `check_todo_reminders()` :
+
+1. Il récupère les todos non complétés qui ont une `do_date`.
+2. Il calcule l'écart entre aujourd'hui et la `do_date`.
+3. Il envoie un rappel Telegram si l'écart est de 7, 3 ou 1 jour.
+
+Le message rappelle la quête planifiée, la date de travail et l'XP promise. Si un
+todo est complété ou supprimé avant sa `do_date`, il ne ressort plus dans le scan
+quotidien.
+
+---
+
+## 3. Synchronisation automatique des todos
+
+La synchronisation s'effectue en tâche de fond côté FastAPI : l'action locale
+répond immédiatement, puis le backend pousse les changements vers Google.
 
 ```mermaid
 sequenceDiagram
     participant U as Utilisateur (Web / Bot)
-    participant B as Backend (FastAPI + APScheduler)
-    participant DB as Base SQLite
-    participant GC as Google Calendar API (Sous-Calendrier)
-    participant GT as Google Tasks API
+    participant B as Backend FastAPI
+    participant DB as SQLite
+    participant GC as Google Calendar
+    participant GT as Google Tasks
 
-    U->>B: Créer un Todo (due_date + do_date)
+    U->>B: Créer ou modifier un Todo (do_date / due_date)
     B->>DB: Enregistrer le Todo en local
-    B-->>U: Réponse HTTP 201 (Succès local immédiat)
-    
+    B-->>U: Réponse HTTP immédiate
+
     activate B
-    Note over B: Lancement de la tâche de fond (Background Tasks)
-    B->>GC: Créer Event pour due_date dans "Habit RPG Tracker"
-    GC-->>B: Retourne google_due_event_id
-    B->>GT: Créer Task pour do_date
-    GT-->>B: Retourne google_do_task_id
-    B->>DB: Mettre à jour les Google IDs sur le Todo
-    B->>B: Planifier les jobs de rappels Telegram (APScheduler)
+    B->>GC: Créer / mettre à jour l'événement si do_date existe
+    GC-->>B: Retourne google_event_id
+    B->>GT: Créer / mettre à jour la tâche si due_date existe
+    GT-->>B: Retourne google_task_id
+    B->>DB: Stocker les identifiants Google
     deactivate B
 ```
 
-### Règles de Synchro :
-*   **Création** : Appels asynchrones Google Calendar (insert) + Google Tasks (insert). Stockage des Google IDs.
-*   **Modification** :
-    *   Si modification du titre ou de la `due_date` : mise à jour de l'événement dans le calendrier "Habit RPG Tracker".
-    *   Si modification de la `do_date` : mise à jour dans Google Tasks + mise à jour des rappels locaux.
-*   **Complétion (Automatique dans Google)** :
-    *   Quand le Todo est validé dans le Habit Tracker :
-        1.  **Google Tasks (Do Date)** : Passage du statut à `"completed"` pour valider la tâche dans l'interface Google.
-        2.  **Google Calendar (Due Date)** : L'événement d'échéance dans le calendrier "Habit RPG Tracker" est conservé et mis à jour en préfixant son titre par `✅ [Terminé] ` pour garder l'historique visuel propre (ex: `✅ [Terminé] Rédiger le rapport`).
-*   **Suppression** :
-    *   Appels `DELETE` sur l'événement Google Calendar et la tâche Google Tasks.
-    *   Retrait des jobs de rappel dans APScheduler.
+### Règles de synchro
+
+- **Création** :
+  - `do_date` présente -> insertion d'un événement Calendar.
+  - `due_date` présente -> insertion d'une Google Task.
+- **Modification** :
+  - `do_date` ajoutée ou modifiée -> création ou `PATCH` de l'événement.
+  - `do_date` retirée -> suppression de l'événement et nettoyage de
+    `google_event_id`.
+  - `due_date` ajoutée ou modifiée -> création ou `PATCH` de la tâche.
+  - `due_date` retirée -> suppression de la tâche et nettoyage de
+    `google_task_id`.
+- **Complétion** :
+  - La Google Task liée à la `due_date` passe à `completed`.
+  - L'événement Calendar lié à la `do_date` reste en place pour conserver la
+    trace du jour de travail.
+- **Suppression** :
+  - L'événement Calendar et la Google Task associés sont supprimés si leurs IDs
+    existent.
 
 ---
 
-## 4. Synchronisation Manuelle de la "Journée Type" (Chronologie)
+## 4. Export manuel de l'agenda vertical
 
-La synchronisation de la **Chronologie de la Journée Type** (Sleep, Rest, Admin, Intense) est une action manuelle.
+La synchronisation de l'agenda vertical est une action manuelle séparée de la
+synchro automatique des todos.
 
-### Intégration UI & Backend
-1.  Un bouton **"Exporter vers Google Agenda"** est placé dans l'onglet *Perfect Day*.
-2.  Une fenêtre permet de sélectionner la plage de dates cible (ex: aujourd'hui, demain, ou les 7 prochains jours).
-3.  Pour chaque journée de la période :
-    *   Le backend lit la disposition des blocs locaux (`Sleep`, `Rest`, `Admin`, `Intense`).
-    *   Il crée les événements correspondants dans le sous-calendrier **"Habit RPG Tracker"** pour ne pas polluer l'agenda principal de l'utilisateur.
-    *   **Idempotence** : Chaque événement créé reçoit un tag (`extendedProperties.private.origin = "habit-tracker-timeline"`). Avant d'écrire, le backend supprime les anciens blocs exportés pour cette journée afin de pouvoir ré-exporter à volonté sans doublons.
+Endpoints :
+
+- `POST /api/v1/agenda/export-google` : exporte les quêtes placées sur une plage
+  de dates.
+- `POST /api/v1/agenda/{date}/export-google-quests` : exporte les quêtes placées
+  pour une seule journée.
+
+Règles :
+
+- Seules les quêtes placées dans l'agenda vertical partent vers Google Calendar.
+- Les zones biologiques et les segments Perfect Day ne sont pas exportés.
+- Chaque événement exporté porte `extendedProperties.private.origin =
+  habit-tracker-quest`.
+- Avant de réécrire une plage, les anciens événements `habit-tracker-quest` de
+  cette plage sont supprimés pour éviter les doublons.
+- Les quêtes reprennent l'emoji et la couleur Google de leur type d'effort :
+  `musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`, ou `repos`.
 
 ---
 
-## 5. Flux d'Authentification OAuth2 (Raspberry Pi Headless)
+## 5. Flux d'authentification OAuth2
 
-Puisque le serveur tourne sur un Raspberry Pi sans navigateur local :
-1.  Gabriel configure son `client_id` et `client_secret` Google dans le fichier `.env` du Pi.
-2.  Dans l'interface Web du Habit Tracker (Paramètres), Gabriel clique sur **"Connecter mon compte Google"**.
-3.  Le backend renvoie l'URL de connexion Google. Gabriel valide les accès (scopes `calendar` et `tasks`).
-4.  Google le redirige vers l'adresse publique/locale du Pi (ex: `http://localhost:5000/api/v1/auth/google/callback`).
-5.  Le backend crée automatiquement le sous-calendrier **"Habit RPG Tracker"** s'il n'existe pas encore.
-6.  Le backend récupère le `refresh_token`, le chiffre, et le stocke dans SQLite pour permettre les synchronisations futures en arrière-plan.
+Le serveur tourne sur Raspberry Pi, mais le consentement Google s'ouvre dans le
+navigateur de l'utilisateur :
+
+1. Le dashboard appelle `GET /api/v1/auth/google/login`.
+2. Le backend construit l'URL OAuth2 avec les scopes Calendar et Tasks.
+3. L'utilisateur accepte les accès Google.
+4. Google redirige vers `GET /api/v1/auth/google/callback`.
+5. Le backend échange le code contre des tokens, crée au besoin le calendrier
+   **Agenda des Quêtes** et la liste **Habit RPG Tracker**, puis stocke les IDs.
+6. Le `refresh_token` est chiffré avant d'être stocké en SQLite.
+
+`GET /api/v1/auth/google/status` indique si l'utilisateur est connecté.
+`POST /api/v1/auth/google/disconnect` efface les tokens et identifiants Google
+stockés côté Habit Tracker, sans supprimer les données côté Google.

@@ -101,7 +101,7 @@ def test_machine_token_allows_api_access(client):
     assert response.status_code == 200
 
 
-def test_new_device_requires_admin_approval(client):
+def test_new_device_is_auto_approved(client):
     bootstrap(client)
 
     phone = TestClient(app)
@@ -109,18 +109,7 @@ def test_new_device_requires_admin_approval(client):
         "/api/v1/auth/devices/request", json={"device_name": "phone"}
     )
     assert request.status_code == 200
-    assert request.json()["status"] == "pending"
-
-    blocked = phone.post(
-        "/api/v1/auth/login",
-        json={"username": "Gabriel", "password": "correct-password"},
-    )
-    assert blocked.status_code == 403
-
-    devices = client.get("/api/v1/auth/devices").json()
-    pending = next(device for device in devices if device["status"] == "pending")
-    approve = client.post(f"/api/v1/auth/devices/{pending['id']}/approve")
-    assert approve.status_code == 200
+    assert request.json()["status"] == "approved"
 
     login = phone.post(
         "/api/v1/auth/login",

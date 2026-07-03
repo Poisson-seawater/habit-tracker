@@ -38,6 +38,13 @@ Tu logges des [habitudes](#/habitudes) et tu coches des [primes](#/primes-todo).
 | `is_private` (habitude) | oui / non | comptée pour toi, masquée du recap public |
 | `is_reportable` | oui / non | apparaît ou non dans le bilan du groupe |
 | Pins recap 3-3-3 | listes d'IDs | sous-étapes et softskills épinglées, persistées via `PUT /api/v1/profile/pins` |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | identifiants OAuth2 | requis pour la [synchro Google](#/sync-google) |
+| `GOOGLE_REDIRECT_URI` | URL de callback | déf. `http://localhost:5000/api/v1/auth/google/callback` |
+| `GOOGLE_ENCRYPTION_KEY` | chaîne secrète | chiffre le `refresh_token` Google stocké en base |
+| `AUTH_BOOTSTRAP_CODE` | code temporaire | requis pour créer le 1er mot de passe admin, voir [Authentification](#/authentification) |
+| `HABIT_API_TOKEN` | jeton machine | authentifie les appels API hors navigateur (télécommande IA) |
+| `AUTH_SESSION_DAYS` | nombre de jours | durée de vie d'une session (déf. 30) |
+| `AUTH_COOKIE_SECURE` | oui / non | cookie de session marqué secure (HTTPS uniquement) |
 
 ## Comment ça interagit (le modèle mental)
 

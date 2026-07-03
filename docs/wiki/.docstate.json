@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "generated_at_commit": "d0147e2",
+  "generated_at": "2026-07-02",
+  "langue": "fr",
+  "objectif": "Un habit tracker RPG auto-hébergé (bot Telegram + dashboard web partageant une même base SQLite locale sur Raspberry Pi 5) qui transforme la discipline quotidienne en jeu — XP, niveaux, or, streaks, journées parfaites — pour se tenir mutuellement responsable de ses habitudes. Pilotage par bot Telegram, dashboard web, ou skills LLM. Pas un SaaS, tout est personnalisé pour un usage perso entre amis.",
+  "pages": {
+    "home": {
+      "sources": []
+    },
+    "onboarding": {
+      "sources": []
+    },
+    "regles-et-variables": {
+      "sources": [
+        "backend/src/bot/parser.py",
+        "backend/src/api/routes.py",
+        "backend/src/config.py"
+      ]
+    },
+    "journal": {
+      "sources": []
+    },
+    "perfect-day": {
+      "sources": [
+        "backend/src/services/score_service.py"
+      ]
+    },
+    "habitudes": {
+      "sources": [
+        "backend/src/database/models.py"
+      ]
+    },
+    "objectifs": {
+      "sources": [
+        "backend/src/database/models.py"
+      ]
+    },
+    "softskills": {
+      "sources": [
+        "backend/src/services/softskill_service.py"
+      ]
+    },
+    "recap-3-3-3": {
+      "sources": [
+        "backend/src/api/routes.py"
+      ]
+    },
+    "primes-todo": {
+      "sources": [
+        "backend/src/bot/listener.py",
+        "backend/src/database/models.py"
+      ]
+    },
+    "no-todo": {
+      "sources": [
+        "backend/src/database/models.py"
+      ]
+    },
+    "templates-de-jour": {
+      "sources": [
+        "backend/src/services/agenda_service.py"
+      ]
+    },
+    "stats-xp-niveau-or": {
+      "sources": [
+        "backend/src/services/score_service.py"
+      ]
+    },
+    "boutique-recompenses": {
+      "sources": [
+        "backend/src/database/models.py"
+      ]
+    },
+    "agenda-timeline": {
+      "sources": [
+        "backend/src/services/agenda_service.py",
+        "backend/src/services/day_cycle_service.py",
+        "backend/src/database/models.py",
+        "backend/src/database/seed.py",
+        "specs/011-perfect-day-rendering/plan.md"
+      ]
+    },
+    "sync-google": {
+      "sources": [
+        "backend/src/services/google_sync_service.py",
+        "backend/src/bot/scheduler.py",
+        "backend/src/config.py",
+        "backend/src/api/routes.py"
+      ]
+    },
+    "authentification": {
+      "sources": [
+        "backend/src/api/routes.py",
+        "backend/src/config.py",
+        "backend/src/database/models.py"
+      ]
+    },
+    "telecommande-ia": {
+      "sources": [
+        "docs/notes/habit-tracker-control-plugin.md",
+        "docs/notes/database-v9-remote-operations.md"
+      ]
+    }
+  }
+}

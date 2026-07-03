@@ -33,6 +33,12 @@ markmap:
 - XP/niveau, Or
 ### [Boutique & Allostasie](index.html#/boutique-recompenses)
 - Achat de récompenses, Allostasie Daily/Weekly
+### [Agenda & timeline biologique](index.html#/agenda-timeline)
+- Zones biologiques fixes + agenda du jour + budgets d'effort par template
+### [Synchronisation Google](index.html#/sync-google)
+- do_date → événement Calendar, due_date → Google Task, rappels J-7/3/1
 ## Avancé
+### [Authentification & appareils](index.html#/authentification)
+- Cloudflare Access + mot de passe + appareil auto-approuvé
 ### [Télécommande IA](index.html#/telecommande-ia)
 - Plugin Codex + CLI habitctl, pilotage HTTP idempotent

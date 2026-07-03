@@ -10,7 +10,7 @@
 - Backend : `models.py`, `seed.py` (v23), `google_sync_service.py` (helpers renommés `create_calendar_event`/`create_task`/… + wiring inversé + emoji/textes), `routes.py` (route delete).
 - **Rappel visibilité** (piste écartée comme « bug ») : un todo sans `do_date` **ni** `due_date` ne crée **rien** côté Google — comportement voulu, pas un bug. La confusion venait de 2 quêtes sans date.
 - Vérif : test bout-en-bout en direct contre les vraies API Google (do_date→événement au bon jour, due_date→task cochable `needsAction`), résidus orphelins nettoyés, conteneur `api` rebuild sain. Non commité.
-- Docs : log.md ✔ · google-calendar-integration-brainstorm.md ⏳ (mapping §1 à réaligner) · COMMANDS-INDEX.md — (aucune commande bot touchée)
+- Docs : log.md ✔ · google-calendar-integration-brainstorm.md ✔ (mapping §1 réaligné) · docs/wiki ✔ · COMMANDS-INDEX.md — (aucune commande bot touchée)
 
 ## 2026-07-02 — ops(prod): health check Pi post-incident + nettoyage
 

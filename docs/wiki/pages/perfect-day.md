@@ -9,6 +9,8 @@ Tu sais ce que c'est, une journée où tu as traité ce qui était prévu. Ici, 
 3. Le [template](#/templates-de-jour) actif (`rest`, `regular`, `hustle`) donne le contexte de la journée, l'agenda type et les budgets d'effort.
 4. Si **toutes** les habitudes prévues sont traitées, c'est un Perfect Day.
 
+La vue « Perfect Day » du dashboard affiche aussi l'[agenda vertical et la timeline biologique](#/agenda-timeline) : ta référence de rythme perso en haut, l'agenda du jour à gauche, la jauge de budget d'effort à droite.
+
 > Les primes donnent de l'XP direct, mais elles ne remplacent pas les habitudes prévues pour le Perfect Day.
 
 ## Récompense et clôture

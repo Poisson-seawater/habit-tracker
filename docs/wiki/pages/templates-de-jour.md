@@ -15,3 +15,7 @@ Selon les jours, tu peux en faire plus ou moins. Le template, c'est le « type d
 `/set-day <template>` (alias `/template`) change le type de journée et recalcule **instantanément** l'état du Perfect Day. Le bon template évite de juger une journée de repos avec les attentes d'une journée intense.
 
 Chaque template a ses propres budgets par catégorie d'effort (`musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`) et son agenda type, configurables dans l'écran Paramètres du site.
+
+## Budgets et agenda vertical
+
+Les budgets ne sont pas de simples plafonds abstraits : ils cadrent ce que tu peux placer dans l'[agenda vertical](#/agenda-timeline). Un jour `hustle` autorise jusqu'à 4h par type d'effort (10h au total) ; un jour `rest` redescend à 1h par type (4h au total), pour garder une journée de récupération réellement légère. Une fois ta journée type planifiée, un bouton export la pousse vers [Google Calendar](#/sync-google).

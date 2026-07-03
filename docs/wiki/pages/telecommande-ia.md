@@ -13,6 +13,8 @@ Le pilotage est packagé en **plugin Codex** local (`plugins/habit-tracker-contr
 
 Déterministe = même commande → même appel → même effet. L'agent n'improvise pas le format des requêtes.
 
+Ces appels passent par l'API, pas par un navigateur : ils s'authentifient avec l'en-tête `Authorization: Bearer <HABIT_API_TOKEN>` plutôt qu'avec le cookie d'appareil du dashboard. Voir [Authentification & appareils](#/authentification) pour le détail des couches.
+
 ## Idempotence : rejouer sans casser
 
 Chaque opération d'écriture porte une **clé d'idempotence**. Le backend mémorise l'opération (table `remote_operations`) : si la même requête est renvoyée (timeout réseau, reprise de l'agent), elle n'est **pas exécutée deux fois** — la réponse d'origine est rendue. On peut donc relancer une commande sans créer de doublon.

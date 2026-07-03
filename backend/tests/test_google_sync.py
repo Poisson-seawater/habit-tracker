@@ -141,8 +141,8 @@ class TestGoogleSync:
             db = db_session_factory()
             todo = db.query(Todo).filter(Todo.id == todo_id).first()
             if todo:
-                todo.google_due_event_id = "mock_event_123"
-                todo.google_do_task_id = "mock_task_123"
+                todo.google_event_id = "mock_event_123"
+                todo.google_task_id = "mock_task_123"
                 db.commit()
             db.close()
 
@@ -203,12 +203,14 @@ class TestGoogleSync:
     def test_export_agenda_endpoint(self, client, monkeypatch):
         export_timeline_called = []
 
-        async def mock_export_typical_day_timeline(user_id, start_date, end_date, db):
+        async def mock_export_timeline_task(
+            user_id, start_date, end_date, db_session_factory
+        ):
             export_timeline_called.append((user_id, start_date, end_date))
 
         monkeypatch.setattr(
-            "src.api.routes.export_typical_day_timeline",
-            mock_export_typical_day_timeline,
+            "src.api.routes.export_timeline_task",
+            mock_export_timeline_task,
         )
 
         response = client.post(

@@ -22,6 +22,24 @@ def time_to_minutes(t_str: str) -> int:
     return int(parts[0]) * 60 + int(parts[1])
 
 
+# Emoji + Google Calendar colorId (1..11) par type d'effort, pour rendre
+# l'agenda lisible d'un coup d'oeil au lieu d'un seul aplat rose.
+EFFORT_VISUALS = {
+    "musculaire": {"emoji": "💪", "color_id": "11"},  # Tomate (rouge)
+    "cerveau": {"emoji": "🧠", "color_id": "7"},  # Paon (bleu)
+    "emotionnel_social": {"emoji": "❤️", "color_id": "6"},  # Mandarine (orange)
+    "creatif_divergent": {"emoji": "🎨", "color_id": "3"},  # Raisin (violet)
+    "repos": {"emoji": "🌿", "color_id": "10"},  # Basilic (vert)
+}
+DEFAULT_QUEST_VISUAL = {"emoji": "🎯", "color_id": None}
+TODO_DO_COLOR_ID = "8"  # Graphite (gris) pour les jours de travail (Todo do_date)
+
+
+def effort_visual(effort_type: Optional[str]) -> dict:
+    """Retourne emoji + colorId pour un type d'effort (fallback 🎯 sans couleur)."""
+    return EFFORT_VISUALS.get(effort_type or "", DEFAULT_QUEST_VISUAL)
+
+
 # XOR token obfuscation/encryption
 def encrypt_token(token: str) -> str:
     if not token:
@@ -233,6 +251,7 @@ async def create_calendar_event(
         "description": "Jour de travail (Do Date) synchronisé depuis Habit RPG Tracker.",
         "start": {"date": date_str},
         "end": {"date": date_str},
+        "colorId": TODO_DO_COLOR_ID,
         "extendedProperties": {"private": {"origin": "habit-tracker-todo-do"}},
     }
 
@@ -261,6 +280,7 @@ async def update_calendar_event(
         "summary": f"⚔️ {todo_title}",
         "start": {"date": date_str},
         "end": {"date": date_str},
+        "colorId": TODO_DO_COLOR_ID,
     }
 
     async with httpx.AsyncClient() as client:
@@ -416,8 +436,9 @@ async def export_typical_day_timeline(
                         )
                         dt_end = dt_start + datetime.timedelta(minutes=duration_min)
 
+                        visual = effort_visual(item.get("effort_type"))
                         event_body = {
-                            "summary": f"🎯 {item['name']}",
+                            "summary": f"{visual['emoji']} {item['name']}",
                             "description": "Quête planifiée depuis l'Agenda du Habit RPG Tracker.",
                             "start": {
                                 "dateTime": dt_start.isoformat(),
@@ -431,6 +452,8 @@ async def export_typical_day_timeline(
                                 "private": {"origin": "habit-tracker-quest"}
                             },
                         }
+                        if visual["color_id"]:
+                            event_body["colorId"] = visual["color_id"]
                         await client.post(
                             f"https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events",
                             headers=headers,
