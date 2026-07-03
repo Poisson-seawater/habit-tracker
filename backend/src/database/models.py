@@ -307,8 +307,8 @@ class Todo(Base):
     due_date = Column(Date, nullable=True)
 
     # Google API references
-    google_due_event_id = Column(String, nullable=True)
-    google_do_task_id = Column(String, nullable=True)
+    google_event_id = Column(String, nullable=True)  # Calendar event, from do_date
+    google_task_id = Column(String, nullable=True)  # Google Task (cochable), from due_date
 
     user = relationship("User", back_populates="todos")
 

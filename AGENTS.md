@@ -87,6 +87,16 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
 **Commits / branches** → [CONTRIBUTING.md](./CONTRIBUTING.md)
 (`type(scope): description`, branches `feat/...` → `dev` → `main`).
 
+## Journal et décisions
+
+- **Commandes Docker / DB / reset / migration / déploiement** : toujours préciser la cible
+  avant de donner ou lancer la commande : instance locale, Raspberry Pi / serveur de prod,
+  ou autre environnement. Si la cible est ambiguë, demander confirmation. Ne pas donner de
+  placeholder non remplacé dans une commande à copier-coller.
+- **log.md** : documenter les décisions opérationnelles, les échecs et les pistes écartées.
+  Priorité aux décisions rejetées ou aux tentatives qui n'ont pas fonctionné, car les
+  décisions retenues sont généralement déjà visibles dans les commits, PR et GitHub Actions.
+
 ## Patterns à respecter
 
 - **Nouvelle route** : l'ajouter dans `backend/src/api/routes.py`, avec son schéma

@@ -915,8 +915,8 @@ def _run_migrations():
         if "todos" in inspector.get_table_names():
             columns = [c["name"] for c in inspector.get_columns("todos")]
             google_todo_columns = {
-                "google_due_event_id": "ALTER TABLE todos ADD COLUMN google_due_event_id VARCHAR",
-                "google_do_task_id": "ALTER TABLE todos ADD COLUMN google_do_task_id VARCHAR",
+                "google_event_id": "ALTER TABLE todos ADD COLUMN google_event_id VARCHAR",
+                "google_task_id": "ALTER TABLE todos ADD COLUMN google_task_id VARCHAR",
             }
             missing_google_todo_columns = [
                 name for name in google_todo_columns if name not in columns

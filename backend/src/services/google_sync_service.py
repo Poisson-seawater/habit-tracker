@@ -48,6 +48,7 @@ def decrypt_token(encrypted_token: str) -> str:
 
 
 def get_google_auth_url(user_id: int) -> str:
+    from urllib.parse import urlencode
     scopes = " ".join(
         [
             "https://www.googleapis.com/auth/calendar",
@@ -55,17 +56,16 @@ def get_google_auth_url(user_id: int) -> str:
         ]
     )
     # prompt=consent guarantees refresh_token is sent
-    url = (
-        "https://accounts.google.com/o/oauth2/v2/auth?"
-        "response_type=code&"
-        f"client_id={GOOGLE_CLIENT_ID}&"
-        f"redirect_uri={GOOGLE_REDIRECT_URI}&"
-        f"scope={scopes}&"
-        "access_type=offline&"
-        "prompt=consent&"
-        f"state={user_id}"
-    )
-    return url
+    params = {
+        "response_type": "code",
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "scope": scopes,
+        "access_type": "offline",
+        "prompt": "consent",
+        "state": str(user_id),
+    }
+    return f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
 
 
 async def exchange_auth_code(user_id: int, code: str, db: Session):
@@ -167,7 +167,7 @@ async def setup_google_resources(user_id: int, db: Session):
             if list_resp.status_code == 200:
                 calendars = list_resp.json().get("items", [])
                 for cal in calendars:
-                    if cal.get("summary") == "Habit RPG Tracker" and not cal.get(
+                    if cal.get("summary") == "Agenda des Quêtes" and not cal.get(
                         "deleted", False
                     ):
                         calendar_id = cal.get("id")
@@ -177,7 +177,7 @@ async def setup_google_resources(user_id: int, db: Session):
                 create_resp = await client.post(
                     "https://www.googleapis.com/calendar/v3/calendars",
                     headers=headers,
-                    json={"summary": "Habit RPG Tracker"},
+                    json={"summary": "Agenda des Quêtes"},
                 )
                 if create_resp.status_code == 200:
                     calendar_id = create_resp.json().get("id")
@@ -214,9 +214,10 @@ async def setup_google_resources(user_id: int, db: Session):
                 db.commit()
 
 
-async def create_due_date_event(
-    user_id: int, todo_title: str, due_date, db: Session
+async def create_calendar_event(
+    user_id: int, todo_title: str, do_date, db: Session
 ) -> Optional[str]:
+    """Crée l'événement du jour de travail (Do Date) dans Agenda des Quêtes."""
     token = await get_valid_access_token(user_id, db)
     if not token:
         return None
@@ -226,13 +227,13 @@ async def create_due_date_event(
         return None
 
     headers = {"Authorization": f"Bearer {token}"}
-    date_str = due_date.isoformat() if hasattr(due_date, "isoformat") else str(due_date)
+    date_str = do_date.isoformat() if hasattr(do_date, "isoformat") else str(do_date)
     event_body = {
-        "summary": f"🏆 {todo_title}",
-        "description": "Date limite de validation (Due Date) synchronisée depuis Habit RPG Tracker.",
+        "summary": f"⚔️ {todo_title}",
+        "description": "Jour de travail (Do Date) synchronisé depuis Habit RPG Tracker.",
         "start": {"date": date_str},
         "end": {"date": date_str},
-        "extendedProperties": {"private": {"origin": "habit-tracker-todo-due"}},
+        "extendedProperties": {"private": {"origin": "habit-tracker-todo-do"}},
     }
 
     async with httpx.AsyncClient() as client:
@@ -243,8 +244,8 @@ async def create_due_date_event(
         return None
 
 
-async def update_due_date_event(
-    user_id: int, event_id: str, todo_title: str, due_date, db: Session
+async def update_calendar_event(
+    user_id: int, event_id: str, todo_title: str, do_date, db: Session
 ):
     token = await get_valid_access_token(user_id, db)
     if not token:
@@ -255,9 +256,9 @@ async def update_due_date_event(
         return
 
     headers = {"Authorization": f"Bearer {token}"}
-    date_str = due_date.isoformat() if hasattr(due_date, "isoformat") else str(due_date)
+    date_str = do_date.isoformat() if hasattr(do_date, "isoformat") else str(do_date)
     event_body = {
-        "summary": f"🏆 {todo_title}",
+        "summary": f"⚔️ {todo_title}",
         "start": {"date": date_str},
         "end": {"date": date_str},
     }
@@ -267,7 +268,7 @@ async def update_due_date_event(
         await client.patch(url, headers=headers, json=event_body)
 
 
-async def delete_due_date_event(user_id: int, event_id: str, db: Session):
+async def delete_calendar_event(user_id: int, event_id: str, db: Session):
     token = await get_valid_access_token(user_id, db)
     if not token:
         return
@@ -282,9 +283,10 @@ async def delete_due_date_event(user_id: int, event_id: str, db: Session):
         await client.delete(url, headers=headers)
 
 
-async def create_do_date_task(
-    user_id: int, todo_title: str, do_date, db: Session
+async def create_task(
+    user_id: int, todo_title: str, due_date, db: Session
 ) -> Optional[str]:
+    """Crée la Google Task cochable pour l'échéance (Due Date)."""
     token = await get_valid_access_token(user_id, db)
     if not token:
         return None
@@ -294,10 +296,10 @@ async def create_do_date_task(
         return None
 
     headers = {"Authorization": f"Bearer {token}"}
-    date_str = do_date.isoformat() if hasattr(do_date, "isoformat") else str(do_date)
+    date_str = due_date.isoformat() if hasattr(due_date, "isoformat") else str(due_date)
     task_body = {
-        "title": f"⚔️ {todo_title}",
-        "notes": "Planifié pour (Do Date) synchronisée depuis Habit RPG Tracker.",
+        "title": f"🏆 {todo_title}",
+        "notes": "Date limite (Due Date) synchronisée depuis Habit RPG Tracker.",
         "due": f"{date_str}T00:00:00Z",
     }
 
@@ -309,8 +311,8 @@ async def create_do_date_task(
         return None
 
 
-async def update_do_date_task(
-    user_id: int, task_id: str, todo_title: str, do_date, completed: bool, db: Session
+async def update_task(
+    user_id: int, task_id: str, todo_title: str, due_date, completed: bool, db: Session
 ):
     token = await get_valid_access_token(user_id, db)
     if not token:
@@ -322,12 +324,12 @@ async def update_do_date_task(
 
     headers = {"Authorization": f"Bearer {token}"}
     task_body = {
-        "title": f"⚔️ {todo_title}",
+        "title": f"🏆 {todo_title}",
         "status": "completed" if completed else "needsAction",
     }
-    if do_date:
+    if due_date:
         date_str = (
-            do_date.isoformat() if hasattr(do_date, "isoformat") else str(do_date)
+            due_date.isoformat() if hasattr(due_date, "isoformat") else str(due_date)
         )
         task_body["due"] = f"{date_str}T00:00:00Z"
     else:
@@ -338,7 +340,7 @@ async def update_do_date_task(
         await client.patch(url, headers=headers, json=task_body)
 
 
-async def delete_do_date_task(user_id: int, task_id: str, db: Session):
+async def delete_task(user_id: int, task_id: str, db: Session):
     token = await get_valid_access_token(user_id, db)
     if not token:
         return
@@ -356,6 +358,11 @@ async def delete_do_date_task(user_id: int, task_id: str, db: Session):
 async def export_typical_day_timeline(
     user_id: int, start_date: datetime.date, end_date: datetime.date, db: Session
 ):
+    """Exporte UNIQUEMENT les quêtes placées (🎯) sur la plage donnée dans le
+    calendrier dédié. Aucune zone biologique, aucun segment Perfect Day : seules
+    les quêtes de l'Agenda partent vers Google. Idempotent via le tag
+    `origin=habit-tracker-quest` (les quêtes du jour sont supprimées puis
+    réécrites)."""
     token = await get_valid_access_token(user_id, db)
     if not token:
         raise Exception("Google Account not connected or invalid token")
@@ -368,12 +375,12 @@ async def export_typical_day_timeline(
     calendar_id = user.google_calendar_id
 
     async with httpx.AsyncClient() as client:
-        # 1. Delete existing timeline events in this range
+        # 1. Delete existing quest events in this range
         url_list = (
             f"https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events"
         )
         params = {
-            "privateExtendedProperty": "origin=habit-tracker-timeline",
+            "privateExtendedProperty": "origin=habit-tracker-quest",
             "timeMin": f"{start_date.isoformat()}T00:00:00Z",
             "timeMax": f"{end_date.isoformat()}T23:59:59Z",
             "maxResults": 250,
@@ -388,50 +395,15 @@ async def export_typical_day_timeline(
                     headers=headers,
                 )
 
-        # 2. Iterate each day and insert events
+        # 2. Iterate each day and insert placed quests only
         current_date = start_date
         while current_date <= end_date:
-            # A. Fetch biological zones
-            zones = (
-                db.query(BiologicalZone)
-                .filter(BiologicalZone.user_id == user_id)
-                .order_by(BiologicalZone.display_order)
-                .all()
-            )
-            for z in zones:
-                t_start = datetime.time.fromisoformat(z.start_time)
-                t_end = datetime.time.fromisoformat(z.end_time)
-                dt_start = datetime.datetime.combine(current_date, t_start)
-                if t_end < t_start:
-                    dt_end = datetime.datetime.combine(
-                        current_date + datetime.timedelta(days=1), t_end
-                    )
-                else:
-                    dt_end = datetime.datetime.combine(current_date, t_end)
-
-                event_body = {
-                    "summary": f"🧠 {z.zone_name}",
-                    "description": f"Zone biologique type ({z.zone_type}) importee de Habit RPG Tracker.",
-                    "start": {"dateTime": dt_start.isoformat(), "timeZone": TIMEZONE},
-                    "end": {"dateTime": dt_end.isoformat(), "timeZone": TIMEZONE},
-                    "extendedProperties": {
-                        "private": {"origin": "habit-tracker-timeline"}
-                    },
-                }
-                await client.post(
-                    f"https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events",
-                    headers=headers,
-                    json=event_body,
-                )
-
-            # B. Fetch agenda response details (template segments + placed quests)
             try:
                 agenda_dict, _ = build_agenda_response(db, user_id, current_date)
             except Exception:
                 agenda_dict = None
 
             if agenda_dict:
-                # Placed quests
                 for item in agenda_dict.get("placed_quests", []):
                     start_time_str = item.get("start_time")
                     duration_min = item.get("duration_minutes", 60)
@@ -446,7 +418,7 @@ async def export_typical_day_timeline(
 
                         event_body = {
                             "summary": f"🎯 {item['name']}",
-                            "description": "Placements d'agenda (Quete / Habitude) planifiee.",
+                            "description": "Quête planifiée depuis l'Agenda du Habit RPG Tracker.",
                             "start": {
                                 "dateTime": dt_start.isoformat(),
                                 "timeZone": TIMEZONE,
@@ -456,7 +428,7 @@ async def export_typical_day_timeline(
                                 "timeZone": TIMEZONE,
                             },
                             "extendedProperties": {
-                                "private": {"origin": "habit-tracker-timeline"}
+                                "private": {"origin": "habit-tracker-quest"}
                             },
                         }
                         await client.post(
@@ -467,47 +439,37 @@ async def export_typical_day_timeline(
                     except Exception as ex:
                         print(f"Error exporting placed quest: {ex}")
 
-                # Template segments
-                for seg in agenda_dict.get("segments", []):
-                    start_str = seg.get("start")
-                    end_str = seg.get("end")
-                    if not start_str or not end_str:
-                        continue
-                    try:
-                        t_start = datetime.time.fromisoformat(start_str)
-                        t_end = datetime.time.fromisoformat(end_str)
-                        dt_start = datetime.datetime.combine(current_date, t_start)
-                        if t_end < t_start:
-                            dt_end = datetime.datetime.combine(
-                                current_date + datetime.timedelta(days=1), t_end
-                            )
-                        else:
-                            dt_end = datetime.datetime.combine(current_date, t_end)
-
-                        event_body = {
-                            "summary": f"📅 {seg['title']}",
-                            "description": f"Segment type de Perfect Day ({seg.get('category')})",
-                            "start": {
-                                "dateTime": dt_start.isoformat(),
-                                "timeZone": TIMEZONE,
-                            },
-                            "end": {
-                                "dateTime": dt_end.isoformat(),
-                                "timeZone": TIMEZONE,
-                            },
-                            "extendedProperties": {
-                                "private": {"origin": "habit-tracker-timeline"}
-                            },
-                        }
-                        await client.post(
-                            f"https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events",
-                            headers=headers,
-                            json=event_body,
-                        )
-                    except Exception as ex:
-                        print(f"Error exporting template segment: {ex}")
-
             current_date += datetime.timedelta(days=1)
+
+
+async def export_timeline_task(
+    user_id: int,
+    start_date: datetime.date,
+    end_date: datetime.date,
+    db_session_factory,
+):
+    """Background wrapper: opens its own session (the request-scoped one is
+    already closed by the time BackgroundTasks run)."""
+    db = db_session_factory()
+    try:
+        await export_typical_day_timeline(user_id, start_date, end_date, db)
+    except Exception as e:
+        print(f"Error in export_timeline_task: {e}")
+    finally:
+        db.close()
+
+
+async def export_quests_day_task(
+    user_id: int, date_value: datetime.date, db_session_factory
+):
+    """Background wrapper: exporte les quêtes d'un seul jour vers Google."""
+    db = db_session_factory()
+    try:
+        await export_typical_day_timeline(user_id, date_value, date_value, db)
+    except Exception as e:
+        print(f"Error in export_quests_day_task: {e}")
+    finally:
+        db.close()
 
 
 # Background task hooks
@@ -517,19 +479,19 @@ async def sync_todo_created(user_id: int, todo_id: int, db_session_factory):
         todo = db.query(Todo).filter(Todo.id == todo_id).first()
         if not todo:
             return
-        # If due_date is set, create calendar event
-        if todo.due_date:
-            event_id = await create_due_date_event(
-                user_id, todo.title, todo.due_date, db
+        # do_date -> événement dans l'agenda (jour de travail)
+        if todo.do_date:
+            event_id = await create_calendar_event(
+                user_id, todo.title, todo.do_date, db
             )
             if event_id:
-                todo.google_due_event_id = event_id
+                todo.google_event_id = event_id
                 db.commit()
-        # If do_date is set, create task list task
-        if todo.do_date:
-            task_id = await create_do_date_task(user_id, todo.title, todo.do_date, db)
+        # due_date -> Google Task cochable (échéance)
+        if todo.due_date:
+            task_id = await create_task(user_id, todo.title, todo.due_date, db)
             if task_id:
-                todo.google_do_task_id = task_id
+                todo.google_task_id = task_id
                 db.commit()
     except Exception as e:
         print(f"Error in sync_todo_created: {e}")
@@ -544,47 +506,47 @@ async def sync_todo_updated(user_id: int, todo_id: int, db_session_factory):
         if not todo:
             return
 
-        # Due Date calendar event sync
-        if todo.due_date:
-            if todo.google_due_event_id:
-                await update_due_date_event(
-                    user_id, todo.google_due_event_id, todo.title, todo.due_date, db
+        # do_date -> événement agenda (jour de travail)
+        if todo.do_date:
+            if todo.google_event_id:
+                await update_calendar_event(
+                    user_id, todo.google_event_id, todo.title, todo.do_date, db
                 )
             else:
-                event_id = await create_due_date_event(
-                    user_id, todo.title, todo.due_date, db
+                event_id = await create_calendar_event(
+                    user_id, todo.title, todo.do_date, db
                 )
                 if event_id:
-                    todo.google_due_event_id = event_id
+                    todo.google_event_id = event_id
                     db.commit()
         else:
-            if todo.google_due_event_id:
-                await delete_due_date_event(user_id, todo.google_due_event_id, db)
-                todo.google_due_event_id = None
+            if todo.google_event_id:
+                await delete_calendar_event(user_id, todo.google_event_id, db)
+                todo.google_event_id = None
                 db.commit()
 
-        # Do Date task list sync
-        if todo.do_date:
-            if todo.google_do_task_id:
-                await update_do_date_task(
+        # due_date -> Google Task cochable (échéance)
+        if todo.due_date:
+            if todo.google_task_id:
+                await update_task(
                     user_id,
-                    todo.google_do_task_id,
+                    todo.google_task_id,
                     todo.title,
-                    todo.do_date,
+                    todo.due_date,
                     todo.is_completed,
                     db,
                 )
             else:
-                task_id = await create_do_date_task(
-                    user_id, todo.title, todo.do_date, db
+                task_id = await create_task(
+                    user_id, todo.title, todo.due_date, db
                 )
                 if task_id:
-                    todo.google_do_task_id = task_id
+                    todo.google_task_id = task_id
                     db.commit()
         else:
-            if todo.google_do_task_id:
-                await delete_do_date_task(user_id, todo.google_do_task_id, db)
-                todo.google_do_task_id = None
+            if todo.google_task_id:
+                await delete_task(user_id, todo.google_task_id, db)
+                todo.google_task_id = None
                 db.commit()
     except Exception as e:
         print(f"Error in sync_todo_updated: {e}")
@@ -598,12 +560,12 @@ async def sync_todo_completed(user_id: int, todo_id: int, db_session_factory):
         todo = db.query(Todo).filter(Todo.id == todo_id).first()
         if not todo:
             return
-        if todo.google_do_task_id:
-            await update_do_date_task(
+        if todo.google_task_id:
+            await update_task(
                 user_id,
-                todo.google_do_task_id,
+                todo.google_task_id,
                 todo.title,
-                todo.do_date,
+                todo.due_date,
                 todo.is_completed,
                 db,
             )
@@ -619,9 +581,9 @@ async def sync_todo_deleted(
     db = db_session_factory()
     try:
         if event_id:
-            await delete_due_date_event(user_id, event_id, db)
+            await delete_calendar_event(user_id, event_id, db)
         if task_id:
-            await delete_do_date_task(user_id, task_id, db)
+            await delete_task(user_id, task_id, db)
     except Exception as e:
         print(f"Error in sync_todo_deleted: {e}")
     finally:

@@ -1323,6 +1323,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  async function exportAgendaQuestsForDay() {
+    const btn = document.getElementById("agenda-export-quests-btn");
+    try {
+      const date = getAgendaDate();
+      if (btn) btn.disabled = true;
+      const response = await fetch(`${API_BASE}/agenda/${date}/export-google-quests`, {
+        method: "POST"
+      });
+      if (!response.ok) {
+        const detail = (await response.json().catch(() => ({}))).detail;
+        throw new Error(detail || "Export refusé. Compte Google connecté ?");
+      }
+      showToast(`Quêtes du ${date} envoyées vers Google Calendar.`);
+    } catch (error) {
+      console.error(error);
+      showToast(error.message, true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   // Render the horizontal timeline bar
   function renderTimeline(agenda) {
     const bar = document.getElementById("timeline-bar");
@@ -3807,6 +3828,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     agendaDateInput?.addEventListener("change", () => loadQuestAgenda(true));
     agendaRefreshBtn?.addEventListener("click", () => loadQuestAgenda(true));
+    document.getElementById("agenda-export-quests-btn")?.addEventListener("click", exportAgendaQuestsForDay);
     document.querySelectorAll(".agenda-save-btn").forEach(btn => {
       btn.addEventListener("click", () => saveAgendaAsTemplate(btn.dataset.template));
     });

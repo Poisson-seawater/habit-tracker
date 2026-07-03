@@ -3,6 +3,29 @@
 > Une entrée par session / push, anti-chronologique. Rédigé par `/doc-sync` avant push.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-07-02 — feat(google): inversion du mapping do/due (event vs task cochable)
+
+- **Décision produit** : inverser le mapping Google. Avant : `due_date`→événement agenda, `do_date`→Google Task. Après : **`do_date`→événement** (⚔️, jour de travail bloqué dans l'agenda) et **`due_date`→Google Task** (🏆, cochable, cochée à la complétion). Raison : le jour où on bosse mérite un créneau agenda ; l'échéance est ce qu'on « termine ». Le mapping initial du brainstorm (`google-calendar-integration-brainstorm.md` §1) est donc **remplacé** — doc à mettre à jour si on la garde comme référence.
+- **Colonnes renommées** (feature Google jamais déployée en prod, donc rename direct sans migration de rename) : `todos.google_due_event_id/google_do_task_id` → `google_event_id/google_task_id` (noms neutres, corrects après l'inversion). Migration v23 (`seed.py`) crée directement les nouveaux noms. Sur le Pi : aucune manip manuelle, v23 créera les bonnes colonnes au 1ᵉʳ déploiement. En local dev : 2 colonnes mortes `google_due_*/google_do_*` subsistent (inoffensives).
+- Backend : `models.py`, `seed.py` (v23), `google_sync_service.py` (helpers renommés `create_calendar_event`/`create_task`/… + wiring inversé + emoji/textes), `routes.py` (route delete).
+- **Rappel visibilité** (piste écartée comme « bug ») : un todo sans `do_date` **ni** `due_date` ne crée **rien** côté Google — comportement voulu, pas un bug. La confusion venait de 2 quêtes sans date.
+- Vérif : test bout-en-bout en direct contre les vraies API Google (do_date→événement au bon jour, due_date→task cochable `needsAction`), résidus orphelins nettoyés, conteneur `api` rebuild sain. Non commité.
+- Docs : log.md ✔ · google-calendar-integration-brainstorm.md ⏳ (mapping §1 à réaligner) · COMMANDS-INDEX.md — (aucune commande bot touchée)
+
+## 2026-07-02 — ops(prod): health check Pi post-incident + nettoyage
+
+- Health check prod (Pi `192.168.0.199`) : hôte sain (uptime 38j, disque 6%, RAM ok), conteneurs `api`+`bot` Up `restarts=0`, API 200 sur tous les endpoints, 20 tables présentes (dont `auth_devices`/`auth_sessions`), données OK.
+- Incident DB vidée du matin **confirmé résolu** : recovery manuelle (`restore-snapshot` + migrations). Burst de ~1100 erreurs `no such table: auth_sessions/auth_devices` entre le restart et l'application des migrations (snapshot restauré antérieur aux tables auth) → **stoppé depuis 15:40 UTC**, plus aucune erreur live.
+- Nettoyage : fichier résiduel `habit_tracker.EMPTY-20260702.db` (0 octet, root) supprimé. Logs conteneurs cleared.
+- Tests connexion Cloudflare effectués.
+- **Cause racine du wipe (DB → 0 octet à 15:44) non identifiée** — `journalctl` non lisible (sudo). Piste ouverte.
+
+## 2026-07-02 — fix(auth): tentative infructueuse sur l'erreur profil
+
+- Tentative de résolution de l'erreur front `Erreur lors du chargement du profil` sur la Raspberry Pi, c'est-à-dire le serveur de prod.
+- PR #6 puis PR #7 réalisées, puis décision de redémarrer avec une base de données réinitialisée.
+- Résultat : rien n'a corrigé durablement le problème.
+
 ## 2026-06-14 — feat(habits): cible de répétitions/jour (daily_target) — affichage X/N
 
 - Nouvelle option **Cible/jour** (`daily_target`) sur une habitude : quand elle est définie (> 1), chaque validation compte et rapporte son XP (pas de pénalité à 1 fois, `n+1` = XP en plus, dépassement `3/2` permis), et le recap Telegram + la tuile du dashboard affichent `X/N`. `daily_cap` reste respecté. Les habitudes sans cible sont inchangées.

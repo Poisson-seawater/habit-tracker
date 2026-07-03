@@ -64,7 +64,8 @@ from src.database.session import SessionLocal
 from src.services.google_sync_service import (
     get_google_auth_url,
     exchange_auth_code,
-    export_typical_day_timeline,
+    export_timeline_task,
+    export_quests_day_task,
     sync_todo_created,
     sync_todo_updated,
     sync_todo_completed,
@@ -2726,8 +2727,8 @@ def delete_todo(
     if not todo:
         raise HTTPException(status_code=404, detail="Bounty not found")
 
-    event_id = todo.google_due_event_id
-    task_id = todo.google_do_task_id
+    event_id = todo.google_event_id
+    task_id = todo.google_task_id
 
     db.delete(todo)
     db.commit()
@@ -3763,7 +3764,8 @@ def export_google_timeline(
     user_id: int = Depends(get_current_user_id),
 ):
     """
-    Export biological zones and placements/segments to Google Calendar.
+    Export only the placed quests (🎯) of the agenda to Google Calendar,
+    for each day of the given date range. No biological zones, no segments.
     """
     user = db.query(User).filter_by(id=user_id).first()
     if not user or not user.google_refresh_token:
@@ -3772,6 +3774,23 @@ def export_google_timeline(
     start = datetime.date.fromisoformat(payload.start_date)
     end = datetime.date.fromisoformat(payload.end_date)
 
-    background_tasks.add_task(export_typical_day_timeline, user_id, start, end, db)
+    background_tasks.add_task(export_timeline_task, user_id, start, end, SessionLocal)
 
     return {"status": "queued", "message": "Export task has been scheduled."}
+
+
+@router.post("/agenda/{date}/export-google-quests")
+def export_google_quests_day(
+    date: datetime.date,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    """Export only the placed quests of a single day to Google Calendar."""
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user or not user.google_refresh_token:
+        raise HTTPException(status_code=400, detail="Google account not connected.")
+
+    background_tasks.add_task(export_quests_day_task, user_id, date, SessionLocal)
+
+    return {"status": "queued", "message": "Quest export task has been scheduled."}
