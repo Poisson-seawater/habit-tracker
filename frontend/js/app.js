@@ -956,8 +956,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderAgendaQuestCard(item, placed = false) {
+    const isDone = item.status === "done";
+    const isSkipped = item.status === "skipped";
+    const statusClass = isDone ? "quest-done" : isSkipped ? "quest-skipped" : "";
     const card = document.createElement("div");
-    card.className = `agenda-quest-card ${placed ? "placed" : "unplaced"} ${item.needs_configuration ? "needs-config" : ""}`;
+    card.className = `agenda-quest-card ${placed ? "placed" : "unplaced"} ${item.needs_configuration ? "needs-config" : ""} ${statusClass}`;
     card.draggable = true;
     card.dataset.habitId = item.habit_id;
     card.addEventListener("dragstart", (event) => {
@@ -980,6 +983,30 @@ document.addEventListener("DOMContentLoaded", () => {
     const emoji = getStreakEmoji(item.current_streak || 0);
     const emojiPrefix = emoji ? `${emoji} ` : "";
 
+    // Checkbox for logging the habit
+    const checkboxWrap = document.createElement("div");
+    checkboxWrap.className = "agenda-quest-check";
+    const checkbox = document.createElement("button");
+    checkbox.type = "button";
+    checkbox.className = `quest-log-checkbox ${isDone ? "checked" : ""} ${isSkipped ? "skipped" : ""}`;
+    checkbox.title = isDone ? "✅ Fait" : isSkipped ? "⏭️ Passé" : "Marquer comme fait";
+    checkbox.innerHTML = isDone ? "✓" : isSkipped ? "⏭" : "";
+    checkbox.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      if (isDone || isSkipped) return;
+      const habitType = item.type || "binary";
+      if (habitType === "quantitative") {
+        const amount = prompt(`Combien de ${item.unit || "unités"} ?`);
+        if (amount === null) return;
+        const parsed = parseFloat(amount);
+        if (isNaN(parsed) || parsed <= 0) { showToast("Quantité invalide", true); return; }
+        await submitQuestLog(item.habit_id, "log", parsed);
+      } else {
+        await submitQuestLog(item.habit_id, "done");
+      }
+    });
+    checkboxWrap.appendChild(checkbox);
+
     const main = document.createElement("div");
     main.className = "agenda-quest-main";
     const title = document.createElement("strong");
@@ -998,6 +1025,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const effort = document.createElement("span");
     effort.textContent = effortLabel;
     meta.append(timeChip, effort);
+    if (isDone) {
+      const doneBadge = document.createElement("span");
+      doneBadge.className = "agenda-status-badge done";
+      doneBadge.textContent = "✅ Fait";
+      meta.appendChild(doneBadge);
+    } else if (isSkipped) {
+      const skipBadge = document.createElement("span");
+      skipBadge.className = "agenda-status-badge skipped";
+      skipBadge.textContent = "⏭️ Passé";
+      meta.appendChild(skipBadge);
+    }
     if (item.needs_configuration) {
       const config = document.createElement("span");
       config.className = "agenda-config-flag";
@@ -1025,7 +1063,7 @@ document.addEventListener("DOMContentLoaded", () => {
       unplaceBtn.textContent = "Retirer";
       actions.appendChild(unplaceBtn);
     }
-    card.append(main, meta, actions);
+    card.append(checkboxWrap, main, meta, actions);
 
     card.querySelector(".agenda-edit-quest")?.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -1161,8 +1199,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const range = visibleRange(start, duration);
       if (!range) return;
       visiblePlacedCount += 1;
+      const isDone = item.status === "done";
+      const isSkipped = item.status === "skipped";
       const block = document.createElement("div");
-      block.className = `agenda-quest-block ${item.needs_configuration ? "needs-config" : ""}`;
+      block.className = `agenda-quest-block ${item.needs_configuration ? "needs-config" : ""} ${isDone ? "quest-done" : ""} ${isSkipped ? "quest-skipped" : ""}`;
       block.draggable = true;
       block.dataset.habitId = item.habit_id;
       block.style.top = `${range.top}%`;
@@ -1170,7 +1210,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const emoji = getStreakEmoji(item.current_streak || 0);
       const emojiPrefix = emoji ? `${emoji} ` : "";
-      block.title = `${emojiPrefix}${item.name} (${item.start_time}, ${duration}min)`;
+      block.title = `${emojiPrefix}${item.name} (${item.start_time}, ${duration}min)${isDone ? " ✅" : ""}${isSkipped ? " ⏭" : ""}`;
+
+      // Checkbox on the timeline block
+      const blockCheck = document.createElement("button");
+      blockCheck.type = "button";
+      blockCheck.className = `agenda-block-check-btn ${isDone ? "checked" : ""} ${isSkipped ? "skipped" : ""}`;
+      blockCheck.title = isDone ? "✅ Fait" : isSkipped ? "⏭️ Passé" : "Marquer comme fait";
+      blockCheck.innerHTML = isDone ? "✓" : isSkipped ? "⏭" : "";
+      blockCheck.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (isDone || isSkipped) return;
+        const habitType = item.type || "binary";
+        if (habitType === "quantitative") {
+          const amount = prompt(`Combien de ${item.unit || "unités"} ?`);
+          if (amount === null) return;
+          const parsed = parseFloat(amount);
+          if (isNaN(parsed) || parsed <= 0) { showToast("Quantité invalide", true); return; }
+          await submitQuestLog(item.habit_id, "log", parsed);
+        } else {
+          await submitQuestLog(item.habit_id, "done");
+        }
+      });
 
       const blockTitle = document.createElement("span");
       blockTitle.className = "agenda-quest-block-title";
@@ -1187,7 +1249,7 @@ document.addEventListener("DOMContentLoaded", () => {
       statsBtn.title = "Statistiques de la quête";
       statsBtn.setAttribute("aria-label", "Statistiques de la quête");
       statsBtn.textContent = "📊";
-      block.append(blockTitle, editBtn, statsBtn);
+      block.append(blockCheck, blockTitle, editBtn, statsBtn);
       block.addEventListener("dragstart", (event) => {
         event.dataTransfer.setData("text/plain", String(item.habit_id));
         event.dataTransfer.effectAllowed = "move";
