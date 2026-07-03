@@ -145,8 +145,7 @@
       display: flex;
       flex-direction: column;
       gap: 0.8rem;
-      overflow-y: auto;
-      max-height: 500px;
+      flex-grow: 1;
     }
     .goal-selector-item {
       background: rgba(255, 255, 255, 0.01);
@@ -1654,7 +1653,7 @@
             <button id="add-softskill-branch-btn" class="quest-action-btn" style="flex: 1; padding: 8px; font-size: 0.75rem;">+ Branche</button>
             <button id="add-softskill-node-btn" class="quest-action-btn" style="flex: 1; padding: 8px; font-size: 0.75rem;">+ Compétence</button>
           </div>
-          <div id="softskills-selector-list" class="goals-selector-list" style="max-height: 550px; overflow-y: auto;">
+          <div id="softskills-selector-list" class="goals-selector-list">
             <!-- Will be dynamically populated with nested lists of branches and child skills -->
           </div>
         </aside>
