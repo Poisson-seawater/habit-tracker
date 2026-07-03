@@ -16,6 +16,10 @@ from pathlib import Path
 
 
 PROTOCOL_VERSION = 2
+# Placeholder X-User-ID sent only to bootstrap user discovery: the server's
+# machine-auth path requires an integer X-User-ID header, but GET /auth/users
+# returns every user regardless of its value.
+BOOTSTRAP_USER_ID = 1
 PLAN_TTL_SECONDS = 600
 DEFAULT_BASE_URL = "http://192.168.0.199:5000"
 BRANCH_PALETTE = [
@@ -330,10 +334,11 @@ def resolve_one(items, target, label_key, kind):
     return candidates[0]
 
 
-def resolve_user(base_url, username, api_token):
-    users = ApiClient(base_url, api_token=api_token).request(
-        "GET", "/api/v1/auth/users"
-    )
+def resolve_user(base_url, username, api_token, user_id=None):
+    users = ApiClient(
+        base_url, user_id=user_id if user_id is not None else BOOTSTRAP_USER_ID,
+        api_token=api_token,
+    ).request("GET", "/api/v1/auth/users")
     return resolve_one(users, username, "username", "user")
 
 
@@ -372,7 +377,10 @@ def configured_client():
         raise HabitCtlError(
             "Missing api_token in configuration. Run configure with --api-token."
         )
-    user = resolve_user(config["base_url"], config["username"], api_token)
+    user = resolve_user(
+        config["base_url"], config["username"], api_token,
+        user_id=config.get("user_id"),
+    )
     if config.get("user_id") != user["id"]:
         config["user_id"] = user["id"]
         write_config(config)
