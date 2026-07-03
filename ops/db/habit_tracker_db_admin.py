@@ -31,6 +31,12 @@ USER_TABLES = [
     "substeps",
 ]
 
+LEGACY_SCHEMA_TABLES = [
+    "day_templates",
+    "user_unlocked_badges",
+    "user_unlocked_skills",
+]
+
 
 def timestamp() -> str:
     return dt.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -91,7 +97,9 @@ def merge_rows_by_key(
             target_keys.add(normalized(row[key_column]))
 
 
-def merge_habits(conn: sqlite3.Connection, source_user_id: int, target_user_id: int) -> None:
+def merge_habits(
+    conn: sqlite3.Connection, source_user_id: int, target_user_id: int
+) -> None:
     target_habits = {
         normalized(row["name"]): row["id"]
         for row in conn.execute(
@@ -112,7 +120,9 @@ def merge_habits(conn: sqlite3.Connection, source_user_id: int, target_user_id: 
                 "UPDATE habit_logs SET user_id = ?, habit_id = ? WHERE user_id = ? AND habit_id = ?",
                 (target_user_id, target_habit_id, source_user_id, source_habit_id),
             )
-            merge_habit_streak(conn, source_user_id, target_user_id, source_habit_id, target_habit_id)
+            merge_habit_streak(
+                conn, source_user_id, target_user_id, source_habit_id, target_habit_id
+            )
             conn.execute("DELETE FROM habits WHERE id = ?", (source_habit_id,))
         else:
             conn.execute(
@@ -158,7 +168,9 @@ def merge_habit_streak(
         )
 
 
-def merge_daily_scores(conn: sqlite3.Connection, source_user_id: int, target_user_id: int) -> None:
+def merge_daily_scores(
+    conn: sqlite3.Connection, source_user_id: int, target_user_id: int
+) -> None:
     target_dates = {
         row["date"]
         for row in conn.execute(
@@ -180,7 +192,9 @@ def merge_daily_scores(conn: sqlite3.Connection, source_user_id: int, target_use
             target_dates.add(row["date"])
 
 
-def merge_streaks(conn: sqlite3.Connection, source_user_id: int, target_user_id: int) -> None:
+def merge_streaks(
+    conn: sqlite3.Connection, source_user_id: int, target_user_id: int
+) -> None:
     target_types = {
         row["streak_type"]
         for row in conn.execute(
@@ -231,7 +245,9 @@ def merge_gabriel_into_panda(
         )
 
         merge_habits(conn, source_id, target_id)
-        merge_rows_by_key(conn, "perfect_day_templates", "template_name", source_id, target_id)
+        merge_rows_by_key(
+            conn, "perfect_day_templates", "template_name", source_id, target_id
+        )
         merge_daily_scores(conn, source_id, target_id)
         merge_streaks(conn, source_id, target_id)
         merge_rows_by_key(conn, "todos", "title", source_id, target_id)
@@ -240,7 +256,9 @@ def merge_gabriel_into_panda(
         merge_rows_by_key(conn, "substeps", "title", source_id, target_id)
 
         conn.execute("DELETE FROM users WHERE id = ?", (source_id,))
-        conn.execute("UPDATE users SET username = ? WHERE id = ?", (final_username, target_id))
+        conn.execute(
+            "UPDATE users SET username = ? WHERE id = ?", (final_username, target_id)
+        )
 
         benji = get_user(conn, delete_username)
         if benji:
@@ -248,7 +266,9 @@ def merge_gabriel_into_panda(
 
         assert_no_orphans(conn)
         conn.commit()
-        print(f"Merged {source_username} into {target_username}; canonical user is {final_username}.")
+        print(
+            f"Merged {source_username} into {target_username}; canonical user is {final_username}."
+        )
         if benji:
             print(f"Deleted exact user: {delete_username}.")
 
@@ -259,16 +279,31 @@ def assert_no_orphans(conn: sqlite3.Connection) -> None:
         ("habit_logs", "user_id", "users", "id"),
         ("habit_logs", "habit_id", "habits", "id"),
         ("perfect_day_templates", "user_id", "users", "id"),
+        ("biological_zones", "user_id", "users", "id"),
+        ("daily_agenda_placements", "user_id", "users", "id"),
+        ("daily_agenda_placements", "habit_id", "habits", "id"),
         ("daily_scores", "user_id", "users", "id"),
         ("streaks", "user_id", "users", "id"),
         ("todos", "user_id", "users", "id"),
         ("notodos", "user_id", "users", "id"),
+        ("notodo_logs", "user_id", "users", "id"),
         ("goals", "user_id", "users", "id"),
         ("substeps", "user_id", "users", "id"),
         ("goal_substep_links", "goal_id", "goals", "id"),
         ("goal_substep_links", "substep_id", "substeps", "id"),
+        ("user_softskill_progress", "user_id", "users", "id"),
+        ("rewards", "user_id", "users", "id"),
+        ("remote_operations", "user_id", "users", "id"),
+        ("auth_sessions", "user_id", "users", "id"),
+        ("auth_sessions", "device_id", "auth_devices", "id"),
     ]
     for child, child_col, parent, parent_col in checks:
+        table_names = {
+            row["name"]
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        if child not in table_names or parent not in table_names:
+            continue
         count = conn.execute(
             f"""
             SELECT COUNT(*) AS count
@@ -279,6 +314,63 @@ def assert_no_orphans(conn: sqlite3.Connection) -> None:
         ).fetchone()["count"]
         if count:
             raise RuntimeError(f"Found {count} orphan rows in {child}.{child_col}")
+
+
+def sqlite_foreign_key_check(conn: sqlite3.Connection) -> None:
+    issues = conn.execute("PRAGMA foreign_key_check").fetchall()
+    if issues:
+        formatted = ", ".join(
+            f"{row[0]} rowid={row[1]} parent={row[2]}" for row in issues
+        )
+        raise RuntimeError(f"SQLite foreign key check failed: {formatted}")
+
+
+def drop_legacy_schema(db_path: Path, no_backup: bool = False) -> None:
+    if not db_path.exists():
+        raise FileNotFoundError(f"Database not found: {db_path}")
+    if not no_backup:
+        print(f"Backup created: {backup_db(db_path)}")
+
+    with connect(db_path) as conn:
+        conn.execute("BEGIN")
+        table_names = {
+            row["name"]
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+
+        dropped_tables = []
+        for table_name in LEGACY_SCHEMA_TABLES:
+            if table_name not in table_names:
+                continue
+            conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+            dropped_tables.append(table_name)
+
+        deleted_orphan_biological_zones = 0
+        if {"biological_zones", "users"}.issubset(table_names):
+            orphan_biological_zones = conn.execute(
+                """
+                SELECT COUNT(*) AS count
+                FROM biological_zones
+                WHERE user_id NOT IN (SELECT id FROM users)
+                """
+            ).fetchone()["count"]
+            if orphan_biological_zones:
+                deleted_orphan_biological_zones = conn.execute(
+                    """
+                DELETE FROM biological_zones
+                WHERE user_id NOT IN (SELECT id FROM users)
+                """
+                ).rowcount
+
+        sqlite_foreign_key_check(conn)
+        assert_no_orphans(conn)
+        conn.commit()
+
+    print(
+        "Dropped legacy tables: "
+        + (", ".join(dropped_tables) if dropped_tables else "none")
+    )
+    print(f"Deleted orphan biological zones: {deleted_orphan_biological_zones}")
 
 
 def export_snapshot(db_path: Path, snapshot_path: Path) -> None:
@@ -295,7 +387,9 @@ def export_snapshot(db_path: Path, snapshot_path: Path) -> None:
     print(f"Snapshot exported: {snapshot_path}")
 
 
-def restore_snapshot(db_path: Path, snapshot_path: Path, no_backup: bool = False) -> None:
+def restore_snapshot(
+    db_path: Path, snapshot_path: Path, no_backup: bool = False
+) -> None:
     if not snapshot_path.exists():
         raise FileNotFoundError(f"Snapshot not found: {snapshot_path}")
     if db_path.exists() and not no_backup:
@@ -303,7 +397,9 @@ def restore_snapshot(db_path: Path, snapshot_path: Path, no_backup: bool = False
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if db_path.exists():
         db_path.unlink()
-    with sqlite3.connect(db_path) as conn, snapshot_path.open("r", encoding="utf-8") as fh:
+    with sqlite3.connect(db_path) as conn, snapshot_path.open(
+        "r", encoding="utf-8"
+    ) as fh:
         conn.row_factory = sqlite3.Row
         conn.executescript(fh.read())
         conn.execute("PRAGMA foreign_keys = ON")
@@ -340,6 +436,7 @@ def parse_args() -> argparse.Namespace:
     sub.add_parser("merge-users")
     sub.add_parser("export-snapshot")
     sub.add_parser("restore-snapshot")
+    sub.add_parser("drop-legacy-schema")
     return parser.parse_args()
 
 
@@ -353,6 +450,8 @@ def main() -> None:
         export_snapshot(args.db, args.snapshot)
     elif args.command == "restore-snapshot":
         restore_snapshot(args.db, args.snapshot, no_backup=args.no_backup)
+    elif args.command == "drop-legacy-schema":
+        drop_legacy_schema(args.db, no_backup=args.no_backup)
 
 
 if __name__ == "__main__":

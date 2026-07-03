@@ -23,6 +23,7 @@ Whenever you add, modify, or delete any Telegram Bot commands in the code, you M
   par FastAPI.
 - **DB** : SQLite unique (`/data/habit_tracker.db` en Docker, `backend/data/` en local).
 - **Déploiement** : Docker Compose (`api` + `bot`) sur Raspberry Pi 5, limites RAM 40/35 Mo.
+- **Authentification locale** : Pour le développement local (localhost), l'utilisateur par défaut est `gabriel` avec le mot de passe `admintest`.
 
 ## Structure des dossiers
 
