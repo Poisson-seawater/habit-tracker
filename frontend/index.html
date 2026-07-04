@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=3">
+  <link rel="stylesheet" href="css/style.css?v=4">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -1297,23 +1297,28 @@
           <div style="display: flex; flex-direction: column; gap: 1rem;">
             
             <form id="link-substep-form" class="modal-form">
-              <h5 style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.4rem;">Partager une étape existante</h5>
+              <h5 style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.4rem;">Importer une étape vers l'objectif actif</h5>
               <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.4rem;">
                 <div>
-                  <label for="link-substep-select" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Étape à partager</label>
-                  <select id="link-substep-select" required style="width: 100%; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); box-sizing: border-box;"></select>
+                  <label for="link-goal-select" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Filtrer par objectif source</label>
+                  <select id="link-goal-select" required style="width: 100%; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); box-sizing: border-box;"></select>
                 </div>
                 <div>
-                  <label for="link-goal-select" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Objectif cible</label>
-                  <select id="link-goal-select" required style="width: 100%; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); box-sizing: border-box;"></select>
+                  <label for="link-substep-select" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Étape à lier ici</label>
+                  <select id="link-substep-select" required style="width: 100%; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); box-sizing: border-box;"></select>
                 </div>
               </div>
               <div class="form-group" style="margin-bottom: 0.4rem;">
-                <label for="link-order-input" style="font-size: 0.75rem; color: var(--text-muted);">Étape dans l'objectif cible</label>
+                <label for="link-order-input" style="font-size: 0.75rem; color: var(--text-muted);">Étape dans l'objectif actif</label>
                 <input type="number" id="link-order-input" value="1" min="1" required style="padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); width: 100%; box-sizing: border-box;">
               </div>
-              <button type="submit" class="quest-action-btn" style="padding: 4px; font-size: 0.72rem; width: 100%;">Lier Étape</button>
+              <button type="submit" id="link-substep-submit-btn" class="quest-action-btn" style="padding: 4px; font-size: 0.72rem; width: 100%;">Lier ici</button>
             </form>
+
+            <div>
+              <h5 style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 0.4rem;">Délier une étape de l'objectif actif</h5>
+              <div id="unlink-substep-list" style="display: flex; flex-direction: column; gap: 0.45rem;"></div>
+            </div>
             
 
 
@@ -2130,6 +2135,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.3"></script>
+  <script src="js/app.js?v=1.0.6"></script>
 </body>
 </html>

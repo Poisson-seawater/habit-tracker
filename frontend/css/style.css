@@ -549,6 +549,25 @@ body {
   color: var(--text-primary);
 }
 
+#link-goal-select,
+#link-substep-select {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  color-scheme: dark;
+}
+
+#link-goal-select option,
+#link-substep-select option {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+#link-goal-select option:checked,
+#link-substep-select option:checked {
+  background-color: var(--accent-purple);
+  color: var(--text-primary);
+}
+
 .form-group input:focus, .form-group select:focus {
   border-color: var(--accent-cyan);
   box-shadow: 0 0 8px var(--accent-cyan-glow);

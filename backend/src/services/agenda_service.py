@@ -9,9 +9,11 @@ from src.database.models import (
     DailyAgendaPlacement,
     DailyScore,
     Goal,
+    GoalSubStepLink,
     Habit,
     HabitLog,
     PerfectDayTemplate,
+    SubStep,
     User,
     Streak,
 )
@@ -270,31 +272,43 @@ def _find_generated_habit(
 
 def sync_generated_focus_quests(db: Session, user: User) -> bool:
     changed = False
-    pinned_goal_ids = [int(goal_id) for goal_id in (user.pinned_goals or [])]
-    if pinned_goal_ids:
-        goals = (
-            db.query(Goal)
-            .filter(Goal.user_id == user.id, Goal.id.in_(pinned_goal_ids))
+    pinned_substep_ids = [int(sid) for sid in (user.pinned_substeps or [])]
+    pinned_substep_refs = {str(sid) for sid in pinned_substep_ids}
+
+    # --- Substep quests: create / unarchive pinned, auto-archive unpinned ---
+    if pinned_substep_ids:
+        substeps = (
+            db.query(SubStep)
+            .filter(SubStep.user_id == user.id, SubStep.id.in_(pinned_substep_ids))
             .all()
         )
-        for goal in goals:
-            source_ref = str(goal.id)
-            if _find_generated_habit(db, user.id, "goal", source_ref):
+        for substep in substeps:
+            source_ref = str(substep.id)
+            existing = _find_generated_habit(db, user.id, "substep", source_ref)
+            if existing:
+                # Re-pinned: auto-unarchive if it was archived
+                if existing.archived_at is not None:
+                    existing.archived_at = None
+                    if not existing.is_active:
+                        existing.is_active = True
+                    changed = True
                 continue
             db.add(
                 Habit(
                     user_id=user.id,
-                    name=_unique_habit_name(db, user.id, f"Objectif: {goal.title}"),
-                    description=goal.description,
+                    name=_unique_habit_name(
+                        db, user.id, f"Étape: {substep.title}"
+                    ),
+                    description=substep.description,
                     type="binary",
                     frequency="daily",
                     scheduled_days="0,1,2,3,4,5,6",
                     is_private=False,
                     is_reportable=True,
                     is_mandatory=False,
-                    effort_type=None,
-                    effort_duration=1.0,
-                    source_type="goal",
+                    effort_type=substep.effort_type,
+                    effort_duration=substep.effort_duration or 1.0,
+                    source_type="substep",
                     source_ref=source_ref,
                     auto_managed=True,
                     agenda_duration_minutes=60,
@@ -303,6 +317,24 @@ def sync_generated_focus_quests(db: Session, user: User) -> bool:
             )
             changed = True
 
+    # Auto-archive substep quests that are no longer pinned
+    existing_substep_quests = (
+        db.query(Habit)
+        .filter(
+            Habit.user_id == user.id,
+            Habit.source_type == "substep",
+            Habit.auto_managed == True,
+            Habit.archived_at.is_(None),
+        )
+        .all()
+    )
+    now = datetime.datetime.now()
+    for habit in existing_substep_quests:
+        if str(habit.source_ref or "") not in pinned_substep_refs:
+            habit.archived_at = now
+            changed = True
+
+    # --- Softskill quests: create if missing (no auto-archive) ---
     softskill_names = _softskill_names_by_id()
     for skill_id in user.pinned_softskills or []:
         source_ref = str(skill_id)
@@ -343,12 +375,12 @@ def is_habit_eligible_on_date(
         return False
 
     source_type = habit.source_type or "manual"
-    if habit.auto_managed or source_type in {"goal", "softskill"}:
+    # Legacy goal quests are no longer eligible (replaced by substep quests)
+    if source_type == "goal":
+        return False
+    # Substep quests rely on archived_at managed by sync_generated_focus_quests
+    if habit.auto_managed or source_type in {"substep", "softskill"}:
         source_ref = str(habit.source_ref or "")
-        if source_type == "goal" and source_ref not in {
-            str(goal_id) for goal_id in (user.pinned_goals or [])
-        }:
-            return False
         if source_type == "softskill" and source_ref not in {
             str(skill_id) for skill_id in (user.pinned_softskills or [])
         }:
@@ -386,6 +418,28 @@ def _habit_duration_minutes(habit: Habit) -> int:
 
 def _source_label(db: Session, habit: Habit) -> Optional[str]:
     source_type = habit.source_type or "manual"
+    if source_type == "substep" and habit.source_ref:
+        substep = (
+            db.query(SubStep)
+            .filter(
+                SubStep.user_id == habit.user_id,
+                SubStep.id == int(habit.source_ref),
+            )
+            .first()
+            if str(habit.source_ref).isdigit()
+            else None
+        )
+        if substep:
+            # Find the parent goal for richer context
+            link = (
+                db.query(GoalSubStepLink)
+                .filter(GoalSubStepLink.substep_id == substep.id)
+                .first()
+            )
+            if link and link.goal:
+                return f"Étape: {substep.title} (Objectif: {link.goal.title})"
+            return f"Étape: {substep.title}"
+        return f"Étape: {habit.source_ref}"
     if source_type == "goal" and habit.source_ref:
         goal = (
             db.query(Goal)

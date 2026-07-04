@@ -746,6 +746,27 @@ def test_goal_linked_substep_relations():
     assert sub_in_b["linked_goals"][0]["id"] == g1_id
     assert sub_in_b["linked_goals"][0]["title"] == "Goal A"
 
+    # 5. Unlink from Goal B only; the substep remains in Goal A
+    unlink_response = client.delete(f"/api/v1/goals/{g2_id}/substeps/{sub_id}/link")
+    assert unlink_response.status_code == 200
+    assert unlink_response.json()["status"] == "success"
+
+    response = client.get("/api/v1/goals")
+    assert response.status_code == 200
+    goals = response.json()
+    goal_a = next(g for g in goals if g["id"] == g1_id)
+    goal_b = next(g for g in goals if g["id"] == g2_id)
+
+    sub_in_a = next(s for s in goal_a["substeps"] if s["id"] == sub_id)
+    assert sub_in_a["linked_goals"] == []
+    assert all(s["id"] != sub_id for s in goal_b["substeps"])
+
+    # 6. Protect the last remaining goal-substep relation
+    unlink_last_response = client.delete(
+        f"/api/v1/goals/{g1_id}/substeps/{sub_id}/link"
+    )
+    assert unlink_last_response.status_code == 400
+
     # Cleanup
     client.delete(f"/api/v1/goals/{g1_id}")
     client.delete(f"/api/v1/goals/{g2_id}")

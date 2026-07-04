@@ -2220,6 +2220,223 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchGoals();
   };
 
+  function getGoalById(goals, goalId) {
+    if (!Array.isArray(goals)) return null;
+    return goals.find(goal => goal.id === goalId) || null;
+  }
+
+  function getSubstepInGoal(goal, substepId) {
+    if (!goal || !Array.isArray(goal.substeps)) return null;
+    return goal.substeps.find(substep => substep.id === substepId) || null;
+  }
+
+  function buildGoalTreeViewGoal(goal, goals) {
+    if (!goal) return null;
+
+    const substeps = Array.isArray(goal.substeps) ? [...goal.substeps] : [];
+    const renderedSubstepIds = new Set(substeps.map(substep => substep.id));
+    const allGoals = Array.isArray(goals) ? goals : [];
+
+    allGoals.forEach(sourceGoal => {
+      if (sourceGoal.id === goal.id || !Array.isArray(sourceGoal.substeps)) return;
+
+      sourceGoal.substeps.forEach(substep => {
+        if (renderedSubstepIds.has(substep.id)) return;
+
+        const linkedGoals = Array.isArray(substep.linked_goals) ? substep.linked_goals : [];
+        const isLinkedToActiveGoal = linkedGoals.some(linkedGoal => linkedGoal.id === goal.id);
+        if (!isLinkedToActiveGoal) return;
+
+        const displayedLinks = new Map();
+        displayedLinks.set(sourceGoal.id, {
+          id: sourceGoal.id,
+          title: sourceGoal.title
+        });
+        linkedGoals.forEach(linkedGoal => {
+          if (linkedGoal.id !== goal.id) {
+            displayedLinks.set(linkedGoal.id, linkedGoal);
+          }
+        });
+
+        renderedSubstepIds.add(substep.id);
+        substeps.push({
+          ...substep,
+          linked_goals: Array.from(displayedLinks.values()),
+          is_linked_fallback: true
+        });
+      });
+    });
+
+    return { ...goal, substeps };
+  }
+
+  function highlightGoalSubstep(substepId) {
+    const node = document.querySelector(`.tree-node[data-substep-id="${substepId}"]`);
+    if (!node) return false;
+
+    node.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+    node.style.animation = "none";
+    void node.offsetHeight;
+    node.style.animation = "pulse-highlight 1.5s ease-in-out 3";
+    return true;
+  }
+
+  function highlightGoalSubstepAfterRender(substepId) {
+    window.requestAnimationFrame(() => {
+      if (!highlightGoalSubstep(substepId)) {
+        setTimeout(() => highlightGoalSubstep(substepId), 150);
+      }
+    });
+  }
+
+  function getLinkableSourceSubsteps(sourceGoal, activeGoal) {
+    if (!sourceGoal || !activeGoal) return [];
+
+    const activeSubstepIds = new Set(
+      (activeGoal.substeps || []).map(substep => substep.id)
+    );
+    return (sourceGoal.substeps || [])
+      .filter(substep => {
+        const linkedToActiveGoal = (substep.linked_goals || [])
+          .some(linkedGoal => linkedGoal.id === activeGoal.id);
+        return !activeSubstepIds.has(substep.id) && !linkedToActiveGoal;
+      });
+  }
+
+  function renderLinkSelectOption(value, label) {
+    return `<option value="${value}" style="background-color: hsl(222, 47%, 9%); color: hsl(0, 0%, 98%);">${escapeHtml(label)}</option>`;
+  }
+
+  function updateLinkSubstepOptions(goals, activeGoal) {
+    const sourceSelect = document.getElementById("link-goal-select");
+    const substepSelect = document.getElementById("link-substep-select");
+    const submitBtn = document.getElementById("link-substep-submit-btn");
+    if (!sourceSelect || !substepSelect) return;
+
+    const sourceGoalId = parseInt(sourceSelect.value);
+    const sourceGoal = getGoalById(goals, sourceGoalId);
+    const linkableSubsteps = getLinkableSourceSubsteps(sourceGoal, activeGoal);
+
+    substepSelect.innerHTML = "";
+    if (linkableSubsteps.length === 0) {
+      substepSelect.innerHTML = renderLinkSelectOption("", "Aucune étape disponible");
+      substepSelect.disabled = true;
+      if (submitBtn) submitBtn.disabled = true;
+      return;
+    }
+
+    linkableSubsteps.forEach(substep => {
+      substepSelect.innerHTML += renderLinkSelectOption(substep.id, substep.title);
+    });
+    substepSelect.disabled = false;
+    if (submitBtn) submitBtn.disabled = false;
+  }
+
+  function renderGoalLinkControls(goals, activeGoal) {
+    const sourceSelect = document.getElementById("link-goal-select");
+    const substepSelect = document.getElementById("link-substep-select");
+    const submitBtn = document.getElementById("link-substep-submit-btn");
+    if (!sourceSelect || !substepSelect) return;
+
+    const activeViewGoal = buildGoalTreeViewGoal(activeGoal, goals);
+    const previousSourceGoalId = parseInt(sourceSelect.value);
+    const sourceGoals = goals
+      .filter(goal => activeGoal && goal.id !== activeGoal.id)
+      .map(goal => ({
+        goal,
+        linkableSubsteps: getLinkableSourceSubsteps(goal, activeViewGoal)
+      }))
+      .filter(item => item.linkableSubsteps.length > 0);
+
+    sourceSelect.innerHTML = "";
+    if (!activeGoal || sourceGoals.length === 0) {
+      sourceSelect.innerHTML = renderLinkSelectOption("", "Aucune source disponible");
+      sourceSelect.disabled = true;
+      substepSelect.innerHTML = renderLinkSelectOption("", "Aucune étape disponible");
+      substepSelect.disabled = true;
+      if (submitBtn) submitBtn.disabled = true;
+      renderUnlinkSubstepList(activeViewGoal);
+      return;
+    }
+
+    sourceGoals.forEach(({ goal, linkableSubsteps }) => {
+      sourceSelect.innerHTML += renderLinkSelectOption(goal.id, `${goal.title} (${linkableSubsteps.length})`);
+    });
+    sourceSelect.disabled = false;
+    if (sourceGoals.some(({ goal }) => goal.id === previousSourceGoalId)) {
+      sourceSelect.value = String(previousSourceGoalId);
+    } else {
+      sourceSelect.value = String(sourceGoals[0].goal.id);
+    }
+    sourceSelect.onchange = () => updateLinkSubstepOptions(goals, activeViewGoal);
+
+    updateLinkSubstepOptions(goals, activeViewGoal);
+    renderUnlinkSubstepList(activeViewGoal);
+  }
+
+  function renderUnlinkSubstepList(activeGoal) {
+    const list = document.getElementById("unlink-substep-list");
+    if (!list) return;
+
+    list.innerHTML = "";
+    if (!activeGoal) {
+      list.innerHTML = `<p style="font-size: 0.78rem; color: var(--text-muted); margin: 0;">Sélectionnez un objectif.</p>`;
+      return;
+    }
+
+    const linkedSubsteps = (activeGoal.substeps || [])
+      .filter(substep => (substep.linked_goals || []).length > 0);
+
+    if (linkedSubsteps.length === 0) {
+      list.innerHTML = `<p style="font-size: 0.78rem; color: var(--text-muted); margin: 0;">Aucune liaison à retirer pour cet objectif.</p>`;
+      return;
+    }
+
+    linkedSubsteps.forEach(substep => {
+      const row = document.createElement("div");
+      row.style.cssText = "display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass); border-radius: 8px; padding: 0.45rem 0.55rem;";
+
+      const linkedGoalTitles = substep.linked_goals.map(goal => goal.title).join(" / ");
+      const label = document.createElement("span");
+      label.style.cssText = "font-size: 0.78rem; color: var(--text-secondary); line-height: 1.3;";
+      label.textContent = `${substep.title} - lié à ${linkedGoalTitles}`;
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "quest-action-btn";
+      button.style.cssText = "padding: 4px 8px; font-size: 0.7rem; width: auto; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.55); color: rgb(248, 113, 113);";
+      button.textContent = "Délier";
+      button.addEventListener("click", () => unlinkSubstepFromActiveGoal(substep.id));
+
+      row.appendChild(label);
+      row.appendChild(button);
+      list.appendChild(row);
+    });
+  }
+
+  async function unlinkSubstepFromActiveGoal(substepId) {
+    if (!activeGoalId) {
+      showToast("Sélectionnez d'abord un objectif.", true);
+      return;
+    }
+
+    try {
+      const resp = await fetch(`${API_BASE}/goals/${activeGoalId}/substeps/${substepId}/link`, {
+        method: "DELETE"
+      });
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.detail || "Erreur lors du retrait de la liaison");
+      }
+
+      showToast("Sous-étape déliée de l'objectif actif.");
+      await fetchGoals();
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || "Erreur lors du retrait de la liaison", true);
+    }
+  }
+
   // Drawer Toggle Helpers
   function openDrawer(mode = "add", goalData = null, substepData = null, otherSubstepsInGoal = []) {
     const drawer = document.getElementById("creators-drawer");
@@ -2379,13 +2596,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const selectorList = document.getElementById("goals-selector-list");
-      if (!selectorList) return;
+      if (!selectorList) return goals;
 
       selectorList.innerHTML = "";
       if (goals.length === 0) {
         selectorList.innerHTML = `<p style="color: var(--text-secondary); text-align: center; padding: 2rem 0; font-size: 0.85rem;">Aucun objectif principal. Créez-en un en cliquant sur + ! 🏆</p>`;
         renderGoalTree(null);
-        return;
+        return goals;
       }
 
       // Auto-select first goal if none or invalid activeGoalId
@@ -2396,15 +2613,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Cache elements to update Goal/Substep creators dropdowns
       const substepGoalSelect = document.getElementById("substep-goal-select");
-      const linkGoalSelect = document.getElementById("link-goal-select");
-      const linkSubstepSelect = document.getElementById("link-substep-select");
 
       // Dynamic Dropdowns Sync
       if (substepGoalSelect) substepGoalSelect.innerHTML = "";
-      if (linkGoalSelect) linkGoalSelect.innerHTML = "";
-      if (linkSubstepSelect) linkSubstepSelect.innerHTML = "";
-
-      const substepsMap = new Map(); // Keep track of unique substeps
 
       let activeGoal = null;
 
@@ -2415,7 +2626,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Dropdown additions
         if (substepGoalSelect) substepGoalSelect.innerHTML += `<option value="${goal.id}">${goal.title}</option>`;
-        if (linkGoalSelect) linkGoalSelect.innerHTML += `<option value="${goal.id}">${goal.title}</option>`;
 
         // Render sidebar goal item
         const item = document.createElement("div");
@@ -2512,36 +2722,25 @@ document.addEventListener("DOMContentLoaded", () => {
           activeGoalId = goal.id;
           document.querySelectorAll(".goal-selector-item").forEach(el => el.classList.remove("active"));
           item.classList.add("active");
-          renderGoalTree(goal);
+          renderGoalLinkControls(goals, goal);
+          renderGoalTree(buildGoalTreeViewGoal(goal, goals));
         });
 
         selectorList.appendChild(item);
-
-        goal.substeps.forEach(s => {
-          substepsMap.set(s.id, s.title);
-        });
       });
-
-      // Populate unique substeps dropdown selectors
-      substepsMap.forEach((title, id) => {
-        const optionHTML = `<option value="${id}">${title}</option>`;
-        if (linkSubstepSelect) linkSubstepSelect.innerHTML += optionHTML;
-      });
-
-      // Pre-select active goal in dropdowns
-      if (linkGoalSelect && activeGoalId) {
-        linkGoalSelect.value = activeGoalId;
-      }
       if (substepGoalSelect && activeGoalId) {
         substepGoalSelect.value = activeGoalId;
       }
+      renderGoalLinkControls(goals, activeGoal);
 
       // Render Active Tree
-      renderGoalTree(activeGoal);
+      renderGoalTree(buildGoalTreeViewGoal(activeGoal, goals));
       renderTop3LockButton();
+      return goals;
 
     } catch (e) {
       console.error(e);
+      return [];
     }
   }
 
@@ -2895,21 +3094,46 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("link-substep-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const subId = parseInt(document.getElementById("link-substep-select").value);
-    const goalId = parseInt(document.getElementById("link-goal-select").value);
+    const goalId = activeGoalId;
     const order = parseInt(document.getElementById("link-order-input").value) || 1;
 
     try {
+      if (!goalId) {
+        throw new Error("Sélectionnez d'abord l'objectif qui doit recevoir la sous-étape.");
+      }
+      if (!subId) {
+        throw new Error("Sélectionnez une sous-étape à lier.");
+      }
+
       const resp = await fetch(`${API_BASE}/substeps/link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ goal_id: goalId, substep_id: subId, execution_order: order })
       });
-      if (!resp.ok) throw new Error();
-      showToast("Sous-étape liée à l'arbre cible avec succès ! 🔗");
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.detail || "Erreur lors du partage de la sous-étape");
+      }
+      const data = await resp.json();
+      activeGoalId = goalId;
+      const goals = await fetchGoals();
+      const targetGoal = getGoalById(goals, goalId);
+      const linkedSubstep = getSubstepInGoal(targetGoal, subId);
+
+      if (!targetGoal || !linkedSubstep) {
+        throw new Error("Liaison enregistrée, mais /goals ne renvoie pas encore la sous-étape dans l'objectif cible.");
+      }
+
       closeDrawer();
-      fetchGoals();
-    } catch {
-      showToast("Erreur lors du partage de la sous-étape", true);
+      if (data.status === "updated") {
+        showToast(`Sous-étape déjà liée à ${targetGoal.title}; ordre mis à jour. 🔗`);
+      } else {
+        showToast(`Sous-étape liée à ${targetGoal.title} avec succès ! 🔗`);
+      }
+      highlightGoalSubstepAfterRender(subId);
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || "Erreur lors du partage de la sous-étape", true);
     }
   });
 
@@ -5587,6 +5811,81 @@ document.addEventListener("DOMContentLoaded", () => {
     return !isUnlockClicked;
   }
 
+  function getSubstepRecapContext(goals, subId) {
+    const allMatches = [];
+    goals.forEach(goal => {
+      const sub = goal.substeps.find(item => item.id === subId);
+      if (sub) {
+        allMatches.push({ goal, sub });
+      }
+    });
+
+    const pinnedParent = allMatches.find(match => pinnedGoals.includes(match.goal.id));
+    if (pinnedParent) return pinnedParent;
+
+    for (const match of allMatches) {
+      const linkedPinnedGoal = (match.sub.linked_goals || [])
+        .find(linkedGoal => pinnedGoals.includes(linkedGoal.id));
+      if (linkedPinnedGoal) {
+        const linkedGoal = goals.find(goal => goal.id === linkedPinnedGoal.id);
+        if (linkedGoal) {
+          const linkedSub = linkedGoal.substeps.find(item => item.id === subId);
+          if (linkedSub) return { goal: linkedGoal, sub: linkedSub };
+        }
+        return match;
+      }
+    }
+
+    return allMatches[0] || null;
+  }
+
+  function getEligibleRecapSubsteps(goals) {
+    const eligibleBySubstep = new Map();
+
+    goals.forEach(goal => {
+      goal.substeps.forEach(sub => {
+        if (sub.completed && !pinnedSubsteps.includes(sub.id)) return;
+
+        const linkedPinnedGoals = [];
+        if (pinnedGoals.includes(goal.id)) {
+          linkedPinnedGoals.push({ id: goal.id, title: goal.title });
+        }
+        (sub.linked_goals || []).forEach(linkedGoal => {
+          if (pinnedGoals.includes(linkedGoal.id)) {
+            linkedPinnedGoals.push(linkedGoal);
+          }
+        });
+
+        if (linkedPinnedGoals.length === 0) return;
+
+        const existing = eligibleBySubstep.get(sub.id);
+        if (existing) {
+          linkedPinnedGoals.forEach(linkedGoal => {
+            existing.goalRefs.set(linkedGoal.id, linkedGoal.title);
+          });
+          return;
+        }
+
+        eligibleBySubstep.set(sub.id, {
+          sub,
+          goalRefs: new Map(linkedPinnedGoals.map(linkedGoal => [linkedGoal.id, linkedGoal.title]))
+        });
+      });
+    });
+
+    return Array.from(eligibleBySubstep.values())
+      .sort((a, b) => {
+        const firstPinnedIndex = Math.min(
+          ...Array.from(a.goalRefs.keys()).map(goalId => pinnedGoals.indexOf(goalId))
+        );
+        const secondPinnedIndex = Math.min(
+          ...Array.from(b.goalRefs.keys()).map(goalId => pinnedGoals.indexOf(goalId))
+        );
+        if (firstPinnedIndex !== secondPinnedIndex) return firstPinnedIndex - secondPinnedIndex;
+        return (a.sub.execution_order || 1) - (b.sub.execution_order || 1);
+      });
+  }
+
   // Helper to open/close the pin drawer
   function openRecapPinDrawer() {
     const overlay = document.getElementById("drawer-overlay");
@@ -5622,30 +5921,25 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!goalsResp.ok) throw new Error("Failed to load goals");
       const goals = await goalsResp.json();
 
-      // Find all uncompleted substeps across pinned goals
-      const pinnedGoalsList = goals.filter(goal => pinnedGoals.includes(goal.id));
+      // Find all uncompleted substeps linked to at least one Top 3 goal.
+      // This includes shared substeps whose original parent goal is not in the Top 3.
+      const eligibleRecapSubsteps = getEligibleRecapSubsteps(goals);
       let substepsHtml = "";
-      let hasSubsteps = false;
 
       if (pinnedGoals.length === 0) {
         substepsHtml = `<p style="font-size: 0.82rem; color: var(--accent-yellow); margin: 0; padding: 0.5rem; line-height: 1.4; background: rgba(245, 158, 11, 0.1); border: 1px dashed rgba(245, 158, 11, 0.3); border-radius: 6px;">⚠️ Aucun objectif prioritaire (Top 3) sélectionné.<br>Sélectionnez d'abord vos objectifs prioritaires via l'étoile ★ dans l'onglet <strong>Objectifs</strong>.</p>`;
       } else {
-        pinnedGoalsList.forEach(goal => {
-          const eligibleSubsteps = goal.substeps.filter(s => !s.completed || pinnedSubsteps.includes(s.id));
-          if (eligibleSubsteps.length > 0) {
-            hasSubsteps = true;
-            eligibleSubsteps.forEach(sub => {
-              const isChecked = pinnedSubsteps.includes(sub.id) ? "checked" : "";
-              substepsHtml += `
-                <label class="recap-checkbox-container">
-                  <input type="checkbox" name="pin-substep-checkbox" value="${sub.id}" ${isChecked}>
-                  <span style="font-size: 0.8rem;"><strong>${goal.title}</strong>: ${sub.title}</span>
-                </label>
-              `;
-            });
-          }
+        eligibleRecapSubsteps.forEach(({ sub, goalRefs }) => {
+          const isChecked = pinnedSubsteps.includes(sub.id) ? "checked" : "";
+          const linkedGoalTitles = Array.from(goalRefs.values()).join(" / ");
+          substepsHtml += `
+            <label class="recap-checkbox-container">
+              <input type="checkbox" name="pin-substep-checkbox" value="${sub.id}" ${isChecked}>
+              <span style="font-size: 0.8rem;"><strong>${linkedGoalTitles}</strong>: ${sub.title}</span>
+            </label>
+          `;
         });
-        if (!hasSubsteps) {
+        if (eligibleRecapSubsteps.length === 0) {
           substepsHtml = `<p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Aucune sous-étape active pour vos objectifs prioritaires.</p>`;
         }
       }
@@ -5796,16 +6090,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       let goalsRendered = 0;
       pinnedSubsteps.forEach(subId => {
-        let foundSub = null;
-        let foundGoal = null;
-        for (const g of goals) {
-          const s = g.substeps.find(sub => sub.id === subId);
-          if (s) {
-            foundSub = s;
-            foundGoal = g;
-            break;
-          }
-        }
+        const context = getSubstepRecapContext(goals, subId);
+        const foundSub = context ? context.sub : null;
+        const foundGoal = context ? context.goal : null;
 
         if (foundSub) {
           goalsRendered++;

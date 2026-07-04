@@ -8,8 +8,10 @@ from sqlalchemy.orm import sessionmaker
 from src.database.session import Base, get_db
 from src.database.models import (
     DailyAgendaPlacement,
+    GoalSubStepLink,
     Habit,
     PerfectDayTemplate,
+    SubStep,
     User,
     Goal,
 )
@@ -141,14 +143,24 @@ def test_sunday_quest_is_absent_monday_without_archive(client):
 def test_generated_focus_quests_are_reused_across_unpin_repin(client):
     db = TestingSessionLocal()
     try:
-        db.add(Goal(id=10, user_id=1, title="Business", description="Build business"))
+        goal = Goal(id=10, user_id=1, title="Business", description="Build business")
+        db.add(goal)
+        db.flush()
+        substep = SubStep(
+            id=100, user_id=1, title="Market research", description="Research the market",
+            effort_type="cerveau", effort_duration=1.5,
+        )
+        db.add(substep)
+        db.flush()
+        db.add(GoalSubStepLink(goal_id=10, substep_id=100, execution_order=1))
         db.commit()
     finally:
         db.close()
 
+    # Pin goal (Top 3) + substep + softskill
     response = client.put(
         "/api/v1/profile/pins",
-        json={"pinned_goals": [10], "pinned_softskills": ["python"]},
+        json={"pinned_goals": [10], "pinned_substeps": [100], "pinned_softskills": ["python"]},
         headers={"X-User-ID": "1"},
     )
     assert response.status_code == 200
@@ -156,30 +168,43 @@ def test_generated_focus_quests_are_reused_across_unpin_repin(client):
     agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
     assert agenda.status_code == 200
     quests = agenda.json()["unplaced_quests"]
-    goal_quest = next(q for q in quests if q["source_type"] == "goal")
+    # Should have a substep quest (not a goal quest) and a softskill quest
+    substep_quest = next(q for q in quests if q["source_type"] == "substep")
     skill_quest = next(q for q in quests if q["source_type"] == "softskill")
-    assert goal_quest["needs_configuration"] is True
-    assert skill_quest["needs_configuration"] is True
+    assert "goal" not in [q["source_type"] for q in quests]
+    original_substep_quest_id = substep_quest["habit_id"]
     original_skill_id = skill_quest["habit_id"]
 
+    # Unpin substep → quest should be auto-archived and absent from agenda
     response = client.put(
         "/api/v1/profile/pins",
-        json={"pinned_goals": [10], "pinned_softskills": []},
+        json={"pinned_goals": [10], "pinned_substeps": [], "pinned_softskills": ["python"]},
         headers={"X-User-ID": "1"},
     )
     assert response.status_code == 200
     agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
     assert all(
-        q["source_type"] != "softskill" for q in agenda.json()["unplaced_quests"]
+        q["source_type"] != "substep" for q in agenda.json()["unplaced_quests"]
     )
 
+    # Verify the quest is archived (not deleted)
+    bank = client.get("/api/v1/habits?include_archived=true", headers={"X-User-ID": "1"}).json()
+    archived_quest = next(h for h in bank if h["id"] == original_substep_quest_id)
+    assert archived_quest["archived_at"] is not None
+
+    # Re-pin substep → same quest should be auto-unarchived
     response = client.put(
         "/api/v1/profile/pins",
-        json={"pinned_goals": [10], "pinned_softskills": ["python"]},
+        json={"pinned_goals": [10], "pinned_substeps": [100], "pinned_softskills": ["python"]},
         headers={"X-User-ID": "1"},
     )
     assert response.status_code == 200
     agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
+    substep_quest_again = next(
+        q for q in agenda.json()["unplaced_quests"] if q["source_type"] == "substep"
+    )
+    assert substep_quest_again["habit_id"] == original_substep_quest_id
+    # Softskill quest should also still be reused
     skill_quest_again = next(
         q for q in agenda.json()["unplaced_quests"] if q["source_type"] == "softskill"
     )
@@ -383,3 +408,73 @@ def test_archive_and_unarchive_are_explicit(client):
     assert unarchived.status_code == 200
     agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
     assert [q["habit_id"] for q in agenda.json()["unplaced_quests"]] == [habit_id]
+
+
+def test_pinned_goal_alone_does_not_generate_quest(client):
+    """Pinning a goal (Top 3) without pinning any substep should NOT create a quest."""
+    db = TestingSessionLocal()
+    try:
+        db.add(Goal(id=20, user_id=1, title="Fitness", description="Get fit"))
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.put(
+        "/api/v1/profile/pins",
+        json={"pinned_goals": [20]},
+        headers={"X-User-ID": "1"},
+    )
+    assert response.status_code == 200
+
+    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
+    assert agenda.status_code == 200
+    quests = agenda.json()["unplaced_quests"]
+    assert all(q["source_type"] not in ("goal", "substep") for q in quests)
+
+
+def test_unpin_substep_auto_archives_quest(client):
+    """Unpinning a substep should auto-archive its generated quest."""
+    db = TestingSessionLocal()
+    try:
+        goal = Goal(id=30, user_id=1, title="Learning", description="Learn things")
+        db.add(goal)
+        db.flush()
+        substep = SubStep(
+            id=200, user_id=1, title="Read chapter 1", description="First chapter",
+        )
+        db.add(substep)
+        db.flush()
+        db.add(GoalSubStepLink(goal_id=30, substep_id=200, execution_order=1))
+        db.commit()
+    finally:
+        db.close()
+
+    # Pin goal + substep
+    client.put(
+        "/api/v1/profile/pins",
+        json={"pinned_goals": [30], "pinned_substeps": [200]},
+        headers={"X-User-ID": "1"},
+    )
+
+    # Verify quest exists in agenda
+    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
+    substep_quests = [q for q in agenda.json()["unplaced_quests"] if q["source_type"] == "substep"]
+    assert len(substep_quests) == 1
+    quest_id = substep_quests[0]["habit_id"]
+
+    # Unpin substep (keep goal pinned)
+    client.put(
+        "/api/v1/profile/pins",
+        json={"pinned_goals": [30], "pinned_substeps": []},
+        headers={"X-User-ID": "1"},
+    )
+
+    # Quest should be absent from agenda
+    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
+    assert all(q["source_type"] != "substep" for q in agenda.json()["unplaced_quests"])
+
+    # Quest should be archived in the bank
+    bank = client.get("/api/v1/habits?include_archived=true", headers={"X-User-ID": "1"}).json()
+    quest = next(h for h in bank if h["id"] == quest_id)
+    assert quest["archived_at"] is not None
+    assert quest["source_type"] == "substep"

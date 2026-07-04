@@ -176,3 +176,70 @@ def test_pin_goals_limit_and_substep_validation(client):
     response = client.get("/api/v1/profile", headers={"X-User-ID": "1"})
     assert response.status_code == 200
     assert response.json()["pinned_substeps"] == []
+
+
+def test_linked_substep_is_eligible_when_target_goal_is_pinned(client):
+    db = TestingSessionLocal()
+    try:
+        db.query(GoalSubStepLink).delete()
+        db.query(SubStep).delete()
+        db.query(Goal).delete()
+
+        user = db.query(User).filter_by(id=1).first()
+        user.pinned_goals = []
+        user.pinned_substeps = []
+
+        source_goal = Goal(user_id=1, title="Objectif source", description="")
+        top_goal = Goal(user_id=1, title="Objectif Top 3", description="")
+        db.add(source_goal)
+        db.add(top_goal)
+        db.flush()
+
+        shared_substep = SubStep(
+            user_id=1,
+            title="Avoir 500k en actif",
+            gold_reward=25,
+        )
+        db.add(shared_substep)
+        db.flush()
+
+        db.add(
+            GoalSubStepLink(
+                goal_id=source_goal.id,
+                substep_id=shared_substep.id,
+                execution_order=1,
+            )
+        )
+        db.add(
+            GoalSubStepLink(
+                goal_id=top_goal.id,
+                substep_id=shared_substep.id,
+                execution_order=2,
+            )
+        )
+        db.commit()
+
+        top_goal_id = top_goal.id
+        shared_substep_id = shared_substep.id
+    finally:
+        db.close()
+
+    response = client.put(
+        "/api/v1/profile/pins",
+        json={
+            "pinned_goals": [top_goal_id],
+            "pinned_substeps": [shared_substep_id],
+        },
+        headers={"X-User-ID": "1"},
+    )
+    assert response.status_code == 200
+
+    response = client.get("/api/v1/profile", headers={"X-User-ID": "1"})
+    assert response.status_code == 200
+    assert response.json()["pinned_substeps"] == [shared_substep_id]
+
+    response = client.post(
+        f"/api/v1/substeps/{shared_substep_id}/complete",
+        headers={"X-User-ID": "1"},
+    )
+    assert response.status_code == 200
