@@ -903,6 +903,7 @@ document.addEventListener("DOMContentLoaded", () => {
       source_label: item.source_label || null,
       auto_managed: !!item.auto_managed,
       archived_at: item.archived_at || null,
+      agenda_placeable: item.agenda_placeable !== false,
       is_active: true,
       unit: item.unit || "",
       daily_target: item.daily_target || null,
@@ -958,12 +959,17 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderAgendaQuestCard(item, placed = false) {
     const isDone = item.status === "done";
     const isSkipped = item.status === "skipped";
+    const isAgendaPlaceable = item.agenda_placeable !== false;
     const statusClass = isDone ? "quest-done" : isSkipped ? "quest-skipped" : "";
     const card = document.createElement("div");
-    card.className = `agenda-quest-card ${placed ? "placed" : "unplaced"} ${item.needs_configuration ? "needs-config" : ""} ${statusClass}`;
-    card.draggable = true;
+    card.className = `agenda-quest-card ${placed ? "placed" : "unplaced"} ${item.needs_configuration ? "needs-config" : ""} ${!isAgendaPlaceable ? "not-placeable" : ""} ${statusClass}`;
+    card.draggable = isAgendaPlaceable;
     card.dataset.habitId = item.habit_id;
     card.addEventListener("dragstart", (event) => {
+      if (!isAgendaPlaceable) {
+        event.preventDefault();
+        return;
+      }
       event.dataTransfer.setData("text/plain", String(item.habit_id));
       event.dataTransfer.effectAllowed = "move";
     });
@@ -1007,10 +1013,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     checkboxWrap.appendChild(checkbox);
 
+    const targetSuffix = (item.daily_target && item.daily_target > 1)
+      ? ` (${item.today_count || 0}/${item.daily_target})`
+      : "";
     const main = document.createElement("div");
     main.className = "agenda-quest-main";
     const title = document.createElement("strong");
-    title.textContent = `${emojiPrefix}${item.name}`;
+    title.textContent = `${emojiPrefix}${item.name}${targetSuffix}`;
     const source = document.createElement("span");
     source.textContent = sourceLabel;
     main.append(title, source);
@@ -1041,6 +1050,12 @@ document.addEventListener("DOMContentLoaded", () => {
       config.className = "agenda-config-flag";
       config.textContent = "à configurer";
       meta.appendChild(config);
+    }
+    if (!isAgendaPlaceable) {
+      const placeable = document.createElement("span");
+      placeable.className = "agenda-placeable-flag";
+      placeable.textContent = "hors agenda";
+      meta.appendChild(placeable);
     }
 
     const actions = document.createElement("div");
@@ -1140,6 +1155,10 @@ document.addEventListener("DOMContentLoaded", () => {
       clearHoverSlot();
       const habitId = event.dataTransfer.getData("text/plain");
       const quest = agendaQuestById(habitId);
+      if (quest && quest.agenda_placeable === false) {
+        showToast("Cette quête est hors agenda.", true);
+        return;
+      }
       await placeAgendaQuest(
         habitId,
         startTime,
@@ -1208,9 +1227,12 @@ document.addEventListener("DOMContentLoaded", () => {
       block.style.top = `${range.top}%`;
       block.style.height = `${range.height}%`;
 
+      const targetSuffix = (item.daily_target && item.daily_target > 1)
+        ? ` (${item.today_count || 0}/${item.daily_target})`
+        : "";
       const emoji = getStreakEmoji(item.current_streak || 0);
       const emojiPrefix = emoji ? `${emoji} ` : "";
-      block.title = `${emojiPrefix}${item.name} (${item.start_time}, ${duration}min)${isDone ? " ✅" : ""}${isSkipped ? " ⏭" : ""}`;
+      block.title = `${emojiPrefix}${item.name}${targetSuffix} (${item.start_time}, ${duration}min)${isDone ? " ✅" : ""}${isSkipped ? " ⏭" : ""}`;
 
       // Checkbox on the timeline block
       const blockCheck = document.createElement("button");
@@ -1236,7 +1258,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const blockTitle = document.createElement("span");
       blockTitle.className = "agenda-quest-block-title";
-      blockTitle.textContent = `${emojiPrefix}${item.name}`;
+      blockTitle.textContent = `${emojiPrefix}${item.name}${targetSuffix}`;
       const editBtn = document.createElement("button");
       editBtn.type = "button";
       editBtn.className = "agenda-block-edit-btn";
@@ -1328,6 +1350,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function placeAgendaQuest(habitId, startTime, durationMinutes = null) {
     if (!habitId || !startTime) return;
+    const quest = agendaQuestById(habitId);
+    if (quest && quest.agenda_placeable === false) {
+      showToast("Cette quête est hors agenda.", true);
+      return;
+    }
     try {
       const date = getAgendaDate();
       const body = { start_time: startTime };
@@ -3647,6 +3674,10 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("edit-quest-effort-type").value = habit.effort_type || "";
     const editDuration = habit.agenda_duration_minutes || Math.max(15, Math.round((habit.effort_duration || 1.0) * 60));
     document.getElementById("edit-quest-duration").value = editDuration;
+    const editAgendaPlaceable = document.getElementById("edit-quest-agenda-placeable");
+    if (editAgendaPlaceable) {
+      editAgendaPlaceable.checked = habit.agenda_placeable !== false;
+    }
     updateFrequencyNote(editFreqSelect, editQuestFrequencyNote, habit.scheduled_days);
 
     if (editQuestSourceMeta) {
@@ -3739,6 +3770,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const effort_type = document.getElementById("edit-quest-effort-type").value || null;
     const agenda_duration_minutes = parseInt(document.getElementById("edit-quest-duration").value, 10) || 60;
     const effort_duration = agenda_duration_minutes / 60;
+    const agenda_placeable = document.getElementById("edit-quest-agenda-placeable")?.checked !== false;
     const descriptionUpdates = collectQuestVersionDescriptionUpdates();
     const activeDescription = descriptionUpdates.find((update) => String(update.id) === String(id));
 
@@ -3752,6 +3784,7 @@ document.addEventListener("DOMContentLoaded", () => {
       effort_type,
       effort_duration,
       agenda_duration_minutes,
+      agenda_placeable,
     };
     try {
       const r = await fetch(`${API_BASE}/habits/${id}`, {
@@ -4199,6 +4232,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const effort_type = document.getElementById("new-quest-effort-type").value || null;
         const agenda_duration_minutes = parseInt(document.getElementById("new-quest-duration").value, 10) || 60;
         const effort_duration = agenda_duration_minutes / 60;
+        const agenda_placeable = document.getElementById("new-quest-agenda-placeable")?.checked !== false;
 
         if (!title) {
           showToast("Veuillez donner un titre à la quête !", true);
@@ -4220,6 +4254,7 @@ document.addEventListener("DOMContentLoaded", () => {
               effort_type: effort_type,
               effort_duration: effort_duration,
               agenda_duration_minutes: agenda_duration_minutes,
+              agenda_placeable: agenda_placeable,
             })
           });
 
@@ -4233,6 +4268,8 @@ document.addEventListener("DOMContentLoaded", () => {
           document.getElementById("new-quest-desc").value = "";
           document.getElementById("new-quest-effort-type").value = "";
           document.getElementById("new-quest-duration").value = "60";
+          const newAgendaPlaceable = document.getElementById("new-quest-agenda-placeable");
+          if (newAgendaPlaceable) newAgendaPlaceable.checked = true;
           document.getElementById("new-quest-unit").value = "";
           document.getElementById("new-quest-target").value = "";
           if (freqSelect) freqSelect.value = "daily";
@@ -5811,64 +5848,101 @@ document.addEventListener("DOMContentLoaded", () => {
     return !isUnlockClicked;
   }
 
-  function getSubstepRecapContext(goals, subId) {
-    const allMatches = [];
-    goals.forEach(goal => {
-      const sub = goal.substeps.find(item => item.id === subId);
-      if (sub) {
-        allMatches.push({ goal, sub });
-      }
-    });
+  function getRecapLevel(value) {
+    const level = parseInt(value, 10);
+    return Number.isFinite(level) && level > 0 ? level : 1;
+  }
 
-    const pinnedParent = allMatches.find(match => pinnedGoals.includes(match.goal.id));
-    if (pinnedParent) return pinnedParent;
+  function getUnlockedLevels(items, getLevel, isCompleted) {
+    const levels = Array.from(new Set(items.map(item => getRecapLevel(getLevel(item)))))
+      .sort((a, b) => a - b);
+    const unlockedLevels = new Set();
+    if (levels.length === 0) return unlockedLevels;
 
-    for (const match of allMatches) {
-      const linkedPinnedGoal = (match.sub.linked_goals || [])
-        .find(linkedGoal => pinnedGoals.includes(linkedGoal.id));
-      if (linkedPinnedGoal) {
-        const linkedGoal = goals.find(goal => goal.id === linkedPinnedGoal.id);
-        if (linkedGoal) {
-          const linkedSub = linkedGoal.substeps.find(item => item.id === subId);
-          if (linkedSub) return { goal: linkedGoal, sub: linkedSub };
-        }
-        return match;
-      }
+    unlockedLevels.add(levels[0]);
+    for (let index = 1; index < levels.length; index++) {
+      const previousLevel = levels[index - 1];
+      const previousLevelHasCompletion = items.some(item =>
+        getRecapLevel(getLevel(item)) === previousLevel && isCompleted(item)
+      );
+      if (!previousLevelHasCompletion) break;
+      unlockedLevels.add(levels[index]);
     }
 
-    return allMatches[0] || null;
+    return unlockedLevels;
+  }
+
+  function getUnlockedGoalLevels(goal) {
+    const substeps = Array.isArray(goal?.substeps) ? goal.substeps : [];
+    return getUnlockedLevels(
+      substeps,
+      substep => substep.execution_order,
+      substep => Boolean(substep.completed)
+    );
+  }
+
+  function getPinnedGoalSubstepContexts(goals, subId) {
+    if (!Array.isArray(goals)) return [];
+    const contexts = [];
+    const seenGoalIds = new Set();
+
+    goals.forEach(goal => {
+      if (!pinnedGoals.includes(goal.id) || !Array.isArray(goal.substeps)) return;
+      const sub = goal.substeps.find(item => item.id === subId);
+      if (!sub) return;
+      contexts.push({ goal, sub });
+      seenGoalIds.add(goal.id);
+    });
+
+    goals.forEach(sourceGoal => {
+      if (!Array.isArray(sourceGoal.substeps)) return;
+      const sourceSub = sourceGoal.substeps.find(item => item.id === subId);
+      if (!sourceSub) return;
+
+      (sourceSub.linked_goals || []).forEach(linkedGoalRef => {
+        if (!pinnedGoals.includes(linkedGoalRef.id) || seenGoalIds.has(linkedGoalRef.id)) return;
+        const linkedGoal = goals.find(goal => goal.id === linkedGoalRef.id);
+        const linkedSub = linkedGoal?.substeps?.find(item => item.id === subId);
+        if (linkedGoal && linkedSub) {
+          contexts.push({ goal: linkedGoal, sub: linkedSub });
+          seenGoalIds.add(linkedGoal.id);
+        }
+      });
+    });
+
+    return contexts;
+  }
+
+  function getVisibleSubstepRecapContext(goals, subId) {
+    const contexts = getPinnedGoalSubstepContexts(goals, subId);
+    return contexts.find(({ goal, sub }) => (
+      getUnlockedGoalLevels(goal).has(getRecapLevel(sub.execution_order))
+    )) || null;
   }
 
   function getEligibleRecapSubsteps(goals) {
     const eligibleBySubstep = new Map();
 
-    goals.forEach(goal => {
+    (Array.isArray(goals) ? goals : []).forEach(goal => {
+      if (!pinnedGoals.includes(goal.id) || !Array.isArray(goal.substeps)) return;
+      const unlockedLevels = getUnlockedGoalLevels(goal);
+
       goal.substeps.forEach(sub => {
+        const level = getRecapLevel(sub.execution_order);
+        if (!unlockedLevels.has(level)) return;
         if (sub.completed && !pinnedSubsteps.includes(sub.id)) return;
-
-        const linkedPinnedGoals = [];
-        if (pinnedGoals.includes(goal.id)) {
-          linkedPinnedGoals.push({ id: goal.id, title: goal.title });
-        }
-        (sub.linked_goals || []).forEach(linkedGoal => {
-          if (pinnedGoals.includes(linkedGoal.id)) {
-            linkedPinnedGoals.push(linkedGoal);
-          }
-        });
-
-        if (linkedPinnedGoals.length === 0) return;
 
         const existing = eligibleBySubstep.get(sub.id);
         if (existing) {
-          linkedPinnedGoals.forEach(linkedGoal => {
-            existing.goalRefs.set(linkedGoal.id, linkedGoal.title);
-          });
+          existing.goalRefs.set(goal.id, goal.title);
+          existing.levels.set(goal.id, level);
           return;
         }
 
         eligibleBySubstep.set(sub.id, {
           sub,
-          goalRefs: new Map(linkedPinnedGoals.map(linkedGoal => [linkedGoal.id, linkedGoal.title]))
+          goalRefs: new Map([[goal.id, goal.title]]),
+          levels: new Map([[goal.id, level]])
         });
       });
     });
@@ -5882,7 +5956,53 @@ document.addEventListener("DOMContentLoaded", () => {
           ...Array.from(b.goalRefs.keys()).map(goalId => pinnedGoals.indexOf(goalId))
         );
         if (firstPinnedIndex !== secondPinnedIndex) return firstPinnedIndex - secondPinnedIndex;
-        return (a.sub.execution_order || 1) - (b.sub.execution_order || 1);
+        const firstLevel = Math.min(...Array.from(a.levels.values()));
+        const secondLevel = Math.min(...Array.from(b.levels.values()));
+        if (firstLevel !== secondLevel) return firstLevel - secondLevel;
+        return a.sub.title.localeCompare(b.sub.title, "fr");
+      });
+  }
+
+  function getUnlockedSkillLevelsByBranch(skills) {
+    const levelsByBranch = new Map();
+    const skillsByBranch = new Map();
+
+    (Array.isArray(skills) ? skills : []).forEach(skill => {
+      const branchKey = skill.branch || "__global";
+      if (!skillsByBranch.has(branchKey)) {
+        skillsByBranch.set(branchKey, []);
+      }
+      skillsByBranch.get(branchKey).push(skill);
+    });
+
+    skillsByBranch.forEach((branchSkills, branchKey) => {
+      levelsByBranch.set(branchKey, getUnlockedLevels(
+        branchSkills,
+        skill => skill.execution_order,
+        skill => Boolean(skill.progress && skill.progress.completed)
+      ));
+    });
+
+    return levelsByBranch;
+  }
+
+  function isSkillLevelUnlocked(skill, levelsByBranch) {
+    const branchKey = skill.branch || "__global";
+    const unlockedLevels = levelsByBranch.get(branchKey) || new Set();
+    return unlockedLevels.has(getRecapLevel(skill.execution_order));
+  }
+
+  function getEligibleRecapSkills(skills) {
+    const levelsByBranch = getUnlockedSkillLevelsByBranch(skills);
+    return (Array.isArray(skills) ? skills : [])
+      .filter(skill => isSkillLevelUnlocked(skill, levelsByBranch))
+      .filter(skill => !(skill.progress && skill.progress.completed) || pinnedSoftskills.includes(skill.id))
+      .sort((a, b) => {
+        const branchCompare = String(a.branch || "").localeCompare(String(b.branch || ""), "fr");
+        if (branchCompare !== 0) return branchCompare;
+        const levelCompare = getRecapLevel(a.execution_order) - getRecapLevel(b.execution_order);
+        if (levelCompare !== 0) return levelCompare;
+        return a.name.localeCompare(b.name, "fr");
       });
   }
 
@@ -5932,10 +6052,11 @@ document.addEventListener("DOMContentLoaded", () => {
         eligibleRecapSubsteps.forEach(({ sub, goalRefs }) => {
           const isChecked = pinnedSubsteps.includes(sub.id) ? "checked" : "";
           const linkedGoalTitles = Array.from(goalRefs.values()).join(" / ");
+          const level = getRecapLevel(sub.execution_order);
           substepsHtml += `
             <label class="recap-checkbox-container">
               <input type="checkbox" name="pin-substep-checkbox" value="${sub.id}" ${isChecked}>
-              <span style="font-size: 0.8rem;"><strong>${linkedGoalTitles}</strong>: ${sub.title}</span>
+              <span style="font-size: 0.8rem;"><strong>${linkedGoalTitles}</strong>: <span style="color: var(--text-muted);">Niv. ${level}</span> · ${sub.title}</span>
             </label>
           `;
         });
@@ -5951,16 +6072,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const skillsData = await skillsResp.json();
       const skills = skillsData.skills || [];
 
-      // Filter uncompleted or already pinned softskills
-      const eligibleSkills = skills.filter(s => !(s.progress && s.progress.completed) || pinnedSoftskills.includes(s.id));
+      // Show only currently unlocked skill levels, keeping already pinned completed skills visible.
+      const eligibleSkills = getEligibleRecapSkills(skills);
       let skillsHtml = "";
       if (eligibleSkills.length > 0) {
         eligibleSkills.forEach(skill => {
           const isChecked = pinnedSoftskills.includes(skill.id) ? "checked" : "";
+          const level = getRecapLevel(skill.execution_order);
           skillsHtml += `
             <label class="recap-checkbox-container">
               <input type="checkbox" name="pin-skill-checkbox" value="${skill.id}" ${isChecked}>
-              <span style="font-size: 0.8rem;"><strong>${skill.branch}</strong>: ${skill.name}</span>
+              <span style="font-size: 0.8rem;"><strong>${skill.branch}</strong>: <span style="color: var(--text-muted);">Niv. ${level}</span> · ${skill.name}</span>
             </label>
           `;
         });
@@ -6090,7 +6212,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       let goalsRendered = 0;
       pinnedSubsteps.forEach(subId => {
-        const context = getSubstepRecapContext(goals, subId);
+        const context = getVisibleSubstepRecapContext(goals, subId);
         const foundSub = context ? context.sub : null;
         const foundGoal = context ? context.goal : null;
 
@@ -6134,12 +6256,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const skillsResp = await fetch(`${API_BASE}/softskills`);
       const skillsData = await skillsResp.json();
       const skills = skillsData.skills || [];
+      const unlockedSkillLevelsByBranch = getUnlockedSkillLevelsByBranch(skills);
       skillsList.innerHTML = "";
 
       let skillsRendered = 0;
       pinnedSoftskills.forEach(skillId => {
         const skill = skills.find(s => s.id === skillId);
-        if (skill) {
+        if (skill && isSkillLevelUnlocked(skill, unlockedSkillLevelsByBranch)) {
           skillsRendered++;
           const isCompleted = skill.progress && skill.progress.completed;
           const li = document.createElement("li");

@@ -71,7 +71,7 @@ def calculate_daily_score(
     for log in logs:
         logs_by_habit.setdefault(log.habit_id, []).append(log)
 
-    perfect_valid = True
+    perfect_valid = len(habits) > 0
     for h in scheduled_habits:
         h_logs = logs_by_habit.get(h.id, [])
         is_skipped = any(l.log_type == "skip" for l in h_logs)
@@ -102,9 +102,16 @@ def calculate_daily_score(
             template_used=template_name,
         )
         db.add(score)
+        if status == "Perfect":
+            add_user_xp(user, 5)
     else:
+        old_status = score.status
         score.status = status
         score.template_used = template_name
+        if old_status != "Perfect" and status == "Perfect":
+            add_user_xp(user, 5)
+        elif old_status == "Perfect" and status != "Perfect":
+            deduct_user_xp(user, 5)
 
     db.commit()
     return score
@@ -142,12 +149,12 @@ def update_streaks(db: Session, user_id: int, date: datetime.date) -> list[dict]
                 perf_streak.max_streak, perf_streak.current_streak
             )
             perf_streak.last_incremented = date
-        else:
-            if (
-                perf_streak.last_incremented == yesterday
-                or perf_streak.last_incremented is None
-            ):
-                perf_streak.current_streak = 0
+        # No mid-day resets to 0. Streaks are reset at midnight.
+    else:  # perf_streak.last_incremented == date
+        if score.status != "Perfect":
+            # Revert the streak increment if today's Perfect status was lost (e.g. template changes)
+            perf_streak.current_streak = max(0, perf_streak.current_streak - 1)
+            perf_streak.last_incremented = yesterday
 
     habits = (
         db.query(Habit)
@@ -250,12 +257,7 @@ def update_streaks(db: Session, user_id: int, date: datetime.date) -> list[dict]
                     )
             elif is_skipped:
                 h_streak.last_incremented = date
-            else:
-                if (
-                    h_streak.last_incremented == last_scheduled_date
-                    or h_streak.last_incremented is None
-                ):
-                    h_streak.current_streak = 0
+            # No mid-day resets to 0. Streaks are reset at midnight.
 
     db.commit()
     return milestone_events
@@ -281,6 +283,23 @@ def add_user_xp(user: User, xp_gained: int) -> list:
             break
 
     return levels_gained
+
+
+def deduct_user_xp(user: User, xp_lost: int):
+    """
+    Deducts permanent XP from a user and handles level-down.
+    """
+    user.xp -= xp_lost
+    while user.xp < 0:
+        if user.level > 1:
+            user.level -= 1
+            xp_needed = 10 * (2 ** (user.level - 1))
+            user.xp += xp_needed
+        else:
+            user.xp = 0
+            break
+
+
 
 
 def cleanup_completed_todos(db: Session, user_id: int):

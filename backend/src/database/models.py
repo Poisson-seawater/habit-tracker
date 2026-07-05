@@ -158,6 +158,7 @@ class Habit(Base):
     auto_managed = Column(Boolean, default=False, nullable=False)
     archived_at = Column(DateTime, nullable=True)
     agenda_duration_minutes = Column(Integer, nullable=True)
+    agenda_placeable = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.now)
 
     user = relationship("User", back_populates="habits")

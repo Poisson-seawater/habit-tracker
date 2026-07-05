@@ -1039,6 +1039,13 @@
                 <input type="number" id="new-quest-target" min="1" placeholder="ex: 2 — affiche X/N, chaque validation = XP" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
               </div>
 
+              <div class="form-group agenda-placeable-toggle">
+                <label>
+                  <input type="checkbox" id="new-quest-agenda-placeable" checked>
+                  <span>À placer dans l'agenda</span>
+                </label>
+              </div>
+
               <button class="quest-action-btn" id="submit-quest-btn" type="button" style="padding: 10px;">Forger la Quête</button>
             </div>
 
@@ -1924,6 +1931,12 @@
         <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="0"> Dim</label>
       </div>
     </div>
+    <div class="form-group agenda-placeable-toggle">
+      <label>
+        <input type="checkbox" id="edit-quest-agenda-placeable" checked>
+        <span>À placer dans l'agenda</span>
+      </label>
+    </div>
     <div style="display:flex;gap:0.8rem;margin-top:0.5rem;">
       <button id="save-edit-quest-btn" class="quest-action-btn" style="flex:1;padding:10px;">Sauvegarder</button>
       <button id="archive-quest-btn" class="quest-action-btn" style="flex:1;padding:10px;background:rgba(245,158,11,0.16);border-color:rgba(245,158,11,0.35);color:var(--accent-gold);">Archiver</button>
@@ -2095,7 +2108,7 @@
     <div style="display: flex; flex-direction: column; gap: 1.5rem; padding: 1.2rem; padding-bottom: 1.5rem;">
       <!-- Goals section -->
       <div id="recap-pin-goals-group">
-        <h4 style="margin-top: 0; margin-bottom: 0.8rem; color: var(--accent-cyan); font-size: 1rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">🏆 Objectifs (Sous-étapes, max 3)</h4>
+        <h4 style="margin-top: 0; margin-bottom: 0.8rem; color: var(--accent-cyan); font-size: 1rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">🏆 Objectifs (Sous-étapes disponibles, max 3)</h4>
         <div id="recap-pin-goals-list" style="display: flex; flex-direction: column; gap: 0.6rem; max-height: 200px; overflow-y: auto; padding-right: 0.5rem;">
           <!-- Dynamically populated checkboxes -->
           <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Aucune sous-étape disponible.</p>
@@ -2113,7 +2126,7 @@
 
       <!-- Footnote reminder -->
       <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.4; padding: 0.5rem; background: rgba(255,255,255,0.01); border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
-        💡 <em>Rappel : Vous ne pouvez épingler que les sous-étapes de vos 3 objectifs prioritaires (sélectionnés avec ★ dans l'onglet Objectifs).</em>
+        💡 <em>Rappel : seules les étapes des niveaux débloqués de vos 3 objectifs prioritaires sont proposées. Compléter une étape d'un niveau révèle le niveau suivant.</em>
       </div>
 
       <div style="display: flex; gap: 0.8rem; margin-top: 1rem;">
@@ -2135,6 +2148,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.6"></script>
+  <script src="js/app.js?v=1.0.8"></script>
 </body>
 </html>

@@ -43,6 +43,12 @@ if DATABASE_URL.startswith("sqlite://") and not DATABASE_URL.startswith("sqlite:
 
 # Timezone Configuration
 TIMEZONE = os.getenv("TIMEZONE", "America/New_York")
+import time
+os.environ["TZ"] = TIMEZONE
+try:
+    time.tzset()
+except AttributeError:
+    pass
 
 # Google Calendar & Tasks Integration Configuration
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")

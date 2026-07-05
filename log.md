@@ -3,6 +3,33 @@
 > Une entrée par session / push, anti-chronologique. Rédigé par `/doc-sync` avant push.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-07-05 — feat(scheduler): decouple daily recap from habit logging and implement midnight rollover streak resets
+
+- **Problème** : Le recap de 21h30 réinitialisait prématurément les streaks et finalisait la journée, empêchant l'enregistrement de complétions tardives ou pénalisant indûment l'utilisateur pour les streaks.
+- **Cause** : Les calculs de streaks et l'attribution des XP de "Perfect Day" étaient gérés au moment du recap de 21h30 et lors de chaque validation.
+- **Résolution** :
+  - **Score Service** : Déplacement de l'attribution des XP de "Perfect Day" (+5 XP) directement dans `calculate_daily_score` pour se faire à la transition de statut (`Failed` -> `Perfect`). Ajout de `deduct_user_xp` pour gérer les déclassements ou transitions inverses (revert) si le statut devient non-Perfect (ex: changement de template). Mise à jour de `update_streaks` pour ne pas réinitialiser les streaks à 0 en cours de journée. Restriction : empêche un Perfect Day automatique si l'utilisateur n'a aucun habit actif.
+  - **Scheduler** : Suppression de l'attribution d'XP dans le recap de 21h30. Ajout d'une tâche de rollover à minuit (`finalize_day_streaks` à 00:00) pour réinitialiser les streaks non validés de la veille.
+- Docs : log.md ✔ · code ✔ (score_service.py, scheduler.py) · tests ✔ (test_daily_score.py, test_habit_streaks.py)
+
+## 2026-07-05 — fix(habits): fix daily target quest synchronization and completion status in agenda views
+
+- **Problème** : Les quêtes ayant un objectif journalier (`daily_target`) supérieur à 1 étaient barrées pour la journée dès la première validation dans l'agenda, alors que le score final et le parfait du jour n'étaient comptabilisés que si la cible était atteinte.
+- **Cause** : Le statut de complétion dans l'agenda (`isDone`) était déterminé par la présence de l'ID de l'habitude dans la liste des habitudes validées, sans tenir compte du nombre de validations requis vs. effectué.
+- **Résolution** :
+  - **Backend** : Mise à jour de `_completed_and_skipped_habit_ids` pour renvoyer un `Counter` (dictionnaire d'occurrences) au lieu d'un ensemble. Mise à jour de `habit_to_agenda_item` pour comparer `today_count` à `daily_target` afin de déterminer si le statut est `"done"`. Ajout de `today_count` dans la réponse de l'API agenda.
+  - **Timezone Fix** : Correction d'un décalage horaire majeur où les validations après 20h00 (heure locale) étaient enregistrées le lendemain en UTC. Configuration dynamique du fuseau horaire local via `time.tzset()` dans `config.py` et reconstruction du conteneur Docker.
+  - **Frontend** : Modification de `renderAgendaQuestCard` et `renderAgendaTimeline` dans `frontend/js/app.js` pour n'appliquer le style barré/coché que si le statut de la quête est `"done"` (objectif atteint) et pour ajouter un suffixe `(X/Y)` à côté du titre de la quête indiquant le progrès live.
+- Docs : log.md ✔ · code ✔ (agenda_service.py, app.js, config.py) · tests ✔ (test_agenda_quests.py)
+
+## 2026-07-04 — fix(habits): pass daily_target and unit to agenda items to fix target resetting in edit modal
+
+- **Problème** : Lors de l'édition d'une quête depuis l'agenda ou les quêtes à placer, la valeur de "Cible/jour" (daily_target) et l'unité (unit) étaient réinitialisées ou apparaissaient vides. Lors de la sauvegarde, le backend recevait une valeur par défaut de `1` (car `parseInt("")` donne `NaN`, se résolvant en `1`), écrasant ainsi la vraie cible.
+- **Cause** : L'endpoint `GET /api/v1/agenda` renvoyait des quêtes formatées par `habit_to_agenda_item` qui omettait les champs `daily_target` et `unit`. L'objet habit reconstruit par le front via `questFromAgendaItem(item)` se retrouvait donc avec ces champs à `null`/`""`.
+- **Résolution** : Ajout de `daily_target` et `unit` dans le dictionnaire de retour de `habit_to_agenda_item` dans `backend/src/services/agenda_service.py`.
+- Docs : log.md ✔ · code ✔ (agenda_service.py)
+
+
 ## 2026-07-03 — test(plugin): re-test bout-en-bout de habit-tracker-control contre le Pi
 
 - **Contexte** : validation post-fix X-User-ID (commit `18f9a81`). Test read-only + une seule mutation réversible (`__TEST_PLUGIN__`) contre l'instance de prod (`http://192.168.0.199:5000`, user Gabriel = id 3). Aucun code / compose / DB modifié.

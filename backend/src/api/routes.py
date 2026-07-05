@@ -204,6 +204,7 @@ class HabitCreate(BaseModel):
     effort_type: Optional[str] = None
     effort_duration: Optional[float] = 1.0
     agenda_duration_minutes: Optional[int] = None
+    agenda_placeable: Optional[bool] = True
 
 
 class HabitVersionCreate(BaseModel):
@@ -2984,6 +2985,11 @@ def get_habits(
                 "effort_type": h.effort_type,
                 "effort_duration": h.effort_duration,
                 "agenda_duration_minutes": h.agenda_duration_minutes,
+                "agenda_placeable": (
+                    bool(h.agenda_placeable)
+                    if h.agenda_placeable is not None
+                    else True
+                ),
                 "source_type": h.source_type or "manual",
                 "source_ref": h.source_ref,
                 "source_label": agenda_service._source_label(db, h),
@@ -3012,6 +3018,7 @@ class HabitUpdate(BaseModel):
     effort_type: Optional[str] = None
     effort_duration: Optional[float] = None
     agenda_duration_minutes: Optional[int] = None
+    agenda_placeable: Optional[bool] = None
 
 
 @router.post("/habits/{habit_id}/versions", status_code=201)
@@ -3287,6 +3294,11 @@ def create_habit(
             payload.agenda_duration_minutes
             if payload.agenda_duration_minutes is not None
             else int((payload.effort_duration or 1.0) * 60)
+        ),
+        agenda_placeable=(
+            bool(payload.agenda_placeable)
+            if payload.agenda_placeable is not None
+            else True
         ),
         is_active=True,
     )

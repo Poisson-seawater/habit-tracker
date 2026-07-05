@@ -416,6 +416,10 @@ def _habit_duration_minutes(habit: Habit) -> int:
     return max(15, int(round(float(effort_duration) * 60)))
 
 
+def _habit_agenda_placeable(habit: Habit) -> bool:
+    return bool(habit.agenda_placeable) if habit.agenda_placeable is not None else True
+
+
 def _source_label(db: Session, habit: Habit) -> Optional[str]:
     source_type = habit.source_type or "manual"
     if source_type == "substep" and habit.source_ref:
@@ -461,7 +465,7 @@ def habit_to_agenda_item(
     db: Session,
     habit: Habit,
     date_value: datetime.date,
-    completed_habit_ids: set[int],
+    completions: dict[int, int],
     skipped_habit_ids: set[int],
     current_streak: int = 0,
 ) -> dict:
@@ -475,10 +479,12 @@ def habit_to_agenda_item(
         )
     )
     source_type = habit.source_type or "manual"
-    if habit.id in completed_habit_ids:
-        status = "done"
-    elif habit.id in skipped_habit_ids:
+    today_count = completions.get(habit.id, 0)
+    target = habit.daily_target if (habit.daily_target and habit.daily_target > 1) else 1
+    if habit.id in skipped_habit_ids:
         status = "skipped"
+    elif today_count >= target:
+        status = "done"
     else:
         status = "planned"
     return {
@@ -498,14 +504,18 @@ def habit_to_agenda_item(
         "auto_managed": bool(habit.auto_managed),
         "archived_at": habit.archived_at.isoformat() if habit.archived_at else None,
         "needs_configuration": needs_configuration,
+        "agenda_placeable": _habit_agenda_placeable(habit),
         "status": status,
         "current_streak": current_streak,
+        "daily_target": habit.daily_target,
+        "today_count": today_count,
+        "unit": habit.unit,
     }
 
 
 def _completed_and_skipped_habit_ids(
-    db: Session, user_id: int, date_value: datetime.date
-) -> tuple[set[int], set[int]]:
+    db: Session, user_id: int, date_value: datetime.date, habits: list[Habit] = None
+) -> tuple[dict[int, int], set[int]]:
     start_dt = datetime.datetime.combine(date_value, datetime.time.min)
     end_dt = datetime.datetime.combine(date_value, datetime.time.max)
     logs = (
@@ -517,9 +527,10 @@ def _completed_and_skipped_habit_ids(
         )
         .all()
     )
-    completed = {log.habit_id for log in logs if log.log_type in {"done", "log"}}
+    from collections import Counter
+    completions = Counter(log.habit_id for log in logs if log.log_type in {"done", "log"})
     skipped = {log.habit_id for log in logs if log.log_type == "skip"}
-    return completed, skipped
+    return completions, skipped
 
 
 def _resolve_day_type(db: Session, user_id: int, date_value: datetime.date) -> str:
@@ -654,11 +665,11 @@ def build_agenda_response(
     day_type = _resolve_day_type(db, user_id, date_value)
     template_config = _template_config(db, user_id, day_type)
     agenda_json = template_config["agenda_json"]
-    completed_ids, skipped_ids = _completed_and_skipped_habit_ids(
-        db, user_id, date_value
+    habits = db.query(Habit).filter(Habit.user_id == user_id).all()
+    completions, skipped_ids = _completed_and_skipped_habit_ids(
+        db, user_id, date_value, habits
     )
 
-    habits = db.query(Habit).filter(Habit.user_id == user_id).all()
     eligible_habits = [
         habit for habit in habits if is_habit_eligible_on_date(habit, date_value, user)
     ]
@@ -710,14 +721,15 @@ def build_agenda_response(
             db,
             habit,
             date_value,
-            completed_ids,
+            completions,
             skipped_ids,
             current_streak_by_habit_id.get(habit.id, 0),
         )
         placement = placement_by_habit_id.get(habit.id)
         default = default_by_habit_id.get(habit.id)
+        placeable = _habit_agenda_placeable(habit)
 
-        if placement:
+        if placement and placeable:
             item.update(
                 {
                     "placement_id": placement.id,
@@ -728,7 +740,7 @@ def build_agenda_response(
                     "placement_source": "date",
                 }
             )
-        elif default:
+        elif default and placeable:
             item.update(
                 {
                     "placement_id": None,
@@ -877,6 +889,11 @@ def update_placement(
     habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
     if not habit or not is_habit_eligible_on_date(habit, date_value, user):
         raise HTTPException(status_code=404, detail="Quest not eligible for this date.")
+    if not _habit_agenda_placeable(habit):
+        raise HTTPException(
+            status_code=422,
+            detail="Cette quete est configuree hors agenda et ne peut pas etre placee.",
+        )
 
     duration = int(duration_minutes or _habit_duration_minutes(habit))
     target_range = _validate_placement_time(start_time, duration)

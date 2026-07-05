@@ -120,6 +120,7 @@ def test_agenda_schema_fields_exist():
     assert hasattr(Habit, "auto_managed")
     assert hasattr(Habit, "archived_at")
     assert hasattr(Habit, "agenda_duration_minutes")
+    assert hasattr(Habit, "agenda_placeable")
     assert hasattr(DailyAgendaPlacement, "start_time")
     assert hasattr(DailyAgendaPlacement, "duration_minutes")
 
@@ -281,6 +282,85 @@ def test_placement_auto_shift_rejects_when_gap_is_too_small(client):
     )
     assert rejected.status_code == 422
     assert "Aucun creneau libre suffisant" in rejected.json()["detail"]
+
+
+def test_non_placeable_quest_stays_visible_but_cannot_be_placed(client):
+    response = client.post(
+        "/api/v1/habits",
+        json={
+            "name": "Drink water",
+            "type": "binary",
+            "agenda_placeable": False,
+            "agenda_duration_minutes": 15,
+        },
+        headers={"X-User-ID": "1"},
+    )
+    assert response.status_code == 201
+    habit_id = response.json()["id"]
+
+    habits = client.get("/api/v1/habits", headers={"X-User-ID": "1"}).json()
+    created = next(h for h in habits if h["id"] == habit_id)
+    assert created["agenda_placeable"] is False
+
+    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
+    assert agenda.status_code == 200
+    item = next(q for q in agenda.json()["unplaced_quests"] if q["habit_id"] == habit_id)
+    assert item["agenda_placeable"] is False
+    assert agenda.json()["placed_quests"] == []
+
+    placed = client.put(
+        f"/api/v1/agenda/2026-07-06/quests/{habit_id}/placement",
+        json={"start_time": "08:00", "duration_minutes": 15},
+        headers={"X-User-ID": "1"},
+    )
+    assert placed.status_code == 422
+
+    updated = client.put(
+        f"/api/v1/habits/{habit_id}",
+        json={"agenda_placeable": True},
+        headers={"X-User-ID": "1"},
+    )
+    assert updated.status_code == 200
+
+    placed = client.put(
+        f"/api/v1/agenda/2026-07-06/quests/{habit_id}/placement",
+        json={"start_time": "08:00", "duration_minutes": 15},
+        headers={"X-User-ID": "1"},
+    )
+    assert placed.status_code == 200
+    assert [q["habit_id"] for q in placed.json()["placed_quests"]] == [habit_id]
+
+
+def test_existing_placement_is_ignored_when_quest_becomes_non_placeable(client):
+    habit_id = add_habit(name="Floating quest", agenda_duration_minutes=30)
+    placed = client.put(
+        f"/api/v1/agenda/2026-07-06/quests/{habit_id}/placement",
+        json={"start_time": "07:45", "duration_minutes": 30},
+        headers={"X-User-ID": "1"},
+    )
+    assert placed.status_code == 200
+
+    updated = client.put(
+        f"/api/v1/habits/{habit_id}",
+        json={"agenda_placeable": False},
+        headers={"X-User-ID": "1"},
+    )
+    assert updated.status_code == 200
+
+    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
+    assert agenda.status_code == 200
+    assert agenda.json()["placed_quests"] == []
+    item = next(q for q in agenda.json()["unplaced_quests"] if q["habit_id"] == habit_id)
+    assert item["start_time"] is None
+    assert item["agenda_placeable"] is False
+
+    saved = client.post(
+        "/api/v1/agenda/2026-07-06/save-as-template",
+        json={"template_name": "regular"},
+        headers={"X-User-ID": "1"},
+    )
+    assert saved.status_code == 200
+    assert saved.json()["default_placements_count"] == 0
 
 
 def test_save_as_template_reuses_daily_placement_on_future_dates(client):
@@ -478,3 +558,46 @@ def test_unpin_substep_auto_archives_quest(client):
     quest = next(h for h in bank if h["id"] == quest_id)
     assert quest["archived_at"] is not None
     assert quest["source_type"] == "substep"
+
+
+def test_agenda_quest_done_only_when_target_reached(client):
+    import datetime
+    # Add a daily habit with daily_target = 2
+    habit_id = add_habit(name="Quantitative Habit", daily_target=2, type="binary")
+    today_str = datetime.date.today().isoformat()
+
+    # Get agenda - status should be planned, today_count should be 0
+    agenda = client.get(f"/api/v1/agenda?date={today_str}", headers={"X-User-ID": "1"}).json()
+    quest = next(q for q in agenda["unplaced_quests"] if q["habit_id"] == habit_id)
+    assert quest["status"] == "planned"
+    assert quest["today_count"] == 0
+    assert quest["daily_target"] == 2
+
+    # Log once
+    response = client.post(
+        "/api/v1/logs",
+        json={"habit_id": habit_id, "log_type": "done"},
+        headers={"X-User-ID": "1"}
+    )
+    assert response.status_code == 200
+
+    # Get agenda again - status should be planned, today_count should be 1
+    agenda = client.get(f"/api/v1/agenda?date={today_str}", headers={"X-User-ID": "1"}).json()
+    quest = next(q for q in agenda["unplaced_quests"] if q["habit_id"] == habit_id)
+    assert quest["status"] == "planned"
+    assert quest["today_count"] == 1
+
+    # Log a second time
+    response = client.post(
+        "/api/v1/logs",
+        json={"habit_id": habit_id, "log_type": "done"},
+        headers={"X-User-ID": "1"}
+    )
+    assert response.status_code == 200
+
+    # Get agenda again - status should be done, today_count should be 2
+    agenda = client.get(f"/api/v1/agenda?date={today_str}", headers={"X-User-ID": "1"}).json()
+    quest = next(q for q in agenda["unplaced_quests"] if q["habit_id"] == habit_id)
+    assert quest["status"] == "done"
+    assert quest["today_count"] == 2
+

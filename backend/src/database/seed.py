@@ -787,6 +787,19 @@ def _run_migrations():
                 db.commit()
                 print("Migration v20 (habits agenda fields) applied successfully.")
 
+            # v27: Add agenda_placeable toggle to habits
+            if "agenda_placeable" not in columns:
+                print(
+                    "Running migration v27: adding agenda_placeable to habits..."
+                )
+                db.execute(
+                    text(
+                        "ALTER TABLE habits ADD COLUMN agenda_placeable BOOLEAN DEFAULT 1 NOT NULL"
+                    )
+                )
+                db.commit()
+                print("Migration v27 (habits agenda_placeable) applied successfully.")
+
         if "substeps" in inspector.get_table_names():
             columns = [c["name"] for c in inspector.get_columns("substeps")]
             if "effort_type" not in columns:

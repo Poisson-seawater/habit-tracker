@@ -65,14 +65,6 @@ async def publish_daily_recap():
                     dispatch_milestone_notifications, milestone_events
                 )
 
-            # 2. Award 5 XP if Perfect Day achieved
-            xp_gained = 0
-            levels_gained = []
-            if score.status == "Perfect":
-                xp_gained = 5
-                levels_gained = add_user_xp(user, 5)
-                db.commit()
-
             # 3. Get today's logs and split by public / private
             start_dt = datetime.datetime.combine(today, datetime.time.min)
             end_dt = datetime.datetime.combine(today, datetime.time.max)
@@ -289,6 +281,80 @@ async def check_todo_reminders():
         db.close()
 
 
+async def finalize_day_streaks():
+    """
+    Triggered daily at 00:00 (midnight) in local TIMEZONE.
+    Evaluates yesterday's final completion state:
+    - If the user did not achieve a Perfect Day yesterday, reset their Perfect Day streak to 0.
+    - For each active habit of each user: if yesterday was a scheduled day, and the user did
+      not complete/skip it, reset the habit's streak to 0.
+    """
+    print("Scheduler: Starting 00:00 midnight daily streak finalizer...")
+    db = SessionLocal()
+    try:
+        users = db.query(User).all()
+        if not users:
+            return
+
+        import zoneinfo
+        from src.config import TIMEZONE
+        from src.services.agenda_service import is_habit_eligible_on_date
+        tz = zoneinfo.ZoneInfo(TIMEZONE)
+        # Yesterday was the calendar day that just ended
+        yesterday = (datetime.datetime.now(tz) - datetime.timedelta(days=1)).date()
+
+        for user in users:
+            # 1. Check Perfect Day status for yesterday
+            score = db.query(DailyScore).filter_by(user_id=user.id, date=yesterday).first()
+            if not score or score.status != "Perfect":
+                # Reset Perfect Day streak to 0
+                perf_streak = db.query(Streak).filter_by(user_id=user.id, streak_type="Perfect").first()
+                if perf_streak:
+                    perf_streak.current_streak = 0
+
+            # 2. Check active scheduled habits for yesterday
+            habits = (
+                db.query(Habit)
+                .filter(
+                    Habit.user_id == user.id,
+                    Habit.is_active == True,
+                    Habit.archived_at == None,
+                )
+                .all()
+            )
+
+            for habit in habits:
+                if not is_habit_eligible_on_date(habit, yesterday, user):
+                    continue
+
+                # Check if there is any log of type "done", "log", or "skip" for yesterday
+                start_dt = datetime.datetime.combine(yesterday, datetime.time.min)
+                end_dt = datetime.datetime.combine(yesterday, datetime.time.max)
+                has_log = (
+                    db.query(HabitLog)
+                    .filter(
+                        HabitLog.user_id == user.id,
+                        HabitLog.habit_id == habit.id,
+                        HabitLog.timestamp >= start_dt,
+                        HabitLog.timestamp <= end_dt,
+                    )
+                    .first()
+                ) is not None
+
+                if not has_log:
+                    h_streak = db.query(Streak).filter_by(user_id=user.id, streak_type=f"habit:{habit.id}").first()
+                    if h_streak:
+                        h_streak.current_streak = 0
+
+        db.commit()
+        print("Scheduler: Completed 00:00 midnight daily streak finalization successfully.")
+    except Exception as e:
+        print(f"Error in finalize_day_streaks: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 def start_scheduler():
     import zoneinfo
     from src.config import TIMEZONE
@@ -297,11 +363,13 @@ def start_scheduler():
     scheduler = AsyncIOScheduler(timezone=tz)
     scheduler.add_job(publish_daily_recap, "cron", hour=21, minute=30)
     scheduler.add_job(check_todo_reminders, "cron", hour=9, minute=0)
+    scheduler.add_job(finalize_day_streaks, "cron", hour=0, minute=0)
     scheduler.start()
     print(
-        f"Scheduler: Daily RPG recap scheduled at 21:30 and reminders at 09:00 in timezone {TIMEZONE}."
+        f"Scheduler: Daily RPG recap scheduled at 21:30, reminders at 09:00, and streak finalization at 00:00 in timezone {TIMEZONE}."
     )
 
 
 if __name__ == "__main__":
     asyncio.run(publish_daily_recap())
+
