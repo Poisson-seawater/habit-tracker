@@ -1462,22 +1462,28 @@
         <section class="glass-card thresholds-editor" style="padding: 1.8rem;">
           <h2 class="section-header">⚙️ <span>Configuration des Budgets</span></h2>
           <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
-            Ajustez à tout moment les plafonds d'effort et les objectifs pour chaque type de journée (Rest, Regular, Hustle).
+            Ajustez à tout moment les plafonds d'effort et les objectifs pour chaque type de journée (Repos, Normal, Hustle).
           </p>
           <div class="form-group" style="margin-bottom: 1.5rem;">
             <label for="template-edit-select">Type de journée à éditer</label>
             <select id="template-edit-select" class="template-dropdown" style="background: rgba(255,255,255,0.05); padding: 10px; width: 100%; border: 1px solid var(--border-glass); border-radius: 8px;">
-              <option value="rest">Rest 💤</option>
-              <option value="regular">Regular ⚖️</option>
-              <option value="hustle">Hustle ⚡</option>
+              <option value="rest">Repos 💤</option>
+              <option value="regular">Normal ⚔️</option>
+              <option value="hustle">Hustle 🔥</option>
             </select>
           </div>
           
           <form id="edit-thresholds-form" class="modal-form">
             <div id="thresholds-inputs-container" style="display: flex; flex-direction: column; gap: 1rem;">
-              <div class="form-group">
-                <label for="template-focus-hours">Objectif Focus (h)</label>
-                <input type="number" id="template-focus-hours" step="0.5" min="0" max="16" required style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary); width: 100%; box-sizing: border-box;">
+              <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                  <label for="template-focus-hours">Objectif Focus (h)</label>
+                  <input type="number" id="template-focus-hours" step="0.5" min="0" max="24" required style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary); width: 100%; box-sizing: border-box;">
+                </div>
+                <div class="form-group">
+                  <label for="template-min-rest-hours">Objectif Repos (h)</label>
+                  <input type="number" id="template-min-rest-hours" step="0.5" min="0" max="24" required style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 10px; color: var(--text-primary); width: 100%; box-sizing: border-box;">
+                </div>
               </div>
               <h4 style="font-family: var(--font-display); font-size: 0.95rem; color: var(--accent-cyan); margin-top: 0.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">Plafonds par type d'effort (h)</h4>
               <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
@@ -1540,7 +1546,7 @@
         <section class="glass-card bio-zone-settings-card" id="bio-zone-settings-section" style="padding: 1.8rem;">
           <h2 class="section-header">🌅 <span>Journée Biologique</span></h2>
           <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
-            Configurez les fenêtres naturelles de sommeil, focus, créativité, repos et énergie physique. Ces zones restent indépendantes des templates Rest, Regular et Hustle.
+            Configurez les fenêtres naturelles de sommeil, focus, créativité, repos et énergie physique. Ces zones restent indépendantes des templates Repos, Normal et Hustle.
           </p>
 
           <div id="bio-zone-error" class="bio-zone-error" style="display: none;"></div>

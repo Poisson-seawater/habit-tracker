@@ -3445,8 +3445,6 @@ document.addEventListener("DOMContentLoaded", () => {
     dayCycleForm.addEventListener("submit", saveCycleSettings);
   }
 
-  let loadedMinRestHours = 8.0;
-
   function updateBudgetCalculationsAndValidation() {
     const muscular = parseFloat(document.getElementById("ceiling-musculaire").value) || 0;
     const cerveau = parseFloat(document.getElementById("ceiling-cerveau").value) || 0;
@@ -3475,6 +3473,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("ceiling-emotionnel").addEventListener("input", updateBudgetCalculationsAndValidation);
   document.getElementById("ceiling-creatif").addEventListener("input", updateBudgetCalculationsAndValidation);
   document.getElementById("template-focus-hours").addEventListener("input", updateBudgetCalculationsAndValidation);
+  document.getElementById("template-min-rest-hours").addEventListener("input", updateBudgetCalculationsAndValidation);
 
   async function loadSettingsThresholds() {
     try {
@@ -3486,7 +3485,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const config = templates[activeTemplate] || {};
 
       document.getElementById("template-focus-hours").value = config.focus_hours !== undefined ? config.focus_hours : 6.0;
-      loadedMinRestHours = config.min_rest_hours !== undefined ? config.min_rest_hours : 8.0;
+      document.getElementById("template-min-rest-hours").value = config.min_rest_hours !== undefined ? config.min_rest_hours : 8.0;
 
       const ceilings = config.ceilings || {};
       document.getElementById("ceiling-musculaire").value = ceilings.musculaire !== undefined ? ceilings.musculaire : 2.0;
@@ -3506,7 +3505,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const activeTemplate = templateEditSelect.value;
 
     const focus_hours = parseFloat(document.getElementById("template-focus-hours").value) || 0;
-    const min_rest_hours = loadedMinRestHours;
+    const min_rest_hours = parseFloat(document.getElementById("template-min-rest-hours").value) || 0;
     const ceilings = {
       musculaire: parseFloat(document.getElementById("ceiling-musculaire").value) || 0,
       cerveau: parseFloat(document.getElementById("ceiling-cerveau").value) || 0,
