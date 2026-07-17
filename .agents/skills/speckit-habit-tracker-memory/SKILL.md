@@ -1,7 +1,7 @@
 ---
 name: "speckit-habit-tracker-memory"
 description: "Recalls design decisions, codebase architecture, and implementation details for Gabriel's Habit Tracker project."
-compatibility: "Habit Tracker MVP 1 project"
+compatibility: "Habit Tracker current project"
 metadata:
   author: "Antigravity"
   purpose: "Knowledge recall and codebase memory"
@@ -38,6 +38,21 @@ graph TD
 
 ---
 
+## Current Truth Notes
+
+- The old daily RPG stat/threshold system has been removed from the live schema.
+  Do not describe current habits, todos, substeps, or Perfect Day validation as
+  awarding daily character-sheet stats.
+- Current day templates are `rest`, `regular`, and `hustle`; older names such as
+  `week`, `weekend`, `recup`, and `malade` are historical aliases/context only.
+- The dashboard uses cookie sessions and approved devices. `X-User-ID` remains
+  important compatibility for local development, tests, bot/automation, and the
+  habit-tracker-control plugin.
+- For spec status, check `specs/README.md` before relying on old `tasks.md`
+  checkboxes.
+
+---
+
 ## 2. Database Models & Schema
 
 The core relational structure is defined using SQLAlchemy. The relationships allow a structured progression of substeps under goals, grouped by their execution order.
@@ -55,9 +70,11 @@ Represents tasks or stages necessary to accomplish a goal.
 - `title` (String, Required)
 - `description` (Text, Optional)
 - `gold_reward` (Integer, default: `150`)
-- `stats` (JSON List of stats impacted, e.g. `["finance", "discipline"]`)
 - `execution_order` (Integer, default: `1`)
 - `completed` (Boolean, default: `False`)
+- `effort_type` / `effort_minutes` style fields for current Perfect Day budget
+  accounting where present in the live model.
+- `is_life_lore` (Boolean) marks permanent achievement entries.
 
 
 
@@ -87,6 +104,17 @@ Represents character profile and pinned goals/softskills.
 - `gold` (Integer, default: `0`)
 - `pinned_substeps` (TEXT, serialized JSON list of integers)
 - `pinned_softskills` (TEXT, serialized JSON list of strings)
+- Google OAuth/status fields and auth/session/device fields exist in the live
+  model; inspect `models.py` before changing authentication or sync behavior.
+
+### 6. `BiologicalZone`
+Represents user-configurable biological capacity windows for Perfect Day rendering.
+- `user_id` scopes each zone to a player.
+- `zone_name`, `zone_type`, `start_time`, `end_time`, `color`, and
+  `display_order` drive the timeline UI.
+
+### 7. `DailyAgendaPlacement`
+Stores per-date quest placements for the vertical agenda/timeline.
 
 ---
 
@@ -104,9 +132,9 @@ Represents character profile and pinned goals/softskills.
 
 ### Substeps
 - `POST /api/v1/goals/{goal_id}/substeps` — Creates a substep within a goal.
-- `PUT /api/v1/substeps/{substep_id}` — Updates title, description, gold reward, target stats, and execution order.
+- `PUT /api/v1/substeps/{substep_id}` — Updates title, description, gold reward, effort metadata where applicable, and execution order.
 - `DELETE /api/v1/substeps/{substep_id}` — Deletes a substep.
-- `POST /api/v1/substeps/{substep_id}/complete` — Marks substep as complete, rewards the player gold, updates character stats, and flags the parent goal as complete if all substeps are satisfied.
+- `POST /api/v1/substeps/{substep_id}/complete` — Marks substep as complete, rewards the player gold, records Life Lore when applicable, and flags the parent goal as complete if all substeps are satisfied.
 
 ### Habits & Streaks
 - `GET /api/v1/habits` — Retrieves all habits.
@@ -114,6 +142,15 @@ Represents character profile and pinned goals/softskills.
 - `PUT /api/v1/habits/{id}` — Updates a habit (handles deactivation/reactivation state and streak freeze resets).
 - `DELETE /api/v1/habits/{id}` — Soft-deactivates a habit and sets `deactivated_at`.
 - `GET /api/v1/habits/{id}/calendar` — Retrieves monthly streak data and status calendar grid.
+
+### Perfect Day, Agenda & Google
+- `GET/POST /api/v1/templates` — Current `rest`, `regular`, and `hustle`
+  effort-budget templates.
+- `GET /api/v1/agenda` plus placement/save-as-template routes — Current vertical
+  daily agenda source.
+- `GET/POST/PUT/DELETE /api/v1/biological-zones` — Biological timeline CRUD.
+- `GET /api/v1/auth/google/status`, OAuth login/callback/disconnect, and agenda
+  export routes — Google Calendar & Tasks integration is implemented.
 
 ---
 

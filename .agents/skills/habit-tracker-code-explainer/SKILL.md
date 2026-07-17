@@ -27,7 +27,8 @@ The project is a lightweight, low-memory RPG Accountability system that runs on 
 3. **Frontend (Vanilla HTML/CSS/JS ES6)**:
    - Pure client-side application served statically by FastAPI.
    - No build tools, bundlers, or frameworks.
-   - Communicates with the API using local credentials stored in `localStorage` under `X-User-ID`.
+   - Uses the app's auth/session flow for the dashboard, while `X-User-ID`
+     remains a compatibility path for local development, tests, and automation.
 
 ---
 
@@ -35,25 +36,27 @@ The project is a lightweight, low-memory RPG Accountability system that runs on 
 
 All tables partition data using the `user_id` foreign key pointing to the `users` table:
 
-- **`users`**: Stores adventurer profile stats (username, chat_id, level, xp, gold, active_template, pinned items).
-- **`habits`**: Habits definition (binary or quantitative, stats rewards, target per day).
+- **`users`**: Stores adventurer profile data (username, chat_id, level, xp, gold, active_template, pinned items, auth/session/Google sync fields).
+- **`habits`**: Habits definition (binary or quantitative, scheduling, target per day, effort metadata, agenda placement settings).
 - **`habit_logs`**: Logs check-ins (`done`, `log`, or `skip` with reason) of habits per day.
-- **`todos`**: Simple tasks with custom XP and stats rewards, plus completion status.
+- **`todos`**: Primes/tasks with custom XP, completion status, optional `do_date`/`due_date`, and Google sync identifiers.
 - **`notodos`**: Rules/habits NOT to do. Violating them logs a failure with a timestamp.
 - **`goals` & `substeps` & `goal_substep_links`**: 
   - `goals` represent long-term milestones.
   - `substeps` are individual tasks linked to goals.
-  - Substeps can have stats rewards, a gold reward, and the `is_life_lore` boolean flag.
+  - Substeps can have a gold reward, effort metadata, and the `is_life_lore` boolean flag.
   - Complete goals automatically when all substeps are complete.
 - **`rewards`**: Store items/activities (allostasis or basic) purchasable with user gold.
-- **`daily_scores`**: Ephemeral scores calculated daily based on validated habits/tasks thresholds.
+- **`daily_scores`**: Daily Perfect Day status and template history. The old daily RPG stat-threshold model is removed.
 - **`streaks`**: Track perfect days, habits streak counts, freeze status, etc.
+- **`biological_zones`**: User-defined biological capacity windows for the Perfect Day timeline.
+- **`daily_agenda_placements`**: Per-date quest placement state for the vertical agenda.
 
 ---
 
 ## 📖 Feature Spotlight: Life Lore Subsystem
 
-The Life Lore system allows users to flag certain milestone subgoals as historical achievements. When completed, these items populate the daily character sheet stats and write to the adventurer's permanent grimoire history.
+The Life Lore system allows users to flag certain milestone subgoals as historical achievements. When completed, these items appear in today's profile/recap and write to the adventurer's permanent grimoire history.
 
 ### 1. Database & Migrations
 - The table `substeps` contains a column `is_life_lore` (Boolean, default False).
@@ -70,7 +73,7 @@ The Life Lore system allows users to flag certain milestone subgoals as historic
 
 ### 4. Frontend Integration (`index.html`, `style.css`, `app.js`)
 - **Forms**: Creation and editing subgoal forms contain a checkbox: `📖 Marquer comme Life Lore`.
-- **Dashboard Stats Panel**: A section `daily-life-lore-container` renders today's completed life lore items as golden-rimmed lists.
+- **Dashboard Profile Panel**: A section `daily-life-lore-container` renders today's completed life lore items as golden-rimmed lists.
 - **Grimoire Modal**: Clicking the user profile avatar (`.avatar-container`) triggers an async request to `/api/v1/profile/life-lore` and opens a scrollable, premium grimoire showing all-time achievements.
 
 ---

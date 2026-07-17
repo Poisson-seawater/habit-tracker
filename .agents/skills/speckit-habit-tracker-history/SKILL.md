@@ -29,7 +29,7 @@ Agents **MUST** consult this history skill to understand what features have alre
 * **Goal**: Enable player tracking of long-term milestones divided into logical sequential substeps.
 * **Features**:
   * `Goal`, `SubStep`, and `GoalSubStepLink` models created in `models.py`.
-  * Completed substeps reward player gold, trigger passive stat increments, and auto-complete the parent Goal if all child substeps are marked completed.
+  * Completed substeps reward player gold and auto-complete the parent Goal if all child substeps are marked completed. Older passive/daily stat increments are historical and are no longer the live Perfect Day model.
   * horizontal columns in UI grouping substeps by `execution_order` with connections representing dependency sequences.
   * Large Slide-Out Drawer for creation, and centered scale-in modal popup for editing goals and substeps.
 
@@ -87,11 +87,42 @@ Agents **MUST** consult this history skill to understand what features have alre
   - Navigation focusing: clicking a pinned item redirects to its respective tab and highlights the target node with a custom animation.
   - Inline Allostasis checklist validation directly on the dashboard.
 
+### Milestone 8: Web Auth & Approved Devices
+* **Goal**: Move beyond raw `X-User-ID` for the dashboard while keeping automation compatibility.
+* **Features**:
+  - Cookie sessions, password login/bootstrap, approved devices, admin approve/revoke flows.
+  - `X-User-ID` and machine-token style access remain compatibility surfaces for tests, bot-adjacent tooling, and the habit-tracker-control plugin.
+
+### Milestone 9: Perfect Day Redesign (Spec 010)
+* **Goal**: Replace the old daily stat-threshold model with sustainable effort budgets.
+* **Features**:
+  - Current templates are `rest`, `regular`, and `hustle`.
+  - Templates store focus hours, minimum rest hours, effort ceilings, and `agenda_json`.
+  - Habits/quests/substeps can carry effort metadata for budget accounting.
+
+### Milestone 10: Perfect Day Rendering & Biological Zones (Spec 011)
+* **Goal**: Render the biological timeline, daily activity recap, and budget gauge together.
+* **Features**:
+  - `BiologicalZone` model and `/api/v1/biological-zones` CRUD.
+  - Vertical agenda placement model and routes under `/api/v1/agenda`.
+  - Frontend biological timeline, agenda rendering, drag/drop placement, and save-as-template flow.
+
+### Milestone 11: Google Calendar & Tasks Integration
+* **Goal**: Sync planned todos and export placed agenda quests to Google.
+* **Features**:
+  - Google OAuth login/callback/status/disconnect endpoints.
+  - Todo `do_date` maps to a Calendar event; `due_date` maps to a Google Task.
+  - Manual agenda export routes push placed quests to Google Calendar idempotently.
+  - The old root `google-calendar-integration-brainstorm.md` is not the active source; use code plus `docs/wiki/pages/sync-google.md`.
+
 ---
 
 ## 2. Database Migration Log
 
-Manual SQLite migrations are stored under `backend/src/database/migrations/`.
+Manual SQLite migrations are stored under `backend/src/database/migrations/`,
+but the live startup migration path is `_run_migrations()` in
+`backend/src/database/seed.py`. The table below is historical and incomplete for
+newer migrations; inspect `seed.py` before making schema decisions.
 
 | Version | Migration File | Description |
 |---|---|---|
@@ -103,6 +134,11 @@ Manual SQLite migrations are stored under `backend/src/database/migrations/`.
 | `v6` | `v6_rewards.sql` | Creates `rewards` and `purchase_logs` tables. |
 | `v7` | `v7_allostasis_rewards.sql` | Modifies categories to support daily/weekly allostasis types. |
 | `v8` | `v8_pinned_items.sql` | Adds `pinned_substeps` and `pinned_softskills` TEXT columns to `users`. |
+
+Newer live migrations in `seed.py` include auth/session/device tables, Life Lore,
+todo `do_date`/`due_date`, effort budget fields, biological zones, daily agenda
+placements, Google OAuth/sync fields, removal of old daily stat columns, and
+habit agenda placement toggles.
 
 ---
 

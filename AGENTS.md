@@ -1,10 +1,12 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan:
-[specs/011-perfect-day-rendering/plan.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/specs/011-perfect-day-rendering/plan.md)
+shell commands, and spec status, read the specs index:
+[specs/README.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/specs/README.md)
 
 **NEXT STEP FOR AGENT SESSIONS:**
-The final specifications for the Google Calendar & Tasks API Integration have been defined in [google-calendar-integration-brainstorm.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/google-calendar-integration-brainstorm.md).
+Do not treat old Spec Kit folders as active by default. Check [specs/README.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/specs/README.md), [log.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/log.md), and the current code before deciding whether a feature is done, stale, or still planned.
+
+Google Calendar & Tasks integration is already implemented in code and documented in [docs/wiki/pages/sync-google.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/docs/wiki/pages/sync-google.md). The old root brainstorm document is not an active next-step source.
 
 **CRITICAL RULE FOR COMMANDS:**
 Whenever you add, modify, or delete any Telegram Bot commands in the code, you MUST update the `COMMANDS-INDEX.md` document at the root of the project to ensure the command index is always accurate and up-to-date.
@@ -47,7 +49,7 @@ backend/
       migrations/      # v9_remote_operations.sql : référence SQL à appliquer à la main
                        #   (le schéma vivant est créé par create_all + _run_migrations())
     services/
-      score_service.py # logique métier (scores, stats, XP, streaks)
+      score_service.py # logique métier (scores, XP, Perfect Day, streaks)
   tests/               # pytest (test_*.py)
 frontend/
   index.html           # dashboard
@@ -77,7 +79,9 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
   `/notodos/{notodo_id}/fail`, `/substeps/{substep_id}/complete`.
 - CRUD via verbes HTTP : `GET` (liste/détail), `POST` (création, `status_code=201`),
   `PUT` (édition), `DELETE` (suppression).
-- Identité utilisateur passée via le header **`X-User-ID`** (pas de session ni JWT).
+- Identité utilisateur résolue via les helpers d'auth existants. Le dashboard utilise
+  les sessions/cookies et appareils approuvés; le header **`X-User-ID`** reste une
+  compatibilité importante pour le dev local, les tests, le bot et la télécommande IA.
 
 **JavaScript (frontend)**
 - Fonctions : `camelCase` (`fetchGoals`, `loadSettingsThresholds`).
@@ -102,7 +106,9 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
 
 - **Nouvelle route** : l'ajouter dans `backend/src/api/routes.py`, avec son schéma
   Pydantic en haut du fichier, sous le préfixe `/api/v1`, en suivant les conventions
-  ci-dessus. Récupérer l'utilisateur via le header `X-User-ID`.
+  ci-dessus. Récupérer l'utilisateur via les dépendances/helpers existants
+  (`get_current_user_id`, `get_current_user`) pour conserver sessions, tests,
+  `X-User-ID` et télécommande IA.
 - **Nouveau champ DB** : modifier `models.py` **et** ajouter un `ALTER` idempotent dans
   `_run_migrations()` de `database/seed.py` (vérifier la colonne via `inspect()` avant de
   l'ajouter). C'est le seul mécanisme exécuté au démarrage — `create_all()` ne modifie pas
