@@ -1,10 +1,15 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and spec status, read the specs index:
-[specs/README.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/specs/README.md)
+shell commands, and Spec Kit status, read the specs state document:
+[specs/ETAT_DES_SPECS.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/specs/ETAT_DES_SPECS.md)
+
+`specs/ETAT_DES_SPECS.md` is the quick orientation file for the `specs/`
+directory, similar to a skill description: it explains which specs are active,
+done, stale, superseded, or only drafts, and prevents agents from mistaking old
+unchecked task lists for current next features.
 
 **NEXT STEP FOR AGENT SESSIONS:**
-Do not treat old Spec Kit folders as active by default. Check [specs/README.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/specs/README.md), [log.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/log.md), and the current code before deciding whether a feature is done, stale, or still planned.
+Do not treat old Spec Kit folders as active by default. Check [specs/ETAT_DES_SPECS.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/specs/ETAT_DES_SPECS.md), [log.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/log.md), and the current code before deciding whether a feature is done, stale, or still planned.
 
 Google Calendar & Tasks integration is already implemented in code and documented in [docs/wiki/pages/sync-google.md](file:///home/gabriel/Desktop/CS%20and%20programation/01-projets-actifs/habit-tracker/docs/wiki/pages/sync-google.md). The old root brainstorm document is not an active next-step source.
 
@@ -98,6 +103,12 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
   avant de donner ou lancer la commande : instance locale, Raspberry Pi / serveur de prod,
   ou autre environnement. Si la cible est ambiguë, demander confirmation. Ne pas donner de
   placeholder non remplacé dans une commande à copier-coller.
+- **Validation Docker après changement backend** : le frontend et la documentation sont
+  montés depuis le worktree, mais le code Python reste celui de l'image construite. Voir le
+  nouveau frontend ne prouve donc pas que l'API est à jour. Avant un test intégré Compose,
+  reconstruire et recréer les services de la cible confirmée, puis vérifier `/health` et les
+  logs de démarrage/migrations. Un mélange frontend récent + ancienne image backend peut
+  produire de faux `Method Not Allowed`, champs non persistés ou réponses API obsolètes.
 - **log.md** : documenter les décisions opérationnelles, les échecs et les pistes écartées.
   Priorité aux décisions rejetées ou aux tentatives qui n'ont pas fonctionné, car les
   décisions retenues sont généralement déjà visibles dans les commits, PR et GitHub Actions.

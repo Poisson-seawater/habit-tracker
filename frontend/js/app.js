@@ -88,6 +88,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const blockCategorySelect = document.getElementById("block-category");
   const blockOverlapWarning = document.getElementById("block-overlap-warning");
   const agendaDateInput = document.getElementById("agenda-date-input");
+  const agendaYesterdayBtn = document.getElementById("agenda-yesterday-btn");
+  const agendaTodayBtn = document.getElementById("agenda-today-btn");
   const agendaRefreshBtn = document.getElementById("agenda-refresh-btn");
   const agendaDayTypeBadge = document.getElementById("agenda-day-type-badge");
   const agendaWarnings = document.getElementById("agenda-warnings");
@@ -135,9 +137,32 @@ document.addEventListener("DOMContentLoaded", () => {
     return local.toISOString().slice(0, 10);
   }
 
+  function yesterdayDateString() {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  }
+
   function getAgendaDate() {
     if (agendaDateInput && agendaDateInput.value) return agendaDateInput.value;
     return todayDateString();
+  }
+
+  function isCorrectableAgendaDate(date = getAgendaDate()) {
+    return date === todayDateString() || date === yesterdayDateString();
+  }
+
+  function updateAgendaDateSwitch() {
+    const date = getAgendaDate();
+    agendaYesterdayBtn?.classList.toggle("active", date === yesterdayDateString());
+    agendaTodayBtn?.classList.toggle("active", date === todayDateString());
+  }
+
+  async function showAgendaDate(date) {
+    if (agendaDateInput) agendaDateInput.value = date;
+    updateAgendaDateSwitch();
+    await Promise.all([loadQuestAgenda(true), fetchNoTodos()]);
   }
 
   function monthlyAnchorDay(value, fallbackDate = new Date()) {
@@ -456,6 +481,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function submitQuestLog(habitId, logType, amount = null) {
+    const targetDate = getAgendaDate();
+    if (!isCorrectableAgendaDate(targetDate)) {
+      showToast("Les corrections sont limitées à aujourd'hui et hier.", true);
+      return;
+    }
     try {
       const response = await fetch(`${API_BASE}/logs`, {
         method: "POST",
@@ -463,16 +493,47 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({
           habit_id: parseInt(habitId),
           log_type: logType,
-          amount: amount
+          amount: amount,
+          target_date: targetDate
         })
       });
 
-      if (!response.ok) throw new Error("Erreur de validation");
-      showToast("Félicitations ! Quête quotidienne mise à jour ! ✨");
+      if (!response.ok) throw new Error((await response.json()).detail || "Erreur de validation");
+      showToast(targetDate === todayDateString()
+        ? "Quête quotidienne mise à jour."
+        : "Quête corrigée pour hier.");
       refreshAll();
     } catch (error) {
       console.error(error);
-      showToast("Erreur lors de l'enregistrement de l'habitude", true);
+      showToast(error.message || "Erreur lors de l'enregistrement de l'habitude", true);
+    }
+  }
+
+  async function setHabitFailure(habitId, undo = false) {
+    if (getAgendaDate() !== todayDateString()) {
+      showToast("Une quête peut seulement être déclarée ratée aujourd'hui.", true);
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE}/habits/${habitId}/fail`, {
+        method: undo ? "DELETE" : "POST"
+      });
+      if (!response.ok) throw new Error((await response.json()).detail || "Action refusée");
+      const result = await response.json();
+      const xpAmount = undo ? result.xp_restored : result.xp_penalty_applied;
+      const xpMessage = xpAmount
+        ? undo ? ` +${xpAmount} XP restaurés.` : ` -${xpAmount} XP.`
+        : "";
+      showToast(
+        undo
+          ? `Échec annulé pour aujourd'hui.${xpMessage}`
+          : `Quête déclarée ratée pour aujourd'hui.${xpMessage}`,
+        !undo
+      );
+      refreshAll();
+    } catch (error) {
+      console.error(error);
+      showToast(error.message || "Erreur lors de la mise à jour de la quête", true);
     }
   }
 
@@ -959,8 +1020,10 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderAgendaQuestCard(item, placed = false) {
     const isDone = item.status === "done";
     const isSkipped = item.status === "skipped";
+    const isFailed = item.status === "failed";
+    const isToday = getAgendaDate() === todayDateString();
     const isAgendaPlaceable = item.agenda_placeable !== false;
-    const statusClass = isDone ? "quest-done" : isSkipped ? "quest-skipped" : "";
+    const statusClass = isDone ? "quest-done" : isSkipped ? "quest-skipped" : isFailed ? "quest-failed" : "";
     const card = document.createElement("div");
     card.className = `agenda-quest-card ${placed ? "placed" : "unplaced"} ${item.needs_configuration ? "needs-config" : ""} ${!isAgendaPlaceable ? "not-placeable" : ""} ${statusClass}`;
     card.draggable = isAgendaPlaceable;
@@ -994,12 +1057,12 @@ document.addEventListener("DOMContentLoaded", () => {
     checkboxWrap.className = "agenda-quest-check";
     const checkbox = document.createElement("button");
     checkbox.type = "button";
-    checkbox.className = `quest-log-checkbox ${isDone ? "checked" : ""} ${isSkipped ? "skipped" : ""}`;
-    checkbox.title = isDone ? "✅ Fait" : isSkipped ? "⏭️ Passé" : "Marquer comme fait";
-    checkbox.innerHTML = isDone ? "✓" : isSkipped ? "⏭" : "";
+    checkbox.className = `quest-log-checkbox ${isDone ? "checked" : ""} ${isSkipped ? "skipped" : ""} ${isFailed ? "failed" : ""}`;
+    checkbox.title = isDone ? "Fait" : isSkipped ? "Passé" : isFailed ? "Ratée" : "Marquer comme fait";
+    checkbox.innerHTML = isDone ? "✓" : isSkipped ? "⏭" : isFailed ? "×" : "";
     checkbox.addEventListener("click", async (event) => {
       event.stopPropagation();
-      if (isDone || isSkipped) return;
+      if (isDone || isSkipped || isFailed) return;
       const habitType = item.type || "binary";
       if (habitType === "quantitative") {
         const amount = prompt(`Combien de ${item.unit || "unités"} ?`);
@@ -1054,6 +1117,11 @@ document.addEventListener("DOMContentLoaded", () => {
       skipBadge.className = "agenda-status-badge skipped";
       skipBadge.textContent = "⏭️ Passé";
       meta.appendChild(skipBadge);
+    } else if (isFailed) {
+      const failedBadge = document.createElement("span");
+      failedBadge.className = "agenda-status-badge failed";
+      failedBadge.textContent = "Ratée";
+      meta.appendChild(failedBadge);
     }
     if (item.needs_configuration) {
       const config = document.createElement("span");
@@ -1081,6 +1149,15 @@ document.addEventListener("DOMContentLoaded", () => {
     statsBtn.title = "Statistiques de la quête";
     statsBtn.textContent = "Stats";
     actions.append(editBtn, statsBtn);
+    if (isToday && !isDone && !isSkipped) {
+      const failBtn = document.createElement("button");
+      failBtn.type = "button";
+      failBtn.className = `agenda-small-btn agenda-fail-quest ${isFailed ? "undo" : ""}`;
+      failBtn.title = isFailed ? "Annuler l'échec" : "Déclarer la quête ratée";
+      failBtn.setAttribute("aria-label", failBtn.title);
+      failBtn.textContent = isFailed ? "↶" : "×";
+      actions.appendChild(failBtn);
+    }
     if (placed) {
       const unplaceBtn = document.createElement("button");
       unplaceBtn.type = "button";
@@ -1098,6 +1175,10 @@ document.addEventListener("DOMContentLoaded", () => {
       event.stopPropagation();
       const habitObj = allHabitsCache.find(h => String(h.id) === String(item.habit_id)) || questFromAgendaItem(item);
       openHabitDetailModal(habitObj);
+    });
+    card.querySelector(".agenda-fail-quest")?.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      await setHabitFailure(item.habit_id, isFailed);
     });
     card.querySelector(".agenda-unplace-quest")?.addEventListener("click", async (event) => {
       event.stopPropagation();
@@ -1230,8 +1311,10 @@ document.addEventListener("DOMContentLoaded", () => {
       visiblePlacedCount += 1;
       const isDone = item.status === "done";
       const isSkipped = item.status === "skipped";
+      const isFailed = item.status === "failed";
+      const isToday = getAgendaDate() === todayDateString();
       const block = document.createElement("div");
-      block.className = `agenda-quest-block ${item.needs_configuration ? "needs-config" : ""} ${isDone ? "quest-done" : ""} ${isSkipped ? "quest-skipped" : ""}`;
+      block.className = `agenda-quest-block ${item.needs_configuration ? "needs-config" : ""} ${isDone ? "quest-done" : ""} ${isSkipped ? "quest-skipped" : ""} ${isFailed ? "quest-failed" : ""}`;
       block.draggable = true;
       block.dataset.habitId = item.habit_id;
       block.style.top = `${range.top}%`;
@@ -1242,18 +1325,18 @@ document.addEventListener("DOMContentLoaded", () => {
         : "";
       const emoji = getStreakEmoji(item.current_streak || 0);
       const emojiPrefix = emoji ? `${emoji} ` : "";
-      block.title = `${emojiPrefix}${item.name}${targetSuffix} (${item.start_time}, ${duration}min)${isDone ? " ✅" : ""}${isSkipped ? " ⏭" : ""}`;
+      block.title = `${emojiPrefix}${item.name}${targetSuffix} (${item.start_time}, ${duration}min)${isDone ? " - fait" : ""}${isSkipped ? " - passé" : ""}${isFailed ? " - ratée" : ""}`;
 
       // Checkbox on the timeline block
       const blockCheck = document.createElement("button");
       blockCheck.type = "button";
-      blockCheck.className = `agenda-block-check-btn ${isDone ? "checked" : ""} ${isSkipped ? "skipped" : ""}`;
-      blockCheck.title = isDone ? "✅ Fait" : isSkipped ? "⏭️ Passé" : "Marquer comme fait";
-      blockCheck.innerHTML = isDone ? "✓" : isSkipped ? "⏭" : "";
+      blockCheck.className = `agenda-block-check-btn ${isDone ? "checked" : ""} ${isSkipped ? "skipped" : ""} ${isFailed ? "failed" : ""}`;
+      blockCheck.title = isDone ? "Fait" : isSkipped ? "Passé" : isFailed ? "Ratée" : "Marquer comme fait";
+      blockCheck.innerHTML = isDone ? "✓" : isSkipped ? "⏭" : isFailed ? "×" : "";
       blockCheck.addEventListener("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
-        if (isDone || isSkipped) return;
+        if (isDone || isSkipped || isFailed) return;
         const habitType = item.type || "binary";
         if (habitType === "quantitative") {
           const amount = prompt(`Combien de ${item.unit || "unités"} ?`);
@@ -1281,7 +1364,14 @@ document.addEventListener("DOMContentLoaded", () => {
       statsBtn.title = "Statistiques de la quête";
       statsBtn.setAttribute("aria-label", "Statistiques de la quête");
       statsBtn.textContent = "📊";
+      const failBtn = document.createElement("button");
+      failBtn.type = "button";
+      failBtn.className = `agenda-block-fail-btn ${isFailed ? "undo" : ""}`;
+      failBtn.title = isFailed ? "Annuler l'échec" : "Déclarer la quête ratée";
+      failBtn.setAttribute("aria-label", failBtn.title);
+      failBtn.textContent = isFailed ? "↶" : "×";
       block.append(blockCheck, blockTitle, editBtn, statsBtn);
+      if (isToday && !isDone && !isSkipped) block.appendChild(failBtn);
       block.addEventListener("dragstart", (event) => {
         event.dataTransfer.setData("text/plain", String(item.habit_id));
         event.dataTransfer.effectAllowed = "move";
@@ -1296,6 +1386,11 @@ document.addEventListener("DOMContentLoaded", () => {
         event.stopPropagation();
         const habitObj = allHabitsCache.find(h => String(h.id) === String(item.habit_id)) || questFromAgendaItem(item);
         openHabitDetailModal(habitObj);
+      });
+      failBtn.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        await setHabitFailure(item.habit_id, isFailed);
       });
       bar.appendChild(block);
 
@@ -1326,9 +1421,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderQuestAgenda(data) {
     questAgendaState = data;
-    if (agendaDateInput && !agendaDateInput.value) {
-      agendaDateInput.value = data.date || todayDateString();
-    }
+    if (agendaDateInput) agendaDateInput.value = data.date || getAgendaDate();
+    updateAgendaDateSwitch();
     if (agendaDayTypeBadge) {
       agendaDayTypeBadge.textContent = data.day_type || "regular";
       agendaDayTypeBadge.dataset.template = data.day_type || "regular";
@@ -1966,13 +2060,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function fetchNoTodos() {
+    const selectedDate = getAgendaDate();
+    const container = document.getElementById("notodos-list-container");
+    if (!container) return;
+    if (!isCorrectableAgendaDate(selectedDate)) {
+      container.innerHTML = `<p class="agenda-empty">Les corrections No-Todo sont disponibles pour aujourd'hui et hier seulement.</p>`;
+      return;
+    }
     try {
-      const response = await fetch(`${API_BASE}/notodos`);
+      const response = await fetch(`${API_BASE}/notodos?target_date=${encodeURIComponent(selectedDate)}`);
       if (!response.ok) throw new Error("Erreur NoTodos API");
       const notodos = await response.json();
-
-      const container = document.getElementById("notodos-list-container");
-      if (!container) return;
+      const dateLabel = selectedDate === todayDateString() ? "aujourd'hui" : "hier";
 
       container.innerHTML = "";
       if (notodos.length === 0) {
@@ -1981,10 +2080,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       notodos.forEach(n => {
+        const failedOnDate = Boolean(n.failed_on_date);
         const item = document.createElement("li");
         item.className = "bounty-card";
 
-        if (n.failed_today) {
+        if (failedOnDate) {
           item.style.borderColor = "rgba(239, 68, 68, 0.6)";
           item.style.background = "rgba(239, 68, 68, 0.15)";
         } else {
@@ -2001,18 +2101,18 @@ document.addEventListener("DOMContentLoaded", () => {
         const status = document.createElement("span");
         status.className = "goal-selector-meta";
         status.style.cssText = "color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-top: 4px;";
-        status.textContent = n.failed_today ? "Échoué aujourd'hui ⚠️" : "Respecté aujourd'hui 🛡️";
+        status.textContent = failedOnDate ? `Échoué ${dateLabel}` : `Respecté ${dateLabel}`;
         info.append(title, status);
 
         const actions = document.createElement("div");
         actions.style.cssText = "display: flex; gap: 8px; align-items: center;";
         const failBtn = document.createElement("button");
-        failBtn.className = `substep-btn-check ${n.failed_today ? "completed" : ""}`;
+        failBtn.className = `substep-btn-check ${failedOnDate ? "completed" : ""}`;
         failBtn.dataset.id = n.id;
-        failBtn.disabled = Boolean(n.failed_today);
-        failBtn.style.cssText = `background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 0 16px; color: #ef4444; font-family: var(--font-display); font-weight: 600; font-size: 0.85rem; cursor: ${n.failed_today ? "not-allowed" : "pointer"}; transition: var(--transition-smooth); display: inline-flex; align-items: center; justify-content: center; height: 38px; opacity: ${n.failed_today ? 0.6 : 1};`;
-        failBtn.textContent = n.failed_today ? "Échoué" : "Déclarer Échec";
-        if (!n.failed_today) {
+        failBtn.disabled = failedOnDate;
+        failBtn.style.cssText = `background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 0 16px; color: #ef4444; font-family: var(--font-display); font-weight: 600; font-size: 0.85rem; cursor: ${failedOnDate ? "not-allowed" : "pointer"}; transition: var(--transition-smooth); display: inline-flex; align-items: center; justify-content: center; height: 38px; opacity: ${failedOnDate ? 0.6 : 1};`;
+        failBtn.textContent = failedOnDate ? "Échoué" : "Déclarer Échec";
+        if (!failedOnDate) {
           failBtn.addEventListener("mouseover", () => {
             failBtn.style.background = "rgba(239, 68, 68, 0.2)";
             failBtn.style.transform = "scale(1.02)";
@@ -2041,9 +2141,9 @@ document.addEventListener("DOMContentLoaded", () => {
         actions.append(failBtn, deleteBtn);
         item.append(info, actions);
 
-        if (!n.failed_today) {
+        if (!failedOnDate) {
           const btn = item.querySelector(".substep-btn-check");
-          btn.addEventListener("click", () => failNoTodo(n.id));
+          btn.addEventListener("click", () => failNoTodo(n.id, selectedDate));
         }
 
         deleteBtn.addEventListener("click", () => deleteNoTodo(n.id));
@@ -2056,13 +2156,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function failNoTodo(id) {
-    if (!confirm("Avez-vous vraiment échoué cette règle aujourd'hui ?")) return;
+  async function failNoTodo(id, targetDate = getAgendaDate()) {
     try {
-      const response = await fetch(`${API_BASE}/notodos/${id}/fail`, { method: "POST" });
-      if (!response.ok) throw new Error("Erreur fail notodo");
+      const response = await fetch(`${API_BASE}/notodos/${id}/fail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_date: targetDate })
+      });
+      if (!response.ok) throw new Error((await response.json()).detail || "Erreur fail notodo");
 
-      showToast(`Échec de la règle enregistré. Attention à demain ! ⚠️`, true);
+      showToast(targetDate === todayDateString()
+        ? "Échec de la règle enregistré pour aujourd'hui."
+        : "Échec de la règle enregistré pour hier.", true);
       refreshAll();
     } catch (error) {
       console.error(error);
@@ -3183,10 +3288,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
   templateEditSelect.addEventListener("change", loadSettingsThresholds);
 
-  function showBioZoneError(message) {
+  function showBioZoneError(message, suggestion = null, suggestionMessage = "") {
     const errorBox = document.getElementById("bio-zone-error");
     if (!errorBox) return;
-    errorBox.textContent = message;
+    errorBox.innerHTML = "";
+    const messageEl = document.createElement("div");
+    messageEl.textContent = suggestionMessage ? `${message} ${suggestionMessage}` : message;
+    errorBox.appendChild(messageEl);
+    if (suggestion) {
+      const suggestionBtn = document.createElement("button");
+      suggestionBtn.type = "button";
+      suggestionBtn.className = "floating-add-btn bio-zone-suggestion-btn";
+      suggestionBtn.textContent = `Utiliser ${suggestion.start_time} - ${suggestion.end_time}`;
+      suggestionBtn.addEventListener("click", () => {
+        document.getElementById("bio-zone-start").value = suggestion.start_time;
+        document.getElementById("bio-zone-end").value = suggestion.end_time;
+        clearBioZoneError();
+      });
+      errorBox.appendChild(suggestionBtn);
+    }
     errorBox.style.display = "block";
   }
 
@@ -3232,7 +3352,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("bio-zone-start").value = zone.start_time;
     document.getElementById("bio-zone-end").value = zone.end_time;
     document.getElementById("bio-zone-color").value = zone.color || getBioZoneMeta(zone.zone_type).color;
-    document.getElementById("bio-zone-order").value = zone.display_order || 0;
     document.getElementById("bio-zone-submit-btn").textContent = "Mettre à jour";
     document.getElementById("bio-zone-cancel-btn").style.display = "inline-flex";
     clearBioZoneError();
@@ -3246,8 +3365,7 @@ document.addEventListener("DOMContentLoaded", () => {
       zone_type: type,
       start_time: document.getElementById("bio-zone-start").value,
       end_time: document.getElementById("bio-zone-end").value,
-      color: color || getBioZoneMeta(type).color,
-      display_order: parseInt(document.getElementById("bio-zone-order").value, 10) || 0
+      color: color || getBioZoneMeta(type).color
     };
   }
 
@@ -3269,11 +3387,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const sorted = [...zones].sort((a, b) => {
-      const orderDiff = (a.display_order || 0) - (b.display_order || 0);
-      if (orderDiff !== 0) return orderDiff;
-      return timeToMinutes(a.start_time) - timeToMinutes(b.start_time);
-    });
+    const sorted = [...zones].sort(
+      (a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time)
+    );
 
     sorted.forEach(zone => {
       const meta = getBioZoneMeta(zone.zone_type);
@@ -3345,7 +3461,20 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify(payload)
       });
       if (!response.ok) {
-        throw new Error(await readApiError(response));
+        const errorData = await response.json().catch(() => ({}));
+        if (errorData.code === "biological_zone_overlap") {
+          showBioZoneError(
+            errorData.detail || "Ce créneau chevauche une zone existante.",
+            errorData.suggestion,
+            errorData.suggestion_message || ""
+          );
+          return;
+        }
+        throw new Error(
+          Array.isArray(errorData.detail)
+            ? errorData.detail.map(item => item.msg || String(item)).join(" ")
+            : errorData.detail || "Erreur API"
+        );
       }
       await refreshBioZonesAfterMutation(id ? "Zone biologique mise à jour." : "Zone biologique ajoutée.");
     } catch (error) {
@@ -3557,6 +3686,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const editQuestDrawer  = document.getElementById("edit-quest-drawer");
   const editFreqSelect   = document.getElementById("edit-quest-frequency");
   const editDaysGroup    = document.getElementById("edit-scheduled-days-group");
+  const editDayTypesGroup = document.getElementById("edit-quest-day-types");
   const editQuestDescLabel = document.getElementById("edit-quest-desc-label");
   const editQuestDescInput = document.getElementById("edit-quest-desc");
   const editQuestVersionList = document.getElementById("edit-quest-version-list");
@@ -3565,6 +3695,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const editQuestFrequencyNote = document.getElementById("edit-quest-frequency-note");
   const archiveQuestBtn = document.getElementById("archive-quest-btn");
   let activeEditQuest = null;
+
+  function selectedDayTypes(container) {
+    return Array.from(container?.querySelectorAll("input:checked") || []).map(cb => cb.value);
+  }
 
   function splitQuestVersionName(name) {
     const cleanedName = (name || "").trim();
@@ -3711,6 +3845,10 @@ document.addEventListener("DOMContentLoaded", () => {
     editDaysGroup.querySelectorAll("input").forEach(cb => {
       cb.checked = activeDays.includes(cb.value);
     });
+    const activeDayTypes = habit.day_types || ["rest", "regular", "hustle"];
+    editDayTypesGroup?.querySelectorAll("input").forEach(cb => {
+      cb.checked = activeDayTypes.includes(cb.value);
+    });
 
     editQuestOverlay.classList.add("open");
     editQuestDrawer.classList.add("open");
@@ -3780,6 +3918,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const agenda_duration_minutes = parseInt(document.getElementById("edit-quest-duration").value, 10) || 60;
     const effort_duration = agenda_duration_minutes / 60;
     const agenda_placeable = document.getElementById("edit-quest-agenda-placeable")?.checked !== false;
+    const day_types = selectedDayTypes(editDayTypesGroup);
+    if (day_types.length === 0) {
+      showToast("Choisissez au moins un type de journée.", true);
+      return;
+    }
     const descriptionUpdates = collectQuestVersionDescriptionUpdates();
     const activeDescription = descriptionUpdates.find((update) => String(update.id) === String(id));
 
@@ -3789,6 +3932,7 @@ document.addEventListener("DOMContentLoaded", () => {
       unit:           document.getElementById("edit-quest-unit").value.trim() || null,
       frequency,
       scheduled_days,
+      day_types,
       daily_target:   editTargetRaw > 1 ? editTargetRaw : 1,  // 1 = pas de cible (exclude_none empêche de remettre null)
       effort_type,
       effort_duration,
@@ -3938,11 +4082,11 @@ document.addEventListener("DOMContentLoaded", () => {
       renderBootstrapScreen(status);
       return;
     }
-    if (status.device_status === "approved") {
-      renderPasswordLogin(status);
+    if (status.device_status === "revoked") {
+      renderDeviceRequest(status);
       return;
     }
-    renderDeviceRequest(status);
+    renderPasswordLogin(status);
   }
 
   function renderBootstrapScreen(status) {
@@ -4028,15 +4172,20 @@ document.addEventListener("DOMContentLoaded", () => {
         users = [];
       }
     }
-    const options = users
-      .map(user => `<option value="${escapeHtml(user.username)}">${escapeHtml(user.username)}</option>`)
-      .join("");
+    const userField = users.length
+      ? `<select id="auth-login-username" required>${users
+        .map(user => `<option value="${escapeHtml(user.username)}">${escapeHtml(user.username)}</option>`)
+        .join("")}</select>`
+      : `<input type="text" id="auth-login-username" placeholder="Nom du compte" autocomplete="username" required>`;
+    const reconnecting = status.device_status !== "approved";
     authShell(
       "Connexion",
-      "Entre le mot de passe du compte à ouvrir sur cet appareil approuvé.",
+      reconnecting
+        ? "Session expirée ou nouvel appareil. Reconnecte-toi."
+        : "Entre le mot de passe du compte à ouvrir.",
       `
         <form id="auth-login-form" class="auth-form">
-          <select id="auth-login-username" required>${options}</select>
+          ${userField}
           <input type="password" id="auth-login-password" placeholder="Mot de passe" autocomplete="current-password" required>
           <button type="submit" class="quest-action-btn">Se connecter</button>
         </form>
@@ -4051,6 +4200,7 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify({
             username: document.getElementById("auth-login-username").value,
             password: document.getElementById("auth-login-password").value,
+            device_name: status.device?.display_name || navigator.userAgent.slice(0, 80),
           }),
         });
         if (!response.ok) throw new Error((await response.json()).detail || "Connexion refusée");
@@ -4102,7 +4252,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const name = escapeHtml(device.display_name || "Appareil sans nom");
       const userAgent = escapeHtml(device.user_agent || "");
       const seen = device.last_seen_at ? new Date(device.last_seen_at).toLocaleString("fr-CA") : "jamais";
-      const canApprove = device.status !== "approved";
+      const expires = device.expires_at ? new Date(device.expires_at).toLocaleDateString("fr-CA") : "inconnue";
       const canRevoke = device.status !== "revoked";
       return `
         <div class="auth-device-item" data-device-id="${device.id}">
@@ -4112,10 +4262,10 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="auth-status-badge ${device.status}">${device.status}</span>
             </div>
             <div class="auth-device-meta">Dernière activité : ${seen}</div>
+            <div class="auth-device-meta">Expiration : ${expires}</div>
             <div class="auth-device-meta">${userAgent}</div>
           </div>
           <div class="auth-device-actions">
-            ${canApprove ? `<button type="button" class="floating-add-btn auth-device-approve">Approuver</button>` : ""}
             ${canRevoke ? `<button type="button" class="floating-add-btn auth-device-revoke">Révoquer</button>` : ""}
           </div>
         </div>
@@ -4154,8 +4304,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (agendaDateInput && !agendaDateInput.value) {
       agendaDateInput.value = todayDateString();
     }
-    agendaDateInput?.addEventListener("change", () => loadQuestAgenda(true));
-    agendaRefreshBtn?.addEventListener("click", () => loadQuestAgenda(true));
+    updateAgendaDateSwitch();
+    agendaDateInput?.addEventListener("change", async () => {
+      updateAgendaDateSwitch();
+      await Promise.all([loadQuestAgenda(true), fetchNoTodos()]);
+    });
+    agendaYesterdayBtn?.addEventListener("click", () => showAgendaDate(yesterdayDateString()));
+    agendaTodayBtn?.addEventListener("click", () => showAgendaDate(todayDateString()));
+    agendaRefreshBtn?.addEventListener("click", () => showAgendaDate(getAgendaDate()));
     document.getElementById("agenda-export-quests-btn")?.addEventListener("click", exportAgendaQuestsForDay);
     document.querySelectorAll(".agenda-save-btn").forEach(btn => {
       btn.addEventListener("click", () => saveAgendaAsTemplate(btn.dataset.template));
@@ -4195,6 +4351,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const openQuestBtn = document.getElementById("open-quest-inline-btn");
     const questForm = document.getElementById("quest-inline-form");
     const submitQuestBtn = document.getElementById("submit-quest-btn");
+    const newDayTypesGroup = document.getElementById("new-quest-day-types");
 
     if (openQuestBtn && questForm) {
       openQuestBtn.addEventListener("click", () => {
@@ -4242,9 +4399,14 @@ document.addEventListener("DOMContentLoaded", () => {
         const agenda_duration_minutes = parseInt(document.getElementById("new-quest-duration").value, 10) || 60;
         const effort_duration = agenda_duration_minutes / 60;
         const agenda_placeable = document.getElementById("new-quest-agenda-placeable")?.checked !== false;
+        const day_types = selectedDayTypes(newDayTypesGroup);
 
         if (!title) {
           showToast("Veuillez donner un titre à la quête !", true);
+          return;
+        }
+        if (day_types.length === 0) {
+          showToast("Choisissez au moins un type de journée.", true);
           return;
         }
 
@@ -4259,6 +4421,7 @@ document.addEventListener("DOMContentLoaded", () => {
               unit: type === "quantitative" ? unit : null,
               frequency: frequency,
               scheduled_days: scheduled_days,
+              day_types: day_types,
               daily_target: daily_target,
               effort_type: effort_type,
               effort_duration: effort_duration,
@@ -4283,6 +4446,7 @@ document.addEventListener("DOMContentLoaded", () => {
           document.getElementById("new-quest-target").value = "";
           if (freqSelect) freqSelect.value = "daily";
           if (daysGroup) { daysGroup.style.display = "none"; daysGroup.querySelectorAll("input").forEach(cb => cb.checked = false); }
+          newDayTypesGroup?.querySelectorAll("input").forEach(cb => { cb.checked = true; });
           updateFrequencyNote(freqSelect, newQuestFrequencyNote);
 
           questForm.style.display = "none";
@@ -6451,16 +6615,14 @@ document.addEventListener("DOMContentLoaded", () => {
     authDeviceList.addEventListener("click", async (event) => {
       const item = event.target.closest(".auth-device-item");
       if (!item) return;
-      const approve = event.target.closest(".auth-device-approve");
       const revoke = event.target.closest(".auth-device-revoke");
-      if (!approve && !revoke) return;
-      const action = approve ? "approve" : "revoke";
+      if (!revoke) return;
       try {
-        const response = await fetch(`${API_BASE}/auth/devices/${item.dataset.deviceId}/${action}`, {
+        const response = await fetch(`${API_BASE}/auth/devices/${item.dataset.deviceId}/revoke`, {
           method: "POST",
         });
         if (!response.ok) throw new Error((await response.json()).detail || "Erreur appareil");
-        showToast(approve ? "Appareil approuvé." : "Appareil révoqué.");
+        showToast("Appareil révoqué.");
         loadAuthAdminSettings();
       } catch (error) {
         showToast(error.message, true);

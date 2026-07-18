@@ -24,6 +24,7 @@ from src.services.score_service import (
 )
 from src.services.reward_service import get_allostasis_purchases_on_date
 from src.services.notodo_service import get_notodo_failures_on_date
+from src.services.daily_log_service import recalculate_day
 
 
 async def publish_daily_recap():
@@ -127,12 +128,8 @@ async def publish_daily_recap():
 
             # Check failed NoTodos today
             failed_notodos_list = []
-            for log in get_notodo_failures_on_date(
-                db, user_id=user.id, date=today
-            ):
-                failed_notodos_list.append(
-                    f"• {html.escape(log.title_snapshot)} 🚫"
-                )
+            for log in get_notodo_failures_on_date(db, user_id=user.id, date=today):
+                failed_notodos_list.append(f"• {html.escape(log.title_snapshot)} 🚫")
 
             # 4. Format streaks
             perf_streak = (
@@ -298,56 +295,27 @@ async def finalize_day_streaks():
 
         import zoneinfo
         from src.config import TIMEZONE
-        from src.services.agenda_service import is_habit_eligible_on_date
+
         tz = zoneinfo.ZoneInfo(TIMEZONE)
         # Yesterday was the calendar day that just ended
         yesterday = (datetime.datetime.now(tz) - datetime.timedelta(days=1)).date()
 
         for user in users:
-            # 1. Check Perfect Day status for yesterday
-            score = db.query(DailyScore).filter_by(user_id=user.id, date=yesterday).first()
-            if not score or score.status != "Perfect":
-                # Reset Perfect Day streak to 0
-                perf_streak = db.query(Streak).filter_by(user_id=user.id, streak_type="Perfect").first()
-                if perf_streak:
-                    perf_streak.current_streak = 0
-
-            # 2. Check active scheduled habits for yesterday
-            habits = (
-                db.query(Habit)
-                .filter(
-                    Habit.user_id == user.id,
-                    Habit.is_active == True,
-                    Habit.archived_at == None,
-                )
-                .all()
+            _, milestone_events = recalculate_day(
+                db,
+                user_id=user.id,
+                date_value=yesterday,
+                finalizing=True,
             )
-
-            for habit in habits:
-                if not is_habit_eligible_on_date(habit, yesterday, user):
-                    continue
-
-                # Check if there is any log of type "done", "log", or "skip" for yesterday
-                start_dt = datetime.datetime.combine(yesterday, datetime.time.min)
-                end_dt = datetime.datetime.combine(yesterday, datetime.time.max)
-                has_log = (
-                    db.query(HabitLog)
-                    .filter(
-                        HabitLog.user_id == user.id,
-                        HabitLog.habit_id == habit.id,
-                        HabitLog.timestamp >= start_dt,
-                        HabitLog.timestamp <= end_dt,
-                    )
-                    .first()
-                ) is not None
-
-                if not has_log:
-                    h_streak = db.query(Streak).filter_by(user_id=user.id, streak_type=f"habit:{habit.id}").first()
-                    if h_streak:
-                        h_streak.current_streak = 0
+            if milestone_events:
+                await asyncio.to_thread(
+                    dispatch_milestone_notifications, milestone_events
+                )
 
         db.commit()
-        print("Scheduler: Completed 00:00 midnight daily streak finalization successfully.")
+        print(
+            "Scheduler: Completed 00:00 midnight daily streak finalization successfully."
+        )
     except Exception as e:
         print(f"Error in finalize_day_streaks: {e}")
         db.rollback()
@@ -372,4 +340,3 @@ def start_scheduler():
 
 if __name__ == "__main__":
     asyncio.run(publish_daily_recap())
-

@@ -38,6 +38,18 @@ from src.services.notodo_service import (
     get_notodo_failures_on_date,
     record_notodo_failure,
 )
+from src.services.daily_log_service import (
+    DailyLogConflict,
+    cancel_habit_failure,
+    create_habit_log,
+    mark_habit_failed,
+    recalculate_day,
+    timestamp_on_date,
+)
+from src.services.agenda_service import (
+    is_habit_eligible_on_date,
+    resolve_day_type,
+)
 from src.bot.scheduler import start_scheduler
 from src.services.reward_service import (
     check_reward_lock,
@@ -189,9 +201,21 @@ def _render_liste(db, user_id: int, l_type: str) -> str:
             lines.append(f"- {html.escape(t.title)} (+{t.xp_reward} XP){date_str}")
         return "<b>Liste des Todos :</b>\n" + "\n".join(lines)
     if l_type == "habit":
-        habits = db.query(Habit).filter_by(user_id=user_id, is_active=True).all()
+        user = db.query(User).filter_by(id=user_id).first()
+        today = datetime.date.today()
+        day_type = resolve_day_type(db, user_id, today)
+        habits = (
+            db.query(Habit)
+            .filter_by(user_id=user_id, is_active=True, archived_at=None)
+            .all()
+        )
+        habits = [
+            habit
+            for habit in habits
+            if user and is_habit_eligible_on_date(habit, today, user, day_type)
+        ]
         if not habits:
-            return "Aucune habitude active."
+            return "Aucune habitude prévue aujourd'hui."
         lines = [f"- {html.escape(h.name)} ({h.type})" for h in habits]
         return "<b>Liste des Habitudes :</b>\n" + "\n".join(lines)
     if l_type == "notodo":
@@ -348,19 +372,25 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
                 resolved_unit = unit or habit.unit or ""
 
-                log = HabitLog(
-                    user_id=user.id,
-                    habit_id=habit.id,
-                    log_type="log",
-                    amount=val,
-                    unit=resolved_unit,
-                )
-                db.add(log)
-                db.commit()
-
                 today = datetime.date.today()
-                score = calculate_daily_score(db, user_id=user.id, date=today)
-                milestone_events = update_streaks(db, user_id=user.id, date=today)
+                try:
+                    log, _ = create_habit_log(
+                        db,
+                        user_id=user.id,
+                        habit=habit,
+                        log_type="log",
+                        date_value=today,
+                        amount=val,
+                    )
+                except DailyLogConflict as exc:
+                    context.user_data.pop("pending_log_habit_id", None)
+                    await update.message.reply_text(f"❌ {exc}")
+                    return
+                log.unit = resolved_unit
+                db.commit()
+                _, milestone_events = recalculate_day(
+                    db, user_id=user.id, date_value=today
+                )
                 _queue_milestone_notifications(milestone_events)
 
                 cap_info = (
@@ -525,49 +555,69 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
 
             today = datetime.date.today()
-            start_dt = datetime.datetime.combine(today, datetime.time.min)
-            end_dt = datetime.datetime.combine(today, datetime.time.max)
+            target_date = (
+                today - datetime.timedelta(days=1) if parsed["yesterday"] else today
+            )
+            start_dt = datetime.datetime.combine(target_date, datetime.time.min)
+            end_dt = datetime.datetime.combine(target_date, datetime.time.max)
             has_target = habit.daily_target is not None and habit.daily_target > 1
 
-            done_today = (
+            done_count = (
                 db.query(HabitLog)
                 .filter(
                     HabitLog.user_id == user.id,
                     HabitLog.habit_id == habit.id,
                     HabitLog.log_type == "done",
+                    HabitLog.cancelled_at == None,
                     HabitLog.timestamp >= start_dt,
                     HabitLog.timestamp <= end_dt,
                 )
                 .count()
             )
 
-            # Without a daily target, a binary habit is done at most once per day.
-            if done_today and not has_target:
+            try:
+                _, created = create_habit_log(
+                    db,
+                    user_id=user.id,
+                    habit=habit,
+                    log_type="done",
+                    date_value=target_date,
+                )
+            except DailyLogConflict as exc:
+                await update.message.reply_text(f"❌ {exc}")
+                return
+            db.commit()
+            if not created:
+                day_label = "hier" if parsed["yesterday"] else "aujourd'hui"
                 await update.message.reply_text(
-                    f"🎯 L'habitude \"{habit_name}\" a déjà été complétée aujourd'hui !"
+                    f'🎯 L\'habitude "{habit_name}" a déjà été complétée {day_label} !'
                 )
                 return
 
-            log = HabitLog(user_id=user.id, habit_id=habit.id, log_type="done")
-            db.add(log)
-            db.commit()
-
-            # Recalculate daily Perfect Day state.
-            score = calculate_daily_score(db, user_id=user.id, date=today)
-            milestone_events = update_streaks(db, user_id=user.id, date=today)
+            _, milestone_events = recalculate_day(
+                db,
+                user_id=user.id,
+                date_value=target_date,
+                finalizing=target_date < today,
+            )
             _queue_milestone_notifications(milestone_events)
 
             target_str = (
-                f" ({done_today + 1}/{habit.daily_target})" if has_target else ""
+                f" ({done_count + 1}/{habit.daily_target})" if has_target else ""
             )
+            date_suffix = " pour hier" if parsed["yesterday"] else ""
             await update.message.reply_text(
-                f'✅ {username} a complété la routine "{habit_name}"{target_str} !'
+                f'✅ {username} a complété la routine "{habit_name}"{target_str}{date_suffix} !'
             )
 
         elif cmd == "log":
             habit_name = parsed["habit_name"]
             val = parsed["value"]
             unit = parsed["unit"]
+            today = datetime.date.today()
+            target_date = (
+                today - datetime.timedelta(days=1) if parsed["yesterday"] else today
+            )
 
             if habit_name is None:
                 keyboard = [
@@ -609,27 +659,36 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 return
 
-            log = HabitLog(
-                user_id=user.id,
-                habit_id=habit.id,
-                log_type="log",
-                amount=val,
-                unit=unit,
-            )
-            db.add(log)
+            try:
+                log, _ = create_habit_log(
+                    db,
+                    user_id=user.id,
+                    habit=habit,
+                    log_type="log",
+                    date_value=target_date,
+                    amount=val,
+                )
+            except DailyLogConflict as exc:
+                await update.message.reply_text(f"❌ {exc}")
+                return
+            log.unit = unit
             db.commit()
 
-            today = datetime.date.today()
-            score = calculate_daily_score(db, user_id=user.id, date=today)
-            milestone_events = update_streaks(db, user_id=user.id, date=today)
+            _, milestone_events = recalculate_day(
+                db,
+                user_id=user.id,
+                date_value=target_date,
+                finalizing=target_date < today,
+            )
             _queue_milestone_notifications(milestone_events)
 
             cap_info = (
                 f"\nCap journalier : {habit.daily_cap}" if habit.daily_cap else ""
             )
 
+            date_suffix = " pour hier" if parsed["yesterday"] else ""
             await update.message.reply_text(
-                f'📚 {username} a loggé {val}{unit} pour la quête "{html.escape(habit.name)}" !\n'
+                f'📚 {username} a loggé {val}{unit} pour la quête "{html.escape(habit.name)}"{date_suffix} !\n'
                 f"Perfect Day recalculé.{cap_info}",
                 parse_mode="HTML",
             )
@@ -681,11 +740,129 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 return
 
-            record_notodo_failure(db, user_id=user.id, notodo=notodo)
+            today = datetime.date.today()
+            target_date = (
+                today - datetime.timedelta(days=1) if parsed["yesterday"] else today
+            )
+            record_notodo_failure(
+                db,
+                user_id=user.id,
+                notodo=notodo,
+                occurred_at=timestamp_on_date(target_date),
+            )
             db.commit()
+            recalculate_day(
+                db,
+                user_id=user.id,
+                date_value=target_date,
+                finalizing=target_date < today,
+                recalculate_score=False,
+            )
 
+            day_label = "hier" if parsed["yesterday"] else "aujourd'hui"
             await update.message.reply_text(
-                f"⚠️ Aïe ! {username} a transgressé la règle No-Todo : \"{notodo.title}\".\nC'est noté pour aujourd'hui. Reprenez-vous !"
+                f'⚠️ Aïe ! {username} a transgressé la règle No-Todo : "{notodo.title}".\nC\'est noté pour {day_label}. Reprenez-vous !'
+            )
+
+        elif cmd == "fail_habit":
+            habit_name = parsed["habit_name"]
+            undo = parsed["undo"]
+            if habit_name is None:
+                habits = (
+                    db.query(Habit)
+                    .filter_by(user_id=user.id, is_active=True, archived_at=None)
+                    .order_by(Habit.id)
+                    .all()
+                )
+                if undo:
+                    today = datetime.date.today()
+                    start_dt = datetime.datetime.combine(today, datetime.time.min)
+                    end_dt = datetime.datetime.combine(today, datetime.time.max)
+                    failed_ids = {
+                        row[0]
+                        for row in db.query(HabitLog.habit_id)
+                        .filter(
+                            HabitLog.user_id == user.id,
+                            HabitLog.log_type == "failed",
+                            HabitLog.cancelled_at == None,
+                            HabitLog.timestamp >= start_dt,
+                            HabitLog.timestamp <= end_dt,
+                        )
+                        .all()
+                    }
+                    habits = [habit for habit in habits if habit.id in failed_ids]
+                if not habits:
+                    message = (
+                        "Aucune habitude ratée à annuler aujourd'hui."
+                        if undo
+                        else "Aucune habitude active."
+                    )
+                    await update.message.reply_text(message)
+                    return
+                prefix = "undo_fail_habit" if undo else "fail_habit"
+                keyboard = [
+                    [
+                        InlineKeyboardButton(
+                            f"{'↩️' if undo else '❌'} {habit.name}",
+                            callback_data=f"{prefix}:{habit.id}",
+                        )
+                    ]
+                    for habit in habits
+                ]
+                prompt = (
+                    "Choisis le raté à annuler :"
+                    if undo
+                    else "Choisis l'habitude ratée aujourd'hui :"
+                )
+                await update.message.reply_text(
+                    prompt, reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return
+
+            habit = (
+                db.query(Habit)
+                .filter_by(name=habit_name, user_id=user.id, is_active=True)
+                .first()
+            )
+            if not habit:
+                await update.message.reply_text(
+                    f"❌ L'habitude \"{habit_name}\" n'existe pas ou n'est pas active."
+                )
+                return
+            today = datetime.date.today()
+            try:
+                if undo:
+                    failure_log, changed = cancel_habit_failure(
+                        db, user_id=user.id, habit=habit, date_value=today
+                    )
+                    status = "Raté annulé" if changed else "Raté déjà annulé"
+                    xp_message = (
+                        f" +{failure_log.xp_penalty} XP restaurés."
+                        if changed and failure_log and failure_log.xp_penalty
+                        else ""
+                    )
+                else:
+                    failure_log, changed = mark_habit_failed(
+                        db, user_id=user.id, habit=habit, date_value=today
+                    )
+                    status = (
+                        "Habitude marquée ratée" if changed else "Déjà marquée ratée"
+                    )
+                    xp_message = (
+                        f" -{failure_log.xp_penalty} XP."
+                        if changed and failure_log.xp_penalty
+                        else ""
+                    )
+            except DailyLogConflict as exc:
+                await update.message.reply_text(f"❌ {exc}")
+                return
+            _, milestone_events = recalculate_day(
+                db, user_id=user.id, date_value=today, force_rebuild=True
+            )
+            _queue_milestone_notifications(milestone_events)
+            await update.message.reply_text(
+                f"{'↩️' if undo else '❌'} {status} : "
+                f"{html.escape(habit.name)}.{xp_message}"
             )
 
         elif cmd == "status":
@@ -711,9 +888,12 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             completed_lines = []
             skipped_lines = []
+            failed_habit_lines = []
             logged_habit_ids = set()
 
             for log_entry in today_logs:
+                if log_entry.cancelled_at is not None:
+                    continue
                 habit = (
                     db.query(Habit)
                     .filter_by(id=log_entry.habit_id, user_id=user.id)
@@ -736,6 +916,8 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     skipped_lines.append(
                         f"- {display_name} (skippé, raison : {html.escape(log_entry.reason or '')})"
                     )
+                elif log_entry.log_type == "failed":
+                    failed_habit_lines.append(f"- {display_name} (ratée)")
 
             # Get completed Todos for today
             completed_todos = (
@@ -768,19 +950,20 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             for s in completed_life_lore:
                 completed_lines.append(f"- 📖 Life Lore : {html.escape(s.title)}")
 
-            # Get remaining scheduled habits
-            weekday = today.weekday()
-            model_day_idx = (weekday + 1) % 7
+            # Get remaining scheduled habits for the active day template.
             all_habits = (
-                db.query(Habit).filter_by(user_id=user.id, is_active=True).all()
+                db.query(Habit)
+                .filter_by(user_id=user.id, is_active=True, archived_at=None)
+                .all()
             )
 
             remaining_lines = []
+            day_type = resolve_day_type(db, user.id, today)
             for habit in all_habits:
-                scheduled = str(model_day_idx) in [
-                    day.strip() for day in habit.scheduled_days.split(",")
-                ]
-                if not scheduled or habit.id in logged_habit_ids:
+                if (
+                    not is_habit_eligible_on_date(habit, today, user, day_type)
+                    or habit.id in logged_habit_ids
+                ):
                     continue
                 display_name = (
                     "Chose secrète 🔒" if habit.is_private else html.escape(habit.name)
@@ -805,12 +988,8 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             failed_notodo_lines = []
-            for log in get_notodo_failures_on_date(
-                db, user_id=user.id, date=today
-            ):
-                failed_notodo_lines.append(
-                    f"- 🚫 {html.escape(log.title_snapshot)}"
-                )
+            for log in get_notodo_failures_on_date(db, user_id=user.id, date=today):
+                failed_notodo_lines.append(f"- 🚫 {html.escape(log.title_snapshot)}")
 
             if completed_lines:
                 msg += (
@@ -818,11 +997,15 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             if skipped_lines:
                 msg += "<b>Quêtes skippées :</b>\n" + "\n".join(skipped_lines) + "\n\n"
+            if failed_habit_lines:
+                msg += (
+                    "<b>Quêtes ratées :</b>\n" + "\n".join(failed_habit_lines) + "\n\n"
+                )
             if remaining_lines:
                 msg += (
                     "<b>Quêtes restantes :</b>\n" + "\n".join(remaining_lines) + "\n\n"
                 )
-            else:
+            elif not failed_habit_lines:
                 msg += "🎉 Toutes les quêtes d'aujourd'hui sont terminées !\n\n"
 
             if failed_notodo_lines:
@@ -1241,15 +1424,16 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "help_cmds":
         cmds_text = (
             "📋 <b>Liste des commandes</b>\n\n"
-            "<b>/done</b> [nom] — Valide une habitude binaire\n"
-            "<b>/log</b> [nom] [valeur][unité] — Enregistre une habitude quantitative\n"
+            "<b>/done</b> [nom] [--yesterday] — Valide une habitude binaire\n"
+            "<b>/log</b> [nom] [valeur][unité] [--yesterday] — Enregistre une habitude quantitative\n"
             "<b>/skip</b> [nom] raison: [texte] — Saute une habitude sans casser le streak\n"
             "<b>/status</b> — Affiche le statut du jour\n"
             "<b>/set-day</b> (alias <b>/template</b>) [template] — Change le type de journée (boutons si sans argument)\n"
             "<b>/liste</b> [todo|habit|notodo] — Liste tes éléments (boutons si sans argument)\n"
             "<b>/add</b> [todo|notodo|habit] [titre] — Ajoute une tâche ou une règle (boutons si sans argument)\n"
             "<b>/add_habit</b> [binary|quant] [titre] [unité] — Crée une habitude\n"
-            "<b>/fail</b> [nom_notodo] — Marque une règle No-Todo comme transgressée\n"
+            "<b>/fail</b> [nom_notodo] [--yesterday] — Marque une règle No-Todo comme transgressée\n"
+            "<b>/fail_habit</b> [nom] [--undo] — Marque ou annule une habitude ratée aujourd'hui\n"
             "<b>/shop</b> [filtre] — Affiche les récompenses de la boutique\n"
             "<b>/buy</b> [nom] — Achète une récompense de la boutique\n"
             "<b>/motivation</b> — Liste tes objectifs à long terme\n"
@@ -1257,6 +1441,60 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "<b>/aide</b> (alias <b>/help</b>) — Affiche ce menu d'aide"
         )
         await query.message.reply_text(cmds_text, parse_mode="HTML")
+        return
+
+    # --- Daily habit failure buttons -----------------------------------------
+    if data.startswith("fail_habit:") or data.startswith("undo_fail_habit:"):
+        db = SessionLocal()
+        try:
+            user = _resolve_user(db, query.from_user)
+            habit_id = int(data.rsplit(":", 1)[1])
+            habit = (
+                db.query(Habit)
+                .filter_by(id=habit_id, user_id=user.id, is_active=True)
+                .first()
+            )
+            if not habit:
+                await query.edit_message_text("❌ Habitude introuvable ou inactive.")
+                return
+            today = datetime.date.today()
+            undo = data.startswith("undo_fail_habit:")
+            try:
+                if undo:
+                    failure_log, changed = cancel_habit_failure(
+                        db, user_id=user.id, habit=habit, date_value=today
+                    )
+                    status = "Raté annulé" if changed else "Raté déjà annulé"
+                    xp_message = (
+                        f" +{failure_log.xp_penalty} XP restaurés."
+                        if changed and failure_log and failure_log.xp_penalty
+                        else ""
+                    )
+                else:
+                    failure_log, changed = mark_habit_failed(
+                        db, user_id=user.id, habit=habit, date_value=today
+                    )
+                    status = (
+                        "Habitude marquée ratée" if changed else "Déjà marquée ratée"
+                    )
+                    xp_message = (
+                        f" -{failure_log.xp_penalty} XP."
+                        if changed and failure_log.xp_penalty
+                        else ""
+                    )
+            except DailyLogConflict as exc:
+                await query.edit_message_text(f"❌ {exc}")
+                return
+            _, milestone_events = recalculate_day(
+                db, user_id=user.id, date_value=today, force_rebuild=True
+            )
+            _queue_milestone_notifications(milestone_events)
+            await query.edit_message_text(
+                f"{'↩️' if undo else '❌'} {status} : "
+                f"{html.escape(habit.name)}.{xp_message}"
+            )
+        finally:
+            db.close()
         return
 
     # --- /add flow: type choice ---------------------------------------------
@@ -1605,25 +1843,33 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             HabitLog.user_id == user.id,
                             HabitLog.habit_id == habit.id,
                             HabitLog.log_type == "done",
+                            HabitLog.cancelled_at == None,
                             HabitLog.timestamp >= start_dt,
                             HabitLog.timestamp <= end_dt,
                         )
                         .count()
                     )
 
-                    if done_today and not has_target:
+                    try:
+                        _, created = create_habit_log(
+                            db,
+                            user_id=user.id,
+                            habit=habit,
+                            log_type="done",
+                            date_value=today,
+                        )
+                    except DailyLogConflict as exc:
+                        await query.edit_message_text(f"❌ {exc}")
+                        return
+                    db.commit()
+                    if not created:
                         await query.edit_message_text(
                             f"🎯 L'habitude \"{html.escape(habit.name)}\" a déjà été complétée aujourd'hui !"
                         )
-                        db.close()
                         return
-
-                    log = HabitLog(user_id=user.id, habit_id=habit.id, log_type="done")
-                    db.add(log)
-                    db.commit()
-
-                    score = calculate_daily_score(db, user_id=user.id, date=today)
-                    milestone_events = update_streaks(db, user_id=user.id, date=today)
+                    _, milestone_events = recalculate_day(
+                        db, user_id=user.id, date_value=today
+                    )
                     _queue_milestone_notifications(milestone_events)
 
                     target_str = (
@@ -1847,6 +2093,7 @@ async def main():
             "add_habit", "Créer une nouvelle habitude (binaire ou quantitative)"
         ),
         BotCommand("fail", "Signaler la transgression d'une règle No-Todo"),
+        BotCommand("fail_habit", "Marquer ou annuler une habitude ratée"),
         BotCommand("shop", "Consulter les récompenses de la boutique"),
         BotCommand("buy", "Acheter un item ou valider une allostasie"),
         BotCommand("motivation", "Afficher tes objectifs de vie à long terme"),

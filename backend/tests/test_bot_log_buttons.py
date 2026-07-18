@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.database.session import Base
-from src.database.models import User, Habit, HabitLog, Todo
+from src.database.models import Habit, HabitLog, NoTodo, NoTodoLog, Streak, Todo, User
 from src.bot.listener import route_command, handle_callback
 from src.bot.parser import parse_command
 
@@ -73,6 +73,7 @@ def db_session(monkeypatch):
             id=11, user_id=1, title="Acheter du pain", is_completed=True, xp_reward=10
         )
         session.add(t2)
+        session.add(NoTodo(id=20, user_id=1, title="Snooze"))
 
         session.commit()
 
@@ -92,6 +93,17 @@ def test_parse_log_no_arguments():
     assert result["habit_name"] is None
     assert result["value"] is None
     assert result["unit"] is None
+    assert result["yesterday"] is False
+
+
+def _command_update(text):
+    update = MagicMock()
+    update.message = MagicMock()
+    update.message.text = text
+    update.effective_chat.id = 111
+    update.message.from_user = MagicMock(username="Gabriel", id=111)
+    update.message.reply_text = AsyncMock()
+    return update
 
 
 @pytest.mark.asyncio
@@ -272,6 +284,87 @@ async def test_route_command_receives_typed_value_for_quant(db_session):
     assert logs[0].log_type == "log"
     assert logs[0].amount == 45
     assert logs[0].unit == "min"
+
+
+@pytest.mark.asyncio
+async def test_typed_done_and_log_can_target_yesterday(db_session):
+    yesterday = datetime.date.today() - datetime.timedelta(days=1)
+
+    done_update = _command_update("/done Routine Matin --yesterday")
+    await route_command(done_update, MagicMock(user_data={}))
+    log_update = _command_update("/log Lecture 30min --yesterday")
+    await route_command(log_update, MagicMock(user_data={}))
+
+    logs = db_session.query(HabitLog).order_by(HabitLog.id).all()
+    assert [(log.habit_id, log.log_type, log.timestamp.date()) for log in logs] == [
+        (1, "done", yesterday),
+        (2, "log", yesterday),
+    ]
+    assert "pour hier" in done_update.message.reply_text.call_args.args[0]
+    assert "pour hier" in log_update.message.reply_text.call_args.args[0]
+
+
+@pytest.mark.asyncio
+async def test_typed_notodo_fail_can_target_yesterday(db_session):
+    yesterday = datetime.date.today() - datetime.timedelta(days=1)
+    update = _command_update("/fail Snooze --yesterday")
+
+    await route_command(update, MagicMock(user_data={}))
+
+    log = db_session.query(NoTodoLog).filter_by(notodo_id=20).one()
+    assert log.date == yesterday
+    assert "pour hier" in update.message.reply_text.call_args.args[0]
+
+
+@pytest.mark.asyncio
+async def test_fail_habit_inline_mark_conflict_and_typed_undo(db_session):
+    yesterday = datetime.date.today() - datetime.timedelta(days=1)
+    db_session.add(
+        Streak(
+            user_id=1,
+            streak_type="habit:1",
+            current_streak=5,
+            max_streak=5,
+            last_incremented=yesterday,
+        )
+    )
+    db_session.commit()
+
+    selection = _command_update("/fail_habit")
+    await route_command(selection, MagicMock(user_data={}))
+    buttons = selection.message.reply_text.call_args.kwargs[
+        "reply_markup"
+    ].inline_keyboard
+    assert buttons[0][0].callback_data == "fail_habit:1"
+
+    callback_update = MagicMock()
+    callback_update.callback_query = MagicMock()
+    callback_update.callback_query.answer = AsyncMock()
+    callback_update.callback_query.data = "fail_habit:1"
+    callback_update.callback_query.from_user = MagicMock(username="Gabriel", id=111)
+    callback_update.callback_query.edit_message_text = AsyncMock()
+    await handle_callback(callback_update, MagicMock(user_data={}))
+
+    failure = db_session.query(HabitLog).filter_by(log_type="failed").one()
+    assert failure.cancelled_at is None
+    assert (
+        db_session.query(Streak).filter_by(streak_type="habit:1").one().current_streak
+        == 0
+    )
+
+    blocked = _command_update("/done Routine Matin")
+    await route_command(blocked, MagicMock(user_data={}))
+    assert "Undo the habit failure" in blocked.message.reply_text.call_args.args[0]
+
+    undo = _command_update("/fail_habit Routine Matin --undo")
+    await route_command(undo, MagicMock(user_data={}))
+    failure = db_session.query(HabitLog).filter_by(log_type="failed").one()
+    assert failure.cancelled_at is not None
+    assert "Raté annulé" in undo.message.reply_text.call_args.args[0]
+    assert (
+        db_session.query(Streak).filter_by(streak_type="habit:1").one().current_streak
+        == 0
+    )
 
 
 @pytest.mark.asyncio

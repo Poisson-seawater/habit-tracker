@@ -18,23 +18,31 @@ flowchart LR
 
 ## La timeline biologique (zones)
 
-Une zone biologique a un nom, un type (`deep_focus` 🧠, `physical_peak` 💪, `creative` 🎨, `rest` 🧘, `social` 🧡, `sleep` 😴), une heure de début et de fin (`HH:MM`), et un ordre d'affichage. Les zones seedées par défaut à l'installation :
+Une zone biologique a un nom, un type (`deep_focus` 🧠, `physical_peak` 💪, `creative` 🎨, `rest` 🧘, `social` 🧡, `sleep` 😴), et une heure de début et de fin (`HH:MM`). L'affichage suit simplement les horaires. Les zones seedées par défaut à l'installation :
 
 | Zone | Type | Horaire |
 |---|---|---|
-| Sommeil | `sleep` | 23:00 → 07:00 |
 | Focus Profond Matin | `deep_focus` | 08:00 → 12:00 |
 | Repos / Déjeuner | `rest` | 12:00 → 13:00 |
 | Pic Physique | `physical_peak` | 14:00 → 17:00 |
 | Zone Créative | `creative` | 20:00 → 22:00 |
+| Sommeil | `sleep` | 23:00 → 07:00 |
 
 Tu peux les modifier dans Réglages (`GET`/`POST`/`PUT`/`DELETE /api/v1/biological-zones`). Deux garde-fous : le système refuse (erreur 422) deux zones qui se chevauchent, et il gère correctement une zone qui traverse minuit (comme le Sommeil, dont l'heure de fin est plus petite que l'heure de début).
+
+En cas de chevauchement, le formulaire reste ouvert et propose le prochain créneau libre de même durée avant 24:00. Le bouton de proposition remplit les nouvelles heures sans sauvegarder silencieusement : tu peux les vérifier, les ajuster ou soumettre à nouveau. Si aucun espace suffisant ne reste avant la fin de la journée, le formulaire bloque la sauvegarde avec un message explicite.
 
 ## Placer une quête dans l'agenda
 
 Une quête placée occupe un créneau précis du jour : heure de début, durée en minutes, et un statut (`planned` par défaut). Tu la places ou la retires via `PUT` / `DELETE /api/v1/agenda/{date}/quests/{habit_id}/placement`. `GET /api/v1/agenda` renvoie l'agenda complet du jour (zones + placements + budgets). Une fois content d'une disposition, `POST /api/v1/agenda/{date}/save-as-template` la sauvegarde pour la réutiliser.
 
+L'agenda filtre les quêtes selon le type de journée actif. Une quête peut être autorisée pour un, deux ou trois types parmi `rest`, `regular` et `hustle`; seules les quêtes compatibles apparaissent et comptent dans les budgets du jour. Une validation manuelle hors type reste possible depuis les autres contrôles et reste visible dans l'historique.
+
+Les boutons **Hier** et **Aujourd'hui** changent la date affichée. La vue Hier sert à corriger une quête accomplie ou un No-Todo enfreint la veille mais oublié. La correction recalcule la journée concernée; l'interface et l'API refusent les dates antérieures à hier.
+
 Le système laisse toujours un **tampon de 15 minutes** entre deux blocs placés — pas de créneaux collés bord à bord.
+
+Chaque quête placée porte sa propre case à cocher, directement sur sa carte ou son bloc dans la timeline : valider une quête binaire ou logger une mesure se fait sans quitter l'agenda, sans passer par `/done` ou `/log`. Une fois validée, skippée ou déclarée ratée, la carte affiche son état (`✅ Fait`, `⏭️ Passé` ou échec) et les actions encore permises.
 
 ## Le budget d'effort, plafonné par template
 

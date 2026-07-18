@@ -1,12 +1,24 @@
 {
   "schema": 1,
-  "generated_at_commit": "d0147e2",
-  "generated_at": "2026-07-02",
+  "generated_at_commit": "eedf792",
+  "generated_at": "2026-07-07",
   "langue": "fr",
   "objectif": "Un habit tracker RPG auto-hébergé (bot Telegram + dashboard web partageant une même base SQLite locale sur Raspberry Pi 5) qui transforme la discipline quotidienne en jeu — XP, niveaux, or, streaks, journées parfaites — pour se tenir mutuellement responsable de ses habitudes. Pilotage par bot Telegram, dashboard web, ou skills LLM. Pas un SaaS, tout est personnalisé pour un usage perso entre amis.",
   "pages": {
     "home": {
       "sources": []
+    },
+    "new-user": {
+      "sources": []
+    },
+    "user": {
+      "sources": []
+    },
+    "dev": {
+      "sources": [
+        "CLAUDE.md",
+        "AGENTS.md"
+      ]
     },
     "onboarding": {
       "sources": []
@@ -23,7 +35,8 @@
     },
     "perfect-day": {
       "sources": [
-        "backend/src/services/score_service.py"
+        "backend/src/services/score_service.py",
+        "backend/src/bot/scheduler.py"
       ]
     },
     "habitudes": {
@@ -33,7 +46,8 @@
     },
     "objectifs": {
       "sources": [
-        "backend/src/database/models.py"
+        "backend/src/database/models.py",
+        "backend/src/api/routes.py"
       ]
     },
     "softskills": {
@@ -100,6 +114,15 @@
       "sources": [
         "docs/notes/habit-tracker-control-plugin.md",
         "docs/notes/database-v9-remote-operations.md"
+      ]
+    },
+    "carte-de-l-app": {
+      "sources": [
+        "backend/src/bot/parser.py",
+        "backend/src/bot/scheduler.py",
+        "backend/src/api/routes.py",
+        "COMMANDS-INDEX.md",
+        "frontend/index.html"
       ]
     }
   }

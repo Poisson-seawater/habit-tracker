@@ -789,9 +789,7 @@ def _run_migrations():
 
             # v27: Add agenda_placeable toggle to habits
             if "agenda_placeable" not in columns:
-                print(
-                    "Running migration v27: adding agenda_placeable to habits..."
-                )
+                print("Running migration v27: adding agenda_placeable to habits...")
                 db.execute(
                     text(
                         "ALTER TABLE habits ADD COLUMN agenda_placeable BOOLEAN DEFAULT 1 NOT NULL"
@@ -799,6 +797,26 @@ def _run_migrations():
                 )
                 db.commit()
                 print("Migration v27 (habits agenda_placeable) applied successfully.")
+
+            # v28: Restrict recurring quests to selected day templates.
+            columns = [c["name"] for c in inspect(engine).get_columns("habits")]
+            if "day_types" not in columns:
+                print("Running migration v28: adding day_types to habits...")
+                db.execute(
+                    text(
+                        "ALTER TABLE habits ADD COLUMN day_types TEXT "
+                        'DEFAULT \'["rest","regular","hustle"]\''
+                    )
+                )
+                db.execute(
+                    text(
+                        "UPDATE habits SET day_types = "
+                        '\'["rest","regular","hustle"]\' '
+                        "WHERE day_types IS NULL OR TRIM(day_types) = ''"
+                    )
+                )
+                db.commit()
+                print("Migration v28 (habits day_types) applied successfully.")
 
         if "substeps" in inspector.get_table_names():
             columns = [c["name"] for c in inspector.get_columns("substeps")]
@@ -1154,6 +1172,31 @@ def _run_migrations():
         ):
             seed_default_day_cycle_policies(db)
             db.commit()
+
+        # v29: Keep an audit trail when a daily habit failure is cancelled.
+        if "habit_logs" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("habit_logs")]
+            if "cancelled_at" not in columns:
+                print("Running migration v29: adding cancelled_at to habit_logs...")
+                db.execute(
+                    text("ALTER TABLE habit_logs ADD COLUMN cancelled_at DATETIME")
+                )
+                db.commit()
+                print("Migration v29 (habit_logs.cancelled_at) applied successfully.")
+
+        # v30: Persist the exact XP deducted for an idempotent failure undo.
+        if "habit_logs" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("habit_logs")]
+            if "xp_penalty" not in columns:
+                print("Running migration v30: adding xp_penalty to habit_logs...")
+                db.execute(
+                    text(
+                        "ALTER TABLE habit_logs "
+                        "ADD COLUMN xp_penalty INTEGER DEFAULT 0 NOT NULL"
+                    )
+                )
+                db.commit()
+                print("Migration v30 (habit_logs.xp_penalty) applied successfully.")
 
         # v19: Destructively remove the legacy RPG stat/tag columns.
         v19_dropped = False

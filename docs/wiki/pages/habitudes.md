@@ -11,11 +11,27 @@ Une habitude, c'est une action que tu répètes régulièrement, selon un planni
 
 ## Planning
 
-Une habitude n'est due que certains jours (tous les jours, ou par ex. lundi + mercredi). Elle n'apparaît dans les quêtes du jour que les jours prévus.
+Une habitude n'est due que certains jours (tous les jours, ou par ex. lundi + mercredi). Elle peut aussi être associée à un ou plusieurs types de journée : `rest`, `regular` et `hustle`. Les trois sont sélectionnés par défaut, y compris pour les anciennes habitudes.
+
+Le jour venu, l'agenda, le Perfect Day, `/status` et `/liste habit` ne retiennent que les habitudes compatibles à la fois avec le planning et le type de journée actif. Une habitude `hustle` n'apparaît donc pas dans l'agenda d'un jour `rest` et ne bloque pas son Perfect Day.
+
+Tu peux quand même valider manuellement une habitude hors type de journée avec `/done`, `/log`, l'API ou les contrôles du dashboard. Le log reste visible et la progression normale du streak s'applique, mais cette habitude ne devient pas une exigence du Perfect Day de ce jour.
 
 ## Effort et Perfect Day
 
-Les habitudes alimentent le [Perfect Day](#/perfect-day) par leur statut : validée, loggée, skippée ou restante. Une habitude quantitative peut avoir un **plafond de log par jour** (daily cap) et une unité. Certaines habitudes portent aussi un type et une durée d'effort (`musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`) pour les budgets de journée. Elles ne donnent **pas** d'XP direct — contrairement aux [primes](#/primes-todo).
+Les habitudes alimentent le [Perfect Day](#/perfect-day) par leur statut : validée, loggée, skippée, ratée ou restante. Une habitude quantitative peut avoir un **plafond de log par jour** (daily cap) et une unité. Certaines habitudes portent aussi un type et une durée d'effort (`musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`) pour les budgets de journée. Elles ne donnent **pas** d'XP direct — contrairement aux [primes](#/primes-todo).
+
+## Déclarer une habitude ratée
+
+Une habitude prévue peut être marquée **ratée** depuis l'agenda, l'onglet Habitudes, l'API ou Telegram avec `/fail_habit <nom>`. Cette action est refusée si l'habitude est déjà complétée ou skippée aujourd'hui. Le statut raté retire **jusqu'à 5 XP** (sans passer sous le niveau 1 à 0 XP), empêche le Perfect Day et remet immédiatement le streak de cette habitude à 0. Répéter l'action ne retire pas d'XP supplémentaire.
+
+Tu peux annuler ce statut le même jour depuis l'interface, l'API ou avec `/fail_habit <nom> --undo`. Le montant d'XP réellement retiré est restauré une seule fois. Il faut d'abord annuler l'échec avant de logger une progression. L'annulation retire le statut raté, mais le streak n'est pas restauré immédiatement : il reste à 0 jusqu'au recalcul de fin de journée.
+
+## Corriger hier
+
+Le sélecteur **Hier / Aujourd'hui** de l'agenda permet de revenir sur la veille pour enregistrer une quête réellement accomplie mais oubliée. Sur Telegram, ajoute `--yesterday` à `/done` ou `/log`. La fenêtre est volontairement limitée à aujourd'hui et hier : une date plus ancienne est refusée.
+
+Une correction d'hier recalcule la journée concernée, notamment son Perfect Day et les streaks. Elle ne permet pas d'éditer librement tout l'historique.
 
 ## Séparées des objectifs
 
@@ -31,7 +47,7 @@ Pour récompenser la constance et vous motiver à installer des habitudes sur le
 
 Le streak (votre série de succès consécutifs) est géré selon les règles suivantes :
 
-* **Progression (+1) :** Chaque fois que vous validez l'habitude (`/done` ou `/log`) un jour où elle est planifiée, votre streak augmente de 1.
+* **Progression (+1) :** Chaque fois que vous validez l'habitude (`/done` ou `/log`), votre streak progresse selon la suite des validations attendues. Une validation manuelle hors type de journée reste comptabilisée.
 * **Gel (Pause) :** Si vous ne pouvez pas faire l'habitude un jour où elle est due, vous pouvez utiliser la commande `/skip <habitude> raison: <texte>`. Votre streak est mis en pause (il ne retombe pas à 0, mais n'augmente pas non plus).
-* **Réinitialisation (0) :** Si l'habitude est planifiée aujourd'hui et que vous ne la faites pas (et ne la skippez pas avec `/skip`), **votre streak retombe immédiatement à 0**.
-* **Jours non-planifiés :** Les jours où l'habitude n'est pas planifiée (par exemple, les jours de repos prévus dans son planning) n'ont aucun impact : le streak ne progresse pas et ne se brise pas.
+* **Réinitialisation (0) :** Marquer explicitement l'habitude ratée remet le streak à 0 immédiatement. Une habitude prévue laissée sans traitement est finalisée à 0 lors du passage de minuit.
+* **Jours non-planifiés :** Une journée où l'habitude n'est requise ni par son planning ni par son type de journée ne brise pas le streak. Si tu la valides quand même manuellement, cette validation est conservée.

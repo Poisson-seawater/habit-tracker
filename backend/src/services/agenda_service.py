@@ -28,6 +28,24 @@ EFFORT_TYPES = {
     "repos",
 }
 
+DAY_TYPES = ("rest", "regular", "hustle")
+DAY_TYPE_ALIASES = {
+    "normal": "regular",
+    "regular": "regular",
+    "semaine": "regular",
+    "week": "regular",
+    "weekend": "regular",
+    "repos": "rest",
+    "rest": "rest",
+    "recovery": "rest",
+    "recup": "rest",
+    "hustle": "hustle",
+    "rush": "hustle",
+    "sick": "rest",
+    "malade": "rest",
+    "default": "regular",
+}
+
 EFFORT_CEILING_TYPES = {
     "musculaire",
     "cerveau",
@@ -78,6 +96,27 @@ SEGMENT_KIND_MAP = {
 def day_index_for_date(date_value: datetime.date) -> int:
     """Return the project convention: 0=Sunday, 1=Monday, ..., 6=Saturday."""
     return (date_value.weekday() + 1) % 7
+
+
+def normalize_day_type(value: Optional[str]) -> str:
+    return DAY_TYPE_ALIASES.get(str(value or "regular").lower(), "regular")
+
+
+def normalize_habit_day_types(value) -> list[str]:
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError):
+            value = [part.strip() for part in value.split(",")]
+    if not isinstance(value, (list, tuple, set)):
+        return list(DAY_TYPES)
+
+    normalized = []
+    for item in value:
+        canonical = DAY_TYPE_ALIASES.get(str(item).strip().lower())
+        if canonical in DAY_TYPES and canonical not in normalized:
+            normalized.append(canonical)
+    return normalized or list(DAY_TYPES)
 
 
 def monthly_anchor_day(
@@ -296,9 +335,7 @@ def sync_generated_focus_quests(db: Session, user: User) -> bool:
             db.add(
                 Habit(
                     user_id=user.id,
-                    name=_unique_habit_name(
-                        db, user.id, f"Étape: {substep.title}"
-                    ),
+                    name=_unique_habit_name(db, user.id, f"Étape: {substep.title}"),
                     description=substep.description,
                     type="binary",
                     frequency="daily",
@@ -369,7 +406,10 @@ def sync_generated_focus_quests(db: Session, user: User) -> bool:
 
 
 def is_habit_eligible_on_date(
-    habit: Habit, date_value: datetime.date, user: User
+    habit: Habit,
+    date_value: datetime.date,
+    user: User,
+    day_type: Optional[str] = None,
 ) -> bool:
     if not habit.is_active or habit.archived_at is not None:
         return False
@@ -385,6 +425,9 @@ def is_habit_eligible_on_date(
             str(skill_id) for skill_id in (user.pinned_softskills or [])
         }:
             return False
+
+    if normalize_day_type(day_type) not in normalize_habit_day_types(habit.day_types):
+        return False
 
     frequency = habit.frequency or "daily"
     if frequency == "monthly":
@@ -467,6 +510,7 @@ def habit_to_agenda_item(
     date_value: datetime.date,
     completions: dict[int, int],
     skipped_habit_ids: set[int],
+    failed_habit_ids: set[int],
     current_streak: int = 0,
 ) -> dict:
     duration_minutes = _habit_duration_minutes(habit)
@@ -480,8 +524,12 @@ def habit_to_agenda_item(
     )
     source_type = habit.source_type or "manual"
     today_count = completions.get(habit.id, 0)
-    target = habit.daily_target if (habit.daily_target and habit.daily_target > 1) else 1
-    if habit.id in skipped_habit_ids:
+    target = (
+        habit.daily_target if (habit.daily_target and habit.daily_target > 1) else 1
+    )
+    if habit.id in failed_habit_ids:
+        status = "failed"
+    elif habit.id in skipped_habit_ids:
         status = "skipped"
     elif today_count >= target:
         status = "done"
@@ -495,6 +543,7 @@ def habit_to_agenda_item(
         "type": habit.type,
         "frequency": habit.frequency or "daily",
         "scheduled_days": habit.scheduled_days or "0,1,2,3,4,5,6",
+        "day_types": normalize_habit_day_types(habit.day_types),
         "effort_type": habit.effort_type,
         "effort_duration": habit.effort_duration,
         "agenda_duration_minutes": duration_minutes,
@@ -515,7 +564,7 @@ def habit_to_agenda_item(
 
 def _completed_and_skipped_habit_ids(
     db: Session, user_id: int, date_value: datetime.date, habits: list[Habit] = None
-) -> tuple[dict[int, int], set[int]]:
+) -> tuple[dict[int, int], set[int], set[int]]:
     start_dt = datetime.datetime.combine(date_value, datetime.time.min)
     end_dt = datetime.datetime.combine(date_value, datetime.time.max)
     logs = (
@@ -528,32 +577,30 @@ def _completed_and_skipped_habit_ids(
         .all()
     )
     from collections import Counter
-    completions = Counter(log.habit_id for log in logs if log.log_type in {"done", "log"})
-    skipped = {log.habit_id for log in logs if log.log_type == "skip"}
-    return completions, skipped
+
+    completions = Counter(
+        log.habit_id
+        for log in logs
+        if log.log_type in {"done", "log"} and log.cancelled_at is None
+    )
+    skipped = {
+        log.habit_id
+        for log in logs
+        if log.log_type == "skip" and log.cancelled_at is None
+    }
+    failed = {
+        log.habit_id
+        for log in logs
+        if log.log_type == "failed" and log.cancelled_at is None
+    }
+    return completions, skipped, failed
 
 
-def _resolve_day_type(db: Session, user_id: int, date_value: datetime.date) -> str:
+def resolve_day_type(db: Session, user_id: int, date_value: datetime.date) -> str:
     score = db.query(DailyScore).filter_by(user_id=user_id, date=date_value).first()
     if not score:
         return "regular"
-    mapped = {
-        "normal": "regular",
-        "regular": "regular",
-        "semaine": "regular",
-        "week": "regular",
-        "weekend": "regular",
-        "repos": "rest",
-        "rest": "rest",
-        "recovery": "rest",
-        "recup": "rest",
-        "hustle": "hustle",
-        "rush": "hustle",
-        "sick": "rest",
-        "malade": "rest",
-        "default": "regular",
-    }
-    return mapped.get((score.template_used or "regular").lower(), "regular")
+    return normalize_day_type(score.template_used)
 
 
 def _template_config(db: Session, user_id: int, template_name: str) -> dict:
@@ -662,16 +709,18 @@ def build_agenda_response(
 
     changed = sync_generated_focus_quests(db, user)
 
-    day_type = _resolve_day_type(db, user_id, date_value)
+    day_type = resolve_day_type(db, user_id, date_value)
     template_config = _template_config(db, user_id, day_type)
     agenda_json = template_config["agenda_json"]
     habits = db.query(Habit).filter(Habit.user_id == user_id).all()
-    completions, skipped_ids = _completed_and_skipped_habit_ids(
+    completions, skipped_ids, failed_ids = _completed_and_skipped_habit_ids(
         db, user_id, date_value, habits
     )
 
     eligible_habits = [
-        habit for habit in habits if is_habit_eligible_on_date(habit, date_value, user)
+        habit
+        for habit in habits
+        if is_habit_eligible_on_date(habit, date_value, user, day_type)
     ]
     eligible_by_id = {habit.id: habit for habit in eligible_habits}
     current_streak_by_habit_id = {}
@@ -723,6 +772,7 @@ def build_agenda_response(
             date_value,
             completions,
             skipped_ids,
+            failed_ids,
             current_streak_by_habit_id.get(habit.id, 0),
         )
         placement = placement_by_habit_id.get(habit.id)
@@ -887,7 +937,8 @@ def update_placement(
         raise HTTPException(status_code=404, detail="User not found")
     changed = sync_generated_focus_quests(db, user)
     habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
-    if not habit or not is_habit_eligible_on_date(habit, date_value, user):
+    day_type = resolve_day_type(db, user_id, date_value)
+    if not habit or not is_habit_eligible_on_date(habit, date_value, user, day_type):
         raise HTTPException(status_code=404, detail="Quest not eligible for this date.")
     if not _habit_agenda_placeable(habit):
         raise HTTPException(

@@ -175,7 +175,71 @@ def test_overlap_detection_rejects_overlapping_zone():
         headers={"X-User-ID": "1"},
     )
     assert overlap_response.status_code == 422
-    assert "Focus matin" in overlap_response.json()["detail"]
+    overlap_data = overlap_response.json()
+    assert "Focus matin" in overlap_data["detail"]
+    assert overlap_data["code"] == "biological_zone_overlap"
+    assert overlap_data["suggestion"] == {
+        "start_time": "12:00",
+        "end_time": "14:00",
+    }
+
+
+def test_overlap_suggestion_stops_at_midnight_without_wrapping():
+    response = client.post(
+        "/api/v1/biological-zones",
+        json={
+            "zone_name": "Long bloc",
+            "zone_type": "deep_focus",
+            "start_time": "08:00",
+            "end_time": "23:00",
+        },
+        headers={"X-User-ID": "1"},
+    )
+    assert response.status_code == 201
+
+    overlap_response = client.post(
+        "/api/v1/biological-zones",
+        json={
+            "zone_name": "Sans place",
+            "zone_type": "rest",
+            "start_time": "09:00",
+            "end_time": "11:00",
+        },
+        headers={"X-User-ID": "1"},
+    )
+    data = overlap_response.json()
+    assert overlap_response.status_code == 422
+    assert data["suggestion"] is None
+    assert "Aucun creneau libre" in data["suggestion_message"]
+
+
+def test_overlap_suggestion_can_end_at_midnight():
+    response = client.post(
+        "/api/v1/biological-zones",
+        json={
+            "zone_name": "Soiree",
+            "zone_type": "social",
+            "start_time": "20:00",
+            "end_time": "22:00",
+        },
+        headers={"X-User-ID": "1"},
+    )
+    assert response.status_code == 201
+
+    overlap_response = client.post(
+        "/api/v1/biological-zones",
+        json={
+            "zone_name": "Fin de journee",
+            "zone_type": "creative",
+            "start_time": "21:00",
+            "end_time": "23:00",
+        },
+        headers={"X-User-ID": "1"},
+    )
+    assert overlap_response.json()["suggestion"] == {
+        "start_time": "22:00",
+        "end_time": "00:00",
+    }
 
 
 def test_overnight_zone_accepts_adjacent_ranges_and_rejects_wrapped_overlap():

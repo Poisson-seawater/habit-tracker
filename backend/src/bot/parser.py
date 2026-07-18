@@ -5,6 +5,12 @@ class ParserError(Exception):
     pass
 
 
+def _extract_flag(args_str: str, flag: str) -> tuple[str, bool]:
+    parts = args_str.split()
+    found = flag in parts
+    return " ".join(part for part in parts if part != flag), found
+
+
 def parse_command(text: str) -> dict:
     """
     Parses a Telegram bot command text and extracts structured arguments.
@@ -24,15 +30,27 @@ def parse_command(text: str) -> dict:
     args_str = parts[1].strip() if len(parts) > 1 else ""
 
     if cmd == "/done":
+        args_str, yesterday = _extract_flag(args_str, "--yesterday")
         if not args_str:
             raise ParserError(
-                "Usage : /done [nom_habitude]\nExemple : /done routine_matin"
+                "Usage : /done [nom_habitude] [--yesterday]\nExemple : /done routine_matin"
             )
-        return {"command": "done", "habit_name": args_str}
+        return {"command": "done", "habit_name": args_str, "yesterday": yesterday}
 
     elif cmd == "/log":
+        args_str, yesterday = _extract_flag(args_str, "--yesterday")
         if not args_str:
-            return {"command": "log", "habit_name": None, "value": None, "unit": None}
+            if yesterday:
+                raise ParserError(
+                    "Usage : /log [nom_habitude] [valeur][unité] --yesterday"
+                )
+            return {
+                "command": "log",
+                "habit_name": None,
+                "value": None,
+                "unit": None,
+                "yesterday": yesterday,
+            }
 
         log_parts = args_str.split(maxsplit=1)
         if len(log_parts) < 2:
@@ -51,7 +69,13 @@ def parse_command(text: str) -> dict:
 
         val = int(match.group(1))
         unit = match.group(2)
-        return {"command": "log", "habit_name": habit_name, "value": val, "unit": unit}
+        return {
+            "command": "log",
+            "habit_name": habit_name,
+            "value": val,
+            "unit": unit,
+            "yesterday": yesterday,
+        }
 
     elif cmd == "/skip":
         if not args_str:
@@ -82,9 +106,16 @@ def parse_command(text: str) -> dict:
         return {"command": "skip", "habit_name": habit_name, "reason": reason}
 
     elif cmd == "/fail":
+        args_str, yesterday = _extract_flag(args_str, "--yesterday")
         if not args_str:
-            raise ParserError("Usage : /fail [nom_notodo]\nExemple : /fail Snooze")
-        return {"command": "fail", "notodo_name": args_str}
+            raise ParserError(
+                "Usage : /fail [nom_notodo] [--yesterday]\nExemple : /fail Snooze"
+            )
+        return {"command": "fail", "notodo_name": args_str, "yesterday": yesterday}
+
+    elif cmd == "/fail_habit":
+        args_str, undo = _extract_flag(args_str, "--undo")
+        return {"command": "fail_habit", "habit_name": args_str or None, "undo": undo}
 
     elif cmd == "/status":
         return {"command": "status", "target": "today"}

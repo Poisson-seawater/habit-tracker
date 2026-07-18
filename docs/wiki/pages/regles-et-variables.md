@@ -43,7 +43,8 @@ Tu logges des [habitudes](#/habitudes) et tu coches des [primes](#/primes-todo).
 | `GOOGLE_ENCRYPTION_KEY` | chaîne secrète | chiffre le `refresh_token` Google stocké en base |
 | `AUTH_BOOTSTRAP_CODE` | code temporaire | requis pour créer le 1er mot de passe admin, voir [Authentification](#/authentification) |
 | `HABIT_API_TOKEN` | jeton machine | authentifie les appels API hors navigateur (télécommande IA) |
-| `AUTH_SESSION_DAYS` | nombre de jours | durée de vie d'une session (déf. 30) |
+| `AUTH_SESSION_DAYS` | nombre de jours | durée de vie d'une session (déf. 90) |
+| `AUTH_DEVICE_DAYS` | nombre de jours | durée d'approbation d'un appareil (déf. 90) |
 | `AUTH_COOKIE_SECURE` | oui / non | cookie de session marqué secure (HTTPS uniquement) |
 
 ## Comment ça interagit (le modèle mental)

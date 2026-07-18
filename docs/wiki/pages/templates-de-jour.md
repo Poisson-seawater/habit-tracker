@@ -14,7 +14,7 @@ Selon les jours, tu peux en faire plus ou moins. Le template, c'est le « type d
 
 `/set-day <template>` (alias `/template`) change le type de journée et recalcule **instantanément** l'état du Perfect Day. Le bon template évite de juger une journée de repos avec les attentes d'une journée intense.
 
-Chaque template a ses propres budgets par catégorie d'effort (`musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`) et son agenda type, configurables dans l'écran Paramètres du site.
+Chaque template a ses propres budgets par catégorie d'effort (`musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`), un objectif de focus et un objectif de repos minimum — les deux sont éditables directement dans l'onglet ⚙️ Perfect Days du dashboard, avec son propre sélecteur de template.
 
 ## Budgets et agenda vertical
 

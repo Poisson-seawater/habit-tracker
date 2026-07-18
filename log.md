@@ -5,6 +5,22 @@
 
 ## 2026-07-18 — fix(quests): descriptions visibles sur 5 lignes.
 
+## 2026-07-17 — fix(biological-zones): retirer l'ordre manuel de la journée biologique
+
+- **Décision UX** : suppression du champ visible `Ordre` dans Réglages → Journée Biologique, car les horaires (`Début`/`Fin`) définissent déjà l'ordre naturel d'affichage.
+- **Implémentation** : le formulaire frontend n'envoie plus `display_order` et la liste des zones biologiques côté réglages trie uniquement par heure de début. Le champ backend `display_order` reste conservé pour compatibilité historique, sans migration ni changement de contrat API.
+- **Docs et validation** : page wiki `agenda-timeline.md` mise à jour pour expliquer que l'affichage suit les horaires; `node --check frontend/js/app.js`, `git diff --check` et recherche ciblée des références UI `Ordre` réussis. Aucune commande Telegram touchée, donc `COMMANDS-INDEX.md` non concerné.
+
+## 2026-07-17 — feat(daily-flow): types de journée, échecs, correction d'hier, zones biologiques et auth 90 jours
+
+- **Fonctionnalités livrées** : champ d'effort des sous-étapes masqué; habitudes filtrables par `rest`/`regular`/`hustle`; habitude ratée avec statut visible, streak remis à 0, pénalité maximale de 5 XP et annulation idempotente; corrections d'hier pour habitudes et échecs No-Todo via web/API/Telegram; suggestion explicite de prochain créneau libre pour les zones biologiques; sessions et approbations d'appareils à 90 jours.
+- **Contrats et persistance** : migrations automatiques `v28` (`habits.day_types`), `v29` (`habit_logs.cancelled_at`) et `v30` (`habit_logs.xp_penalty`); `COMMANDS-INDEX.md` mis à jour pour `/fail_habit` et les options `--yesterday`; le moteur de punitions séparé reste hors périmètre.
+- **Incident de validation locale** : les premiers tests sur `localhost:5000` donnaient types non sauvegardés, `Method Not Allowed`, correction d'hier absente et aucune suggestion biologique. Cause : le frontend était monté depuis le worktree et donc à jour, mais les conteneurs utilisaient encore l'ancienne image backend. Ce mélange donnait de faux résultats négatifs. Résolution : `docker compose up -d --build --force-recreate` sur la cible locale uniquement.
+- **État final local** : conteneurs Compose `api` et `bot` reconstruits et sains sur `http://localhost:5000`; migrations `v28` à `v30` appliquées; `/health` et dashboard renvoient 200; l'instance temporaire directe sur `5001` est arrêtée. L'identifiant web est sensible à la casse (`Gabriel`). Attention : le serveur Python direct utilisait `backend/data/habit_tracker.db`, tandis que Compose monte `data/habit_tracker.db`; ne pas comparer leurs données comme s'il s'agissait de la même base.
+- **Validation** : 219 tests backend, Black, syntaxe JavaScript et `git diff --check` réussis. Retest utilisateur du site web après reconstruction Compose : fonctionnalités confirmées opérationnelles.
+- **Cloudflare** : audit en lecture seule avec Wrangler; compte authentifié, mais aucun Worker, Pages ou tunnel Habit Tracker n'est configuré dans ce dépôt/compte. Aucun changement Cloudflare ni déploiement distant effectué.
+- Docs : `log.md` ✔ · `README.md` ✔ · `specs/ETAT_DES_SPECS.md` ✔ · `specs/next-steps-multi-agent-brief.md` (`done`) ✔ · wiki ✔ · `COMMANDS-INDEX.md` ✔ · commit non effectué.
+
 ## 2026-07-05 — feat(scheduler): decouple daily recap from habit logging and implement midnight rollover streak resets
 
 - **Problème** : Le recap de 21h30 réinitialisait prématurément les streaks et finalisait la journée, empêchant l'enregistrement de complétions tardives ou pénalisant indûment l'utilisateur pour les streaks.

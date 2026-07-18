@@ -17,9 +17,9 @@ flowchart TD
 
 ## Auto-approbation des appareils (comportement actuel)
 
-> [!note] Depuis le 2026-07-02, **tout nouvel appareil est auto-approuvé**. L'écran d'approbation/révocation manuelle a été retiré du dashboard pour éviter qu'un joueur se retrouve enfermé dehors (auto-lockout) faute d'un admin disponible pour l'approuver.
+> [!note] Après le passage par Cloudflare Access, **tout nouvel appareil est auto-approuvé seulement après un mot de passe applicatif valide**. Un mauvais mot de passe ne crée jamais d'appareil approuvé.
 
-Concrètement, `POST /auth/devices/request` crée toujours l'appareil avec le statut `approved` directement — il n'y a plus d'étape « en attente ». Les endpoints `POST /auth/devices/{id}/approve` et `POST /auth/devices/{id}/revoke` existent encore côté API (réservés à un admin) mais ne sont plus utilisés par une UX dédiée dans le dashboard.
+L'approbation expire après `AUTH_DEVICE_DAYS` jours (90 par défaut). À l'expiration, ou depuis un nouveau navigateur, le dashboard affiche « Session expirée ou nouvel appareil. Reconnecte-toi. » et redemande le mot de passe. Une connexion réussie renouvelle l'approbation pour 90 jours. La liste des appareils reste visible dans Réglages → Sécurité & Appareils; un admin peut y révoquer manuellement un appareil et toutes ses sessions actives.
 
 ## Bootstrap : créer le premier mot de passe admin
 
@@ -31,18 +31,18 @@ Avant toute connexion, il faut un premier compte admin. `AUTH_BOOTSTRAP_CODE` (v
 |---|---|
 | `GET /auth/status` | état courant : authentifié ou non, bootstrap requis ou non, appareil connu |
 | `POST /auth/bootstrap` | crée le premier admin avec `AUTH_BOOTSTRAP_CODE` |
-| `POST /auth/devices/request` | enregistre l'appareil courant (auto-approuvé) |
-| `POST /auth/login` | vérifie utilisateur + mot de passe, ouvre une session |
+| `POST /auth/devices/request` | enregistre l'appareil courant en attente, pour compatibilité |
+| `POST /auth/login` | vérifie utilisateur + mot de passe, approuve l'appareil et ouvre une session |
 | `POST /auth/logout` | révoque la session courante |
 | `GET /auth/users` | liste des joueurs (appareil approuvé requis) |
 | `GET /auth/devices` | liste des appareils connus (admin) |
-| `POST /auth/devices/{id}/approve` / `/revoke` | encore actifs côté API, sans UX dédiée |
+| `POST /auth/devices/{id}/approve` / `/revoke` | approbation API et révocation disponible dans le dashboard admin |
 | `POST /auth/password` | change son propre mot de passe |
 | `POST /auth/users/{id}/password` | un admin change le mot de passe d'un autre joueur |
 
 ## Sessions
 
-Une session vit `AUTH_SESSION_DAYS` jours (30 par défaut), portée par un cookie signé. `AUTH_COOKIE_SECURE` doit rester à `true` uniquement si le site tourne en HTTPS — sinon le navigateur rejette le cookie.
+Une session vit `AUTH_SESSION_DAYS` jours (90 par défaut). Le cookie d'appareil expire lui aussi après `AUTH_DEVICE_DAYS` jours (90 par défaut), et le serveur vérifie la même échéance à chaque requête. `AUTH_COOKIE_SECURE` doit rester à `true` uniquement si le site tourne en HTTPS — sinon le navigateur rejette le cookie.
 
 ## Accès machine (pas un navigateur)
 

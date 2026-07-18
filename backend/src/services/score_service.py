@@ -11,7 +11,12 @@ from src.database.models import (
     Streak,
     Todo,
 )
-from src.services.agenda_service import is_habit_eligible_on_date
+from src.services.agenda_service import (
+    is_habit_eligible_on_date,
+    normalize_day_type,
+    normalize_habit_day_types,
+    resolve_day_type,
+)
 
 
 def calculate_daily_score(
@@ -31,8 +36,7 @@ def calculate_daily_score(
         else:
             template_name = "regular"
 
-    if template_name == "default":
-        template_name = "regular"
+    template_name = normalize_day_type(template_name)
 
     # 2. Get today's logs
     start_dt = datetime.datetime.combine(date, datetime.time.min)
@@ -64,7 +68,9 @@ def calculate_daily_score(
     )
 
     # 4. Check if all scheduled habits are completed/skipped today
-    scheduled_habits = [h for h in habits if is_habit_eligible_on_date(h, date, user)]
+    scheduled_habits = [
+        h for h in habits if is_habit_eligible_on_date(h, date, user, template_name)
+    ]
 
     # Group logs by habit
     logs_by_habit = {}
@@ -74,11 +80,23 @@ def calculate_daily_score(
     perfect_valid = len(habits) > 0
     for h in scheduled_habits:
         h_logs = logs_by_habit.get(h.id, [])
-        is_skipped = any(l.log_type == "skip" for l in h_logs)
+        is_failed = any(
+            l.log_type == "failed" and l.cancelled_at is None for l in h_logs
+        )
+        if is_failed:
+            perfect_valid = False
+            break
+        is_skipped = any(
+            l.log_type == "skip" and l.cancelled_at is None for l in h_logs
+        )
         if is_skipped:
             continue
 
-        completions = sum(1 for l in h_logs if l.log_type in ["done", "log"])
+        completions = sum(
+            1
+            for l in h_logs
+            if l.log_type in ["done", "log"] and l.cancelled_at is None
+        )
         if h.daily_target and h.daily_target > 1:
             if completions < h.daily_target:
                 perfect_valid = False
@@ -170,10 +188,8 @@ def update_streaks(db: Session, user_id: int, date: datetime.date) -> list[dict]
         db.commit()
         return []
 
+    current_day_type = normalize_day_type(score.template_used)
     for habit in habits:
-        if not is_habit_eligible_on_date(habit, date, user):
-            continue
-
         start_dt = datetime.datetime.combine(date, datetime.time.min)
         end_dt = datetime.datetime.combine(date, datetime.time.max)
 
@@ -188,8 +204,31 @@ def update_streaks(db: Session, user_id: int, date: datetime.date) -> list[dict]
             .all()
         )
 
-        is_done = any(l.log_type in ["done", "log"] for l in habit_logs)
-        is_skipped = any(l.log_type == "skip" for l in habit_logs)
+        active_failure = any(
+            l.log_type == "failed" and l.cancelled_at is None for l in habit_logs
+        )
+        deferred_after_failure = any(
+            l.log_type == "failed" and l.cancelled_at is not None for l in habit_logs
+        )
+        target = (
+            habit.daily_target if habit.daily_target and habit.daily_target > 1 else 1
+        )
+        is_done = (
+            sum(
+                1
+                for l in habit_logs
+                if l.log_type in ["done", "log"] and l.cancelled_at is None
+            )
+            >= target
+        )
+        is_skipped = any(
+            l.log_type == "skip" and l.cancelled_at is None for l in habit_logs
+        )
+        is_required_today = is_habit_eligible_on_date(
+            habit, date, user, current_day_type
+        )
+        if not is_required_today and not is_done:
+            continue
 
         h_streak = (
             db.query(Streak)
@@ -214,12 +253,21 @@ def update_streaks(db: Session, user_id: int, date: datetime.date) -> list[dict]
         )
         last_scheduled_date = None
         while test_date >= limit_date:
-            if is_habit_eligible_on_date(habit, test_date, user):
+            if is_habit_eligible_on_date(
+                habit,
+                test_date,
+                user,
+                resolve_day_type(db, user_id, test_date),
+            ):
                 last_scheduled_date = test_date
                 break
             test_date -= datetime.timedelta(days=1)
 
-        if h_streak.last_incremented != date:
+        if active_failure:
+            h_streak.current_streak = 0
+        elif deferred_after_failure:
+            h_streak.current_streak = 0
+        elif h_streak.last_incremented != date:
             if is_done:
                 if (
                     h_streak.last_incremented == last_scheduled_date
@@ -298,8 +346,6 @@ def deduct_user_xp(user: User, xp_lost: int):
         else:
             user.xp = 0
             break
-
-
 
 
 def cleanup_completed_todos(db: Session, user_id: int):
@@ -387,6 +433,7 @@ def perform_habit_levelup(
             description=new_description,
             frequency=source.frequency,
             scheduled_days=source.scheduled_days,
+            day_types=normalize_habit_day_types(source.day_types),
             reminder_time=source.reminder_time,
             is_private=source.is_private,
             is_reportable=source.is_reportable,

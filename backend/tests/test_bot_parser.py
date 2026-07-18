@@ -6,6 +6,21 @@ def test_parse_done_success():
     result = parse_command("/done routine_matin")
     assert result["command"] == "done"
     assert result["habit_name"] == "routine_matin"
+    assert result["yesterday"] is False
+
+
+def test_parse_done_yesterday_flag_before_or_after_name():
+    suffix = parse_command("/done routine_matin --yesterday")
+    prefix = parse_command("/done --yesterday routine_matin")
+    assert (
+        suffix
+        == prefix
+        == {
+            "command": "done",
+            "habit_name": "routine_matin",
+            "yesterday": True,
+        }
+    )
 
 
 def test_parse_done_missing_argument():
@@ -20,6 +35,18 @@ def test_parse_log_success():
     assert result["habit_name"] == "lecture"
     assert result["value"] == 30
     assert result["unit"] == "min"
+    assert result["yesterday"] is False
+
+
+def test_parse_log_yesterday():
+    result = parse_command("/log lecture 30min --yesterday")
+    assert result == {
+        "command": "log",
+        "habit_name": "lecture",
+        "value": 30,
+        "unit": "min",
+        "yesterday": True,
+    }
 
 
 def test_parse_log_with_spaces():
@@ -47,6 +74,28 @@ def test_parse_skip_missing_reason():
     with pytest.raises(ParserError) as exc_info:
         parse_command("/skip nage")
     assert "Usage : /skip [nom_habitude] raison: [votre raison]" in str(exc_info.value)
+
+
+def test_parse_notodo_fail_yesterday():
+    result = parse_command("/fail --yesterday snooze")
+    assert result == {
+        "command": "fail",
+        "notodo_name": "snooze",
+        "yesterday": True,
+    }
+
+
+def test_parse_fail_habit_selection_and_undo():
+    assert parse_command("/fail_habit") == {
+        "command": "fail_habit",
+        "habit_name": None,
+        "undo": False,
+    }
+    assert parse_command("/fail_habit Routine Matin --undo") == {
+        "command": "fail_habit",
+        "habit_name": "Routine Matin",
+        "undo": True,
+    }
 
 
 def test_parse_status_success():

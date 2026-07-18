@@ -2414,6 +2414,35 @@ body {
   font-family: inherit;
 }
 
+.agenda-date-switch {
+  display: inline-flex;
+  min-height: 36px;
+  border: 1px solid var(--border-glass);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.agenda-date-switch button {
+  border: 0;
+  border-right: 1px solid var(--border-glass);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  padding: 0 0.75rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.agenda-date-switch button:last-child {
+  border-right: 0;
+}
+
+.agenda-date-switch button.active {
+  background: rgba(6, 182, 212, 0.16);
+  color: var(--accent-cyan);
+}
+
 .agenda-day-type-badge,
 .agenda-save-btn,
 .agenda-small-btn,
@@ -2646,7 +2675,7 @@ body {
   line-height: 1;
 }
 
-.quest-log-checkbox:hover:not(.checked):not(.skipped) {
+.quest-log-checkbox:hover:not(.checked):not(.skipped):not(.failed) {
   border-color: var(--accent-green);
   background: rgba(34, 197, 94, 0.15);
   color: rgba(34, 197, 94, 0.5);
@@ -2668,6 +2697,14 @@ body {
   color: var(--text-muted);
   cursor: default;
   font-size: 0.7rem;
+}
+
+.quest-log-checkbox.failed {
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--accent-red);
+  cursor: default;
+  font-size: 0.9rem;
 }
 
 .agenda-quest-check {
@@ -2699,6 +2736,26 @@ body {
   opacity: 0.5;
 }
 
+.agenda-quest-card.quest-failed {
+  border-color: rgba(239, 68, 68, 0.38);
+  border-left: 3px solid var(--accent-red);
+  background: rgba(239, 68, 68, 0.07);
+}
+
+.agenda-quest-card.quest-failed .agenda-quest-main strong {
+  color: #fca5a5;
+}
+
+.agenda-fail-quest {
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.32);
+}
+
+.agenda-fail-quest.undo {
+  color: var(--accent-cyan);
+  border-color: rgba(6, 182, 212, 0.32);
+}
+
 /* Status badges */
 .agenda-status-badge {
   border-radius: 6px;
@@ -2719,6 +2776,12 @@ body {
   border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
+.agenda-status-badge.failed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
 /* Timeline block done/skipped states */
 .agenda-quest-block.quest-done {
   background: linear-gradient(135deg, rgba(34, 197, 94, 0.85), rgba(22, 163, 74, 0.9)) !important;
@@ -2729,6 +2792,11 @@ body {
   background: linear-gradient(135deg, rgba(71, 85, 105, 0.65), rgba(100, 116, 139, 0.6)) !important;
   border-color: rgba(148, 163, 184, 0.3);
   opacity: 0.7;
+}
+
+.agenda-quest-block.quest-failed {
+  background: linear-gradient(135deg, rgba(185, 28, 28, 0.9), rgba(127, 29, 29, 0.92)) !important;
+  border-color: rgba(239, 68, 68, 0.5);
 }
 
 .agenda-quest-block.quest-done .agenda-quest-block-title {
@@ -2763,7 +2831,7 @@ body {
   transition: all 0.2s ease;
 }
 
-.agenda-block-check-btn:hover:not(.checked):not(.skipped) {
+.agenda-block-check-btn:hover:not(.checked):not(.skipped):not(.failed) {
   border-color: rgba(34, 197, 94, 0.8);
   background: rgba(34, 197, 94, 0.25);
   color: rgba(255, 255, 255, 0.6);
@@ -2783,6 +2851,13 @@ body {
   color: rgba(255, 255, 255, 0.5);
   cursor: default;
   font-size: 0.5rem;
+}
+
+.agenda-block-check-btn.failed {
+  border-color: rgba(254, 202, 202, 0.7);
+  background: rgba(127, 29, 29, 0.55);
+  color: #fff;
+  cursor: default;
 }
 
 .agenda-quest-main {
@@ -2944,7 +3019,8 @@ body {
 }
 
 .agenda-block-edit-btn,
-.agenda-block-stats-btn {
+.agenda-block-stats-btn,
+.agenda-block-fail-btn {
   display: none;
   width: 14px;
   height: 14px;
@@ -2963,13 +3039,23 @@ body {
 }
 
 .agenda-quest-block:hover .agenda-block-edit-btn,
-.agenda-quest-block:hover .agenda-block-stats-btn {
+.agenda-quest-block:hover .agenda-block-stats-btn,
+.agenda-quest-block:hover .agenda-block-fail-btn {
   display: inline-flex;
 }
 
 .agenda-block-edit-btn:hover,
-.agenda-block-stats-btn:hover {
+.agenda-block-stats-btn:hover,
+.agenda-block-fail-btn:hover {
   background: rgba(255, 255, 255, 0.22);
+}
+
+.agenda-block-fail-btn {
+  color: #fecaca;
+}
+
+.agenda-block-fail-btn.undo {
+  color: #a5f3fc;
 }
 
 .agenda-buffer-block {
@@ -3287,6 +3373,10 @@ body {
   background: rgba(239, 68, 68, 0.1);
   color: var(--accent-red);
   font-size: 0.82rem;
+}
+
+.bio-zone-suggestion-btn {
+  margin-top: 0.65rem;
 }
 
 .bio-zone-form {

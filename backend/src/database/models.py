@@ -138,6 +138,9 @@ class Habit(Base):
     scheduled_days = Column(
         String, default="0,1,2,3,4,5,6"
     )  # Comma-separated Mon-Sun (0=Sun, 1=Mon, ..., 6=Sat)
+    day_types = Column(
+        JSON, default=lambda: ["rest", "regular", "hustle"], nullable=True
+    )
     reminder_time = Column(String, nullable=True)  # "HH:MM"
     is_private = Column(Boolean, default=False)
     is_reportable = Column(Boolean, default=True)
@@ -181,10 +184,12 @@ class HabitLog(Base):
         Integer, ForeignKey("habits.id", ondelete="CASCADE"), nullable=False
     )
     timestamp = Column(DateTime, default=datetime.datetime.now)
-    log_type = Column(String, nullable=False)  # "done", "skip", "log"
+    log_type = Column(String, nullable=False)  # "done", "skip", "log", "failed"
     amount = Column(Integer, nullable=True)  # For quantitative logs
     unit = Column(String, nullable=True)  # For quantitative logs e.g. "min", "km"
     reason = Column(String, nullable=True)  # Reason for skips
+    cancelled_at = Column(DateTime, nullable=True)  # Same-day failure cancellation
+    xp_penalty = Column(Integer, default=0, nullable=False)
 
     user = relationship("User", back_populates="logs")
     habit = relationship("Habit", back_populates="logs")
@@ -309,7 +314,9 @@ class Todo(Base):
 
     # Google API references
     google_event_id = Column(String, nullable=True)  # Calendar event, from do_date
-    google_task_id = Column(String, nullable=True)  # Google Task (cochable), from due_date
+    google_task_id = Column(
+        String, nullable=True
+    )  # Google Task (cochable), from due_date
 
     user = relationship("User", back_populates="todos")
 

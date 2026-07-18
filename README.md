@@ -29,14 +29,15 @@ L'idée de base : transformer la discipline quotidienne en jeu (XP, niveaux, or,
   dashboard web reste l'interface complète.
 - Pas d'optimisation pour des milliers d'utilisateurs : on optimise pour la **RAM du Pi**, pas pour la charge.
 
-### Pistes futures (non engagées)
+### Améliorations livrées en juillet 2026
 
-> idées conservées ici en attendant d'être cadrées dans `specs/`. 
+Le cadrage détaillé et son statut sont conservés dans [`specs/next-steps-multi-agent-brief.md`](specs/next-steps-multi-agent-brief.md). Il couvre le filtrage des quêtes par type de journée, les habitudes ratées et leur pénalité XP, la correction d'hier, les suggestions de créneaux biologiques, la durée d'authentification de 90 jours et le retrait du champ d'effort des sous-étapes.
 
-MODIFICATION total
-- L'integration Google agenda (spec fait)
-- **Système de Punitions** : actions compensatoires constructives face à l'échec d'engagements
-- **Accès à distance sécurisé** : Configurer la Raspberry Pi (par exemple via Tailscale, Cloudflare Tunnels ou un reverse proxy sécurisé) afin de pouvoir accéder au site web et à l'API de n'importe où dans le monde.
+
+## ROADMAP
+- Dans les quest, la description devrais etre plus large pour suivre la 
+
+
 
 ## 👥 Collaboration & développement
 
@@ -111,7 +112,8 @@ PYTHONPATH=backend .venv/bin/pytest backend/tests
 | `DATABASE_URL` | `sqlite:////data/habit_tracker.db` | Chemin SQLite. À laisser vide en local : fallback auto vers `backend/data/`. |
 | `AUTH_BOOTSTRAP_CODE` | `long-code-secret` | Code temporaire requis pour créer le premier mot de passe admin et approuver le premier appareil. |
 | `HABIT_API_TOKEN` | `long-api-token` | Token machine pour le plugin `habit-tracker-control` et les appels API non navigateur. |
-| `AUTH_SESSION_DAYS` | `30` | Durée des sessions web en jours. |
+| `AUTH_SESSION_DAYS` | `90` | Durée des sessions web en jours. |
+| `AUTH_DEVICE_DAYS` | `90` | Durée d'approbation d'un navigateur/appareil en jours. |
 | `AUTH_COOKIE_SECURE` | `false` | Mettre `true` uniquement si le dashboard est servi en HTTPS. |
 
 > En local, tu peux ne renseigner que les variables Telegram si tu veux garder le

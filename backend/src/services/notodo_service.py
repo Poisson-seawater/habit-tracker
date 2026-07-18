@@ -14,7 +14,8 @@ def record_notodo_failure(
 ) -> NoTodoLog:
     occurred_at = occurred_at or datetime.datetime.now()
     failure_date = occurred_at.date()
-    notodo.failed_at = occurred_at
+    if notodo.failed_at is None or occurred_at > notodo.failed_at:
+        notodo.failed_at = occurred_at
 
     existing = (
         db.query(NoTodoLog)

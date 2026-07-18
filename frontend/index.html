@@ -915,6 +915,10 @@
               <h2 class="section-header">📅 <span>Agenda des Quêtes</span></h2>
 
               <div class="agenda-toolbar">
+                <div class="agenda-date-switch" role="group" aria-label="Jour affiché">
+                  <button type="button" id="agenda-yesterday-btn">Hier</button>
+                  <button type="button" id="agenda-today-btn">Aujourd'hui</button>
+                </div>
                 <div class="agenda-toolbar-group">
                   <label for="agenda-date-input">Date</label>
                   <input type="date" id="agenda-date-input">
@@ -988,6 +992,15 @@
                 <div class="form-group">
                   <label>Unité (si quantitatif)</label>
                   <input type="text" id="new-quest-unit" placeholder="ex: min, reps" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Types de journée</label>
+                <div id="new-quest-day-types" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;">
+                  <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="rest" checked> Repos</label>
+                  <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="regular" checked> Régulière</label>
+                  <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="hustle" checked> Hustle</label>
                 </div>
               </div>
 
@@ -1215,7 +1228,7 @@
                 <input type="number" id="substep-order-input" value="1" min="1" required style="padding: 6px;">
               </div>
             </div>
-            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem;">
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr; gap: 0.8rem; margin-top: 0.8rem;">
               <div class="form-group">
                 <label>Type d'effort</label>
                 <select id="substep-effort-type" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); width: 100%;">
@@ -1226,11 +1239,8 @@
                   <option value="creatif_divergent">Créatif / Divergent 🎨</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label>Durée d'effort (h)</label>
-                <input type="number" id="substep-effort-duration" step="0.5" min="0" max="16" placeholder="ex: 1.0" value="1.0" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); width: 100%; box-sizing: border-box;">
-              </div>
             </div>
+            <input type="hidden" id="substep-effort-duration" value="1.0">
             <div class="form-group checkbox-group" style="margin-top: 0.8rem;">
               <label class="checkbox-label" style="margin-top: 0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                 <input type="checkbox" id="substep-life-lore-input" style="cursor: pointer;">
@@ -1269,7 +1279,7 @@
                 <input type="number" id="edit-substep-order-input" value="1" min="1" required style="padding: 6px;">
               </div>
             </div>
-            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.8rem;">
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr; gap: 0.8rem; margin-top: 0.8rem;">
               <div class="form-group">
                 <label>Type d'effort</label>
                 <select id="edit-substep-effort-type" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); width: 100%;">
@@ -1280,11 +1290,8 @@
                   <option value="creatif_divergent">Créatif / Divergent 🎨</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label>Durée d'effort (h)</label>
-                <input type="number" id="edit-substep-effort-duration" step="0.5" min="0" max="16" placeholder="ex: 1.0" style="font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); width: 100%; box-sizing: border-box;">
-              </div>
             </div>
+            <input type="hidden" id="edit-substep-effort-duration" value="1.0">
             <div class="form-group checkbox-group" style="margin-top: 0.8rem;">
               <label class="checkbox-label" style="margin-top: 0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                 <input type="checkbox" id="edit-substep-life-lore-input" style="cursor: pointer;">
@@ -1402,9 +1409,9 @@
       </div>
 
       <section class="glass-card auth-settings-card" id="auth-settings-section" style="padding: 1.8rem; margin-bottom: 1.5rem;">
-        <h2 class="section-header">🔐 <span>Sécurité</span></h2>
+        <h2 class="section-header">🔐 <span>Sécurité & Appareils</span></h2>
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
-          Gérez le mot de passe du compte courant.
+          Gérez le mot de passe du compte courant et révoquez les appareils autorisés.
         </p>
 
         <form id="auth-password-form" class="auth-settings-form" style="margin-bottom: 1.5rem;">
@@ -1422,7 +1429,7 @@
         </form>
 
         <div id="auth-admin-panel" style="display: none;">
-          <div id="auth-device-list" class="auth-device-list" style="display: none;">
+          <div id="auth-device-list" class="auth-device-list">
             <p class="bio-zone-empty">Chargement des appareils...</p>
           </div>
 
@@ -1594,10 +1601,6 @@
               <div class="form-group">
                 <label for="bio-zone-color">Couleur optionnelle</label>
                 <input type="color" id="bio-zone-color" value="#8b5cf6">
-              </div>
-              <div class="form-group">
-                <label for="bio-zone-order">Ordre</label>
-                <input type="number" id="bio-zone-order" value="0" min="0" step="1">
               </div>
             </div>
             <div class="bio-zone-form-actions">
@@ -1942,6 +1945,14 @@
         <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="5"> Ven</label>
         <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="6"> Sam</label>
         <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="0"> Dim</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Types de journée</label>
+      <div id="edit-quest-day-types" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;">
+        <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="rest" checked> Repos</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="regular" checked> Régulière</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="hustle" checked> Hustle</label>
       </div>
     </div>
     <div class="form-group agenda-placeable-toggle">

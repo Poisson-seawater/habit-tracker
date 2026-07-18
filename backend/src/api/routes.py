@@ -58,8 +58,19 @@ from src.services.score_service import (
     cleanup_completed_todos,
     dispatch_milestone_notifications,
 )
+from src.services.daily_log_service import (
+    DailyLogConflict,
+    DailyLogError,
+    cancel_habit_failure,
+    create_habit_log,
+    mark_habit_failed,
+    recalculate_day,
+    rebuild_streak_projections,
+    resolve_target_date,
+    timestamp_on_date,
+)
 from src.services import agenda_service, softskill_service
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from src.database.session import SessionLocal
 from src.services.google_sync_service import (
     get_google_auth_url,
@@ -74,6 +85,7 @@ from src.services.google_sync_service import (
 from src.config import (
     AUTH_BOOTSTRAP_CODE,
     AUTH_COOKIE_SECURE,
+    AUTH_DEVICE_DAYS,
     AUTH_SESSION_DAYS,
     HABIT_API_TOKEN,
 )
@@ -186,6 +198,7 @@ class LogCreate(BaseModel):
     log_type: str  # "done", "skip", "log"
     amount: Optional[int] = None
     reason: Optional[str] = None
+    target_date: Optional[datetime.date] = None
 
 
 class HabitCreate(BaseModel):
@@ -194,6 +207,7 @@ class HabitCreate(BaseModel):
     description: Optional[str] = None
     frequency: Optional[str] = "daily"
     scheduled_days: Optional[str] = "0,1,2,3,4,5,6"
+    day_types: List[str] = Field(default_factory=lambda: ["rest", "regular", "hustle"])
     reminder_time: Optional[str] = None
     is_private: Optional[bool] = False
     is_reportable: Optional[bool] = True
@@ -256,6 +270,10 @@ class NoTodoCreate(BaseModel):
     title: str
 
 
+class DateTarget(BaseModel):
+    target_date: Optional[datetime.date] = None
+
+
 class AuthBootstrapRequest(BaseModel):
     bootstrap_code: str
     password: str = Field(..., min_length=8)
@@ -271,6 +289,7 @@ class AuthDeviceRequest(BaseModel):
 class AuthLoginRequest(BaseModel):
     username: str
     password: str
+    device_name: Optional[str] = None
 
 
 class AuthPasswordChangeRequest(BaseModel):
@@ -477,20 +496,40 @@ def _auth_user_to_dict(user: User) -> dict:
     return {"id": user.id, "username": user.username, "is_admin": bool(user.is_admin)}
 
 
+def _device_approval_started_at(device: AuthDevice) -> Optional[datetime.datetime]:
+    return device.approved_at or device.first_seen_at
+
+
+def _device_expires_at(device: AuthDevice) -> Optional[datetime.datetime]:
+    approved_at = _device_approval_started_at(device)
+    if not approved_at:
+        return None
+    return approved_at + datetime.timedelta(days=AUTH_DEVICE_DAYS)
+
+
+def _device_status(device: AuthDevice) -> str:
+    expires_at = _device_expires_at(device)
+    if device.status == "approved" and expires_at is not None and expires_at <= _now():
+        return "expired"
+    return device.status
+
+
 def _device_to_dict(device: AuthDevice) -> dict:
+    expires_at = _device_expires_at(device)
     return {
         "id": device.id,
         "display_name": device.display_name,
-        "status": device.status,
+        "status": _device_status(device),
         "user_agent": device.user_agent,
         "created_ip": device.created_ip,
-        "first_seen_at": device.first_seen_at.isoformat()
-        if device.first_seen_at
-        else None,
-        "last_seen_at": device.last_seen_at.isoformat()
-        if device.last_seen_at
-        else None,
+        "first_seen_at": (
+            device.first_seen_at.isoformat() if device.first_seen_at else None
+        ),
+        "last_seen_at": (
+            device.last_seen_at.isoformat() if device.last_seen_at else None
+        ),
         "approved_at": device.approved_at.isoformat() if device.approved_at else None,
+        "expires_at": expires_at.isoformat() if expires_at else None,
         "revoked_at": device.revoked_at.isoformat() if device.revoked_at else None,
         "approved_by_user_id": device.approved_by_user_id,
     }
@@ -531,7 +570,7 @@ def _ensure_device(
     response: Response,
     db: Session,
     display_name: Optional[str] = None,
-    status: str = "approved",
+    status: str = "pending",
 ) -> tuple[AuthDevice, str]:
     if status not in AUTH_DEVICE_STATUSES:
         raise ValueError(f"Invalid device status: {status}")
@@ -561,9 +600,31 @@ def _ensure_device(
         response,
         AUTH_DEVICE_COOKIE,
         raw_token,
-        max_age=60 * 60 * 24 * 365,
+        max_age=60 * 60 * 24 * AUTH_DEVICE_DAYS,
     )
     return device, raw_token
+
+
+def _approve_device(
+    response: Response,
+    db: Session,
+    device: AuthDevice,
+    raw_token: str,
+    approved_by_user_id: int,
+) -> None:
+    now = _now()
+    device.status = "approved"
+    device.approved_at = now
+    device.revoked_at = None
+    device.approved_by_user_id = approved_by_user_id
+    device.last_seen_at = now
+    db.commit()
+    _set_cookie(
+        response,
+        AUTH_DEVICE_COOKIE,
+        raw_token,
+        max_age=60 * 60 * 24 * AUTH_DEVICE_DAYS,
+    )
 
 
 def _machine_user_id(
@@ -602,7 +663,7 @@ def _session_user(
     device, raw_device_token = _get_device_from_cookie(request, db)
     if not device or not raw_device_token:
         return None
-    if device.id != session.device_id or device.status != "approved":
+    if device.id != session.device_id or _device_status(device) != "approved":
         return None
     if touch:
         now = _now()
@@ -691,7 +752,7 @@ def _require_approved_device_or_machine(
     if machine_user_id is not None:
         return
     device, _raw_token = _get_device_from_cookie(request, db)
-    if device and device.status == "approved":
+    if device and _device_status(device) == "approved":
         return
     if _legacy_auth_allowed(db):
         return
@@ -758,13 +819,95 @@ def _find_overlapping_biological_zone(
     return None
 
 
-def _raise_biological_zone_overlap(zone: BiologicalZone):
-    raise HTTPException(
+def _minutes_to_time(minutes: int) -> str:
+    if minutes == 1440:
+        return "00:00"
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+def _biological_zone_duration(start_time: str, end_time: str) -> int:
+    start_min = _time_to_minutes(start_time)
+    end_min = _time_to_minutes(end_time)
+    return (end_min - start_min) % 1440
+
+
+def _next_free_biological_slot(
+    db: Session,
+    user_id: int,
+    start_time: str,
+    end_time: str,
+    exclude_zone_id: Optional[int] = None,
+) -> Optional[dict]:
+    duration = _biological_zone_duration(start_time, end_time)
+    if duration <= 0:
+        return None
+
+    query = db.query(BiologicalZone).filter(BiologicalZone.user_id == user_id)
+    if exclude_zone_id is not None:
+        query = query.filter(BiologicalZone.id != exclude_zone_id)
+
+    occupied = sorted(
+        segment
+        for zone in query.all()
+        for segment in _split_time_range(zone.start_time, zone.end_time)
+    )
+    merged: List[tuple[int, int]] = []
+    for start_min, end_min in occupied:
+        if merged and start_min <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end_min))
+        else:
+            merged.append((start_min, end_min))
+
+    candidate = _time_to_minutes(start_time)
+    for busy_start, busy_end in merged:
+        if busy_end <= candidate:
+            continue
+        if candidate + duration <= busy_start:
+            break
+        if candidate < busy_end and candidate + duration > busy_start:
+            candidate = busy_end
+
+    if candidate + duration > 1440:
+        return None
+    return {
+        "start_time": _minutes_to_time(candidate),
+        "end_time": _minutes_to_time(candidate + duration),
+    }
+
+
+def _biological_zone_overlap_response(
+    db: Session,
+    user_id: int,
+    zone: BiologicalZone,
+    start_time: str,
+    end_time: str,
+    exclude_zone_id: Optional[int] = None,
+) -> JSONResponse:
+    detail = (
+        f'Ce creneau chevauche la zone "{zone.zone_name}" '
+        f"({zone.start_time} - {zone.end_time})."
+    )
+    suggestion = _next_free_biological_slot(
+        db,
+        user_id,
+        start_time,
+        end_time,
+        exclude_zone_id=exclude_zone_id,
+    )
+    suggestion_message = (
+        "Un autre creneau est disponible. Utilisez la proposition ou ajustez les heures."
+        if suggestion
+        else "Aucun creneau libre assez long avant la fin de la journee biologique."
+    )
+    return JSONResponse(
         status_code=422,
-        detail=(
-            f'Ce creneau chevauche la zone "{zone.zone_name}" '
-            f"({zone.start_time} - {zone.end_time})."
-        ),
+        content={
+            "detail": detail,
+            "code": "biological_zone_overlap",
+            "conflict": _biological_zone_to_dict(zone),
+            "suggestion": suggestion,
+            "suggestion_message": suggestion_message,
+        },
     )
 
 
@@ -790,6 +933,7 @@ def _cycle_policy_payload_for_user(
 
 VALID_HABIT_TYPES = {"binary", "quantitative"}
 VALID_FREQUENCIES = {"daily", "monthly", "custom", "specific_days"}
+VALID_DAY_TYPES = set(agenda_service.DAY_TYPES)
 VALID_EFFORT_TYPES = {
     "musculaire",
     "cerveau",
@@ -884,6 +1028,7 @@ def validate_habit_payload(payload: "HabitCreate"):
         raise HTTPException(
             status_code=400, detail="A quantitative habit requires a 'unit'."
         )
+    validate_habit_day_types(payload.day_types)
     if (
         payload.effort_type is not None
         and payload.effort_type not in VALID_EFFORT_TYPES
@@ -900,6 +1045,22 @@ def normalize_habit_schedule(
     if frequency == "monthly":
         return str(agenda_service.monthly_anchor_day(scheduled_days))
     return scheduled_days or "0,1,2,3,4,5,6"
+
+
+def validate_habit_day_types(day_types) -> None:
+    if not isinstance(day_types, list) or not day_types:
+        raise HTTPException(
+            status_code=400, detail="day_types must contain at least one day type."
+        )
+    invalid = {value for value in day_types if value not in VALID_DAY_TYPES}
+    if invalid:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid day_types: {', '.join(sorted(invalid))}. "
+                f"Valid: {', '.join(agenda_service.DAY_TYPES)}"
+            ),
+        )
 
 
 def validate_habit_update_payload(payload_dict: dict):
@@ -921,6 +1082,8 @@ def validate_habit_update_payload(payload_dict: dict):
             status_code=400,
             detail=f"Invalid effort_type '{effort_type}'. Valid: {', '.join(sorted(VALID_EFFORT_TYPES))}",
         )
+    if "day_types" in payload_dict:
+        validate_habit_day_types(payload_dict["day_types"])
 
 
 # --- Users & Profile Route ---
@@ -934,9 +1097,9 @@ def get_auth_status(
     device, _raw_device_token = _get_device_from_cookie(request, db)
     user = _session_user(request, db, touch=False)
     bootstrap_required = not _auth_is_configured(db)
-    device_status = device.status if device else "missing"
+    device_status = _device_status(device) if device else "missing"
     users = []
-    if device and device.status == "approved" and not bootstrap_required:
+    if device and device_status == "approved" and not bootstrap_required:
         users = [_auth_user_to_dict(user) for user in db.query(User).all()]
     return {
         "authenticated": user is not None,
@@ -979,20 +1142,14 @@ def bootstrap_auth(
 
     _set_user_password(user, payload.password)
     user.is_admin = True
-    device, _raw_device_token = _ensure_device(
+    device, raw_device_token = _ensure_device(
         request,
         response,
         db,
         display_name=payload.device_name,
-        status="approved",
+        status="pending",
     )
-    now = _now()
-    device.status = "approved"
-    device.approved_at = now
-    device.revoked_at = None
-    device.approved_by_user_id = user.id
-    device.last_seen_at = now
-    db.commit()
+    _approve_device(response, db, device, raw_device_token, user.id)
     _create_auth_session(response, db, user, device)
     return {
         "status": "success",
@@ -1013,10 +1170,10 @@ def request_device_access(
         response,
         db,
         display_name=payload.device_name,
-        status="approved",
+        status="pending",
     )
     return {
-        "status": device.status,
+        "status": _device_status(device),
         "device": _device_to_dict(device),
         "bootstrap_required": not _auth_is_configured(db),
     }
@@ -1029,15 +1186,23 @@ def login(
     response: Response,
     db: Session = Depends(get_db),
 ):
-    device, _raw_device_token = _get_device_from_cookie(request, db)
-    if not device:
-        device, _raw_device_token = _ensure_device(request, response, db)
-    if device.status != "approved":
-        raise HTTPException(status_code=403, detail="Device approval required.")
-
     user = db.query(User).filter(User.username == payload.username).first()
     if not user or not _verify_user_password(user, payload.password):
         raise HTTPException(status_code=401, detail="Invalid username or password.")
+
+    device, raw_device_token = _get_device_from_cookie(request, db)
+    if device and device.status == "revoked":
+        raise HTTPException(status_code=403, detail="Device has been revoked.")
+    if not device or not raw_device_token:
+        device, raw_device_token = _ensure_device(
+            request,
+            response,
+            db,
+            display_name=payload.device_name,
+        )
+    elif payload.device_name:
+        device.display_name = payload.device_name
+    _approve_device(response, db, device, raw_device_token, user.id)
     _create_auth_session(response, db, user, device)
     return {"status": "success", "user": _auth_user_to_dict(user)}
 
@@ -1504,9 +1669,10 @@ def get_status(
         .all()
     )
     remaining = []
+    day_type = agenda_service.resolve_day_type(db, user.id, today)
     for habit in all_habits:
         if (
-            not agenda_service.is_habit_eligible_on_date(habit, today, user)
+            not agenda_service.is_habit_eligible_on_date(habit, today, user, day_type)
             or habit.id in logged_habit_ids
         ):
             continue
@@ -1518,9 +1684,7 @@ def get_status(
     )
 
     # No-Todos failed today
-    failed_notodo_logs = get_notodo_failures_on_date(
-        db, user_id=user.id, date=today
-    )
+    failed_notodo_logs = get_notodo_failures_on_date(db, user_id=user.id, date=today)
     failed_notodos_out = [
         {"id": log.notodo_id, "log_id": log.id, "title": log.title_snapshot}
         for log in failed_notodo_logs
@@ -2374,7 +2538,13 @@ def create_biological_zone(
         payload.end_time,
     )
     if overlap:
-        _raise_biological_zone_overlap(overlap)
+        return _biological_zone_overlap_response(
+            db,
+            user_id,
+            overlap,
+            payload.start_time,
+            payload.end_time,
+        )
 
     zone = BiologicalZone(
         user_id=user_id,
@@ -2417,7 +2587,14 @@ def update_biological_zone(
         exclude_zone_id=zone_id,
     )
     if overlap:
-        _raise_biological_zone_overlap(overlap)
+        return _biological_zone_overlap_response(
+            db,
+            user_id,
+            overlap,
+            next_start,
+            next_end,
+            exclude_zone_id=zone_id,
+        )
 
     for field, value in updates.items():
         if field == "display_order" and value is None:
@@ -2480,49 +2657,111 @@ def create_log(
                 status_code=400, detail="Binary habit logs must be 'done' or 'skip'"
             )
 
-    today = datetime.date.today()
-    has_target = habit.daily_target is not None and habit.daily_target > 1
-    if habit.type == "binary" and payload.log_type == "done" and not has_target:
-        start_dt = datetime.datetime.combine(today, datetime.time.min)
-        end_dt = datetime.datetime.combine(today, datetime.time.max)
-        existing = (
-            db.query(HabitLog)
-            .filter(
-                HabitLog.user_id == user_id,
-                HabitLog.habit_id == habit.id,
-                HabitLog.log_type == "done",
-                HabitLog.timestamp >= start_dt,
-                HabitLog.timestamp <= end_dt,
-            )
-            .first()
+    try:
+        target_date = resolve_target_date(payload.target_date)
+        log, created = create_habit_log(
+            db,
+            user_id=user_id,
+            habit=habit,
+            log_type=payload.log_type,
+            date_value=target_date,
+            amount=payload.amount,
+            reason=payload.reason,
         )
-        if existing:
-            return {
-                "log_id": existing.id,
-                "status": "already_logged",
-            }
+    except DailyLogConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except DailyLogError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    log = HabitLog(
-        user_id=user_id,
-        habit_id=habit.id,
-        log_type=payload.log_type,
-        amount=payload.amount,
-        unit=habit.unit if habit.type == "quantitative" else None,
-        reason=payload.reason,
-    )
-    db.add(log)
+    if not created:
+        return {
+            "log_id": log.id,
+            "status": "already_logged",
+            "target_date": target_date.isoformat(),
+        }
+
     db.commit()
     db.refresh(log)
 
     # Recalculate daily Perfect Day state (no direct XP awarded for habit logs).
-    score = calculate_daily_score(db, user_id=user_id, date=today)
-    milestone_events = update_streaks(db, user_id=user_id, date=today)
+    score, milestone_events = recalculate_day(
+        db,
+        user_id=user_id,
+        date_value=target_date,
+        finalizing=target_date < datetime.date.today(),
+    )
     if milestone_events:
         background_tasks.add_task(dispatch_milestone_notifications, milestone_events)
 
     return {
         "log_id": log.id,
         "status": "logged",
+        "target_date": target_date.isoformat(),
+        "daily_score_status": score.status,
+    }
+
+
+@router.post("/habits/{habit_id}/fail")
+def fail_habit(
+    habit_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    habit = (
+        db.query(Habit).filter_by(id=habit_id, user_id=user_id, is_active=True).first()
+    )
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found or inactive")
+
+    today = datetime.date.today()
+    try:
+        log, created = mark_habit_failed(
+            db, user_id=user_id, habit=habit, date_value=today
+        )
+    except DailyLogConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    score, milestone_events = recalculate_day(
+        db, user_id=user_id, date_value=today, force_rebuild=True
+    )
+    if milestone_events:
+        background_tasks.add_task(dispatch_milestone_notifications, milestone_events)
+    return {
+        "log_id": log.id,
+        "status": "failed" if created else "already_failed",
+        "xp_penalty_applied": log.xp_penalty if created else 0,
+        "target_date": today.isoformat(),
+        "daily_score_status": score.status,
+    }
+
+
+@router.delete("/habits/{habit_id}/fail")
+def undo_habit_failure(
+    habit_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    habit = (
+        db.query(Habit).filter_by(id=habit_id, user_id=user_id, is_active=True).first()
+    )
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found or inactive")
+
+    today = datetime.date.today()
+    log, cancelled = cancel_habit_failure(
+        db, user_id=user_id, habit=habit, date_value=today
+    )
+    score, milestone_events = recalculate_day(
+        db, user_id=user_id, date_value=today, force_rebuild=True
+    )
+    if milestone_events:
+        background_tasks.add_task(dispatch_milestone_notifications, milestone_events)
+    return {
+        "log_id": log.id if log else None,
+        "status": "undone" if cancelled else "already_undone",
+        "xp_restored": log.xp_penalty if cancelled and log else 0,
+        "target_date": today.isoformat(),
         "daily_score_status": score.status,
     }
 
@@ -2788,7 +3027,9 @@ def delete_todo(
 
 @router.get("/notodos")
 def get_notodos(
-    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+    target_date: Optional[datetime.date] = None,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
 ):
     """
     List all No-Todos for the calling user.
@@ -2800,15 +3041,30 @@ def get_notodos(
         .all()
     )
     today = datetime.date.today()
-    failed_today_ids = {
+    try:
+        selected_date = resolve_target_date(target_date, today=today)
+    except DailyLogError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    failed_on_date_ids = {
         log.notodo_id
-        for log in get_notodo_failures_on_date(db, user_id=user_id, date=today)
+        for log in get_notodo_failures_on_date(db, user_id=user_id, date=selected_date)
         if log.notodo_id is not None
     }
+    failed_today_ids = (
+        failed_on_date_ids
+        if selected_date == today
+        else {
+            log.notodo_id
+            for log in get_notodo_failures_on_date(db, user_id=user_id, date=today)
+            if log.notodo_id is not None
+        }
+    )
     return [
         {
             "id": n.id,
             "title": n.title,
+            "failed_on_date": n.id in failed_on_date_ids,
+            "selected_date": selected_date.isoformat(),
             "failed_today": n.id in failed_today_ids
             or (n.failed_at is not None and n.failed_at.date() == today),
             "created_at": n.created_at.isoformat() if n.created_at else None,
@@ -2839,22 +3095,38 @@ def create_notodo(
 @router.post("/notodos/{notodo_id}/fail")
 def fail_notodo(
     notodo_id: int,
+    payload: Optional[DateTarget] = None,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ):
     """
-    Mark a No-Todo as failed for today.
+    Mark a No-Todo as failed for today or yesterday.
     """
     notodo = db.query(NoTodo).filter_by(id=notodo_id, user_id=user_id).first()
     if not notodo:
         raise HTTPException(status_code=404, detail="No-Todo not found")
 
-    log = record_notodo_failure(db, user_id=user_id, notodo=notodo)
+    try:
+        target_date = resolve_target_date(payload.target_date if payload else None)
+    except DailyLogError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    log = record_notodo_failure(
+        db,
+        user_id=user_id,
+        notodo=notodo,
+        occurred_at=timestamp_on_date(target_date),
+    )
     db.commit()
+    rebuild_streak_projections(
+        db,
+        user_id=user_id,
+        through_date=max(target_date, datetime.date.today()),
+        finalizing=False,
+    )
 
     return {
         "status": "success",
-        "message": "No-Todo marked as failed for today.",
+        "message": f"No-Todo marked as failed for {target_date.isoformat()}.",
         "log": {
             "id": log.id,
             "notodo_id": notodo.id,
@@ -2972,6 +3244,7 @@ def get_habits(
                 "type": h.type,
                 "frequency": h.frequency,
                 "scheduled_days": h.scheduled_days,
+                "day_types": agenda_service.normalize_habit_day_types(h.day_types),
                 "reminder_time": h.reminder_time,
                 "is_private": h.is_private,
                 "is_reportable": h.is_reportable,
@@ -2986,9 +3259,7 @@ def get_habits(
                 "effort_duration": h.effort_duration,
                 "agenda_duration_minutes": h.agenda_duration_minutes,
                 "agenda_placeable": (
-                    bool(h.agenda_placeable)
-                    if h.agenda_placeable is not None
-                    else True
+                    bool(h.agenda_placeable) if h.agenda_placeable is not None else True
                 ),
                 "source_type": h.source_type or "manual",
                 "source_ref": h.source_ref,
@@ -3008,6 +3279,7 @@ class HabitUpdate(BaseModel):
     type: Optional[str] = None
     frequency: Optional[str] = None
     scheduled_days: Optional[str] = None
+    day_types: Optional[List[str]] = None
     unit: Optional[str] = None
     daily_cap: Optional[int] = None
     daily_target: Optional[int] = None
@@ -3103,6 +3375,10 @@ def update_habit(
         payload_dict["scheduled_days"] = normalize_habit_schedule(
             target_frequency,
             payload_dict.get("scheduled_days", habit.scheduled_days),
+        )
+    if "day_types" in payload_dict:
+        payload_dict["day_types"] = agenda_service.normalize_habit_day_types(
+            payload_dict["day_types"]
         )
 
     for field, value in payload_dict.items():
@@ -3233,7 +3509,13 @@ def get_habit_calendar(
         else:
             user = db.query(User).filter_by(id=user_id).first()
             is_scheduled = bool(
-                user and agenda_service.is_habit_eligible_on_date(habit, day_date, user)
+                user
+                and agenda_service.is_habit_eligible_on_date(
+                    habit,
+                    day_date,
+                    user,
+                    agenda_service.resolve_day_type(db, user_id, day_date),
+                )
             )
 
             if is_scheduled:
@@ -3277,6 +3559,7 @@ def create_habit(
         scheduled_days=normalize_habit_schedule(
             payload.frequency, payload.scheduled_days
         ),
+        day_types=agenda_service.normalize_habit_day_types(payload.day_types),
         reminder_time=payload.reminder_time,
         is_private=payload.is_private,
         is_reportable=payload.is_reportable,
