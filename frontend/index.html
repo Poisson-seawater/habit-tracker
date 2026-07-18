@@ -975,7 +975,7 @@
             <!-- Quick Quest Form -->
             <div class="bounty-inline-add" id="quest-inline-form" style="display: none; padding: 1.2rem; gap: 0.8rem; flex-direction: column; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-glass); border-radius: 12px; margin-bottom: 1rem;">
               <input type="text" id="new-quest-name" placeholder="ex: Méditation 10 min" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); outline: none; font-size: 0.85rem;" required>
-              <input type="text" id="new-quest-desc" placeholder="Description (optionnelle)" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); outline: none; font-size: 0.85rem;">
+              <textarea id="new-quest-desc" class="quest-description-input" rows="5" placeholder="Description (optionnelle)" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); outline: none; font-size: 0.85rem;"></textarea>
               
               <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
                 <div class="form-group">
@@ -1889,7 +1889,7 @@
     </div>
     <div class="form-group">
       <label id="edit-quest-desc-label">Description</label>
-      <input type="text" id="edit-quest-desc" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
+      <textarea id="edit-quest-desc" class="quest-description-input" rows="5" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;"></textarea>
     </div>
     <div class="quest-version-controls">
       <button type="button" id="add-edit-quest-version-btn" class="quest-version-add-btn" title="Ajouter une version" aria-label="Ajouter une version">+</button>

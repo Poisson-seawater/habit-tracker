@@ -3,6 +3,8 @@
 > Une entrée par session / push, anti-chronologique. Rédigé par `/doc-sync` avant push.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-07-18 — fix(quests): descriptions visibles sur 5 lignes.
+
 ## 2026-07-05 — feat(scheduler): decouple daily recap from habit logging and implement midnight rollover streak resets
 
 - **Problème** : Le recap de 21h30 réinitialisait prématurément les streaks et finalisait la journée, empêchant l'enregistrement de complétions tardives ou pénalisant indûment l'utilisateur pour les streaks.

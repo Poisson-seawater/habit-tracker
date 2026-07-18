@@ -375,6 +375,7 @@ body {
   font-weight: 600;
 }
 
+.quest-description-input,
 .quest-version-description-input {
   width: 100%;
   box-sizing: border-box;
@@ -383,6 +384,12 @@ body {
   border-radius: 8px;
   padding: 8px;
   color: var(--text-primary);
+  font: inherit;
+  line-height: 1.35;
+  min-height: calc(1.35em * 5 + 16px);
+  max-height: calc(1.35em * 5 + 16px);
+  resize: none;
+  overflow-y: auto;
 }
 
 /* Streaks & Right side widgets */
@@ -2790,6 +2797,20 @@ body {
   color: var(--text-primary);
   font-size: 0.9rem;
   overflow-wrap: anywhere;
+}
+
+.agenda-quest-description {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  max-height: calc(1.35em * 5);
+  margin: 0.15rem 0 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
 }
 
 .agenda-quest-main span,

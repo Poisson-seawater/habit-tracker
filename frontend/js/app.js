@@ -1021,8 +1021,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const title = document.createElement("strong");
     title.textContent = `${emojiPrefix}${item.name}${targetSuffix}`;
     const source = document.createElement("span");
+    source.className = "agenda-quest-source";
     source.textContent = sourceLabel;
-    main.append(title, source);
+    main.appendChild(title);
+    const descriptionText = (item.description || "").trim();
+    if (descriptionText) {
+      const description = document.createElement("p");
+      description.className = "agenda-quest-description";
+      description.textContent = descriptionText;
+      description.title = descriptionText;
+      main.appendChild(description);
+    }
+    main.appendChild(source);
 
     const meta = document.createElement("div");
     meta.className = "agenda-quest-meta";
@@ -3624,9 +3634,9 @@ document.addEventListener("DOMContentLoaded", () => {
         block.className = "quest-version-description-block";
         block.innerHTML = `
           <label>V${item.displayIndex} description</label>
-          <input type="text" class="quest-version-description-input" data-habit-id="${item.habit.id}" value="">
+          <textarea class="quest-version-description-input" data-habit-id="${item.habit.id}" rows="5"></textarea>
         `;
-        const input = block.querySelector("input");
+        const input = block.querySelector(".quest-version-description-input");
         input.value = item.habit.description || "";
         editQuestVersionList.appendChild(block);
       });
