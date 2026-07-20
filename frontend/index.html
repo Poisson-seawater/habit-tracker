@@ -970,8 +970,10 @@
           <section class="glass-card quests-panel">
             <h2 class="section-header">
               <span id="quests-panel-title">🎯 Quêtes à placer</span>
-              <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <button class="floating-add-btn" id="toggle-quests-view-btn" title="Voir les autres jours" style="display: none;">➡️</button>
+              <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+                <button class="quest-agenda-toggle-btn active" id="toggle-quest-agenda-btn" type="button">Agenda</button>
+                <button class="quest-bank-toggle-btn" id="toggle-quest-bank-btn" type="button">Banque</button>
+                <button class="quest-archives-toggle-btn" id="toggle-quest-archives-btn" type="button">Archives</button>
                 <button class="floating-add-btn" id="open-quest-inline-btn">+ Quête</button>
               </div>
             </h2>
@@ -1064,6 +1066,20 @@
 
             <div class="quests-list" id="quests-list-container">
               <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center;">Chargement des quêtes...</p>
+            </div>
+            <div class="quest-bank-panel" id="quest-bank-panel" hidden>
+              <div class="quest-bank-header">
+                <strong>Banque</strong>
+                <span id="quest-bank-count">0</span>
+              </div>
+              <div class="quest-bank-list" id="quest-bank-list"></div>
+            </div>
+            <div class="quest-archives-panel" id="quest-archives-panel" hidden>
+              <div class="quest-archives-header">
+                <strong>Archives</strong>
+                <span id="quest-archives-count">0</span>
+              </div>
+              <div class="quest-archives-list" id="quest-archives-list"></div>
             </div>
           </section>
 

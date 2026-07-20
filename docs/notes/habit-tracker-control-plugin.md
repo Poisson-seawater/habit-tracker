@@ -95,9 +95,15 @@ python3 plugins/habit-tracker-control/scripts/habitctl.py query goals \
   --name "Tour du monde"
 ```
 
-Ressources : `status`, `profile`, `goals`, `habits`, `habit-calendar`, `todos`,
-`notodos`, `softskills`, `rewards`, `history`, `templates`, `potentials`, `agenda`
-(accepte `--date YYYY-MM-DD`, défaut aujourd'hui), `biological-zones`.
+Ressources : `status`, `profile`, `goals`, `habits`, `archived-habits`,
+`habit-calendar`, `todos`, `notodos`, `softskills`, `rewards`, `history`,
+`templates`, `potentials`, `agenda` (accepte `--date YYYY-MM-DD`, défaut
+aujourd'hui), `biological-zones`.
+
+`archived-habits` est une lecture sans mutation qui appelle
+`/api/v1/habits?include_archived=true&include_all_versions=true`, filtre les
+quêtes archivées côté CLI, puis compacte chaque item en `id`, `name`,
+`frequency`, `archived_at` et `source_type`.
 
 Les listes volumineuses sont compactées. Un nom est résolu dans cet ordre :
 

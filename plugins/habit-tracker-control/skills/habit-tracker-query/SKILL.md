@@ -18,11 +18,13 @@ python3 plugins/habit-tracker-control/scripts/habitctl.py query goals
 python3 plugins/habit-tracker-control/scripts/habitctl.py query goals --name "Tour du monde"
 python3 plugins/habit-tracker-control/scripts/habitctl.py query status
 python3 plugins/habit-tracker-control/scripts/habitctl.py query softskills
+python3 plugins/habit-tracker-control/scripts/habitctl.py query archived-habits
 python3 plugins/habit-tracker-control/scripts/habitctl.py query agenda
 python3 plugins/habit-tracker-control/scripts/habitctl.py query agenda --date 2026-07-04
 python3 plugins/habit-tracker-control/scripts/habitctl.py query biological-zones
 ```
 
-Ressources : `status`, `profile`, `goals`, `habits`, `habit-calendar`, `todos`,
-`notodos`, `softskills`, `rewards`, `history`, `templates`, `potentials`, `agenda`
-(accepte `--date YYYY-MM-DD`, défaut aujourd'hui), `biological-zones`.
+Ressources : `status`, `profile`, `goals`, `habits`, `archived-habits`,
+`habit-calendar`, `todos`, `notodos`, `softskills`, `rewards`, `history`,
+`templates`, `potentials`, `agenda` (accepte `--date YYYY-MM-DD`, défaut
+aujourd'hui), `biological-zones`.

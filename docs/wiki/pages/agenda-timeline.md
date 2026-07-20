@@ -38,6 +38,8 @@ Une quête placée occupe un créneau précis du jour : heure de début, durée 
 
 L'agenda filtre les quêtes selon le type de journée actif. Une quête peut être autorisée pour un, deux ou trois types parmi `rest`, `regular` et `hustle`; seules les quêtes compatibles apparaissent et comptent dans les budgets du jour. Une validation manuelle hors type reste possible depuis les autres contrôles et reste visible dans l'historique.
 
+À droite, le panneau **Quêtes à placer** montre les quêtes éligibles qui n'ont pas encore de créneau. Le bouton **Archives** ouvre les anciennes quêtes archivées : elles sont consultables et désarchivables, mais elles ne polluent pas l'agenda du jour. Si tu désarchives une quête, elle revient non placée; il faut la glisser ou la replacer manuellement.
+
 Les boutons **Hier** et **Aujourd'hui** changent la date affichée. La vue Hier sert à corriger une quête accomplie ou un No-Todo enfreint la veille mais oublié. La correction recalcule la journée concernée; l'interface et l'API refusent les dates antérieures à hier.
 
 Le système laisse toujours un **tampon de 15 minutes** entre deux blocs placés — pas de créneaux collés bord à bord.

@@ -1,3 +1,4 @@
+import datetime
 import os
 
 import pytest
@@ -141,6 +142,37 @@ def test_sunday_quest_is_absent_monday_without_archive(client):
     assert sunday_habit["archived_at"] is None
 
 
+def test_quest_bank_lists_non_visible_quests_separately_from_archives(client):
+    daily_id = add_habit(name="Daily visible")
+    sunday_id = add_habit(name="Sunday banked", scheduled_days="0")
+    archived_id = add_habit(
+        name="Archived explicit",
+        archived_at=datetime.datetime(2026, 7, 1, 12, 0, 0),
+    )
+
+    response = client.get(
+        "/api/v1/habits/bank?date=2026-07-06", headers={"X-User-ID": "1"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["date"] == "2026-07-06"
+    assert data["day_type"] == "regular"
+    assert data["visible_quest_ids"] == [daily_id]
+
+    hidden = data["hidden_quests"]
+    assert [quest["habit_id"] for quest in hidden] == [sunday_id]
+    assert hidden[0]["archived_at"] is None
+    assert hidden[0]["visibility"] == "hidden"
+    assert hidden[0]["next_visible_date"] == "2026-07-12"
+    assert hidden[0]["bank_reasons"][0]["code"] == "not_scheduled"
+
+    archived = data["archived_quests"]
+    assert [quest["habit_id"] for quest in archived] == [archived_id]
+    assert archived[0]["visibility"] == "archived"
+    assert archived[0]["bank_reasons"][0]["code"] == "archived"
+
+
 def test_generated_focus_quests_are_reused_across_unpin_repin(client):
     db = TestingSessionLocal()
     try:
@@ -148,8 +180,12 @@ def test_generated_focus_quests_are_reused_across_unpin_repin(client):
         db.add(goal)
         db.flush()
         substep = SubStep(
-            id=100, user_id=1, title="Market research", description="Research the market",
-            effort_type="cerveau", effort_duration=1.5,
+            id=100,
+            user_id=1,
+            title="Market research",
+            description="Research the market",
+            effort_type="cerveau",
+            effort_duration=1.5,
         )
         db.add(substep)
         db.flush()
@@ -161,7 +197,11 @@ def test_generated_focus_quests_are_reused_across_unpin_repin(client):
     # Pin goal (Top 3) + substep + softskill
     response = client.put(
         "/api/v1/profile/pins",
-        json={"pinned_goals": [10], "pinned_substeps": [100], "pinned_softskills": ["python"]},
+        json={
+            "pinned_goals": [10],
+            "pinned_substeps": [100],
+            "pinned_softskills": ["python"],
+        },
         headers={"X-User-ID": "1"},
     )
     assert response.status_code == 200
@@ -179,24 +219,32 @@ def test_generated_focus_quests_are_reused_across_unpin_repin(client):
     # Unpin substep → quest should be auto-archived and absent from agenda
     response = client.put(
         "/api/v1/profile/pins",
-        json={"pinned_goals": [10], "pinned_substeps": [], "pinned_softskills": ["python"]},
+        json={
+            "pinned_goals": [10],
+            "pinned_substeps": [],
+            "pinned_softskills": ["python"],
+        },
         headers={"X-User-ID": "1"},
     )
     assert response.status_code == 200
     agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
-    assert all(
-        q["source_type"] != "substep" for q in agenda.json()["unplaced_quests"]
-    )
+    assert all(q["source_type"] != "substep" for q in agenda.json()["unplaced_quests"])
 
     # Verify the quest is archived (not deleted)
-    bank = client.get("/api/v1/habits?include_archived=true", headers={"X-User-ID": "1"}).json()
+    bank = client.get(
+        "/api/v1/habits?include_archived=true", headers={"X-User-ID": "1"}
+    ).json()
     archived_quest = next(h for h in bank if h["id"] == original_substep_quest_id)
     assert archived_quest["archived_at"] is not None
 
     # Re-pin substep → same quest should be auto-unarchived
     response = client.put(
         "/api/v1/profile/pins",
-        json={"pinned_goals": [10], "pinned_substeps": [100], "pinned_softskills": ["python"]},
+        json={
+            "pinned_goals": [10],
+            "pinned_substeps": [100],
+            "pinned_softskills": ["python"],
+        },
         headers={"X-User-ID": "1"},
     )
     assert response.status_code == 200
@@ -304,7 +352,9 @@ def test_non_placeable_quest_stays_visible_but_cannot_be_placed(client):
 
     agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
     assert agenda.status_code == 200
-    item = next(q for q in agenda.json()["unplaced_quests"] if q["habit_id"] == habit_id)
+    item = next(
+        q for q in agenda.json()["unplaced_quests"] if q["habit_id"] == habit_id
+    )
     assert item["agenda_placeable"] is False
     assert agenda.json()["placed_quests"] == []
 
@@ -350,7 +400,9 @@ def test_existing_placement_is_ignored_when_quest_becomes_non_placeable(client):
     agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
     assert agenda.status_code == 200
     assert agenda.json()["placed_quests"] == []
-    item = next(q for q in agenda.json()["unplaced_quests"] if q["habit_id"] == habit_id)
+    item = next(
+        q for q in agenda.json()["unplaced_quests"] if q["habit_id"] == habit_id
+    )
     assert item["start_time"] is None
     assert item["agenda_placeable"] is False
 
@@ -467,12 +519,51 @@ def test_update_can_clear_effort_type_for_rest_of_the_day(client):
 
 def test_archive_and_unarchive_are_explicit(client):
     habit_id = add_habit(name="Archive me")
+    placed = client.put(
+        f"/api/v1/agenda/2026-07-06/quests/{habit_id}/placement",
+        json={"start_time": "09:00", "duration_minutes": 60},
+        headers={"X-User-ID": "1"},
+    )
+    assert placed.status_code == 200
+    assert [q["habit_id"] for q in placed.json()["placed_quests"]] == [habit_id]
+
+    saved = client.post(
+        "/api/v1/agenda/2026-07-06/save-as-template",
+        json={"template_name": "regular"},
+        headers={"X-User-ID": "1"},
+    )
+    assert saved.status_code == 200
+
+    db = TestingSessionLocal()
+    try:
+        for template_name in ("rest", "hustle"):
+            db.add(
+                PerfectDayTemplate(
+                    user_id=1,
+                    template_name=template_name,
+                    agenda_json={
+                        "schema_version": 2,
+                        "segments": [],
+                        "default_placements": [
+                            {
+                                "habit_id": habit_id,
+                                "start": "10:00",
+                                "duration_minutes": 60,
+                            }
+                        ],
+                    },
+                )
+            )
+        db.commit()
+    finally:
+        db.close()
 
     archived = client.post(
         f"/api/v1/habits/{habit_id}/archive", headers={"X-User-ID": "1"}
     )
     assert archived.status_code == 200
     agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
+    assert agenda.json()["placed_quests"] == []
     assert agenda.json()["unplaced_quests"] == []
 
     bank = client.get(
@@ -481,13 +572,64 @@ def test_archive_and_unarchive_are_explicit(client):
     assert (
         next(h for h in bank.json() if h["id"] == habit_id)["archived_at"] is not None
     )
+    db = TestingSessionLocal()
+    try:
+        assert (
+            db.query(DailyAgendaPlacement)
+            .filter_by(user_id=1, habit_id=habit_id)
+            .count()
+            == 0
+        )
+        templates = (
+            db.query(PerfectDayTemplate)
+            .filter(PerfectDayTemplate.template_name.in_(["rest", "regular", "hustle"]))
+            .all()
+        )
+        assert {template.template_name for template in templates} == {
+            "rest",
+            "regular",
+            "hustle",
+        }
+        for template in templates:
+            placements = template.agenda_json.get("default_placements", [])
+            assert all(placement["habit_id"] != habit_id for placement in placements)
+    finally:
+        db.close()
 
     unarchived = client.post(
         f"/api/v1/habits/{habit_id}/unarchive", headers={"X-User-ID": "1"}
     )
     assert unarchived.status_code == 200
     agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
+    assert agenda.json()["placed_quests"] == []
     assert [q["habit_id"] for q in agenda.json()["unplaced_quests"]] == [habit_id]
+
+
+def test_habits_include_all_versions_keeps_archived_versions_visible(client):
+    v1_id = add_habit(name="Étape 1 - Deep work")
+    v2_id = add_habit(
+        name="Étape 2 - Deep work",
+        archived_at=datetime.datetime(2026, 7, 1, 12, 0, 0),
+    )
+
+    default_bank = client.get(
+        "/api/v1/habits?include_archived=true", headers={"X-User-ID": "1"}
+    )
+    assert default_bank.status_code == 200
+    assert [habit["id"] for habit in default_bank.json()] == [v2_id]
+
+    all_versions = client.get(
+        "/api/v1/habits?include_archived=true&include_all_versions=true",
+        headers={"X-User-ID": "1"},
+    )
+    assert all_versions.status_code == 200
+    assert [habit["id"] for habit in all_versions.json()] == [v1_id, v2_id]
+
+    active_all_versions = client.get(
+        "/api/v1/habits?include_all_versions=true", headers={"X-User-ID": "1"}
+    )
+    assert active_all_versions.status_code == 200
+    assert [habit["id"] for habit in active_all_versions.json()] == [v1_id]
 
 
 def test_pinned_goal_alone_does_not_generate_quest(client):
@@ -520,7 +662,10 @@ def test_unpin_substep_auto_archives_quest(client):
         db.add(goal)
         db.flush()
         substep = SubStep(
-            id=200, user_id=1, title="Read chapter 1", description="First chapter",
+            id=200,
+            user_id=1,
+            title="Read chapter 1",
+            description="First chapter",
         )
         db.add(substep)
         db.flush()
@@ -538,7 +683,9 @@ def test_unpin_substep_auto_archives_quest(client):
 
     # Verify quest exists in agenda
     agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
-    substep_quests = [q for q in agenda.json()["unplaced_quests"] if q["source_type"] == "substep"]
+    substep_quests = [
+        q for q in agenda.json()["unplaced_quests"] if q["source_type"] == "substep"
+    ]
     assert len(substep_quests) == 1
     quest_id = substep_quests[0]["habit_id"]
 
@@ -554,7 +701,9 @@ def test_unpin_substep_auto_archives_quest(client):
     assert all(q["source_type"] != "substep" for q in agenda.json()["unplaced_quests"])
 
     # Quest should be archived in the bank
-    bank = client.get("/api/v1/habits?include_archived=true", headers={"X-User-ID": "1"}).json()
+    bank = client.get(
+        "/api/v1/habits?include_archived=true", headers={"X-User-ID": "1"}
+    ).json()
     quest = next(h for h in bank if h["id"] == quest_id)
     assert quest["archived_at"] is not None
     assert quest["source_type"] == "substep"
@@ -562,12 +711,15 @@ def test_unpin_substep_auto_archives_quest(client):
 
 def test_agenda_quest_done_only_when_target_reached(client):
     import datetime
+
     # Add a daily habit with daily_target = 2
     habit_id = add_habit(name="Quantitative Habit", daily_target=2, type="binary")
     today_str = datetime.date.today().isoformat()
 
     # Get agenda - status should be planned, today_count should be 0
-    agenda = client.get(f"/api/v1/agenda?date={today_str}", headers={"X-User-ID": "1"}).json()
+    agenda = client.get(
+        f"/api/v1/agenda?date={today_str}", headers={"X-User-ID": "1"}
+    ).json()
     quest = next(q for q in agenda["unplaced_quests"] if q["habit_id"] == habit_id)
     assert quest["status"] == "planned"
     assert quest["today_count"] == 0
@@ -577,12 +729,14 @@ def test_agenda_quest_done_only_when_target_reached(client):
     response = client.post(
         "/api/v1/logs",
         json={"habit_id": habit_id, "log_type": "done"},
-        headers={"X-User-ID": "1"}
+        headers={"X-User-ID": "1"},
     )
     assert response.status_code == 200
 
     # Get agenda again - status should be planned, today_count should be 1
-    agenda = client.get(f"/api/v1/agenda?date={today_str}", headers={"X-User-ID": "1"}).json()
+    agenda = client.get(
+        f"/api/v1/agenda?date={today_str}", headers={"X-User-ID": "1"}
+    ).json()
     quest = next(q for q in agenda["unplaced_quests"] if q["habit_id"] == habit_id)
     assert quest["status"] == "planned"
     assert quest["today_count"] == 1
@@ -591,13 +745,14 @@ def test_agenda_quest_done_only_when_target_reached(client):
     response = client.post(
         "/api/v1/logs",
         json={"habit_id": habit_id, "log_type": "done"},
-        headers={"X-User-ID": "1"}
+        headers={"X-User-ID": "1"},
     )
     assert response.status_code == 200
 
     # Get agenda again - status should be done, today_count should be 2
-    agenda = client.get(f"/api/v1/agenda?date={today_str}", headers={"X-User-ID": "1"}).json()
+    agenda = client.get(
+        f"/api/v1/agenda?date={today_str}", headers={"X-User-ID": "1"}
+    ).json()
     quest = next(q for q in agenda["unplaced_quests"] if q["habit_id"] == habit_id)
     assert quest["status"] == "done"
     assert quest["today_count"] == 2
-

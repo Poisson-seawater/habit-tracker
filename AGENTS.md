@@ -109,6 +109,12 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
   reconstruire et recréer les services de la cible confirmée, puis vérifier `/health` et les
   logs de démarrage/migrations. Un mélange frontend récent + ancienne image backend peut
   produire de faux `Method Not Allowed`, champs non persistés ou réponses API obsolètes.
+- **Archive des quêtes et agenda** : archiver une quête doit la retirer de l'Agenda des
+  Quêtes, de « Quêtes à placer », des `DailyAgendaPlacement` datés et des
+  `default_placements` des templates `rest`/`regular`/`hustle`. Utiliser
+  `agenda_service.remove_habit_agenda_references()` pour conserver ce comportement.
+  Désarchiver ne restaure jamais d'anciens placements : la quête revient non placée si
+  elle est éligible.
 - **log.md** : documenter les décisions opérationnelles, les échecs et les pistes écartées.
   Priorité aux décisions rejetées ou aux tentatives qui n'ont pas fonctionné, car les
   décisions retenues sont généralement déjà visibles dans les commits, PR et GitHub Actions.
@@ -139,6 +145,10 @@ l'instance distante sans MCP. Avant de modifier ce mécanisme, lire :
 - [docs/notes/habit-tracker-control-plugin.md](./docs/notes/habit-tracker-control-plugin.md)
 - [docs/notes/database-v9-remote-operations.md](./docs/notes/database-v9-remote-operations.md)
 - [docs/adr/002-plugin-habit-tracker-control.md](./docs/adr/002-plugin-habit-tracker-control.md)
+
+Lecture utile pour les archives : `habitctl.py query archived-habits`, qui appelle
+`GET /api/v1/habits?include_archived=true&include_all_versions=true` et filtre les
+quêtes avec `archived_at`.
 
 ## Ne PAS modifier sans discussion
 

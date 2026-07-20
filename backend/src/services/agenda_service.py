@@ -55,6 +55,22 @@ EFFORT_CEILING_TYPES = {
 
 AGENDA_BUFFER_MINUTES = 15
 
+DAY_LABELS = {
+    "0": "dimanche",
+    "1": "lundi",
+    "2": "mardi",
+    "3": "mercredi",
+    "4": "jeudi",
+    "5": "vendredi",
+    "6": "samedi",
+}
+
+DAY_TYPE_LABELS = {
+    "rest": "repos",
+    "regular": "regular",
+    "hustle": "hustle",
+}
+
 DEFAULT_CEILINGS = {
     "rest": {
         "musculaire": 1.0,
@@ -270,6 +286,46 @@ def normalize_agenda_json(raw_value) -> dict:
     }
 
 
+def remove_habit_agenda_references(db: Session, user_id: int, habit_id: int) -> bool:
+    changed = False
+    deleted_count = (
+        db.query(DailyAgendaPlacement)
+        .filter(
+            DailyAgendaPlacement.user_id == user_id,
+            DailyAgendaPlacement.habit_id == habit_id,
+        )
+        .delete(synchronize_session=False)
+    )
+    if deleted_count:
+        changed = True
+
+    templates = (
+        db.query(PerfectDayTemplate)
+        .filter(
+            PerfectDayTemplate.user_id == user_id,
+            PerfectDayTemplate.template_name.in_(DAY_TYPES),
+        )
+        .all()
+    )
+    for template in templates:
+        agenda_json = normalize_agenda_json(template.agenda_json)
+        default_placements = agenda_json.get("default_placements", [])
+        kept_placements = [
+            placement
+            for placement in default_placements
+            if int(placement.get("habit_id") or 0) != habit_id
+        ]
+        if len(kept_placements) == len(default_placements):
+            continue
+        template.agenda_json = {
+            "schema_version": 2,
+            "segments": agenda_json.get("segments", []),
+            "default_placements": kept_placements,
+        }
+        changed = True
+    return changed
+
+
 def _softskill_names_by_id() -> dict:
     try:
         config = softskill_service.load_tree_config()
@@ -369,6 +425,7 @@ def sync_generated_focus_quests(db: Session, user: User) -> bool:
     for habit in existing_substep_quests:
         if str(habit.source_ref or "") not in pinned_substep_refs:
             habit.archived_at = now
+            remove_habit_agenda_references(db, user.id, habit.id)
             changed = True
 
     # --- Softskill quests: create if missing (no auto-archive) ---
@@ -448,6 +505,258 @@ def is_habit_eligible_on_date(
         if value.strip()
     }
     return day_index in scheduled_days
+
+
+def _habit_schedule_label(habit: Habit) -> str:
+    frequency = habit.frequency or "daily"
+    if frequency == "monthly":
+        anchor = monthly_anchor_day(
+            habit.scheduled_days,
+            habit.created_at.date() if habit.created_at else None,
+        )
+        return f"mensuel le {anchor}"
+
+    scheduled_days = [
+        value.strip()
+        for value in (habit.scheduled_days or "0,1,2,3,4,5,6").split(",")
+        if value.strip()
+    ]
+    if set(scheduled_days) == set(DAY_LABELS):
+        return "tous les jours"
+    labels = [DAY_LABELS.get(value, value) for value in scheduled_days]
+    return ", ".join(labels) if labels else "planning vide"
+
+
+def _habit_bank_reasons(
+    habit: Habit,
+    date_value: datetime.date,
+    user: User,
+    day_type: str,
+) -> list[dict]:
+    reasons = []
+
+    if not habit.is_active:
+        reasons.append(
+            {
+                "code": "inactive",
+                "label": "Inactive",
+                "detail": "La quete est desactivee.",
+            }
+        )
+    if habit.archived_at is not None:
+        reasons.append(
+            {
+                "code": "archived",
+                "label": "Archivee",
+                "detail": "La quete est explicitement archivee.",
+            }
+        )
+        return reasons
+
+    source_type = habit.source_type or "manual"
+    if source_type == "goal":
+        reasons.append(
+            {
+                "code": "legacy_goal",
+                "label": "Ancien objectif",
+                "detail": "Les anciennes quetes d'objectif sont remplacees par les quetes de sous-etapes.",
+            }
+        )
+
+    if habit.auto_managed or source_type in {"substep", "softskill"}:
+        source_ref = str(habit.source_ref or "")
+        if source_type == "softskill" and source_ref not in {
+            str(skill_id) for skill_id in (user.pinned_softskills or [])
+        }:
+            reasons.append(
+                {
+                    "code": "source_not_pinned",
+                    "label": "Skill non epinglee",
+                    "detail": "Cette quete de skill reapparait quand la skill est epinglee au Recap.",
+                }
+            )
+
+    normalized_day_type = normalize_day_type(day_type)
+    allowed_day_types = normalize_habit_day_types(habit.day_types)
+    if normalized_day_type not in allowed_day_types:
+        allowed = ", ".join(
+            DAY_TYPE_LABELS.get(value, value) for value in allowed_day_types
+        )
+        reasons.append(
+            {
+                "code": "day_type",
+                "label": f"Jour {DAY_TYPE_LABELS.get(normalized_day_type, normalized_day_type)}",
+                "detail": f"Compatible avec: {allowed}.",
+            }
+        )
+
+    frequency = habit.frequency or "daily"
+    if frequency == "monthly":
+        anchor = monthly_anchor_day(
+            habit.scheduled_days,
+            habit.created_at.date() if habit.created_at else None,
+        )
+        if not is_monthly_due_on_date(anchor, date_value):
+            last_day = calendar.monthrange(date_value.year, date_value.month)[1]
+            due_day = min(anchor, last_day)
+            reasons.append(
+                {
+                    "code": "monthly_not_due",
+                    "label": f"Mensuel le {due_day}",
+                    "detail": f"Cette quete mensuelle est due le {due_day} du mois affiche.",
+                }
+            )
+    elif frequency in {"daily", "custom", "specific_days"}:
+        day_index = str(day_index_for_date(date_value))
+        scheduled_days = {
+            value.strip()
+            for value in (habit.scheduled_days or "0,1,2,3,4,5,6").split(",")
+            if value.strip()
+        }
+        if day_index not in scheduled_days:
+            reasons.append(
+                {
+                    "code": "not_scheduled",
+                    "label": "Pas ce jour",
+                    "detail": f"Planning: {_habit_schedule_label(habit)}.",
+                }
+            )
+    else:
+        reasons.append(
+            {
+                "code": "unsupported_frequency",
+                "label": "Frequence ignoree",
+                "detail": f"La frequence {frequency} n'est pas visible dans l'agenda.",
+            }
+        )
+
+    if not reasons:
+        reasons.append(
+            {
+                "code": "not_visible",
+                "label": "Hors agenda",
+                "detail": "Cette quete n'est pas eligible pour la date affichee.",
+            }
+        )
+    return reasons
+
+
+def _next_eligible_date(
+    db: Session,
+    user: User,
+    habit: Habit,
+    from_date: datetime.date,
+    max_days: int = 370,
+) -> Optional[datetime.date]:
+    for offset in range(1, max_days + 1):
+        candidate = from_date + datetime.timedelta(days=offset)
+        day_type = resolve_day_type(db, user.id, candidate)
+        if is_habit_eligible_on_date(habit, candidate, user, day_type):
+            return candidate
+    return None
+
+
+def build_quest_bank_response(
+    db: Session, user_id: int, date_value: datetime.date
+) -> tuple[dict, bool]:
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    changed = sync_generated_focus_quests(db, user)
+    day_type = resolve_day_type(db, user_id, date_value)
+    habits = db.query(Habit).filter(Habit.user_id == user_id).order_by(Habit.name).all()
+    completions, skipped_ids, failed_ids = _completed_and_skipped_habit_ids(
+        db, user_id, date_value, habits
+    )
+
+    current_streak_by_habit_id = {}
+    habit_ids = [habit.id for habit in habits]
+    if habit_ids:
+        streak_rows = (
+            db.query(Streak)
+            .filter(
+                Streak.user_id == user_id,
+                Streak.streak_type.in_([f"habit:{habit_id}" for habit_id in habit_ids]),
+            )
+            .all()
+        )
+        for streak in streak_rows:
+            if not streak.streak_type.startswith("habit:"):
+                continue
+            try:
+                habit_id = int(streak.streak_type.split(":", 1)[1])
+            except ValueError:
+                continue
+            current_streak_by_habit_id[habit_id] = streak.current_streak or 0
+
+    visible_quest_ids = []
+    hidden_quests = []
+    archived_quests = []
+
+    for habit in habits:
+        if not habit.is_active:
+            continue
+
+        item = habit_to_agenda_item(
+            db,
+            habit,
+            date_value,
+            completions,
+            skipped_ids,
+            failed_ids,
+            current_streak_by_habit_id.get(habit.id, 0),
+        )
+
+        if habit.archived_at is not None:
+            item.update(
+                {
+                    "visibility": "archived",
+                    "bank_reasons": _habit_bank_reasons(
+                        habit, date_value, user, day_type
+                    ),
+                    "next_visible_date": None,
+                }
+            )
+            archived_quests.append(item)
+            continue
+
+        if is_habit_eligible_on_date(habit, date_value, user, day_type):
+            visible_quest_ids.append(habit.id)
+            continue
+
+        next_date = _next_eligible_date(db, user, habit, date_value)
+        item.update(
+            {
+                "visibility": "hidden",
+                "bank_reasons": _habit_bank_reasons(habit, date_value, user, day_type),
+                "next_visible_date": next_date.isoformat() if next_date else None,
+            }
+        )
+        hidden_quests.append(item)
+
+    hidden_quests.sort(
+        key=lambda item: (
+            item.get("next_visible_date") is None,
+            item.get("next_visible_date") or "",
+            item.get("name", "").lower(),
+        )
+    )
+    archived_quests.sort(key=lambda item: item.get("archived_at") or "", reverse=True)
+
+    return (
+        {
+            "date": date_value.isoformat(),
+            "day_type": day_type,
+            "visible_quest_ids": visible_quest_ids,
+            "visible_count": len(visible_quest_ids),
+            "hidden_quests": hidden_quests,
+            "hidden_count": len(hidden_quests),
+            "archived_quests": archived_quests,
+            "archived_count": len(archived_quests),
+        },
+        changed,
+    )
 
 
 def _habit_duration_minutes(habit: Habit) -> int:

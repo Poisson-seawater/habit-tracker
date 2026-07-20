@@ -232,6 +232,278 @@ body {
   gap: 1rem;
 }
 
+.quests-list[hidden],
+.quest-bank-panel[hidden],
+.quest-archives-panel[hidden] {
+  display: none !important;
+}
+
+.quest-agenda-toggle-btn,
+.quest-bank-toggle-btn,
+.quest-archives-toggle-btn {
+  height: 34px;
+  padding: 0 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.34);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--accent-gold);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.quest-agenda-toggle-btn {
+  border-color: rgba(34, 197, 94, 0.34);
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--accent-green);
+}
+
+.quest-bank-toggle-btn {
+  border-color: rgba(6, 182, 212, 0.34);
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--accent-cyan);
+}
+
+.quest-agenda-toggle-btn:hover,
+.quest-agenda-toggle-btn.active,
+.quest-bank-toggle-btn:hover,
+.quest-bank-toggle-btn.active,
+.quest-archives-toggle-btn:hover,
+.quest-archives-toggle-btn.active {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.58);
+  transform: translateY(-1px);
+}
+
+.quest-agenda-toggle-btn:hover,
+.quest-agenda-toggle-btn.active {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.58);
+}
+
+.quest-bank-toggle-btn:hover,
+.quest-bank-toggle-btn.active {
+  background: rgba(6, 182, 212, 0.18);
+  border-color: rgba(6, 182, 212, 0.58);
+}
+
+.quest-bank-panel,
+.quest-archives-panel {
+  border-top: 1px solid var(--border-glass);
+  padding-top: 1rem;
+}
+
+.quest-bank-header,
+.quest-archives-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.quest-bank-header strong,
+.quest-archives-header strong {
+  color: var(--accent-gold);
+  font-family: var(--font-display);
+}
+
+.quest-bank-header strong {
+  color: var(--accent-cyan);
+}
+
+.quest-bank-header span,
+.quest-archives-header span,
+.quest-bank-reason,
+.quest-archive-badge {
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--accent-gold);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+}
+
+.quest-bank-header span,
+.quest-bank-reason {
+  border-color: rgba(6, 182, 212, 0.25);
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--accent-cyan);
+}
+
+.quest-bank-list,
+.quest-archives-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.quest-bank-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  border: 1px solid var(--border-glass);
+  border-left: 3px solid rgba(6, 182, 212, 0.48);
+  border-radius: 8px;
+  background: rgba(6, 182, 212, 0.035);
+  padding: 0.75rem;
+}
+
+.quest-bank-main {
+  min-width: 0;
+}
+
+.quest-bank-main strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.quest-bank-description {
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  margin: 0.35rem 0;
+  max-height: calc(1.35em * 4);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+}
+
+.quest-bank-meta,
+.quest-bank-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.quest-bank-actions {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.quest-bank-meta {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.quest-bank-action {
+  align-self: start;
+  border: 1px solid rgba(6, 182, 212, 0.32);
+  border-radius: 8px;
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--accent-cyan);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 0.45rem 0.65rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.quest-bank-action:hover {
+  background: rgba(6, 182, 212, 0.18);
+}
+
+.quest-bank-action.archive {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--accent-gold);
+}
+
+.quest-bank-action.archive:hover {
+  background: rgba(245, 158, 11, 0.18);
+}
+
+.quest-archive-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.quest-archive-group-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.quest-archive-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 0.75rem;
+}
+
+.quest-archive-main {
+  min-width: 0;
+}
+
+.quest-archive-main strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.quest-archive-description {
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  margin: 0.35rem 0;
+  max-height: calc(1.35em * 4);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+}
+
+.quest-archive-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.quest-archive-action {
+  align-self: start;
+  border: 1px solid rgba(6, 182, 212, 0.32);
+  border-radius: 8px;
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--accent-cyan);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 0.45rem 0.65rem;
+  white-space: nowrap;
+}
+
+.quest-archive-action:hover {
+  background: rgba(6, 182, 212, 0.18);
+}
+
 .quest-item {
   display: flex;
   justify-content: space-between;
@@ -3423,5 +3695,15 @@ body {
   .agenda-buffer-block {
     left: 0.5rem;
     right: 0.5rem;
+  }
+
+  .quest-bank-row,
+  .quest-archive-row {
+    grid-template-columns: 1fr;
+  }
+
+  .quest-bank-action,
+  .quest-archive-action {
+    width: 100%;
   }
 }

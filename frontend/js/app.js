@@ -64,9 +64,19 @@ document.addEventListener("DOMContentLoaded", () => {
   const charLevel = document.getElementById("char-level");
   const badgeStatus = document.getElementById("badge-status");
   const templateSelect = document.getElementById("template-select");
+  const questsPanelTitle = document.getElementById("quests-panel-title");
   const questsListContainer = document.getElementById("quests-list-container");
+  const questArchivesPanel = document.getElementById("quest-archives-panel");
+  const questArchivesList = document.getElementById("quest-archives-list");
+  const questArchivesCount = document.getElementById("quest-archives-count");
+  const toggleQuestAgendaBtn = document.getElementById("toggle-quest-agenda-btn");
+  const toggleQuestArchivesBtn = document.getElementById("toggle-quest-archives-btn");
+  const questBankPanel = document.getElementById("quest-bank-panel");
+  const questBankList = document.getElementById("quest-bank-list");
+  const questBankCount = document.getElementById("quest-bank-count");
+  const toggleQuestBankBtn = document.getElementById("toggle-quest-bank-btn");
   let allHabitsCache = [];
-  let showTodayQuests = true;
+  let questPanelMode = "agenda";
   let showTodayBounties = true;
   const toastNotification = document.getElementById("toast-notification");
 
@@ -162,7 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
   async function showAgendaDate(date) {
     if (agendaDateInput) agendaDateInput.value = date;
     updateAgendaDateSwitch();
-    await Promise.all([loadQuestAgenda(true), fetchNoTodos()]);
+    await Promise.all([loadCurrentQuestPanel(true), fetchNoTodos()]);
   }
 
   function monthlyAnchorDay(value, fallbackDate = new Date()) {
@@ -437,20 +447,356 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==============================================
   // ACTIVE QUESTS (HABITS CHECK-INS)             //
   // ==============================================
+  function closeQuestInlineForm() {
+    const questForm = document.getElementById("quest-inline-form");
+    const openQuestBtn = document.getElementById("open-quest-inline-btn");
+    if (questForm) questForm.style.display = "none";
+    if (openQuestBtn) openQuestBtn.textContent = "+ Quête";
+  }
+
+  function updateQuestPanelShell() {
+    const isAgenda = questPanelMode === "agenda";
+    const isBank = questPanelMode === "bank";
+    const isArchives = questPanelMode === "archives";
+
+    if (questsPanelTitle) {
+      questsPanelTitle.textContent = isBank
+        ? "🎯 Banque des quêtes"
+        : isArchives
+          ? "🎯 Archives"
+          : "🎯 Quêtes à placer";
+    }
+
+    if (questsListContainer) questsListContainer.hidden = !isAgenda;
+    if (questBankPanel) questBankPanel.hidden = !isBank;
+    if (questArchivesPanel) questArchivesPanel.hidden = !isArchives;
+
+    toggleQuestAgendaBtn?.classList.toggle("active", isAgenda);
+    toggleQuestBankBtn?.classList.toggle("active", isBank);
+    toggleQuestArchivesBtn?.classList.toggle("active", isArchives);
+
+    const openQuestBtn = document.getElementById("open-quest-inline-btn");
+    if (openQuestBtn) openQuestBtn.hidden = !isAgenda;
+    if (!isAgenda) closeQuestInlineForm();
+  }
+
+  async function loadCurrentQuestPanel(showErrors = false) {
+    updateQuestPanelShell();
+    if (questPanelMode === "bank") {
+      return loadQuestBank();
+    }
+    if (questPanelMode === "archives") {
+      return loadQuestArchives();
+    }
+    return loadQuestAgenda(showErrors);
+  }
+
+  async function setQuestPanelMode(mode, options = {}) {
+    const { reload = true } = options;
+    questPanelMode = ["agenda", "bank", "archives"].includes(mode) ? mode : "agenda";
+    updateQuestPanelShell();
+    if (reload) {
+      await loadCurrentQuestPanel(true);
+    }
+  }
+
   async function fetchQuests() {
     try {
       const habitsResponse = await fetch(`${API_BASE}/habits`);
       if (!habitsResponse.ok) throw new Error("Erreur habits API");
       const habits = await habitsResponse.json();
       allHabitsCache = habits;
-      const questsPanelTitle = document.getElementById("quests-panel-title");
-      if (questsPanelTitle) {
-        questsPanelTitle.textContent = "🎯 Quêtes à placer";
-      }
-      await loadQuestAgenda(false);
+      await loadCurrentQuestPanel(false);
     } catch (error) {
       console.error(error);
       questsListContainer.innerHTML = `<p style="color: var(--accent-red); font-size: 0.9rem; text-align: center;">Erreur de chargement des quêtes.</p>`;
+    }
+  }
+
+  function normalizedQuestArchiveKey(name) {
+    const { baseName } = splitQuestVersionName(name || "");
+    return baseName
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  }
+
+  function formatArchivedAt(value) {
+    if (!value) return "date inconnue";
+    const parsed = new Date(value);
+    if (isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString("fr-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    });
+  }
+
+  function formatDateOnly(value) {
+    if (!value) return "date inconnue";
+    const parts = String(value).split("T")[0].split("-");
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
+    return value;
+  }
+
+  function questFrequencyLabel(habit) {
+    const frequency = habit.frequency || "daily";
+    if (frequency === "monthly") return "mensuel";
+    if (frequency === "specific_days") return "jours fixes";
+    return "quotidien";
+  }
+
+  function renderQuestArchives(habits) {
+    if (!questArchivesList) return;
+    const archived = habits
+      .filter((habit) => habit.archived_at)
+      .sort((a, b) => new Date(b.archived_at || 0) - new Date(a.archived_at || 0));
+    if (questArchivesCount) questArchivesCount.textContent = String(archived.length);
+
+    questArchivesList.innerHTML = "";
+    if (archived.length === 0) {
+      questArchivesList.innerHTML = `<p class="agenda-empty">Aucune quête archivée.</p>`;
+      return;
+    }
+
+    const activeKeys = new Set(
+      habits
+        .filter((habit) => !habit.archived_at && habit.is_active !== false)
+        .map((habit) => normalizedQuestArchiveKey(habit.name))
+        .filter(Boolean)
+    );
+    const groups = new Map();
+    archived.forEach((habit) => {
+      const key = normalizedQuestArchiveKey(habit.name) || String(habit.id);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(habit);
+    });
+
+    Array.from(groups.entries())
+      .sort((a, b) => {
+        const left = splitQuestVersionName(a[1][0].name).baseName.toLowerCase();
+        const right = splitQuestVersionName(b[1][0].name).baseName.toLowerCase();
+        return left.localeCompare(right, "fr");
+      })
+      .forEach(([key, items]) => {
+        const group = document.createElement("div");
+        group.className = "quest-archive-group";
+
+        const title = document.createElement("div");
+        title.className = "quest-archive-group-title";
+        const base = document.createElement("span");
+        base.textContent = splitQuestVersionName(items[0].name).baseName || items[0].name;
+        title.appendChild(base);
+
+        if (items.length > 1) {
+          const badge = document.createElement("span");
+          badge.className = "quest-archive-badge";
+          badge.textContent = `${items.length} archives`;
+          title.appendChild(badge);
+        }
+        if (activeKeys.has(key)) {
+          const activeBadge = document.createElement("span");
+          activeBadge.className = "quest-archive-badge";
+          activeBadge.textContent = "actif aussi";
+          title.appendChild(activeBadge);
+        }
+        group.appendChild(title);
+
+        items.forEach((habit) => {
+          const row = document.createElement("div");
+          row.className = "quest-archive-row";
+
+          const main = document.createElement("div");
+          main.className = "quest-archive-main";
+          const name = document.createElement("strong");
+          name.textContent = habit.name;
+          main.appendChild(name);
+
+          const description = (habit.description || "").trim();
+          if (description) {
+            const desc = document.createElement("p");
+            desc.className = "quest-archive-description";
+            desc.textContent = description;
+            main.appendChild(desc);
+          }
+
+          const source = habit.source_label || (habit.source_type === "manual" ? "manuel" : habit.source_type || "manuel");
+          const meta = document.createElement("div");
+          meta.className = "quest-archive-meta";
+          [formatArchivedAt(habit.archived_at), questFrequencyLabel(habit), source]
+            .filter(Boolean)
+            .forEach((value) => {
+              const item = document.createElement("span");
+              item.textContent = value;
+              meta.appendChild(item);
+            });
+          main.appendChild(meta);
+
+          const action = document.createElement("button");
+          action.type = "button";
+          action.className = "quest-archive-action";
+          action.textContent = "Désarchiver";
+          action.addEventListener("click", async () => {
+            await unarchiveQuestFromArchives(habit.id);
+          });
+
+          row.append(main, action);
+          group.appendChild(row);
+        });
+
+        questArchivesList.appendChild(group);
+      });
+  }
+
+  async function loadQuestArchives() {
+    if (!questArchivesList) return [];
+    try {
+      questArchivesList.innerHTML = `<p class="agenda-empty">Chargement des archives...</p>`;
+      const response = await fetch(`${API_BASE}/habits?include_archived=true&include_all_versions=true`);
+      if (!response.ok) throw new Error((await response.json()).detail || "Erreur archives");
+      const habits = await response.json();
+      renderQuestArchives(habits);
+      return habits;
+    } catch (error) {
+      console.error(error);
+      questArchivesList.innerHTML = `<p class="agenda-empty error">Erreur de chargement des archives.</p>`;
+      return [];
+    }
+  }
+
+  function renderQuestBank(data) {
+    if (!questBankList) return;
+    const hidden = data.hidden_quests || [];
+    if (questBankCount) questBankCount.textContent = String(hidden.length);
+
+    questBankList.innerHTML = "";
+    if (hidden.length === 0) {
+      questBankList.innerHTML = `<p class="agenda-empty">Toutes les quêtes actives sont visibles pour cette date.</p>`;
+      return;
+    }
+
+    hidden.forEach((quest) => {
+      const row = document.createElement("div");
+      row.className = "quest-bank-row";
+
+      const main = document.createElement("div");
+      main.className = "quest-bank-main";
+      const name = document.createElement("strong");
+      name.textContent = quest.name;
+      main.appendChild(name);
+
+      const descriptionText = (quest.description || "").trim();
+      if (descriptionText) {
+        const desc = document.createElement("p");
+        desc.className = "quest-bank-description";
+        desc.textContent = descriptionText;
+        main.appendChild(desc);
+      }
+
+      const meta = document.createElement("div");
+      meta.className = "quest-bank-meta";
+      (quest.bank_reasons || []).forEach((reason) => {
+        const item = document.createElement("span");
+        item.className = "quest-bank-reason";
+        item.textContent = reason.label || "Hors agenda";
+        item.title = reason.detail || "";
+        meta.appendChild(item);
+      });
+      if (quest.next_visible_date) {
+        const next = document.createElement("span");
+        next.textContent = `Prochaine: ${formatDateOnly(quest.next_visible_date)}`;
+        meta.appendChild(next);
+      }
+      [
+        questFrequencyLabel(quest),
+        quest.source_label || (quest.source_type === "manual" ? "manuel" : quest.source_type || "manuel")
+      ]
+        .filter(Boolean)
+        .forEach((value) => {
+          const item = document.createElement("span");
+          item.textContent = value;
+          meta.appendChild(item);
+        });
+      main.appendChild(meta);
+
+      const actions = document.createElement("div");
+      actions.className = "quest-bank-actions";
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "quest-bank-action";
+      edit.textContent = "Modifier";
+      edit.addEventListener("click", () => openEditQuestModal(questFromAgendaItem(quest)));
+
+      const stats = document.createElement("button");
+      stats.type = "button";
+      stats.className = "quest-bank-action";
+      stats.textContent = "Stats";
+      stats.addEventListener("click", () => {
+        const habitObj = allHabitsCache.find(h => String(h.id) === String(quest.habit_id)) || questFromAgendaItem(quest);
+        openHabitDetailModal(habitObj);
+      });
+
+      const archive = document.createElement("button");
+      archive.type = "button";
+      archive.className = "quest-bank-action archive";
+      archive.textContent = "Archiver";
+      archive.addEventListener("click", () => archiveQuestFromBank(quest.habit_id));
+      actions.append(edit, stats, archive);
+
+      row.append(main, actions);
+      questBankList.appendChild(row);
+    });
+  }
+
+  async function loadQuestBank() {
+    if (!questBankList) return null;
+    try {
+      questBankList.innerHTML = `<p class="agenda-empty">Chargement de la banque...</p>`;
+      const date = getAgendaDate();
+      const response = await fetch(`${API_BASE}/habits/bank?date=${encodeURIComponent(date)}`);
+      if (!response.ok) throw new Error((await response.json()).detail || "Erreur banque");
+      const data = await response.json();
+      renderQuestBank(data);
+      return data;
+    } catch (error) {
+      console.error(error);
+      questBankList.innerHTML = `<p class="agenda-empty error">Erreur de chargement de la banque.</p>`;
+      return null;
+    }
+  }
+
+  async function archiveQuestFromBank(habitId) {
+    if (!habitId) return;
+    try {
+      const response = await fetch(`${API_BASE}/habits/${habitId}/archive`, { method: "POST" });
+      if (!response.ok) throw new Error((await response.json()).detail || "Erreur");
+      showToast("Quête archivée.");
+      await refreshQuestSurfaces();
+      fetchProfile();
+      fetchHistory();
+      updateDailyBudgetGauge();
+    } catch (error) {
+      console.error(error);
+      showToast(error.message, true);
+    }
+  }
+
+  async function refreshQuestSurfaces() {
+    await fetchQuests();
+  }
+
+  async function unarchiveQuestFromArchives(habitId) {
+    if (!habitId) return;
+    try {
+      const response = await fetch(`${API_BASE}/habits/${habitId}/unarchive`, { method: "POST" });
+      if (!response.ok) throw new Error((await response.json()).detail || "Erreur");
+      showToast("Quête désarchivée.");
+      await refreshQuestSurfaces();
+    } catch (error) {
+      console.error(error);
+      showToast(error.message, true);
     }
   }
 
@@ -3965,7 +4311,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!r.ok) throw new Error((await r.json()).detail || "Erreur");
       showToast(archived ? "Quête désarchivée." : "Quête archivée.");
       closeEditQuestModal();
-      refreshAll();
+      await refreshQuestSurfaces();
+      fetchProfile();
+      fetchHistory();
+      fetchBounties();
+      fetchNoTodos();
+      updateDailyBudgetGauge();
     } catch (e) {
       showToast(e.message, true);
     }
@@ -4283,13 +4634,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function setupToggleEvents() {
-    const toggleQuestsBtn = document.getElementById("toggle-quests-view-btn");
-    if (toggleQuestsBtn) {
-      toggleQuestsBtn.addEventListener("click", () => {
-        showTodayQuests = !showTodayQuests;
-        fetchQuests();
-      });
-    }
+    toggleQuestAgendaBtn?.addEventListener("click", () => setQuestPanelMode("agenda"));
+    toggleQuestBankBtn?.addEventListener("click", () => setQuestPanelMode("bank"));
+    toggleQuestArchivesBtn?.addEventListener("click", () => setQuestPanelMode("archives"));
 
     const toggleBountiesBtn = document.getElementById("toggle-bounties-view-btn");
     if (toggleBountiesBtn) {
@@ -4306,8 +4653,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     updateAgendaDateSwitch();
     agendaDateInput?.addEventListener("change", async () => {
-      updateAgendaDateSwitch();
-      await Promise.all([loadQuestAgenda(true), fetchNoTodos()]);
+      await showAgendaDate(getAgendaDate());
     });
     agendaYesterdayBtn?.addEventListener("click", () => showAgendaDate(yesterdayDateString()));
     agendaTodayBtn?.addEventListener("click", () => showAgendaDate(todayDateString()));

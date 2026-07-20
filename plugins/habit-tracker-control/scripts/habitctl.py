@@ -36,6 +36,7 @@ QUERY_PATHS = {
     "profile": "/api/v1/profile",
     "goals": "/api/v1/goals",
     "habits": "/api/v1/habits",
+    "archived-habits": "/api/v1/habits?include_archived=true&include_all_versions=true",
     "todos": "/api/v1/todos",
     "notodos": "/api/v1/notodos",
     "softskills": "/api/v1/softskills",
@@ -417,6 +418,23 @@ def compact_query(resource, payload, name=None):
                 for item in payload
             ],
         }
+    if resource == "archived-habits":
+        archived = [item for item in payload if item.get("archived_at")]
+        if name:
+            return resolve_one(archived, name, "name", "archived habit")
+        return {
+            "count": len(archived),
+            "items": [
+                {
+                    "id": item["id"],
+                    "name": item["name"],
+                    "frequency": item["frequency"],
+                    "archived_at": item["archived_at"],
+                    "source_type": item.get("source_type") or "manual",
+                }
+                for item in archived
+            ],
+        }
     if resource in {"todos", "notodos", "rewards"}:
         if name:
             return resolve_one(payload, name, "title", resource[:-1])
@@ -647,9 +665,11 @@ def operation_request(client, operation, data):
             )
         elif operation == "habit-unarchive":
             items, label, kind = (
-                client.request(
-                    "GET", f"{QUERY_PATHS['habits']}?include_archived=true"
-                ),
+                [
+                    item
+                    for item in client.request("GET", QUERY_PATHS["archived-habits"])
+                    if item.get("archived_at")
+                ],
                 "name",
                 "habit",
             )

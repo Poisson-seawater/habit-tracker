@@ -17,9 +17,23 @@ Le jour venu, l'agenda, le Perfect Day, `/status` et `/liste habit` ne retiennen
 
 Tu peux quand même valider manuellement une habitude hors type de journée avec `/done`, `/log`, l'API ou les contrôles du dashboard. Le log reste visible et la progression normale du streak s'applique, mais cette habitude ne devient pas une exigence du Perfect Day de ce jour.
 
+## Banque des quêtes
+
+Depuis le dashboard, le bouton **Banque** dans le panneau « Quêtes à placer » liste les quêtes actives qui existent mais ne sont pas visibles pour la date affichée. Chaque ligne indique pourquoi elle est absente : mauvais jour de semaine, mauvais type de journée, quête mensuelle pas encore due, skill non épinglée, ou ancien format de quête d'objectif.
+
+La banque est séparée des archives : une quête « pas ce jour » reste active et peut revenir automatiquement à sa prochaine date prévue. Une quête archivée, elle, a été retirée explicitement du quotidien.
+
 ## Effort et Perfect Day
 
 Les habitudes alimentent le [Perfect Day](#/perfect-day) par leur statut : validée, loggée, skippée, ratée ou restante. Une habitude quantitative peut avoir un **plafond de log par jour** (daily cap) et une unité. Certaines habitudes portent aussi un type et une durée d'effort (`musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`) pour les budgets de journée. Elles ne donnent **pas** d'XP direct — contrairement aux [primes](#/primes-todo).
+
+## Archiver une quête
+
+Depuis le dashboard, le bouton **Archives** dans le panneau « Quêtes à placer » ouvre la liste des quêtes archivées. Une quête archivée disparaît de l'[agenda](#/agenda-timeline), de « Quêtes à placer » et des placements sauvegardés dans les templates de jour. C'est fait pour retirer une quête du quotidien sans la supprimer définitivement.
+
+La liste Archives affiche la date d'archive, la fréquence, la source et les groupes de noms proches ou identiques. Le badge « actif aussi » signale qu'une quête active porte le même nom normalisé qu'une archive.
+
+Le bouton **Désarchiver** remet la quête dans la banque active si elle est encore éligible à la date affichée, mais il ne restaure pas ses anciens créneaux : elle revient non placée, à replacer manuellement si besoin.
 
 ## Déclarer une habitude ratée
 

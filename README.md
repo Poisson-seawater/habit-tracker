@@ -35,7 +35,9 @@ Le cadrage détaillé et son statut sont conservés dans [`specs/next-steps-mult
 
 
 ## ROADMAP
-- Dans les quest, la description devrais etre plus large pour suivre la 
+- avec IA ou UX pour voir les quest archiver et les quest avec le meme nom
+- BUG: quest archiver reste dans calendrier
+- Maybe / à réfléchir : version professionnelle de l'app pour partager des to-do provenant d'une compagnie. Ces to-do professionnels auraient aussi leur propre agenda spécifique, via la feature de quêtes, et leur propre Google Calendar spécifique. Exemples : quand un cx book un meeting, la to-do professionnelle reçoit automatiquement le meeting à la bonne heure ; quand j'assigne une tâche à un employé, l'employé reçoit automatiquement une to-do professionnelle avec une due date et une do date.
 
 
 

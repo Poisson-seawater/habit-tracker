@@ -3,6 +3,20 @@
 > Une entrée par session / push, anti-chronologique. Rédigé par `/doc-sync` avant push.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-07-20 — feat(quests): banque des quêtes hors agenda
+
+- **Quest Bank dashboard** : ajout d'un bouton **Banque** dans « Quêtes à placer » pour lister les quêtes actives qui existent mais ne sont pas visibles à la date affichée, avec la raison d'absence et la prochaine date visible quand elle est calculable.
+- **Modes du panneau quêtes** : les boutons **Agenda**, **Banque** et **Archives** remplacent maintenant le contenu du panneau au lieu d'empiler la banque ou les archives sous les quêtes à placer.
+- **API** : nouvel endpoint `GET /api/v1/habits/bank?date=YYYY-MM-DD`, calculé côté `agenda_service` avec la même logique d'éligibilité que l'agenda (`planning`, type de journée, mensuel, source/focus, archives).
+- **Validation locale Compose** : service `api` local reconstruit avec `docker compose up -d --build --force-recreate api`; `/health` renvoie 200 et `/api/v1/habits/bank` répond via la nouvelle route (401 attendu sans session/appareil approuvé).
+- **Docs et validation** : wiki `habitudes` mis à jour; 222 tests backend, syntaxe JavaScript, compilation Python ciblée et `git diff --check` réussis. Aucune commande Telegram modifiée, donc `COMMANDS-INDEX.md` non concerné.
+
+## 2026-07-19 — fix(quests): archives hors agenda et consultation dashboard/plugin
+
+- **Archive des quêtes** : `POST /habits/{id}/archive` retire maintenant les placements datés et les placements par défaut des templates `rest`/`regular`/`hustle`; le désarchivage ne restaure donc plus d'anciens créneaux et la quête revient non placée si elle est éligible.
+- **Consultation** : `GET /habits` garde son compactage par version par défaut et accepte `include_all_versions=true` pour récupérer toutes les versions filtrées; le dashboard ajoute un panneau Archives et le plugin `habitctl query archived-habits` liste les archives sans mutation.
+- **Docs et validation** : notes agent (`AGENTS.md`), doc plugin et wiki utilisateur (`habitudes`, `agenda-timeline`, `telecommande-ia`) mis à jour. 221 tests backend, syntaxe JavaScript et `git diff --check` réussis. Aucune commande Telegram modifiée, donc `COMMANDS-INDEX.md` non concerné.
+
 ## 2026-07-18 — fix(quests): descriptions visibles sur 5 lignes.
 
 ## 2026-07-17 — fix(biological-zones): retirer l'ordre manuel de la journée biologique

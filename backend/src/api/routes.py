@@ -3162,17 +3162,24 @@ def delete_notodo(
 def get_habits(
     include_archived: bool = False,
     include_inactive: bool = False,
+    include_all_versions: bool = False,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ):
-    all_user_habits = db.query(Habit).filter_by(user_id=user_id).all()
-    active_habits = [
+    all_user_habits = (
+        db.query(Habit).filter_by(user_id=user_id).order_by(Habit.id).all()
+    )
+    filtered_habits = [
         habit
         for habit in all_user_habits
         if (include_inactive or habit.is_active)
         and (include_archived or habit.archived_at is None)
     ]
-    habits = _latest_visible_habit_versions(active_habits)
+    habits = (
+        filtered_habits
+        if include_all_versions
+        else _latest_visible_habit_versions(filtered_habits)
+    )
     today = datetime.date.today()
     week_start = datetime.datetime.combine(
         today - datetime.timedelta(days=today.weekday()), datetime.time.min
@@ -3271,6 +3278,21 @@ def get_habits(
             }
         )
     return result
+
+
+@router.get("/habits/bank")
+def get_habit_bank(
+    date: Optional[datetime.date] = None,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    bank_date = date or datetime.date.today()
+    response, changed = agenda_service.build_quest_bank_response(
+        db, user_id=user_id, date_value=bank_date
+    )
+    if changed:
+        db.commit()
+    return response
 
 
 class HabitUpdate(BaseModel):
@@ -3398,6 +3420,7 @@ def archive_habit(
         raise HTTPException(status_code=404, detail="Habit not found.")
     if habit.archived_at is None:
         habit.archived_at = datetime.datetime.now()
+    agenda_service.remove_habit_agenda_references(db, user_id, habit.id)
     db.commit()
     return {"status": "archived", "id": habit.id}
 

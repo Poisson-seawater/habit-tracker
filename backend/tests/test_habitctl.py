@@ -70,9 +70,22 @@ class TargetResolutionClient:
         assert method == "GET"
         if path == "/api/v1/habits":
             return [{"id": 24, "name": "test", "archived_at": None}]
-        if path == "/api/v1/habits?include_archived=true":
+        if path == "/api/v1/habits?include_archived=true&include_all_versions=true":
             return [
-                {"id": 24, "name": "test", "archived_at": "2026-06-30T00:00:00"}
+                {
+                    "id": 24,
+                    "name": "test",
+                    "frequency": "daily",
+                    "archived_at": "2026-06-30T00:00:00",
+                    "source_type": "manual",
+                },
+                {
+                    "id": 25,
+                    "name": "active test",
+                    "frequency": "daily",
+                    "archived_at": None,
+                    "source_type": "manual",
+                },
             ]
         if path == "/api/v1/todos":
             return [
@@ -307,7 +320,54 @@ def test_habit_unarchive_resolves_including_archived_habits():
         {},
         "habits",
     )
-    assert ("GET", "/api/v1/habits?include_archived=true", None, None) in client.calls
+    assert (
+        "GET",
+        "/api/v1/habits?include_archived=true&include_all_versions=true",
+        None,
+        None,
+    ) in client.calls
+
+
+def test_query_archived_habits_uses_all_versions(monkeypatch):
+    client = TargetResolutionClient()
+    monkeypatch.setattr(
+        habitctl,
+        "configured_client",
+        lambda: (
+            client,
+            {"base_url": "http://127.0.0.1:5000"},
+            {"id": 1, "username": "Gabriel"},
+        ),
+    )
+
+    result = habitctl.command_query(
+        SimpleNamespace(
+            resource="archived-habits",
+            name=None,
+            year=2026,
+            month=7,
+            date=None,
+        )
+    )
+
+    assert result == {
+        "count": 1,
+        "items": [
+            {
+                "id": 24,
+                "name": "test",
+                "frequency": "daily",
+                "archived_at": "2026-06-30T00:00:00",
+                "source_type": "manual",
+            }
+        ],
+    }
+    assert (
+        "GET",
+        "/api/v1/habits?include_archived=true&include_all_versions=true",
+        None,
+        None,
+    ) in client.calls
 
 
 def test_agenda_placement_set_resolves_habit_and_defaults_date(monkeypatch):
