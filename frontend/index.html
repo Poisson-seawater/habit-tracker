@@ -936,8 +936,14 @@
                 <button type="button" class="agenda-save-btn" data-template="hustle" style="display: none;">Sauver hustle</button>
               </div>
 
-              <div id="agenda-warnings" class="agenda-warnings"></div>
-              <div id="agenda-effort-summary" class="agenda-effort-summary"></div>
+              <div class="agenda-effort-controls">
+                <span>Budget d'effort</span>
+                <button type="button" class="agenda-small-btn agenda-effort-toggle-btn" id="toggle-agenda-efforts-btn" aria-pressed="false">Masquer</button>
+              </div>
+              <div id="agenda-effort-panel" class="agenda-effort-panel">
+                <div id="agenda-warnings" class="agenda-warnings"></div>
+                <div id="agenda-effort-summary" class="agenda-effort-summary"></div>
+              </div>
 
               <div class="agenda-workspace">
                 <div class="agenda-timeline-panel">

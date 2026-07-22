@@ -102,10 +102,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const agendaTodayBtn = document.getElementById("agenda-today-btn");
   const agendaRefreshBtn = document.getElementById("agenda-refresh-btn");
   const agendaDayTypeBadge = document.getElementById("agenda-day-type-badge");
+  const agendaEffortPanel = document.getElementById("agenda-effort-panel");
   const agendaWarnings = document.getElementById("agenda-warnings");
   const agendaEffortSummary = document.getElementById("agenda-effort-summary");
+  const toggleAgendaEffortsBtn = document.getElementById("toggle-agenda-efforts-btn");
   const agendaSlotGrid = document.getElementById("agenda-slot-grid");
   let questAgendaState = null;
+  let agendaEffortSummaryVisible = true;
 
   const bioZoneMeta = {
     deep_focus: { label: "Focus profond", emoji: "🧠", color: "#8b5cf6" },
@@ -1353,6 +1356,17 @@ document.addEventListener("DOMContentLoaded", () => {
       agendaWarnings.innerHTML = warnings.length
         ? warnings.map(w => `<div class="agenda-warning">${w}</div>`).join("")
         : `<div class="agenda-ok">Budget agenda valide.</div>`;
+    }
+  }
+
+  function setAgendaEffortSummaryVisible(isVisible) {
+    agendaEffortSummaryVisible = Boolean(isVisible);
+    if (agendaEffortPanel) {
+      agendaEffortPanel.hidden = !agendaEffortSummaryVisible;
+    }
+    if (toggleAgendaEffortsBtn) {
+      toggleAgendaEffortsBtn.textContent = agendaEffortSummaryVisible ? "Masquer" : "Afficher";
+      toggleAgendaEffortsBtn.setAttribute("aria-pressed", String(!agendaEffortSummaryVisible));
     }
   }
 
@@ -4658,6 +4672,10 @@ document.addEventListener("DOMContentLoaded", () => {
     agendaYesterdayBtn?.addEventListener("click", () => showAgendaDate(yesterdayDateString()));
     agendaTodayBtn?.addEventListener("click", () => showAgendaDate(todayDateString()));
     agendaRefreshBtn?.addEventListener("click", () => showAgendaDate(getAgendaDate()));
+    toggleAgendaEffortsBtn?.addEventListener("click", () => {
+      setAgendaEffortSummaryVisible(!agendaEffortSummaryVisible);
+    });
+    setAgendaEffortSummaryVisible(agendaEffortSummaryVisible);
     document.getElementById("agenda-export-quests-btn")?.addEventListener("click", exportAgendaQuestsForDay);
     document.querySelectorAll(".agenda-save-btn").forEach(btn => {
       btn.addEventListener("click", () => saveAgendaAsTemplate(btn.dataset.template));
