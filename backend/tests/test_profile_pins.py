@@ -109,7 +109,7 @@ def test_profile_pins_flow(client):
     response = client.put(
         "/api/v1/profile/pins",
         json={"pinned_softskills": ["new_skill"]},
-        headers={"X-User-ID": "1"}
+        headers={"X-User-ID": "1"},
     )
     assert response.status_code == 200
 

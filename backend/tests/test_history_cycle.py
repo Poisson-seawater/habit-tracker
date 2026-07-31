@@ -31,9 +31,7 @@ def client_and_db(monkeypatch):
         os.remove(TEST_DB_FILE)
 
     engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, autoflush=False, bind=engine
-    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
 
     def override_get_db():

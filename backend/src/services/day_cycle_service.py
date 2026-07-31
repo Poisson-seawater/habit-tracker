@@ -90,9 +90,7 @@ def resolve_cycle_policy(
     return selected
 
 
-def cycle_info_for_date(
-    policy: DayCyclePolicy, date_value: datetime.date
-) -> dict:
+def cycle_info_for_date(policy: DayCyclePolicy, date_value: datetime.date) -> dict:
     week_start = monday_of_week(date_value)
     weeks_since_anchor = (week_start - policy.anchor_date).days // 7
     cycle_index = weeks_since_anchor % 4

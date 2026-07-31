@@ -67,6 +67,7 @@ def decrypt_token(encrypted_token: str) -> str:
 
 def get_google_auth_url(user_id: int) -> str:
     from urllib.parse import urlencode
+
     scopes = " ".join(
         [
             "https://www.googleapis.com/auth/calendar",
@@ -560,9 +561,7 @@ async def sync_todo_updated(user_id: int, todo_id: int, db_session_factory):
                     db,
                 )
             else:
-                task_id = await create_task(
-                    user_id, todo.title, todo.due_date, db
-                )
+                task_id = await create_task(user_id, todo.title, todo.due_date, db)
                 if task_id:
                     todo.google_task_id = task_id
                     db.commit()
