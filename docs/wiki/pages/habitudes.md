@@ -9,6 +9,14 @@ Une habitude, c'est une action que tu répètes régulièrement, selon un planni
 | Binaire | faite / pas faite (une fois par jour) | `/done <habitude>` |
 | Quantitative | une mesure (ex. 30min, 5km) | `/log <habitude> <valeur><unité>` |
 
+## Valider en un clic depuis Telegram
+
+`/quetes` (alias `/habitudes`) affiche le **panneau des quêtes du jour** : un bouton par habitude prévue aujourd'hui, plus celles déjà traitées même hors planning. Chaque bouton porte son état : ⬜ à faire, ✅ validée, `(1/3)` pour une habitude à cible multiple, 📊 avec le total loggé, ⏭️ skippée, ❌ ratée.
+
+Un clic sur une habitude binaire la valide immédiatement et redessine le panneau sur place. Une habitude quantitative demande d'abord la valeur (ex. `30`), puis renvoie le panneau à jour. Le bouton **🔄 Rafraîchir** recharge l'état sans rien valider, et une habitude déjà ratée doit d'abord être annulée avec `/fail_habit <nom> --undo`.
+
+Les quêtes privées apparaissent sous le nom « Chose secrète 🔒 », comme dans `/status`, car le panneau peut vivre dans le groupe.
+
 ## Planning
 
 Une habitude n'est due que certains jours (tous les jours, ou par ex. lundi + mercredi). Elle peut aussi être associée à un ou plusieurs types de journée : `rest`, `regular` et `hustle`. Les trois sont sélectionnés par défaut, y compris pour les anciennes habitudes.
