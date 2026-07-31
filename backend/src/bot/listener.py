@@ -1663,7 +1663,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     # which re-sends a fresh panel once the value is received.
                     context.user_data["pending_log_habit_id"] = habit.id
                     context.user_data["pending_log_from_panel"] = True
-                    unit_prompt = f" (ex: 30{habit.unit})" if habit.unit else " (ex: 30)"
+                    unit_prompt = (
+                        f" (ex: 30{habit.unit})" if habit.unit else " (ex: 30)"
+                    )
                     await query.message.reply_text(
                         f"✏️ Envoie la valeur pour la quête <b>{name}</b>{unit_prompt} :",
                         parse_mode="HTML",
