@@ -177,7 +177,7 @@ Idée produit : ajouter une vue 2x2 de type matrice d'Eisenhower :
 
 ## ROADMAP
 - avec IA ou UX pour voir les quest archiver et les quest avec le meme nom
-- BUG: quest archiver reste dans calendrier
+- a réfléchir, voir si je garde le systeme les 3 objectifs et competence créer une habitude OU je relie une quest a l'un des 3objectifs. et ses 3 objectifs deviennent une forme de tag ? pareil pour lier des to do a ses tags ET je peux mettre sa dans la matrix de einsenhower. exemple corps heal peut prendre tendon, natation, course et velo.
 - Maybe / à réfléchir : version professionnelle de l'app pour partager des to-do provenant d'une compagnie. Ces to-do professionnels auraient aussi leur propre agenda spécifique, via la feature de quêtes, et leur propre Google Calendar spécifique. Exemples : quand un cx book un meeting, la to-do professionnelle reçoit automatiquement le meeting à la bonne heure ; quand j'assigne une tâche à un employé, l'employé reçoit automatiquement une to-do professionnelle avec une due date et une do date.
 
 

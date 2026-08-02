@@ -18,6 +18,8 @@ Tu peux épingler jusqu'à 3 sous-étapes en cours dans le panneau [Recap 3-3-3]
 
 Épingler une sous-étape fait plus que l'afficher : le système génère aussi une quête automatique (« Étape: *titre* ») dans ton [agenda](#/agenda-timeline), pour te rappeler d'y travailler chaque jour. Désépingle-la et la quête s'archive d'elle-même ; ré-épingle-la, et elle réapparaît.
 
+L'inverse marche aussi : **archiver** cette quête depuis l'agenda désépingle la sous-étape. Et si tu la **désarchives** ensuite, elle est détachée de la sous-étape et devient une quête indépendante — utile quand tu veux garder l'habitude quotidienne après avoir sorti l'étape de ton Top 3. Voir [Archiver une quête](#/habitudes).
+
 ## Sous-étape partagée : délier sans supprimer
 
 Une sous-étape liée à plusieurs objectifs peut être détachée d'un seul d'entre eux, sans la supprimer ni casser sa validation dans les autres. Le système protège le dernier lien restant : impossible de délier une sous-étape de son unique objectif — il faut alors la supprimer franchement.
