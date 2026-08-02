@@ -3,6 +3,15 @@
 > Une entrée par session / push, anti-chronologique. Rédigé par `/doc-sync` avant push.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-08-02 — fix(quests): archivage des quêtes générées par le Recap 3-3-3
+
+- **Problème** : archiver une quête « Étape: … » ne tenait pas — `sync_generated_focus_quests()` la désarchivait au chargement suivant tant que la sous-étape restait épinglée, en faisant perdre au passage ses créneaux. Les quêtes « Competence: … » restaient archivées mais laissaient leur compétence épinglée : deux comportements incohérents pour le même bouton.
+- **Décision** : archiver une quête auto-générée désépingle sa source (`unpin_habit_source()`), désarchiver la détache définitivement (`detach_habit_from_source()` → `source_type = manual`). Le Top 3 des objectifs (`pinned_goals`, verrouillable) n'est jamais modifié : seule la sous-étape est désépinglée, les autres étapes du même objectif gardent leurs quêtes.
+- **Piste écartée** : ajouter un flag `manually_archived` pour que le sync respecte un archivage manuel. Abandonnée — le détachement rend la distinction inutile et évite une colonne + migration.
+- **Piste écartée** : désactiver le bouton « Désarchiver » sur les quêtes auto-gérées avec un message « ré-épingle la source ». Rejetée car les épingles sont limitées à 3 : l'utilisateur aurait été bloqué s'il voulait juste garder l'habitude sans occuper une place.
+- **Gotchas** : `pinned_substeps` / `pinned_softskills` sont des colonnes `JSON` sans `MutableList` — il faut réassigner une nouvelle liste. Le détachement doit couvrir tout le groupe de versions, sinon `_find_generated_habit()` ressuscite une ancienne version restée rattachée au même `source_ref`.
+- **Docs et validation** : `AGENTS.md`, wiki `habitudes` et `objectifs` mis à jour. 226 tests backend verts dont 4 nouveaux dans `test_agenda_quests.py`. Aucune commande Telegram touchée, donc `COMMANDS-INDEX.md` non concerné.
+
 ## 2026-07-20 — feat(quests): banque des quêtes hors agenda
 
 - **Quest Bank dashboard** : ajout d'un bouton **Banque** dans « Quêtes à placer » pour lister les quêtes actives qui existent mais ne sont pas visibles à la date affichée, avec la raison d'absence et la prochaine date visible quand elle est calculable.

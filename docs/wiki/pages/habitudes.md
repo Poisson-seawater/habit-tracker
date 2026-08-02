@@ -35,6 +35,8 @@ La liste Archives affiche la date d'archive, la fréquence, la source et les gro
 
 Le bouton **Désarchiver** remet la quête dans la banque active si elle est encore éligible à la date affichée, mais il ne restaure pas ses anciens créneaux : elle revient non placée, à replacer manuellement si besoin.
 
+Les quêtes générées automatiquement par le [Recap 3-3-3](#/recap-3-3-3) (« Étape: … » d'une sous-étape, « Competence: … » d'une compétence) suivent une règle en plus. **Archiver** l'une d'elles désépingle aussi sa source du Recap — sans quoi le système la recréerait aussitôt. Le Top 3 des objectifs, lui, n'est jamais modifié. **Désarchiver** la **détache** de sa source : elle devient une quête manuelle ordinaire, que plus rien ne gère automatiquement. Si tu ré-épingles la même sous-étape plus tard, une nouvelle quête est générée à côté de celle que tu as détachée.
+
 ## Déclarer une habitude ratée
 
 Une habitude prévue peut être marquée **ratée** depuis l'agenda, l'onglet Habitudes, l'API ou Telegram avec `/fail_habit <nom>`. Cette action est refusée si l'habitude est déjà complétée ou skippée aujourd'hui. Le statut raté retire **jusqu'à 5 XP** (sans passer sous le niveau 1 à 0 XP), empêche le Perfect Day et remet immédiatement le streak de cette habitude à 0. Répéter l'action ne retire pas d'XP supplémentaire.

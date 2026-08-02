@@ -115,6 +115,13 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
   `agenda_service.remove_habit_agenda_references()` pour conserver ce comportement.
   Désarchiver ne restaure jamais d'anciens placements : la quête revient non placée si
   elle est éligible.
+- **Quêtes auto-générées (`source_type` `substep` / `softskill`)** : archiver l'une d'elles
+  doit aussi désépingler sa source via `agenda_service.unpin_habit_source()`, sinon
+  `sync_generated_focus_quests()` la désarchive au prochain chargement de l'agenda. Ne
+  jamais toucher `user.pinned_goals` (Top 3 verrouillable). Désarchiver appelle
+  `agenda_service.detach_habit_from_source()` : la quête repasse en `manual` et sort
+  définitivement du sync. Le détachement s'applique à **tout le groupe de versions**, car
+  `create_habit_version()` recopie `source_type` / `source_ref` / `auto_managed`.
 - **log.md** : documenter les décisions opérationnelles, les échecs et les pistes écartées.
   Priorité aux décisions rejetées ou aux tentatives qui n'ont pas fonctionné, car les
   décisions retenues sont généralement déjà visibles dans les commits, PR et GitHub Actions.

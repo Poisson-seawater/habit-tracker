@@ -3418,11 +3418,13 @@ def archive_habit(
     habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found.")
+    user = db.query(User).filter_by(id=user_id).first()
+    unpinned = agenda_service.unpin_habit_source(db, user, habit) if user else False
     if habit.archived_at is None:
         habit.archived_at = datetime.datetime.now()
     agenda_service.remove_habit_agenda_references(db, user_id, habit.id)
     db.commit()
-    return {"status": "archived", "id": habit.id}
+    return {"status": "archived", "id": habit.id, "unpinned": unpinned}
 
 
 @router.post("/habits/{habit_id}/unarchive")
@@ -3434,9 +3436,10 @@ def unarchive_habit(
     habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found.")
+    detached = agenda_service.detach_habit_from_source(db, user_id, habit)
     habit.archived_at = None
     db.commit()
-    return {"status": "unarchived", "id": habit.id}
+    return {"status": "unarchived", "id": habit.id, "detached": detached}
 
 
 @router.delete("/habits/{habit_id}")

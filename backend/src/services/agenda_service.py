@@ -326,6 +326,66 @@ def remove_habit_agenda_references(db: Session, user_id: int, habit_id: int) -> 
     return changed
 
 
+def unpin_habit_source(db: Session, user: User, habit: Habit) -> bool:
+    """Retire du Recap 3-3-3 la source qui genere cette quete.
+
+    Ne touche jamais `pinned_goals` (Top 3 verrouillable, gere par son propre bouton).
+    Les colonnes JSON n'ont pas de `MutableList` : on reassigne une nouvelle liste.
+    """
+    source_type = habit.source_type or "manual"
+    source_ref = str(habit.source_ref or "")
+    if not source_ref:
+        return False
+
+    if source_type == "substep":
+        pinned = [int(sid) for sid in (user.pinned_substeps or [])]
+        kept = [sid for sid in pinned if str(sid) != source_ref]
+        if len(kept) == len(pinned):
+            return False
+        user.pinned_substeps = kept
+        return True
+
+    if source_type == "softskill":
+        pinned = [str(skill_id) for skill_id in (user.pinned_softskills or [])]
+        kept = [skill_id for skill_id in pinned if skill_id != source_ref]
+        if len(kept) == len(pinned):
+            return False
+        user.pinned_softskills = kept
+        return True
+
+    return False
+
+
+def detach_habit_from_source(db: Session, user_id: int, habit: Habit) -> bool:
+    """Transforme une quete auto-generee en quete manuelle independante.
+
+    S'applique a tout le groupe de versions : `create_habit_version()` recopie
+    `source_type` / `source_ref` / `auto_managed`, et `_find_generated_habit()`
+    ressusciterait une ancienne version restee rattachee.
+    """
+    source_type = habit.source_type or "manual"
+    if source_type == "manual" and not habit.auto_managed and not habit.source_ref:
+        return False
+
+    siblings = [habit]
+    if habit.source_ref:
+        siblings = (
+            db.query(Habit)
+            .filter(
+                Habit.user_id == user_id,
+                Habit.source_type == habit.source_type,
+                Habit.source_ref == habit.source_ref,
+            )
+            .all()
+        ) or [habit]
+
+    for sibling in siblings:
+        sibling.source_type = "manual"
+        sibling.source_ref = None
+        sibling.auto_managed = False
+    return True
+
+
 def _softskill_names_by_id() -> dict:
     try:
         config = softskill_service.load_tree_config()

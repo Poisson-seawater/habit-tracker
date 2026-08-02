@@ -756,3 +756,156 @@ def test_agenda_quest_done_only_when_target_reached(client):
     quest = next(q for q in agenda["unplaced_quests"] if q["habit_id"] == habit_id)
     assert quest["status"] == "done"
     assert quest["today_count"] == 2
+
+
+def _seed_focus_pins(client):
+    """Crée un objectif + une sous-étape, puis épingle objectif / étape / compétence."""
+    db = TestingSessionLocal()
+    try:
+        db.add(Goal(id=10, user_id=1, title="Business", description="Build business"))
+        db.flush()
+        db.add(
+            SubStep(
+                id=100,
+                user_id=1,
+                title="Market research",
+                description="Research the market",
+                effort_type="cerveau",
+                effort_duration=1.5,
+            )
+        )
+        db.flush()
+        db.add(GoalSubStepLink(goal_id=10, substep_id=100, execution_order=1))
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.put(
+        "/api/v1/profile/pins",
+        json={
+            "pinned_goals": [10],
+            "pinned_substeps": [100],
+            "pinned_softskills": ["python"],
+        },
+        headers={"X-User-ID": "1"},
+    )
+    assert response.status_code == 200
+
+    quests = client.get(
+        "/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"}
+    ).json()["unplaced_quests"]
+    return (
+        next(q for q in quests if q["source_type"] == "substep")["habit_id"],
+        next(q for q in quests if q["source_type"] == "softskill")["habit_id"],
+    )
+
+
+def _pins(client):
+    return client.get("/api/v1/profile", headers={"X-User-ID": "1"}).json()
+
+
+def test_archiving_substep_quest_unpins_the_substep_only(client):
+    substep_quest_id, _ = _seed_focus_pins(client)
+
+    archived = client.post(
+        f"/api/v1/habits/{substep_quest_id}/archive", headers={"X-User-ID": "1"}
+    )
+    assert archived.status_code == 200
+    assert archived.json()["unpinned"] is True
+
+    profile = _pins(client)
+    assert profile["pinned_substeps"] == []
+    # Le Top 3 verrouillé n'est jamais touché
+    assert profile["pinned_goals"] == [10]
+    assert profile["pinned_softskills"] == ["python"]
+
+    # Le sync tourne à chaque agenda : la quête doit rester archivée
+    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
+    assert all(q["source_type"] != "substep" for q in agenda.json()["unplaced_quests"])
+    bank = client.get(
+        "/api/v1/habits?include_archived=true", headers={"X-User-ID": "1"}
+    ).json()
+    assert (
+        next(h for h in bank if h["id"] == substep_quest_id)["archived_at"] is not None
+    )
+
+
+def test_archiving_softskill_quest_unpins_the_skill(client):
+    _, skill_quest_id = _seed_focus_pins(client)
+
+    archived = client.post(
+        f"/api/v1/habits/{skill_quest_id}/archive", headers={"X-User-ID": "1"}
+    )
+    assert archived.status_code == 200
+    assert archived.json()["unpinned"] is True
+
+    profile = _pins(client)
+    assert profile["pinned_softskills"] == []
+    assert profile["pinned_substeps"] == [100]
+
+    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
+    assert all(
+        q["source_type"] != "softskill" for q in agenda.json()["unplaced_quests"]
+    )
+
+
+def test_unarchiving_generated_quest_detaches_it_from_its_source(client):
+    substep_quest_id, _ = _seed_focus_pins(client)
+    client.post(
+        f"/api/v1/habits/{substep_quest_id}/archive", headers={"X-User-ID": "1"}
+    )
+
+    unarchived = client.post(
+        f"/api/v1/habits/{substep_quest_id}/unarchive", headers={"X-User-ID": "1"}
+    )
+    assert unarchived.status_code == 200
+    assert unarchived.json()["detached"] is True
+
+    db = TestingSessionLocal()
+    try:
+        habit = db.query(Habit).filter_by(id=substep_quest_id).first()
+        assert habit.source_type == "manual"
+        assert habit.source_ref is None
+        assert habit.auto_managed is False
+        assert habit.archived_at is None
+    finally:
+        db.close()
+
+    # Détachée : le sync ne la ré-archive plus, elle reste une quête normale
+    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
+    quest = next(
+        q for q in agenda.json()["unplaced_quests"] if q["habit_id"] == substep_quest_id
+    )
+    assert quest["source_type"] == "manual"
+
+
+def test_unarchiving_detaches_every_version_of_the_quest(client):
+    substep_quest_id, _ = _seed_focus_pins(client)
+
+    versioned = client.post(
+        f"/api/v1/habits/{substep_quest_id}/versions",
+        json={"source_description": "Research the market"},
+        headers={"X-User-ID": "1"},
+    )
+    assert versioned.status_code in (200, 201)
+    v2_id = versioned.json()["id"]
+    assert v2_id != substep_quest_id
+
+    client.post(f"/api/v1/habits/{v2_id}/archive", headers={"X-User-ID": "1"})
+    unarchived = client.post(
+        f"/api/v1/habits/{v2_id}/unarchive", headers={"X-User-ID": "1"}
+    )
+    assert unarchived.status_code == 200
+
+    db = TestingSessionLocal()
+    try:
+        versions = db.query(Habit).filter(Habit.id.in_([substep_quest_id, v2_id])).all()
+        assert {habit.source_type for habit in versions} == {"manual"}
+        assert all(habit.source_ref is None for habit in versions)
+        assert all(habit.auto_managed is False for habit in versions)
+    finally:
+        db.close()
+
+    # Aucune ancienne version ne revient après un passage du sync
+    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
+    assert all(q["source_type"] != "substep" for q in agenda.json()["unplaced_quests"])

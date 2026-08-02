@@ -642,7 +642,7 @@ document.addEventListener("DOMContentLoaded", () => {
           action.className = "quest-archive-action";
           action.textContent = "Désarchiver";
           action.addEventListener("click", async () => {
-            await unarchiveQuestFromArchives(habit.id);
+            await unarchiveQuestFromArchives(habit.id, habit.source_type);
           });
 
           row.append(main, action);
@@ -745,7 +745,7 @@ document.addEventListener("DOMContentLoaded", () => {
       archive.type = "button";
       archive.className = "quest-bank-action archive";
       archive.textContent = "Archiver";
-      archive.addEventListener("click", () => archiveQuestFromBank(quest.habit_id));
+      archive.addEventListener("click", () => archiveQuestFromBank(quest.habit_id, quest.source_type));
       actions.append(edit, stats, archive);
 
       row.append(main, actions);
@@ -770,12 +770,37 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function archiveQuestFromBank(habitId) {
+  // Libellé de la source d'une quête auto-générée ; null si quête manuelle.
+  function questSourceKindLabel(sourceType) {
+    if (sourceType === "substep" || sourceType === "goal") return "sous-étape";
+    if (sourceType === "softskill") return "compétence";
+    return null;
+  }
+
+  function confirmQuestArchiveAction(sourceType, archived) {
+    const kind = questSourceKindLabel(sourceType);
+    if (!kind) return true;
+    return confirm(
+      archived
+        ? `Cette quête sera détachée de sa ${kind} et deviendra une quête indépendante, plus jamais gérée automatiquement.`
+        : `Cette quête sera archivée et sa ${kind} sera désépinglée du Recap 3-3-3.`
+    );
+  }
+
+  function questArchiveToast(data, archived) {
+    if (archived) {
+      return data?.detached ? "Quête désarchivée et détachée de sa source." : "Quête désarchivée.";
+    }
+    return data?.unpinned ? "Quête archivée et source désépinglée." : "Quête archivée.";
+  }
+
+  async function archiveQuestFromBank(habitId, sourceType) {
     if (!habitId) return;
+    if (!confirmQuestArchiveAction(sourceType, false)) return;
     try {
       const response = await fetch(`${API_BASE}/habits/${habitId}/archive`, { method: "POST" });
       if (!response.ok) throw new Error((await response.json()).detail || "Erreur");
-      showToast("Quête archivée.");
+      showToast(questArchiveToast(await response.json(), false));
       await refreshQuestSurfaces();
       fetchProfile();
       fetchHistory();
@@ -790,13 +815,16 @@ document.addEventListener("DOMContentLoaded", () => {
     await fetchQuests();
   }
 
-  async function unarchiveQuestFromArchives(habitId) {
+  async function unarchiveQuestFromArchives(habitId, sourceType) {
     if (!habitId) return;
+    if (!confirmQuestArchiveAction(sourceType, true)) return;
     try {
       const response = await fetch(`${API_BASE}/habits/${habitId}/unarchive`, { method: "POST" });
       if (!response.ok) throw new Error((await response.json()).detail || "Erreur");
-      showToast("Quête désarchivée.");
+      showToast(questArchiveToast(await response.json(), true));
       await refreshQuestSurfaces();
+      fetchProfile();
+      updateDailyBudgetGauge();
     } catch (error) {
       console.error(error);
       showToast(error.message, true);
@@ -4196,6 +4224,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (archiveQuestBtn) {
       archiveQuestBtn.textContent = habit.archived_at ? "Désarchiver" : "Archiver";
       archiveQuestBtn.dataset.archived = habit.archived_at ? "true" : "false";
+      archiveQuestBtn.dataset.sourceType = habit.source_type || "manual";
     }
 
     // Show/hide day checkboxes
@@ -4320,10 +4349,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!id) return;
     const archived = archiveQuestBtn.dataset.archived === "true";
     const action = archived ? "unarchive" : "archive";
+    if (!confirmQuestArchiveAction(archiveQuestBtn.dataset.sourceType, archived)) return;
     try {
       const r = await fetch(`${API_BASE}/habits/${id}/${action}`, { method: "POST" });
       if (!r.ok) throw new Error((await r.json()).detail || "Erreur");
-      showToast(archived ? "Quête désarchivée." : "Quête archivée.");
+      showToast(questArchiveToast(await r.json(), archived));
       closeEditQuestModal();
       await refreshQuestSurfaces();
       fetchProfile();
