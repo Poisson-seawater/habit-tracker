@@ -17,6 +17,7 @@ from src.services.agenda_service import (
     normalize_habit_day_types,
     resolve_day_type,
 )
+from src.services.quest_progress_service import completion_count, completion_target
 
 
 def calculate_daily_score(
@@ -92,19 +93,10 @@ def calculate_daily_score(
         if is_skipped:
             continue
 
-        completions = sum(
-            1
-            for l in h_logs
-            if l.log_type in ["done", "log"] and l.cancelled_at is None
-        )
-        if h.daily_target and h.daily_target > 1:
-            if completions < h.daily_target:
-                perfect_valid = False
-                break
-        else:
-            if completions < 1:
-                perfect_valid = False
-                break
+        completions = completion_count(h, h_logs)
+        if completions < completion_target(h, date):
+            perfect_valid = False
+            break
 
     # If there are no scheduled habits, perfect_valid remains True
 
@@ -210,17 +202,8 @@ def update_streaks(db: Session, user_id: int, date: datetime.date) -> list[dict]
         deferred_after_failure = any(
             l.log_type == "failed" and l.cancelled_at is not None for l in habit_logs
         )
-        target = (
-            habit.daily_target if habit.daily_target and habit.daily_target > 1 else 1
-        )
-        is_done = (
-            sum(
-                1
-                for l in habit_logs
-                if l.log_type in ["done", "log"] and l.cancelled_at is None
-            )
-            >= target
-        )
+        target = completion_target(habit, date)
+        is_done = completion_count(habit, habit_logs) >= target
         is_skipped = any(
             l.log_type == "skip" and l.cancelled_at is None for l in habit_logs
         )
@@ -441,6 +424,20 @@ def perform_habit_levelup(
             daily_cap=source.daily_cap,
             daily_target=source.daily_target,
             unit=source.unit,
+            progress_mode=source.progress_mode or "standard",
+            progress_config_history=[
+                {
+                    "effective_from": datetime.date.today().isoformat(),
+                    "mode": source.progress_mode or "standard",
+                    "type": source.type,
+                    "unit": source.unit,
+                    "daily_target": max(source.daily_target or 1, 1),
+                    "checklist_items": [
+                        dict(item) for item in (source.checklist_items or [])
+                    ],
+                }
+            ],
+            checklist_items=[dict(item) for item in (source.checklist_items or [])],
             effort_type=source.effort_type,
             effort_duration=source.effort_duration,
             source_type=source.source_type or "manual",

@@ -37,6 +37,7 @@ from src.database.models import (
     RemoteOperation,
     AuthDevice,
     AuthSession,
+    HabitDailyProgress,
 )
 from src.database.seed import seed_default_biological_zones
 from src.services.day_cycle_service import (
@@ -69,7 +70,7 @@ from src.services.daily_log_service import (
     resolve_target_date,
     timestamp_on_date,
 )
-from src.services import agenda_service, softskill_service
+from src.services import agenda_service, quest_progress_service, softskill_service
 from fastapi.responses import JSONResponse, RedirectResponse
 from src.database.session import SessionLocal
 from src.services.google_sync_service import (
@@ -201,6 +202,11 @@ class LogCreate(BaseModel):
     target_date: Optional[datetime.date] = None
 
 
+class ChecklistItemConfig(BaseModel):
+    id: Optional[str] = Field(default=None, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    label: str = Field(min_length=1, max_length=200)
+
+
 class HabitCreate(BaseModel):
     name: str
     type: str  # "binary", "quantitative"
@@ -214,7 +220,11 @@ class HabitCreate(BaseModel):
     is_mandatory: Optional[bool] = False
     daily_cap: Optional[int] = None
     daily_target: Optional[int] = None
-    unit: Optional[str] = None
+    unit: Optional[str] = Field(default=None, max_length=64)
+    progress_mode: str = "standard"
+    checklist_items: List[ChecklistItemConfig] = Field(
+        default_factory=list, max_length=50
+    )
     effort_type: Optional[str] = None
     effort_duration: Optional[float] = 1.0
     agenda_duration_minutes: Optional[int] = None
@@ -224,6 +234,14 @@ class HabitCreate(BaseModel):
 class HabitVersionCreate(BaseModel):
     description: Optional[str] = None
     source_description: Optional[str] = None
+
+
+class CounterProgressUpdate(BaseModel):
+    value: int = Field(ge=0, le=9_007_199_254_740_991)
+
+
+class ChecklistProgressUpdate(BaseModel):
+    checked: bool
 
 
 class TemplateOverride(BaseModel):
@@ -1014,6 +1032,10 @@ def _latest_visible_habit_versions(habits: List[Habit]) -> List[Habit]:
 
 
 def validate_habit_payload(payload: "HabitCreate"):
+    if payload.progress_mode in {"free_counter", "checklist"}:
+        payload.type = "binary"
+        payload.daily_target = None
+        payload.daily_cap = None
     if payload.type not in VALID_HABIT_TYPES:
         raise HTTPException(
             status_code=400,
@@ -1037,6 +1059,17 @@ def validate_habit_payload(payload: "HabitCreate"):
             status_code=400,
             detail=f"Invalid effort_type '{payload.effort_type}'. Valid: {', '.join(sorted(VALID_EFFORT_TYPES))}",
         )
+    try:
+        return quest_progress_service.validate_and_normalize_config(
+            mode=payload.progress_mode,
+            habit_type=payload.type,
+            unit=payload.unit,
+            daily_target=payload.daily_target,
+            daily_cap=payload.daily_cap,
+            checklist_items=[item.model_dump() for item in payload.checklist_items],
+        )
+    except quest_progress_service.QuestProgressError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 def normalize_habit_schedule(
@@ -1413,9 +1446,24 @@ def get_profile(
         )
         .all()
     )
-    completed_habit_ids = list(
-        set(log.habit_id for log in logs if log.log_type in ["done", "log"])
+    logs_by_habit = {}
+    for log in logs:
+        logs_by_habit.setdefault(log.habit_id, []).append(log)
+    logged_habits = (
+        db.query(Habit)
+        .filter(Habit.user_id == user.id, Habit.id.in_(list(logs_by_habit)))
+        .all()
+        if logs_by_habit
+        else []
     )
+    completed_habit_ids = [
+        habit.id
+        for habit in logged_habits
+        if quest_progress_service.completion_count(
+            habit, logs_by_habit.get(habit.id, [])
+        )
+        >= quest_progress_service.completion_target(habit, today)
+    ]
 
     # Get today's completed Life Lore subgoals
     life_lore_today = (
@@ -2646,19 +2694,24 @@ def create_log(
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found or inactive")
 
-    if habit.type == "quantitative":
+    try:
+        target_date = resolve_target_date(payload.target_date)
+    except DailyLogError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    dated_config = quest_progress_service.progress_config_for_date(habit, target_date)
+
+    if dated_config["type"] == "quantitative":
         if payload.log_type == "log" and payload.amount is None:
             raise HTTPException(
                 status_code=400, detail="Amount is required for quantitative habit logs"
             )
-    elif habit.type == "binary":
+    elif dated_config["type"] == "binary":
         if payload.log_type != "done" and payload.log_type != "skip":
             raise HTTPException(
                 status_code=400, detail="Binary habit logs must be 'done' or 'skip'"
             )
 
     try:
-        target_date = resolve_target_date(payload.target_date)
         log, created = create_habit_log(
             db,
             user_id=user_id,
@@ -3181,6 +3234,12 @@ def get_habits(
         else _latest_visible_habit_versions(filtered_habits)
     )
     today = datetime.date.today()
+    progress_by_habit_id = quest_progress_service.progress_rows_by_habit(
+        db,
+        user_id=user_id,
+        habit_ids=[habit.id for habit in habits],
+        date_value=today,
+    )
     week_start = datetime.datetime.combine(
         today - datetime.timedelta(days=today.weekday()), datetime.time.min
     )
@@ -3199,11 +3258,17 @@ def get_habits(
         )
         .all()
     )
-    today_count_by_habit = {}
+    today_logs_by_habit = {}
     for log in today_logs:
-        today_count_by_habit[log.habit_id] = (
-            today_count_by_habit.get(log.habit_id, 0) + 1
+        today_logs_by_habit.setdefault(log.habit_id, []).append(log)
+    habits_by_id = {habit.id: habit for habit in all_user_habits}
+    today_count_by_habit = {
+        habit_id: quest_progress_service.completion_count(
+            habits_by_id[habit_id], habit_logs
         )
+        for habit_id, habit_logs in today_logs_by_habit.items()
+        if habit_id in habits_by_id
+    }
 
     current_streak_by_habit_id = {}
     habit_ids = [habit.id for habit in habits]
@@ -3259,6 +3324,11 @@ def get_habits(
                 "daily_cap": h.daily_cap,
                 "daily_target": h.daily_target,
                 "unit": h.unit,
+                "progress_mode": h.progress_mode or "standard",
+                "checklist_items": [dict(item) for item in (h.checklist_items or [])],
+                "daily_progress": quest_progress_service.progress_payload(
+                    h, today, progress_by_habit_id.get(h.id)
+                ),
                 "is_active": h.is_active,
                 "completed_this_period": completed_this_period,
                 "today_count": today_count_by_habit.get(h.id, 0),
@@ -3295,6 +3365,116 @@ def get_habit_bank(
     return response
 
 
+@router.put("/habits/{habit_id}/counter/{date}")
+def put_habit_counter_progress(
+    habit_id: int,
+    date: datetime.date,
+    payload: CounterProgressUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    habit = (
+        db.query(Habit)
+        .filter(
+            Habit.id == habit_id,
+            Habit.user_id == user_id,
+            Habit.is_active == True,
+            Habit.archived_at == None,
+        )
+        .first()
+    )
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found.")
+    try:
+        target_date = resolve_target_date(date)
+        with quest_progress_service.progress_write_lock(user_id, habit.id, target_date):
+            if quest_progress_service.daily_progress_is_locked(
+                db,
+                user_id=user_id,
+                habit_id=habit.id,
+                date_value=target_date,
+            ):
+                raise quest_progress_service.QuestProgressConflict(
+                    "Progress is read-only for a skipped or failed quest."
+                )
+            row = quest_progress_service.set_counter_value(
+                db,
+                user_id=user_id,
+                habit=habit,
+                date_value=target_date,
+                value=payload.value,
+            )
+            db.commit()
+            db.refresh(row)
+    except quest_progress_service.QuestProgressConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (DailyLogError, quest_progress_service.QuestProgressError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "status": "updated",
+        "habit_id": habit.id,
+        "daily_progress": quest_progress_service.progress_payload(
+            habit, target_date, row
+        ),
+    }
+
+
+@router.put("/habits/{habit_id}/checklist/{date}/items/{item_id}")
+def put_habit_checklist_progress(
+    habit_id: int,
+    date: datetime.date,
+    item_id: str,
+    payload: ChecklistProgressUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    habit = (
+        db.query(Habit)
+        .filter(
+            Habit.id == habit_id,
+            Habit.user_id == user_id,
+            Habit.is_active == True,
+            Habit.archived_at == None,
+        )
+        .first()
+    )
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found.")
+    try:
+        target_date = resolve_target_date(date)
+        with quest_progress_service.progress_write_lock(user_id, habit.id, target_date):
+            if quest_progress_service.daily_progress_is_locked(
+                db,
+                user_id=user_id,
+                habit_id=habit.id,
+                date_value=target_date,
+            ):
+                raise quest_progress_service.QuestProgressConflict(
+                    "Progress is read-only for a skipped or failed quest."
+                )
+            row = quest_progress_service.set_checklist_item_checked(
+                db,
+                user_id=user_id,
+                habit=habit,
+                date_value=target_date,
+                item_id=item_id,
+                checked=payload.checked,
+            )
+            db.commit()
+            db.refresh(row)
+    except quest_progress_service.QuestProgressConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (DailyLogError, quest_progress_service.QuestProgressError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "status": "updated",
+        "habit_id": habit.id,
+        "daily_progress": quest_progress_service.progress_payload(
+            habit, target_date, row
+        ),
+    }
+
+
 class HabitUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
@@ -3302,9 +3482,13 @@ class HabitUpdate(BaseModel):
     frequency: Optional[str] = None
     scheduled_days: Optional[str] = None
     day_types: Optional[List[str]] = None
-    unit: Optional[str] = None
+    unit: Optional[str] = Field(default=None, max_length=64)
     daily_cap: Optional[int] = None
     daily_target: Optional[int] = None
+    progress_mode: Optional[str] = None
+    checklist_items: Optional[List[ChecklistItemConfig]] = Field(
+        default=None, max_length=50
+    )
     is_mandatory: Optional[bool] = None
     is_private: Optional[bool] = None
     is_reportable: Optional[bool] = None
@@ -3365,6 +3549,51 @@ def update_habit(
 
     # Handle active status transition logic
     payload_dict = payload.model_dump(exclude_unset=True)
+    current_progress_mode = habit.progress_mode or "standard"
+    effective_mode = payload_dict.get(
+        "progress_mode", habit.progress_mode or "standard"
+    )
+    if effective_mode in {"free_counter", "checklist"}:
+        payload_dict["type"] = "binary"
+        payload_dict["daily_target"] = None
+        payload_dict["daily_cap"] = None
+    effective_items = payload_dict.get(
+        "checklist_items", [dict(item) for item in (habit.checklist_items or [])]
+    )
+    try:
+        progress_config = quest_progress_service.validate_and_normalize_config(
+            mode=effective_mode,
+            habit_type=payload_dict.get("type", habit.type),
+            unit=payload_dict.get("unit", habit.unit),
+            daily_target=payload_dict.get("daily_target", habit.daily_target),
+            daily_cap=payload_dict.get("daily_cap", habit.daily_cap),
+            checklist_items=effective_items,
+        )
+    except quest_progress_service.QuestProgressError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    for field in (
+        "progress_mode",
+        "type",
+        "unit",
+        "daily_target",
+        "daily_cap",
+        "checklist_items",
+    ):
+        payload_dict[field] = progress_config[field]
+    progress_config_changed = (
+        progress_config["progress_mode"] != current_progress_mode
+        or progress_config["unit"] != habit.unit
+        or progress_config["daily_target"] != habit.daily_target
+        or progress_config["checklist_items"] != (habit.checklist_items or [])
+    )
+    if progress_config_changed:
+        payload_dict["progress_config_history"] = (
+            quest_progress_service.progress_config_history_after_update(
+                habit,
+                config=progress_config,
+                effective_from=datetime.date.today(),
+            )
+        )
     validate_habit_update_payload(payload_dict)
     if (
         "agenda_duration_minutes" in payload_dict
@@ -3405,6 +3634,7 @@ def update_habit(
 
     for field, value in payload_dict.items():
         setattr(habit, field, value)
+    quest_progress_service.reconcile_today_snapshot(db, user_id=user_id, habit=habit)
     db.commit()
     return {"status": "updated"}
 
@@ -3498,7 +3728,21 @@ def get_habit_calendar(
         log_day = log.timestamp.date().day
         logs_by_day.setdefault(log_day, []).append(log)
 
+    progress_rows = (
+        db.query(HabitDailyProgress)
+        .filter(
+            HabitDailyProgress.habit_id == habit_id,
+            HabitDailyProgress.user_id == user_id,
+            HabitDailyProgress.date >= start_date,
+            HabitDailyProgress.date <= end_date,
+        )
+        .all()
+    )
     days_status = {}
+    daily_progress = {
+        row.date.day: quest_progress_service.progress_payload(habit, row.date, row)
+        for row in progress_rows
+    }
 
     h_streak = (
         db.query(Streak)
@@ -3512,7 +3756,6 @@ def get_habit_calendar(
 
     for day in range(1, num_days + 1):
         day_date = datetime.date(year, month, day)
-
         if day_date > today:
             days_status[day] = "future"
             continue
@@ -3522,7 +3765,9 @@ def get_habit_calendar(
             continue
 
         day_logs = logs_by_day.get(day, [])
-        is_done = any(l.log_type in ["done", "log"] for l in day_logs)
+        is_done = quest_progress_service.completion_count(
+            habit, day_logs
+        ) >= quest_progress_service.completion_target(habit, day_date)
         is_skipped = any(l.log_type == "skip" for l in day_logs)
 
         if is_done:
@@ -3557,6 +3802,7 @@ def get_habit_calendar(
             habit.deactivated_at.isoformat() if habit.deactivated_at else None
         ),
         "days": days_status,
+        "daily_progress": daily_progress,
     }
 
 
@@ -3566,7 +3812,7 @@ def create_habit(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ):
-    validate_habit_payload(payload)
+    progress_config = validate_habit_payload(payload)
     existing = db.query(Habit).filter_by(user_id=user_id, name=payload.name).first()
     if existing:
         raise HTTPException(
@@ -3576,7 +3822,7 @@ def create_habit(
     habit = Habit(
         user_id=user_id,
         name=payload.name,
-        type=payload.type,
+        type=progress_config["type"],
         description=payload.description,
         frequency=payload.frequency,
         scheduled_days=normalize_habit_schedule(
@@ -3587,9 +3833,16 @@ def create_habit(
         is_private=payload.is_private,
         is_reportable=payload.is_reportable,
         is_mandatory=payload.is_mandatory,
-        daily_cap=payload.daily_cap,
-        daily_target=payload.daily_target,
-        unit=payload.unit,
+        daily_cap=progress_config["daily_cap"],
+        daily_target=progress_config["daily_target"],
+        unit=progress_config["unit"],
+        progress_mode=progress_config["progress_mode"],
+        progress_config_history=[
+            quest_progress_service.progress_config_entry(
+                progress_config, datetime.date.today()
+            )
+        ],
+        checklist_items=progress_config["checklist_items"],
         effort_type=payload.effort_type,
         effort_duration=payload.effort_duration,
         source_type="manual",

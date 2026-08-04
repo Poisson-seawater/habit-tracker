@@ -150,6 +150,9 @@ class Habit(Base):
         Integer, nullable=True
     )  # Cible de répétitions/jour (affichage X/N) ; None = 1
     unit = Column(String, nullable=True)  # Unit e.g. "min", "km"
+    progress_mode = Column(String, default="standard", nullable=False)
+    progress_config_history = Column(JSON, nullable=True, default=list)
+    checklist_items = Column(JSON, nullable=True, default=list)
     is_active = Column(Boolean, default=True)
     deactivated_at = Column(DateTime, nullable=True)
     effort_type = Column(
@@ -170,6 +173,9 @@ class Habit(Base):
     )
     agenda_placements = relationship(
         "DailyAgendaPlacement", back_populates="habit", cascade="all, delete-orphan"
+    )
+    daily_progress = relationship(
+        "HabitDailyProgress", back_populates="habit", cascade="all, delete-orphan"
     )
 
 
@@ -193,6 +199,46 @@ class HabitLog(Base):
 
     user = relationship("User", back_populates="logs")
     habit = relationship("Habit", back_populates="logs")
+
+
+class HabitDailyProgress(Base):
+    __tablename__ = "habit_daily_progress"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "habit_id",
+            "date",
+            name="uix_habit_daily_progress_user_habit_date",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    habit_id = Column(
+        Integer,
+        ForeignKey("habits.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    date = Column(Date, nullable=False, index=True)
+    mode_snapshot = Column(String, nullable=False)
+    unit_snapshot = Column(String, nullable=True)
+    counter_value = Column(Integer, nullable=False, default=0)
+    checklist_state = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.now, nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=datetime.datetime.now,
+        onupdate=datetime.datetime.now,
+        nullable=False,
+    )
+
+    habit = relationship("Habit", back_populates="daily_progress")
 
 
 class PerfectDayTemplate(Base):

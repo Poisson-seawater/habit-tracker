@@ -3,6 +3,21 @@
 > Une entrée par session / push, anti-chronologique. Rédigé par `/doc-sync` avant push.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-08-04 — fix(quests): rendre les checklists visibles et validables dans Modifier
+
+- **Symptôme vérifié sur l'instance Compose locale** : les quêtes `routine_matin` et `Étape: Trouver un bon avocat` conservaient bien leur `progress_mode=checklist` et leurs éléments dans `data/habit_tracker.db`, mais le chemin « Modifier » reconstruisait la quête depuis l'objet agenda et la validation quotidienne restait peu visible.
+- **Correction UX** : l'édition récupère maintenant la configuration autoritative chargée par `GET /habits`, tout en gardant l'état quotidien daté de l'agenda. Le tiroir « Modifier » affiche une section explicite « Checklist du jour » ou « Compteur du jour » avec contrôles utilisables. Dans les cartes et la timeline, le suivi reste replié par défaut et un bouton explicite `☑ Checklist X/Y` ou `Compteur …` ouvre le tiroir de validation.
+- **Cache frontend** : versions des assets CSS/JS incrémentées pour forcer le chargement de l'interface corrigée. Aucun changement backend, DB, contrat API ou commande Telegram.
+- **Validation** : les 267 tests backend, Black sur les fichiers Python modifiés, la syntaxe JavaScript et `git diff --check` réussissent. Aucun rebuild Compose nécessaire pour ces fichiers frontend montés depuis le worktree.
+
+## 2026-08-03 — feat(quests): compteur libre et checklist quotidienne sans effet RPG
+
+- **Décision produit** : une quête binaire peut conserver son mode standard ou choisir un seul suivi auxiliaire dans le dashboard : compteur libre à valeur absolue, ou checklist. Les états sont isolés par date et les écritures sont limitées à aujourd'hui et hier.
+- **Frontière métier** : ce suivi quotidien ne crée aucun `HabitLog` et ne déclenche ni score, ni XP, ni streak. La quête n'est accomplie qu'après une validation « Fait » explicite; les commandes Telegram restent inchangées.
+- **Compatibilité** : les nouveaux champs et données de progression sont ajoutés aux réponses existantes des habitudes, de la banque, de l'agenda et du calendrier sans retirer les champs historiques. Une nouvelle version de quête copie la configuration du suivi, jamais son état quotidien. Un historique daté de configuration et les snapshots quotidiens préservent le type, le mode, l'unité, la checklist et l'ancienne cible à travers plusieurs changements successifs; la création concurrente de la première ligne quotidienne utilise un upsert SQLite.
+- **Garde-fous** : compteur borné à l'entier exact maximal de JavaScript, identifiants de checklist sûrs pour les URLs, maximum de 50 étapes, et progression verrouillée après une quête passée ou ratée. Les mutations frontend d'une même quête sont sérialisées pour éviter les pertes de coches.
+- **Validation** : 31 tests ciblés de progression/migration et la suite complète de 267 tests backend réussissent; Black, syntaxe JavaScript et `git diff --check` réussissent. Documentation utilisateur mise à jour dans `docs/wiki/pages/habitudes.md`. Aucune commande Telegram modifiée, donc `COMMANDS-INDEX.md` n'est pas concerné. Aucun test Compose n'a été lancé, la cible locale ou Raspberry Pi n'ayant pas été spécifiée.
+
 ## 2026-07-20 — feat(quests): banque des quêtes hors agenda
 
 - **Quest Bank dashboard** : ajout d'un bouton **Banque** dans « Quêtes à placer » pour lister les quêtes actives qui existent mais ne sont pas visibles à la date affichée, avec la raison d'absence et la prochaine date visible quand elle est calculable.

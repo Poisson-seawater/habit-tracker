@@ -18,6 +18,13 @@ from src.database.models import (
     Streak,
 )
 from src.services import softskill_service
+from src.services.quest_progress_service import (
+    completion_count,
+    completion_target,
+    progress_config_for_date,
+    progress_payload,
+    progress_rows_by_habit,
+)
 
 
 EFFORT_TYPES = {
@@ -672,6 +679,9 @@ def build_quest_bank_response(
 
     current_streak_by_habit_id = {}
     habit_ids = [habit.id for habit in habits]
+    progress_by_habit_id = progress_rows_by_habit(
+        db, user_id=user_id, habit_ids=habit_ids, date_value=date_value
+    )
     if habit_ids:
         streak_rows = (
             db.query(Streak)
@@ -706,6 +716,7 @@ def build_quest_bank_response(
             skipped_ids,
             failed_ids,
             current_streak_by_habit_id.get(habit.id, 0),
+            progress_by_habit_id.get(habit.id),
         )
 
         if habit.archived_at is not None:
@@ -821,6 +832,7 @@ def habit_to_agenda_item(
     skipped_habit_ids: set[int],
     failed_habit_ids: set[int],
     current_streak: int = 0,
+    progress_row=None,
 ) -> dict:
     duration_minutes = _habit_duration_minutes(habit)
     needs_configuration = bool(
@@ -833,9 +845,8 @@ def habit_to_agenda_item(
     )
     source_type = habit.source_type or "manual"
     today_count = completions.get(habit.id, 0)
-    target = (
-        habit.daily_target if (habit.daily_target and habit.daily_target > 1) else 1
-    )
+    dated_config = progress_config_for_date(habit, date_value)
+    target = dated_config["daily_target"]
     if habit.id in failed_habit_ids:
         status = "failed"
     elif habit.id in skipped_habit_ids:
@@ -866,8 +877,14 @@ def habit_to_agenda_item(
         "status": status,
         "current_streak": current_streak,
         "daily_target": habit.daily_target,
+        "daily_target_for_date": target,
         "today_count": today_count,
         "unit": habit.unit,
+        "unit_for_date": dated_config["unit"],
+        "type_for_date": dated_config["type"],
+        "progress_mode": habit.progress_mode or "standard",
+        "checklist_items": [dict(item) for item in (habit.checklist_items or [])],
+        "daily_progress": progress_payload(habit, date_value, progress_row),
     }
 
 
@@ -885,13 +902,16 @@ def _completed_and_skipped_habit_ids(
         )
         .all()
     )
-    from collections import Counter
-
-    completions = Counter(
-        log.habit_id
-        for log in logs
-        if log.log_type in {"done", "log"} and log.cancelled_at is None
-    )
+    habit_list = habits or (db.query(Habit).filter(Habit.user_id == user_id).all())
+    habits_by_id = {habit.id: habit for habit in habit_list}
+    logs_by_habit = {}
+    for log in logs:
+        logs_by_habit.setdefault(log.habit_id, []).append(log)
+    completions = {
+        habit_id: completion_count(habits_by_id[habit_id], habit_logs)
+        for habit_id, habit_logs in logs_by_habit.items()
+        if habit_id in habits_by_id
+    }
     skipped = {
         log.habit_id
         for log in logs
@@ -1034,6 +1054,9 @@ def build_agenda_response(
     eligible_by_id = {habit.id: habit for habit in eligible_habits}
     current_streak_by_habit_id = {}
     eligible_ids = list(eligible_by_id)
+    progress_by_habit_id = progress_rows_by_habit(
+        db, user_id=user_id, habit_ids=eligible_ids, date_value=date_value
+    )
     if eligible_ids:
         streak_rows = (
             db.query(Streak)
@@ -1083,6 +1106,7 @@ def build_agenda_response(
             skipped_ids,
             failed_ids,
             current_streak_by_habit_id.get(habit.id, 0),
+            progress_by_habit_id.get(habit.id),
         )
         placement = placement_by_habit_id.get(habit.id)
         default = default_by_habit_id.get(habit.id)

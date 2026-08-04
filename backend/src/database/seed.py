@@ -1198,6 +1198,73 @@ def _run_migrations():
                 db.commit()
                 print("Migration v30 (habit_logs.xp_penalty) applied successfully.")
 
+        # v31: Add enriched quest configuration and per-day auxiliary progress.
+        if "habits" in inspector.get_table_names():
+            columns = {c["name"] for c in inspector.get_columns("habits")}
+            enriched_columns = {
+                "progress_mode": (
+                    "ALTER TABLE habits ADD COLUMN progress_mode "
+                    "VARCHAR DEFAULT 'standard' NOT NULL"
+                ),
+                "progress_config_history": (
+                    "ALTER TABLE habits ADD COLUMN progress_config_history JSON"
+                ),
+                "checklist_items": (
+                    "ALTER TABLE habits ADD COLUMN checklist_items JSON"
+                ),
+            }
+            missing_enriched_columns = [
+                name for name in enriched_columns if name not in columns
+            ]
+            if missing_enriched_columns:
+                print("Running migration v31: adding enriched progress to habits...")
+                for column_name in missing_enriched_columns:
+                    db.execute(text(enriched_columns[column_name]))
+                if "progress_mode" in missing_enriched_columns:
+                    db.execute(
+                        text(
+                            "UPDATE habits SET progress_mode = 'standard' "
+                            "WHERE progress_mode IS NULL OR TRIM(progress_mode) = ''"
+                        )
+                    )
+                db.commit()
+                print("Migration v31 (habit enriched progress) applied successfully.")
+
+        if "habit_daily_progress" not in inspector.get_table_names():
+            print("Running migration v31: creating habit_daily_progress table...")
+            db.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS habit_daily_progress (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        habit_id INTEGER NOT NULL,
+                        date DATE NOT NULL,
+                        mode_snapshot VARCHAR NOT NULL,
+                        unit_snapshot VARCHAR,
+                        counter_value INTEGER NOT NULL DEFAULT 0,
+                        checklist_state JSON,
+                        created_at DATETIME NOT NULL,
+                        updated_at DATETIME NOT NULL,
+                        FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE,
+                        FOREIGN KEY(habit_id) REFERENCES habits (id) ON DELETE CASCADE,
+                        CONSTRAINT uix_habit_daily_progress_user_habit_date
+                            UNIQUE (user_id, habit_id, date)
+                    )
+                    """
+                )
+            )
+            for column_name in ("user_id", "habit_id", "date"):
+                db.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS "
+                        f"ix_habit_daily_progress_{column_name} "
+                        f"ON habit_daily_progress ({column_name})"
+                    )
+                )
+            db.commit()
+            print("Migration v31 (habit_daily_progress table) applied successfully.")
+
         # v19: Destructively remove the legacy RPG stat/tag columns.
         v19_dropped = False
         for table, columns in {

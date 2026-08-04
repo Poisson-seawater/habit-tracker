@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="stylesheet" href="css/style.css?v=5">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -1000,7 +1000,22 @@
                 <div class="form-group">
                   <label>Unité (si quantitatif)</label>
                   <input type="text" id="new-quest-unit" placeholder="ex: min, reps" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
+                  <label class="progress-mode-toggle">
+                    <input type="checkbox" id="new-quest-free-counter">
+                    <span>Compteur libre</span>
+                  </label>
                 </div>
+              </div>
+
+              <div class="quest-checklist-editor-shell">
+                <div class="quest-checklist-editor-header">
+                  <div>
+                    <strong>Checklist quotidienne</strong>
+                    <span>Suivi auxiliaire, indépendant du bouton « Fait ».</span>
+                  </div>
+                  <button type="button" class="quest-checklist-add-btn" id="new-quest-add-checklist-item">+ Élément</button>
+                </div>
+                <div class="quest-checklist-editor" id="new-quest-checklist-items"></div>
               </div>
 
               <div class="form-group">
@@ -1922,6 +1937,13 @@
     <div id="edit-quest-version-list" class="quest-version-list"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
       <div class="form-group">
+        <label>Type</label>
+        <select id="edit-quest-type" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;">
+          <option value="binary">Binaire (Fait/Pas fait)</option>
+          <option value="quantitative">Quantitative (Points/Minutes...)</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label>Fréquence</label>
         <select id="edit-quest-frequency" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;">
           <option value="daily">Quotidien</option>
@@ -1933,7 +1955,28 @@
       <div class="form-group">
         <label>Unité (si quantitatif)</label>
         <input type="text" id="edit-quest-unit" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
+        <label class="progress-mode-toggle">
+          <input type="checkbox" id="edit-quest-free-counter">
+          <span>Compteur libre</span>
+        </label>
       </div>
+    </div>
+    <div class="quest-checklist-editor-shell">
+      <div class="quest-checklist-editor-header">
+        <div>
+          <strong>Checklist quotidienne</strong>
+          <span>Suivi auxiliaire, indépendant du bouton « Fait ».</span>
+        </div>
+        <button type="button" class="quest-checklist-add-btn" id="edit-quest-add-checklist-item">+ Élément</button>
+      </div>
+      <div class="quest-checklist-editor" id="edit-quest-checklist-items"></div>
+    </div>
+    <div id="edit-quest-daily-progress-shell" class="quest-daily-progress-shell" hidden>
+      <div class="quest-daily-progress-header">
+        <strong id="edit-quest-daily-progress-title">Checklist du jour</strong>
+        <span>Tu peux valider les étapes ici sans déclarer la quête « Fait ».</span>
+      </div>
+      <div id="edit-quest-daily-progress"></div>
     </div>
     <div class="form-group">
       <label>Cible/jour (optionnel — affiche X/N)</label>
@@ -2021,6 +2064,17 @@
       <button id="delete-edit-bounty-btn" class="quest-action-btn" style="flex:1;padding:10px;background:rgba(239, 68, 68, 0.15);border-color:rgba(239, 68, 68, 0.5);color:#ef4444;">Supprimer</button>
       <button id="cancel-edit-bounty-btn" class="quest-action-btn" style="flex:1;padding:10px;background:rgba(255,255,255,0.05);color:var(--text-secondary);">Annuler</button>
     </div>
+  </div>
+
+  <!-- Daily quest tracking drawer (counter/checklist, no history) -->
+  <div id="quest-tracking-overlay" class="drawer-overlay"></div>
+  <div id="quest-tracking-drawer" class="creators-drawer quest-tracking-drawer">
+    <div class="drawer-header">
+      <span class="drawer-title" id="quest-tracking-title">Suivi de la quête</span>
+      <button id="close-quest-tracking-btn" class="drawer-close-btn">&times;</button>
+    </div>
+    <p id="quest-tracking-date" class="quest-tracking-date"></p>
+    <div id="quest-tracking-content"></div>
   </div>
 
   <!-- Habit Detail & Calendar Modal -->
@@ -2194,6 +2248,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.8"></script>
+  <script src="js/app.js?v=1.0.10"></script>
 </body>
 </html>
