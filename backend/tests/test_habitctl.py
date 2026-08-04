@@ -373,9 +373,9 @@ def test_query_archived_habits_uses_all_versions(monkeypatch):
 def test_agenda_placement_set_resolves_habit_and_defaults_date(monkeypatch):
     client = TargetResolutionClient()
     monkeypatch.setattr(
-        habitctl.dt, "date", SimpleNamespace(today=lambda: SimpleNamespace(
-            isoformat=lambda: "2026-07-01"
-        ))
+        habitctl.dt,
+        "date",
+        SimpleNamespace(today=lambda: SimpleNamespace(isoformat=lambda: "2026-07-01")),
     )
     method, path, payload, resource = habitctl.operation_request(
         client,

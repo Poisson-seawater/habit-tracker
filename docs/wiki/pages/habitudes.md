@@ -9,6 +9,25 @@ Une habitude, c'est une action que tu répètes régulièrement, selon un planni
 | Binaire | faite / pas faite (une fois par jour) | `/done <habitude>` |
 | Quantitative | une mesure (ex. 30min, 5km) | `/log <habitude> <valeur><unité>` |
 
+## Suivi libre dans le dashboard
+
+Une quête binaire peut afficher dans le dashboard un seul outil de suivi auxiliaire :
+
+- un **compteur libre**, pour saisir directement une valeur absolue avec son unité (par exemple `12 pages`) ;
+- une **checklist**, pour cocher les éléments préparés sur la quête.
+
+Ces deux modes sont mutuellement exclusifs sur une même quête. Le compteur libre et la checklist sont disponibles uniquement dans le dashboard : les commandes Telegram continuent d'utiliser la validation habituelle.
+
+Le suivi est séparé pour **aujourd'hui** et **hier**, puis repart sur un nouvel état chaque jour. Modifier le compteur ou cocher un élément ne valide pas la quête, ne donne ni XP ni Or, et ne modifie ni le score du jour ni le streak. Pour déclarer la quête accomplie et faire progresser le jeu, utilise toujours explicitement **Valider / Fait** dans le dashboard ou `/done <habitude>` sur Telegram.
+
+## Valider en un clic depuis Telegram
+
+`/quetes` (alias `/habitudes`, `/habits` et `/quests`) affiche le **panneau des quêtes du jour** : un bouton par habitude prévue aujourd'hui, plus celles déjà traitées même hors planning. Chaque bouton porte son état : ⬜ à faire, ✅ validée, `(1/3)` pour une habitude à cible multiple, 📊 avec le total loggé, ⏭️ skippée, ❌ ratée. Au-delà de 20 quêtes, les flèches permettent de changer de page.
+
+Un clic sur une habitude binaire la valide immédiatement et redessine le panneau sur place. Une habitude quantitative demande d'abord la valeur (ex. `30`), puis actualise le panneau d'origine. Une fois sa cible atteinte, ou si elle est skippée ou ratée, la quête reste visible mais son bouton ne crée plus de validation. Les répétitions supplémentaires d'une quête à cible restent possibles avec `/done` ou `/log`. Le bouton **🔄 Rafraîchir** recharge l'état sans rien valider, et une habitude déjà ratée doit d'abord être annulée avec `/fail_habit <nom> --undo`.
+
+Chaque panneau appartient à la personne qui l'a ouvert : un autre membre du groupe ne peut ni le remplacer par ses propres quêtes ni utiliser ses boutons. Les quêtes privées apparaissent sous le nom « Chose secrète 🔒 », comme dans `/status`, car le panneau peut vivre dans le groupe.
+
 ## Planning
 
 Une habitude n'est due que certains jours (tous les jours, ou par ex. lundi + mercredi). Elle peut aussi être associée à un ou plusieurs types de journée : `rest`, `regular` et `hustle`. Les trois sont sélectionnés par défaut, y compris pour les anciennes habitudes.

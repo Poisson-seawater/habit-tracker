@@ -148,9 +148,19 @@ def test_dynamic_xp_transitions(db_session):
     assert user.xp == 10  # No change
 
     # Log all scheduled habits.
-    log1 = HabitLog(user_id=1, habit_id=1, log_type="done", timestamp=datetime.datetime.now())
-    log2 = HabitLog(user_id=1, habit_id=3, log_type="done", timestamp=datetime.datetime.now())
-    log3 = HabitLog(user_id=1, habit_id=2, log_type="log", amount=1, timestamp=datetime.datetime.now())
+    log1 = HabitLog(
+        user_id=1, habit_id=1, log_type="done", timestamp=datetime.datetime.now()
+    )
+    log2 = HabitLog(
+        user_id=1, habit_id=3, log_type="done", timestamp=datetime.datetime.now()
+    )
+    log3 = HabitLog(
+        user_id=1,
+        habit_id=2,
+        log_type="log",
+        amount=1,
+        timestamp=datetime.datetime.now(),
+    )
     db_session.add_all([log1, log2, log3])
     db_session.commit()
 
@@ -174,8 +184,20 @@ async def test_midnight_streak_rollover(db_session, monkeypatch):
     yesterday = today - datetime.timedelta(days=1)
 
     # 1. Seed initial streaks for yesterday
-    perf_streak = Streak(user_id=1, streak_type="Perfect", current_streak=5, max_streak=5, last_incremented=yesterday)
-    h1_streak = Streak(user_id=1, streak_type="habit:1", current_streak=5, max_streak=5, last_incremented=yesterday)
+    perf_streak = Streak(
+        user_id=1,
+        streak_type="Perfect",
+        current_streak=5,
+        max_streak=5,
+        last_incremented=yesterday,
+    )
+    h1_streak = Streak(
+        user_id=1,
+        streak_type="habit:1",
+        current_streak=5,
+        max_streak=5,
+        last_incremented=yesterday,
+    )
     db_session.add_all([perf_streak, h1_streak])
     db_session.commit()
 
@@ -191,6 +213,7 @@ async def test_midnight_streak_rollover(db_session, monkeypatch):
     # 3. Simulate midnight rollover. We patch datetime to represent "today" is now tomorrow,
     # so "yesterday" refers to the day we just failed.
     import datetime as real_datetime
+
     class MockDateClass:
         @staticmethod
         def today():
@@ -204,6 +227,7 @@ async def test_midnight_streak_rollover(db_session, monkeypatch):
 
     # Mock datetime in finalize_day_streaks
     from src.bot import scheduler
+
     monkeypatch.setattr(scheduler, "datetime", MockDatetimeModule)
     monkeypatch.setattr(scheduler, "SessionLocal", lambda: db_session)
     monkeypatch.setattr(db_session, "close", lambda: None)
@@ -216,5 +240,3 @@ async def test_midnight_streak_rollover(db_session, monkeypatch):
     db_session.refresh(h1_streak)
     assert perf_streak.current_streak == 0
     assert h1_streak.current_streak == 0
-
-

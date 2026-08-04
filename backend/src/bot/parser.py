@@ -132,6 +132,10 @@ def parse_command(text: str) -> dict:
     elif cmd == "/motivation":
         return {"command": "motivation"}
 
+    elif cmd in ["/quetes", "/quêtes", "/quests", "/habits", "/habitudes"]:
+        # Interactive quest panel: one button per habit due today.
+        return {"command": "quetes"}
+
     elif cmd == "/liste":
         # No argument → listener shows the 3 list-choice buttons.
         if not args_str:

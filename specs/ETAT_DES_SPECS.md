@@ -50,3 +50,14 @@ Current source of truth for implemented behavior is the code plus `README.md`,
   `week`, `weekend`, `recup`, and `malade` are historical aliases/context only.
 - The July 2026 multi-agent brief is implemented. Do not treat its ordered list
   as an active backlog; verify behavior in code and the wiki pages it updated.
+- Quest auxiliary progress was implemented on 2026-08-03 without a separate
+  Spec Kit folder. A quest now has exactly one dated progress mode: `standard`,
+  `free_counter`, or `checklist`. Counter/checklist state is dashboard/API-only,
+  resets per date, never replaces the explicit final `done`, and is preserved
+  across later configuration changes by `habits.progress_config_history` plus
+  `habit_daily_progress` snapshots. The automatic schema change is migration
+  v31 in `database/seed.py`; implementation details live in
+  `services/quest_progress_service.py`, tests in
+  `tests/test_quest_daily_progress.py`, and user behavior in
+  `docs/wiki/pages/habitudes.md`. Telegram commands were intentionally left
+  unchanged. Do not plan these two features again unless extending them.

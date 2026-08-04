@@ -5,6 +5,13 @@ from sqlalchemy.orm import Session
 
 from src.database.models import DailyScore, Habit, HabitLog, Streak, User
 from src.services.agenda_service import is_habit_eligible_on_date, resolve_day_type
+from src.services.quest_progress_service import (
+    completion_count,
+    completion_target,
+    ensure_progress_row,
+    is_enriched_on_date,
+    progress_config_for_date,
+)
 from src.services.score_service import (
     add_user_xp,
     calculate_daily_score,
@@ -72,14 +79,16 @@ def active_habit_failure(
     )
 
 
-def habit_target_completed(habit: Habit, logs: list[HabitLog]) -> bool:
-    target = habit.daily_target if habit.daily_target and habit.daily_target > 1 else 1
-    completions = sum(
-        1
-        for log in logs
-        if log.log_type in {"done", "log"} and log.cancelled_at is None
-    )
-    return completions >= target
+def habit_target_completed(
+    habit: Habit,
+    logs: list[HabitLog],
+    date_value: datetime.date | None = None,
+) -> bool:
+    if date_value is None:
+        dated_log = next((log for log in logs if log.timestamp is not None), None)
+        date_value = dated_log.timestamp.date() if dated_log else datetime.date.today()
+    target = completion_target(habit, date_value)
+    return completion_count(habit, logs) >= target
 
 
 def create_habit_log(
@@ -96,8 +105,9 @@ def create_habit_log(
     if any(log.log_type == "failed" and log.cancelled_at is None for log in logs):
         raise DailyLogConflict("Undo the habit failure before logging progress.")
 
-    has_target = habit.daily_target is not None and habit.daily_target > 1
-    if habit.type == "binary" and log_type == "done" and not has_target:
+    dated_config = progress_config_for_date(habit, date_value)
+    has_target = dated_config["daily_target"] > 1
+    if dated_config["type"] == "binary" and log_type == "done" and not has_target:
         existing = next(
             (
                 log
@@ -109,12 +119,20 @@ def create_habit_log(
         if existing:
             return existing, False
 
+    if log_type in {"done", "skip"} and is_enriched_on_date(habit, date_value):
+        ensure_progress_row(
+            db,
+            user_id=user_id,
+            habit=habit,
+            date_value=date_value,
+        )
+
     log = HabitLog(
         user_id=user_id,
         habit_id=habit.id,
         log_type=log_type,
         amount=amount,
-        unit=habit.unit if habit.type == "quantitative" else None,
+        unit=dated_config["unit"] if dated_config["type"] == "quantitative" else None,
         reason=reason,
         timestamp=timestamp_on_date(date_value),
     )
@@ -133,10 +151,18 @@ def mark_habit_failed(
     )
     if existing:
         return existing, False
-    if habit_target_completed(habit, logs):
+    if habit_target_completed(habit, logs, date_value):
         raise DailyLogConflict("A completed habit cannot be marked as failed.")
     if any(log.log_type == "skip" and log.cancelled_at is None for log in logs):
         raise DailyLogConflict("A skipped habit cannot be marked as failed.")
+
+    if is_enriched_on_date(habit, date_value):
+        ensure_progress_row(
+            db,
+            user_id=user_id,
+            habit=habit,
+            date_value=date_value,
+        )
 
     user = db.query(User).filter_by(id=user_id).first()
     if not user:

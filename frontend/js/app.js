@@ -109,6 +109,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const agendaSlotGrid = document.getElementById("agenda-slot-grid");
   let questAgendaState = null;
   let agendaEffortSummaryVisible = true;
+  let directProgressInputActive = false;
+  let trackedQuestId = null;
+  let questTrackingTrigger = null;
+  const questProgressMutationQueues = new Map();
 
   const bioZoneMeta = {
     deep_focus: { label: "Focus profond", emoji: "🧠", color: "#8b5cf6" },
@@ -165,6 +169,310 @@ document.addEventListener("DOMContentLoaded", () => {
   function isCorrectableAgendaDate(date = getAgendaDate()) {
     return date === todayDateString() || date === yesterdayDateString();
   }
+
+  function getQuestProgressMode(item) {
+    return item?.daily_progress?.mode || item?.progress_mode || "standard";
+  }
+
+  function getQuestTypeForDate(item) {
+    return item?.type_for_date || item?.type || "binary";
+  }
+
+  function getQuestUnitForDate(item) {
+    return item?.daily_progress?.unit || item?.unit_for_date || item?.unit || "unités";
+  }
+
+  function getQuestTargetForDate(item) {
+    return Number(item?.daily_target_for_date || item?.daily_target || 1);
+  }
+
+  function getQuestCounterValue(item) {
+    const value = item?.daily_progress?.counter_value;
+    return Number.isSafeInteger(Number(value)) ? Number(value) : 0;
+  }
+
+  function getQuestChecklistItems(item) {
+    const configured = Array.isArray(item?.checklist_items) ? item.checklist_items : [];
+    const daily = Array.isArray(item?.daily_progress?.checklist_items)
+      ? item.daily_progress.checklist_items
+      : [];
+    const dailyById = new Map(daily.map(entry => [String(entry.id ?? entry.item_id), entry]));
+    const source = daily.length > 0 ? daily : configured;
+    return source.map((entry, index) => {
+      const dailyEntry = dailyById.get(String(entry.id ?? entry.item_id)) || entry;
+      return {
+        id: entry.id ?? entry.item_id ?? dailyEntry.id ?? dailyEntry.item_id,
+        label: entry.label || dailyEntry.label || `Élément ${index + 1}`,
+        checked: Boolean(dailyEntry.checked)
+      };
+    });
+  }
+
+  function isQuestProgressReadonly(item) {
+    return !isCorrectableAgendaDate() || item.status === "failed" || item.status === "skipped";
+  }
+
+  function questProgressSummary(item) {
+    const mode = getQuestProgressMode(item);
+    if (mode === "free_counter") {
+      const unit = getQuestUnitForDate(item) || "reps";
+      return `${getQuestCounterValue(item)} ${unit}`;
+    }
+    if (mode === "checklist") {
+      const items = getQuestChecklistItems(item);
+      return `${items.filter(entry => entry.checked).length}/${items.length}`;
+    }
+    return "";
+  }
+
+  function questProgressButtonLabel(item) {
+    const mode = getQuestProgressMode(item);
+    const summary = questProgressSummary(item);
+    return mode === "checklist" ? `☑ Checklist ${summary}` : `# Compteur ${summary}`;
+  }
+
+  async function refreshProgressSurfaces(habitId = null) {
+    await loadQuestAgenda(true);
+    if (questPanelMode !== "agenda") await loadCurrentQuestPanel(false);
+    if (trackedQuestId !== null && (habitId === null || String(trackedQuestId) === String(habitId))) {
+      const refreshed = agendaQuestById(trackedQuestId);
+      if (refreshed) openQuestTrackingDrawer(refreshed);
+    }
+  }
+
+  function enqueueQuestProgressMutation(habitId, mutation) {
+    const key = String(habitId);
+    const previous = questProgressMutationQueues.get(key) || Promise.resolve();
+    const current = previous.catch(() => {}).then(mutation);
+    questProgressMutationQueues.set(key, current);
+    current.finally(() => {
+      if (questProgressMutationQueues.get(key) === current) {
+        questProgressMutationQueues.delete(key);
+      }
+    });
+    return current;
+  }
+
+  function updateQuestCounter(habitId, value) {
+    const parsed = typeof value === "string" && value.trim() === "" ? NaN : Number(value);
+    if (!Number.isSafeInteger(parsed) || parsed < 0) {
+      showToast("Le compteur doit être un entier positif ou nul.", true);
+      return Promise.resolve(false);
+    }
+    const targetDate = getAgendaDate();
+    return enqueueQuestProgressMutation(habitId, async () => {
+      try {
+        const response = await fetch(`${API_BASE}/habits/${habitId}/counter/${targetDate}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ value: parsed })
+        });
+        if (!response.ok) throw new Error((await response.json()).detail || "Compteur refusé");
+        await refreshProgressSurfaces(habitId);
+        return true;
+      } catch (error) {
+        console.error(error);
+        showToast(error.message || "Erreur lors de la mise à jour du compteur", true);
+        return false;
+      }
+    });
+  }
+
+  function updateQuestChecklistItem(habitId, itemId, checked) {
+    const targetDate = getAgendaDate();
+    return enqueueQuestProgressMutation(habitId, async () => {
+      try {
+        const encodedItemId = encodeURIComponent(String(itemId));
+        const response = await fetch(`${API_BASE}/habits/${habitId}/checklist/${targetDate}/items/${encodedItemId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ checked: Boolean(checked) })
+        });
+        if (!response.ok) throw new Error((await response.json()).detail || "Checklist refusée");
+        await refreshProgressSurfaces(habitId);
+        return true;
+      } catch (error) {
+        console.error(error);
+        showToast(error.message || "Erreur lors de la mise à jour de la checklist", true);
+        return false;
+      }
+    });
+  }
+
+  function createQuestProgressControl(item, { inDrawer = false } = {}) {
+    const mode = getQuestProgressMode(item);
+    if (mode === "standard") return null;
+
+    const readonly = isQuestProgressReadonly(item);
+    const control = document.createElement("div");
+    control.className = `agenda-progress-control ${readonly ? "readonly" : ""}`;
+    control.addEventListener("click", event => event.stopPropagation());
+    control.addEventListener("pointerdown", event => event.stopPropagation());
+    const heading = document.createElement("strong");
+    heading.className = "agenda-progress-control-title";
+    heading.textContent = mode === "checklist" ? "Checklist du jour" : "Compteur du jour";
+    control.appendChild(heading);
+
+    if (mode === "free_counter") {
+      const counter = document.createElement("div");
+      counter.className = "agenda-counter-control";
+      const decrement = document.createElement("button");
+      decrement.type = "button";
+      decrement.className = "agenda-counter-step";
+      decrement.textContent = "−";
+      decrement.setAttribute("aria-label", "Retirer une répétition");
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "0";
+      input.max = String(Number.MAX_SAFE_INTEGER);
+      input.step = "1";
+      input.inputMode = "numeric";
+      input.className = "agenda-counter-value";
+      input.value = String(getQuestCounterValue(item));
+      input.setAttribute("aria-label", `Valeur du compteur pour ${item.name}`);
+      const increment = document.createElement("button");
+      increment.type = "button";
+      increment.className = "agenda-counter-step";
+      increment.textContent = "+";
+      increment.setAttribute("aria-label", "Ajouter une répétition");
+      decrement.disabled = readonly || getQuestCounterValue(item) === 0;
+      input.disabled = readonly;
+      increment.disabled = readonly || getQuestCounterValue(item) >= Number.MAX_SAFE_INTEGER;
+
+      decrement.addEventListener("click", async () => {
+        decrement.disabled = true;
+        input.disabled = true;
+        increment.disabled = true;
+        const current = Number(input.value);
+        const previous = Number.isSafeInteger(current) && current >= 0 ? current : 0;
+        const updated = await updateQuestCounter(item.habit_id, Math.max(0, previous - 1));
+        if (!updated) {
+          input.value = String(previous);
+        }
+        const currentValue = updated ? Math.max(0, previous - 1) : previous;
+        input.value = String(currentValue);
+        decrement.disabled = readonly || currentValue === 0;
+        input.disabled = readonly;
+        increment.disabled = readonly || currentValue >= Number.MAX_SAFE_INTEGER;
+      });
+      increment.addEventListener("click", async () => {
+        decrement.disabled = true;
+        input.disabled = true;
+        increment.disabled = true;
+        const current = Number(input.value);
+        const previous = Number.isSafeInteger(current) && current >= 0 ? current : 0;
+        const updated = await updateQuestCounter(item.habit_id, previous + 1);
+        if (!updated) {
+          input.value = String(previous);
+        }
+        const currentValue = updated ? previous + 1 : previous;
+        input.value = String(currentValue);
+        decrement.disabled = readonly || currentValue === 0;
+        input.disabled = readonly;
+        increment.disabled = readonly || currentValue >= Number.MAX_SAFE_INTEGER;
+      });
+      input.addEventListener("focus", () => {
+        directProgressInputActive = true;
+        input.dataset.previousValue = input.value;
+      });
+      input.addEventListener("keydown", event => {
+        if (event.key === "Enter") input.blur();
+        if (event.key === "Escape") {
+          event.stopPropagation();
+          input.value = input.dataset.previousValue || String(getQuestCounterValue(item));
+          input.blur();
+        }
+      });
+      input.addEventListener("blur", async () => {
+        const previous = Number(input.dataset.previousValue);
+        const next = input.value.trim() === "" ? NaN : Number(input.value);
+        directProgressInputActive = false;
+        if (Number.isSafeInteger(next) && next >= 0 && next !== previous) {
+          const updated = await updateQuestCounter(item.habit_id, next);
+          if (!updated) input.value = String(Number.isSafeInteger(previous) ? previous : 0);
+        } else if (!Number.isSafeInteger(next) || next < 0) {
+          input.value = String(Number.isSafeInteger(previous) ? previous : 0);
+          showToast("Le compteur doit être un entier positif ou nul.", true);
+        }
+      });
+
+      const unit = document.createElement("span");
+      unit.className = "agenda-progress-unit";
+      unit.textContent = getQuestUnitForDate(item) || "reps";
+      counter.append(decrement, input, increment, unit);
+      control.appendChild(counter);
+    } else {
+      const list = document.createElement("div");
+      list.className = "agenda-checklist-control";
+      getQuestChecklistItems(item).forEach(entry => {
+        const label = document.createElement("label");
+        label.className = `agenda-checklist-item ${entry.checked ? "checked" : ""}`;
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = entry.checked;
+        checkbox.disabled = readonly || entry.id === undefined || entry.id === null;
+        checkbox.addEventListener("change", async () => {
+          checkbox.disabled = true;
+          const updated = await updateQuestChecklistItem(item.habit_id, entry.id, checkbox.checked);
+          if (!updated) {
+            checkbox.checked = !checkbox.checked;
+          }
+          checkbox.disabled = readonly;
+        });
+        const text = document.createElement("span");
+        text.textContent = entry.label;
+        label.append(checkbox, text);
+        list.appendChild(label);
+      });
+      control.appendChild(list);
+    }
+
+    if (readonly) {
+      const note = document.createElement("span");
+      note.className = "agenda-progress-readonly-note";
+      note.textContent = item.status === "failed"
+        ? "Lecture seule : quête ratée."
+        : item.status === "skipped"
+          ? "Lecture seule : quête passée."
+          : "Modifiable seulement aujourd’hui ou hier.";
+      control.appendChild(note);
+    } else if (item.status === "done" && !inDrawer) {
+      control.title = "Le suivi auxiliaire reste modifiable après validation finale.";
+    }
+    return control;
+  }
+
+  function openQuestTrackingDrawer(item, trigger = questTrackingTrigger) {
+    const overlay = document.getElementById("quest-tracking-overlay");
+    const drawer = document.getElementById("quest-tracking-drawer");
+    const content = document.getElementById("quest-tracking-content");
+    if (!overlay || !drawer || !content) return;
+    trackedQuestId = item.habit_id;
+    questTrackingTrigger = trigger;
+    document.getElementById("quest-tracking-title").textContent = item.name;
+    document.getElementById("quest-tracking-date").textContent = `Suivi auxiliaire · ${formatDateFr(dateFromInput(getAgendaDate()))}`;
+    content.innerHTML = "";
+    const control = createQuestProgressControl(item, { inDrawer: true });
+    if (control) content.appendChild(control);
+    overlay.classList.add("open");
+    drawer.classList.add("open");
+  }
+
+  function closeQuestTrackingDrawer() {
+    document.getElementById("quest-tracking-overlay")?.classList.remove("open");
+    document.getElementById("quest-tracking-drawer")?.classList.remove("open");
+    trackedQuestId = null;
+    questTrackingTrigger?.focus();
+    questTrackingTrigger = null;
+  }
+
+  document.getElementById("close-quest-tracking-btn")?.addEventListener("click", closeQuestTrackingDrawer);
+  document.getElementById("quest-tracking-overlay")?.addEventListener("click", closeQuestTrackingDrawer);
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && document.getElementById("quest-tracking-drawer")?.classList.contains("open")) {
+      closeQuestTrackingDrawer();
+    }
+  });
 
   function updateAgendaDateSwitch() {
     const date = getAgendaDate();
@@ -509,7 +817,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!habitsResponse.ok) throw new Error("Erreur habits API");
       const habits = await habitsResponse.json();
       allHabitsCache = habits;
-      await loadCurrentQuestPanel(false);
+      if (!directProgressInputActive) {
+        await loadCurrentQuestPanel(false);
+      }
     } catch (error) {
       console.error(error);
       questsListContainer.innerHTML = `<p style="color: var(--accent-red); font-size: 0.9rem; text-align: center;">Erreur de chargement des quêtes.</p>`;
@@ -730,7 +1040,7 @@ document.addEventListener("DOMContentLoaded", () => {
       edit.type = "button";
       edit.className = "quest-bank-action";
       edit.textContent = "Modifier";
-      edit.addEventListener("click", () => openEditQuestModal(questFromAgendaItem(quest)));
+      edit.addEventListener("click", () => openEditQuestModal(questConfigForAgendaItem(quest), quest));
 
       const stats = document.createElement("button");
       stats.type = "button";
@@ -1345,8 +1655,19 @@ document.addEventListener("DOMContentLoaded", () => {
       is_active: true,
       unit: item.unit || "",
       daily_target: item.daily_target || null,
+      // The editor must use the current quest configuration, never an older
+      // per-day snapshot displayed while correcting yesterday.
+      progress_mode: item.progress_mode || "standard",
+      checklist_items: Array.isArray(item.checklist_items) ? item.checklist_items : [],
+      daily_progress: item.daily_progress || null,
       version_history: []
     };
+  }
+
+  function questConfigForAgendaItem(item) {
+    const habitId = item?.habit_id ?? item?.id;
+    return allHabitsCache.find(habit => String(habit.id) === String(habitId))
+      || questFromAgendaItem(item);
   }
 
   function renderAgendaEffortSummary(data) {
@@ -1451,9 +1772,9 @@ document.addEventListener("DOMContentLoaded", () => {
     checkbox.addEventListener("click", async (event) => {
       event.stopPropagation();
       if (isDone || isSkipped || isFailed) return;
-      const habitType = item.type || "binary";
+      const habitType = getQuestTypeForDate(item);
       if (habitType === "quantitative") {
-        const amount = prompt(`Combien de ${item.unit || "unités"} ?`);
+        const amount = prompt(`Combien de ${getQuestUnitForDate(item)} ?`);
         if (amount === null) return;
         const parsed = parseFloat(amount);
         if (isNaN(parsed) || parsed <= 0) { showToast("Quantité invalide", true); return; }
@@ -1464,8 +1785,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     checkboxWrap.appendChild(checkbox);
 
-    const targetSuffix = (item.daily_target && item.daily_target > 1)
-      ? ` (${item.today_count || 0}/${item.daily_target})`
+    const targetForDate = getQuestTargetForDate(item);
+    const targetSuffix = targetForDate > 1
+      ? ` (${item.today_count || 0}/${targetForDate})`
       : "";
     const main = document.createElement("div");
     main.className = "agenda-quest-main";
@@ -1537,6 +1859,19 @@ document.addEventListener("DOMContentLoaded", () => {
     statsBtn.title = "Statistiques de la quête";
     statsBtn.textContent = "Stats";
     actions.append(editBtn, statsBtn);
+    const progressMode = getQuestProgressMode(item);
+    if (progressMode !== "standard") {
+      const progressBtn = document.createElement("button");
+      progressBtn.type = "button";
+      progressBtn.className = "agenda-small-btn agenda-progress-quest";
+      progressBtn.title = "Afficher le suivi quotidien";
+      progressBtn.textContent = questProgressButtonLabel(item);
+      progressBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openQuestTrackingDrawer(item, progressBtn);
+      });
+      actions.appendChild(progressBtn);
+    }
     if (isToday && !isDone && !isSkipped) {
       const failBtn = document.createElement("button");
       failBtn.type = "button";
@@ -1557,7 +1892,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     card.querySelector(".agenda-edit-quest")?.addEventListener("click", (event) => {
       event.stopPropagation();
-      openEditQuestModal(questFromAgendaItem(item));
+      openEditQuestModal(questConfigForAgendaItem(item), item);
     });
     card.querySelector(".agenda-stats-quest")?.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -1708,8 +2043,9 @@ document.addEventListener("DOMContentLoaded", () => {
       block.style.top = `${range.top}%`;
       block.style.height = `${range.height}%`;
 
-      const targetSuffix = (item.daily_target && item.daily_target > 1)
-        ? ` (${item.today_count || 0}/${item.daily_target})`
+      const targetForDate = getQuestTargetForDate(item);
+      const targetSuffix = targetForDate > 1
+        ? ` (${item.today_count || 0}/${targetForDate})`
         : "";
       const emoji = getStreakEmoji(item.current_streak || 0);
       const emojiPrefix = emoji ? `${emoji} ` : "";
@@ -1725,9 +2061,9 @@ document.addEventListener("DOMContentLoaded", () => {
         event.preventDefault();
         event.stopPropagation();
         if (isDone || isSkipped || isFailed) return;
-        const habitType = item.type || "binary";
+        const habitType = getQuestTypeForDate(item);
         if (habitType === "quantitative") {
-          const amount = prompt(`Combien de ${item.unit || "unités"} ?`);
+          const amount = prompt(`Combien de ${getQuestUnitForDate(item)} ?`);
           if (amount === null) return;
           const parsed = parseFloat(amount);
           if (isNaN(parsed) || parsed <= 0) { showToast("Quantité invalide", true); return; }
@@ -1752,13 +2088,22 @@ document.addEventListener("DOMContentLoaded", () => {
       statsBtn.title = "Statistiques de la quête";
       statsBtn.setAttribute("aria-label", "Statistiques de la quête");
       statsBtn.textContent = "📊";
+      const progressMode = getQuestProgressMode(item);
+      const progressBtn = document.createElement("button");
+      progressBtn.type = "button";
+      progressBtn.className = "agenda-block-progress-btn";
+      progressBtn.title = "Ouvrir le suivi quotidien";
+      progressBtn.setAttribute("aria-label", "Ouvrir le suivi quotidien");
+      progressBtn.textContent = questProgressButtonLabel(item);
       const failBtn = document.createElement("button");
       failBtn.type = "button";
       failBtn.className = `agenda-block-fail-btn ${isFailed ? "undo" : ""}`;
       failBtn.title = isFailed ? "Annuler l'échec" : "Déclarer la quête ratée";
       failBtn.setAttribute("aria-label", failBtn.title);
       failBtn.textContent = isFailed ? "↶" : "×";
-      block.append(blockCheck, blockTitle, editBtn, statsBtn);
+      block.append(blockCheck, blockTitle);
+      if (progressMode !== "standard") block.appendChild(progressBtn);
+      block.append(editBtn, statsBtn);
       if (isToday && !isDone && !isSkipped) block.appendChild(failBtn);
       block.addEventListener("dragstart", (event) => {
         event.dataTransfer.setData("text/plain", String(item.habit_id));
@@ -1767,13 +2112,18 @@ document.addEventListener("DOMContentLoaded", () => {
       editBtn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        openEditQuestModal(questFromAgendaItem(item));
+        openEditQuestModal(questConfigForAgendaItem(item), item);
       });
       statsBtn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         const habitObj = allHabitsCache.find(h => String(h.id) === String(item.habit_id)) || questFromAgendaItem(item);
         openHabitDetailModal(habitObj);
+      });
+      progressBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openQuestTrackingDrawer(item, progressBtn);
       });
       failBtn.addEventListener("click", async (event) => {
         event.preventDefault();
@@ -4084,6 +4434,151 @@ document.addEventListener("DOMContentLoaded", () => {
   const archiveQuestBtn = document.getElementById("archive-quest-btn");
   let activeEditQuest = null;
 
+  function questProgressEditorElements(prefix) {
+    return {
+      type: document.getElementById(`${prefix}-quest-type`),
+      unit: document.getElementById(`${prefix}-quest-unit`),
+      target: document.getElementById(`${prefix}-quest-target`),
+      counter: document.getElementById(`${prefix}-quest-free-counter`),
+      checklist: document.getElementById(`${prefix}-quest-checklist-items`),
+      addChecklist: document.getElementById(`${prefix}-quest-add-checklist-item`)
+    };
+  }
+
+  function currentQuestProgressEditorMode(prefix) {
+    const elements = questProgressEditorElements(prefix);
+    if (elements.counter?.checked) return "free_counter";
+    if (elements.checklist?.children.length) return "checklist";
+    return "standard";
+  }
+
+  function setQuestProgressEditorMode(prefix, mode, { clearChecklist = false } = {}) {
+    const elements = questProgressEditorElements(prefix);
+    if (!elements.type || !elements.unit || !elements.target || !elements.counter || !elements.checklist) return;
+    const enriched = mode === "free_counter" || mode === "checklist";
+    elements.counter.checked = mode === "free_counter";
+    if (clearChecklist) elements.checklist.innerHTML = "";
+    if (enriched) {
+      elements.type.value = "binary";
+      elements.type.disabled = true;
+      elements.target.value = "";
+      elements.target.disabled = true;
+    } else {
+      elements.type.disabled = false;
+      elements.target.disabled = false;
+    }
+    if (mode === "free_counter") {
+      elements.unit.disabled = false;
+      if (!elements.unit.value.trim()) elements.unit.value = "reps";
+    } else if (mode === "checklist") {
+      elements.unit.value = "";
+      elements.unit.disabled = true;
+    } else {
+      elements.unit.disabled = false;
+    }
+  }
+
+  function addQuestChecklistEditorRow(prefix, item = {}) {
+    const elements = questProgressEditorElements(prefix);
+    if (!elements.checklist) return null;
+    const row = document.createElement("div");
+    row.className = "quest-checklist-editor-row";
+    if (item.id !== undefined && item.id !== null) row.dataset.itemId = String(item.id);
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "quest-checklist-label-input";
+    input.placeholder = "ex: Échauffement terminé";
+    input.value = item.label || "";
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "quest-checklist-remove-btn";
+    remove.textContent = "Retirer";
+    remove.addEventListener("click", () => {
+      if (
+        prefix === "edit"
+        && activeEditQuest?.progress_mode === "checklist"
+        && elements.checklist.children.length === 1
+        && !confirm("Retirer la dernière étape désactivera la checklist et effacera le suivi d’aujourd’hui. Continuer ?")
+      ) return;
+      row.remove();
+      if (elements.checklist.children.length === 0) {
+        setQuestProgressEditorMode(prefix, "standard");
+        elements.type.value = "binary";
+        elements.unit.value = "";
+      }
+    });
+    row.append(input, remove);
+    elements.checklist.appendChild(row);
+    setQuestProgressEditorMode(prefix, "checklist");
+    return input;
+  }
+
+  function collectQuestChecklistEditorItems(prefix) {
+    const { checklist } = questProgressEditorElements(prefix);
+    return Array.from(checklist?.querySelectorAll(".quest-checklist-editor-row") || [])
+      .map(row => {
+        const label = row.querySelector(".quest-checklist-label-input")?.value.trim() || "";
+        const item = { label };
+        if (row.dataset.itemId) item.id = row.dataset.itemId;
+        return item;
+      })
+      .filter(item => item.label);
+  }
+
+  function renderQuestChecklistEditor(prefix, items) {
+    const { checklist } = questProgressEditorElements(prefix);
+    if (!checklist) return;
+    checklist.innerHTML = "";
+    (items || []).forEach(item => addQuestChecklistEditorRow(prefix, item));
+  }
+
+  function setupQuestProgressEditor(prefix) {
+    const elements = questProgressEditorElements(prefix);
+    if (!elements.counter || !elements.addChecklist || !elements.type) return;
+
+    elements.counter.addEventListener("change", () => {
+      if (!elements.counter.checked) {
+        if (
+          prefix === "edit"
+          && activeEditQuest?.progress_mode === "free_counter"
+          && !confirm("Désactiver le compteur libre effacera sa configuration et le suivi d’aujourd’hui. Continuer ?")
+        ) {
+          elements.counter.checked = true;
+          return;
+        }
+        setQuestProgressEditorMode(prefix, "standard");
+        elements.type.value = "binary";
+        elements.unit.value = "";
+        return;
+      }
+      const currentMode = elements.checklist?.children.length ? "checklist" : "standard";
+      const quantitative = elements.type.value === "quantitative";
+      if ((currentMode === "checklist" || quantitative) && !confirm(
+        "Activer le compteur libre effacera la configuration incompatible. Continuer ?"
+      )) {
+        elements.counter.checked = false;
+        return;
+      }
+      setQuestProgressEditorMode(prefix, "free_counter", { clearChecklist: true });
+    });
+
+    elements.addChecklist.addEventListener("click", () => {
+      const currentMode = currentQuestProgressEditorMode(prefix);
+      const quantitative = elements.type.value === "quantitative";
+      if ((currentMode === "free_counter" || quantitative) && !confirm(
+        "Activer la checklist effacera la configuration incompatible. Continuer ?"
+      )) return;
+      if (currentMode === "free_counter") {
+        elements.counter.checked = false;
+        elements.unit.value = "";
+      }
+      const input = addQuestChecklistEditorRow(prefix);
+      input?.focus();
+    });
+
+    setQuestProgressEditorMode(prefix, "standard");
+  }
+
   function selectedDayTypes(container) {
     return Array.from(container?.querySelectorAll("input:checked") || []).map(cb => cb.value);
   }
@@ -4192,12 +4687,46 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function openEditQuestModal(habit) {
+  function renderEditQuestDailyProgress(habit, agendaItem = null) {
+    const shell = document.getElementById("edit-quest-daily-progress-shell");
+    const title = document.getElementById("edit-quest-daily-progress-title");
+    const content = document.getElementById("edit-quest-daily-progress");
+    if (!shell || !title || !content) return;
+
+    content.innerHTML = "";
+    const mode = habit?.progress_mode || "standard";
+    if (mode === "standard") {
+      shell.hidden = true;
+      return;
+    }
+
+    shell.hidden = false;
+    title.textContent = mode === "checklist" ? "Checklist du jour" : "Compteur du jour";
+    const datedItem = agendaItem || agendaQuestById(habit.id);
+    const control = datedItem ? createQuestProgressControl(datedItem, { inDrawer: true }) : null;
+    if (control) {
+      content.appendChild(control);
+      return;
+    }
+
+    const note = document.createElement("p");
+    note.className = "quest-daily-progress-note";
+    note.textContent = datedItem
+      ? "Ce suivi n’était pas encore actif à la date affichée."
+      : "Le suivi quotidien apparaîtra dans l’Agenda une fois la quête chargée pour cette date.";
+    content.appendChild(note);
+  }
+
+  function openEditQuestModal(habit, agendaItem = null) {
     activeEditQuest = habit;
     document.getElementById("edit-quest-id").value        = habit.id;
     document.getElementById("edit-quest-name").value      = habit.name;
+    document.getElementById("edit-quest-type").value      = habit.type || "binary";
     document.getElementById("edit-quest-unit").value      = habit.unit || "";
     document.getElementById("edit-quest-target").value    = habit.daily_target || "";
+    renderQuestChecklistEditor("edit", habit.checklist_items || []);
+    setQuestProgressEditorMode("edit", habit.progress_mode || "standard");
+    renderEditQuestDailyProgress(habit, agendaItem);
     editFreqSelect.value = habit.frequency || "daily";
     renderEditQuestDescriptionFields(habit);
 
@@ -4280,8 +4809,12 @@ document.addEventListener("DOMContentLoaded", () => {
         activeEditQuest = refreshedHabit;
         document.getElementById("edit-quest-id").value = refreshedHabit.id;
         document.getElementById("edit-quest-name").value = refreshedHabit.name;
+        document.getElementById("edit-quest-type").value = refreshedHabit.type || "binary";
         document.getElementById("edit-quest-unit").value = refreshedHabit.unit || "";
         document.getElementById("edit-quest-target").value = refreshedHabit.daily_target || "";
+        renderQuestChecklistEditor("edit", refreshedHabit.checklist_items || []);
+        setQuestProgressEditorMode("edit", refreshedHabit.progress_mode || "standard");
+        renderEditQuestDailyProgress(refreshedHabit);
         editFreqSelect.value = refreshedHabit.frequency || "daily";
         updateFrequencyNote(editFreqSelect, editQuestFrequencyNote, refreshedHabit.scheduled_days);
         renderEditQuestDescriptionFields(refreshedHabit);
@@ -4314,15 +4847,34 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const descriptionUpdates = collectQuestVersionDescriptionUpdates();
     const activeDescription = descriptionUpdates.find((update) => String(update.id) === String(id));
+    const progress_mode = currentQuestProgressEditorMode("edit");
+    const checklist_items = progress_mode === "checklist"
+      ? collectQuestChecklistEditorItems("edit")
+      : [];
+    if (progress_mode === "checklist" && checklist_items.length === 0) {
+      showToast("Ajoutez au moins un élément non vide à la checklist.", true);
+      return;
+    }
+    const questType = progress_mode === "standard"
+      ? document.getElementById("edit-quest-type").value
+      : "binary";
+    const unitValue = progress_mode === "free_counter"
+      ? (document.getElementById("edit-quest-unit").value.trim() || "reps")
+      : progress_mode === "standard" && questType === "quantitative"
+        ? (document.getElementById("edit-quest-unit").value.trim() || null)
+        : null;
 
     const body = {
       name:           document.getElementById("edit-quest-name").value.trim(),
       description:    activeDescription ? activeDescription.description : editQuestDescInput.value.trim(),
-      unit:           document.getElementById("edit-quest-unit").value.trim() || null,
+      type:           questType,
+      unit:           unitValue,
       frequency,
       scheduled_days,
       day_types,
-      daily_target:   editTargetRaw > 1 ? editTargetRaw : 1,  // 1 = pas de cible (exclude_none empêche de remettre null)
+      daily_target:   progress_mode === "standard" && editTargetRaw > 1 ? editTargetRaw : null,
+      progress_mode,
+      checklist_items,
       effort_type,
       effort_duration,
       agenda_duration_minutes,
@@ -4387,7 +4939,7 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchHistory();
     fetchBounties();
     fetchNoTodos();
-    updateDailyBudgetGauge();
+    if (!directProgressInputActive) updateDailyBudgetGauge();
 
     const rewardsTab = document.getElementById("rewards-tab");
     if (rewardsTab && rewardsTab.classList.contains("active")) {
@@ -4747,6 +5299,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const submitQuestBtn = document.getElementById("submit-quest-btn");
     const newDayTypesGroup = document.getElementById("new-quest-day-types");
 
+    setupQuestProgressEditor("new");
+    setupQuestProgressEditor("edit");
+
     if (openQuestBtn && questForm) {
       openQuestBtn.addEventListener("click", () => {
         if (questForm.style.display === "none") {
@@ -4776,9 +5331,23 @@ document.addEventListener("DOMContentLoaded", () => {
         const title = document.getElementById("new-quest-name").value.trim();
         const desc = document.getElementById("new-quest-desc").value.trim();
         const type = document.getElementById("new-quest-type").value;
-        const unit = document.getElementById("new-quest-unit").value.trim();
+        const progress_mode = currentQuestProgressEditorMode("new");
+        const checklist_items = progress_mode === "checklist"
+          ? collectQuestChecklistEditorItems("new")
+          : [];
+        if (progress_mode === "checklist" && checklist_items.length === 0) {
+          showToast("Ajoutez au moins un élément non vide à la checklist.", true);
+          return;
+        }
+        const effectiveType = progress_mode === "standard" ? type : "binary";
+        const rawUnit = document.getElementById("new-quest-unit").value.trim();
+        const unit = progress_mode === "free_counter"
+          ? (rawUnit || "reps")
+          : progress_mode === "standard" && effectiveType === "quantitative"
+            ? (rawUnit || null)
+            : null;
         const targetRaw = parseInt(document.getElementById("new-quest-target").value);
-        const daily_target = targetRaw > 1 ? targetRaw : null;
+        const daily_target = progress_mode === "standard" && targetRaw > 1 ? targetRaw : null;
         const frequency = freqSelect ? freqSelect.value : "daily";
 
         let scheduled_days = "0,1,2,3,4,5,6";
@@ -4811,12 +5380,14 @@ document.addEventListener("DOMContentLoaded", () => {
             body: JSON.stringify({
               name: title,
               description: desc,
-              type: type,
-              unit: type === "quantitative" ? unit : null,
+              type: effectiveType,
+              unit,
               frequency: frequency,
               scheduled_days: scheduled_days,
               day_types: day_types,
               daily_target: daily_target,
+              progress_mode,
+              checklist_items,
               effort_type: effort_type,
               effort_duration: effort_duration,
               agenda_duration_minutes: agenda_duration_minutes,
@@ -4838,6 +5409,9 @@ document.addEventListener("DOMContentLoaded", () => {
           if (newAgendaPlaceable) newAgendaPlaceable.checked = true;
           document.getElementById("new-quest-unit").value = "";
           document.getElementById("new-quest-target").value = "";
+          document.getElementById("new-quest-type").value = "binary";
+          renderQuestChecklistEditor("new", []);
+          setQuestProgressEditorMode("new", "standard");
           if (freqSelect) freqSelect.value = "daily";
           if (daysGroup) { daysGroup.style.display = "none"; daysGroup.querySelectorAll("input").forEach(cb => cb.checked = false); }
           newDayTypesGroup?.querySelectorAll("input").forEach(cb => { cb.checked = true; });

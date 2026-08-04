@@ -199,7 +199,6 @@ def test_streak_milestone_rewards():
         )
         db.add(h_dummy)
 
-
         # Streak record at 29 days
         st = Streak(user_id=1, streak_type="habit:20", current_streak=29, max_streak=29)
         db.add(st)

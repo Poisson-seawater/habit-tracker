@@ -664,6 +664,134 @@ body {
   overflow-y: auto;
 }
 
+.progress-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.progress-mode-toggle input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--accent-cyan);
+}
+
+.quest-checklist-editor-shell {
+  padding: 0.8rem;
+  border: 1px solid var(--border-glass);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.quest-checklist-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.quest-checklist-editor-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.quest-checklist-editor-header strong {
+  color: var(--text-primary);
+  font-size: 0.84rem;
+}
+
+.quest-checklist-editor-header span {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.quest-checklist-add-btn,
+.quest-checklist-remove-btn {
+  border: 1px solid rgba(6, 182, 212, 0.32);
+  border-radius: 7px;
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--accent-cyan);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.35rem 0.55rem;
+}
+
+.quest-checklist-remove-btn {
+  border-color: rgba(239, 68, 68, 0.32);
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+}
+
+.quest-checklist-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+
+.quest-checklist-editor:empty {
+  display: none;
+}
+
+.quest-checklist-editor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.quest-daily-progress-shell {
+  margin-top: 0.8rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  border-radius: 10px;
+  background: rgba(34, 197, 94, 0.055);
+}
+
+.quest-daily-progress-shell[hidden] {
+  display: none;
+}
+
+.quest-daily-progress-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.65rem;
+}
+
+.quest-daily-progress-header strong {
+  color: var(--accent-green);
+  font-size: 0.86rem;
+}
+
+.quest-daily-progress-header span,
+.quest-daily-progress-note {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.quest-daily-progress-note {
+  margin: 0;
+}
+
+.quest-checklist-label-input {
+  min-width: 0;
+  border: 1px solid var(--border-glass);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.45rem 0.55rem;
+}
+
 /* Streaks & Right side widgets */
 .widgets-container {
   display: flex;
@@ -3191,6 +3319,130 @@ body {
   font-size: 0.73rem;
 }
 
+.agenda-progress-control {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(6, 182, 212, 0.18);
+  border-radius: 8px;
+  background: rgba(6, 182, 212, 0.055);
+  cursor: default;
+}
+
+.agenda-progress-control-title {
+  width: 100%;
+  color: var(--accent-cyan);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.agenda-progress-control.readonly {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(148, 163, 184, 0.04);
+  opacity: 0.68;
+}
+
+.agenda-counter-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.agenda-counter-step,
+.agenda-counter-value {
+  height: 30px;
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  border-radius: 7px;
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 700;
+}
+
+.agenda-counter-step {
+  width: 30px;
+  padding: 0;
+  color: var(--accent-cyan);
+  cursor: pointer;
+}
+
+.agenda-counter-value {
+  width: 58px;
+  box-sizing: border-box;
+  padding: 0 0.35rem;
+  text-align: center;
+  appearance: textfield;
+}
+
+.agenda-counter-value::-webkit-inner-spin-button,
+.agenda-counter-value::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.agenda-counter-step:disabled,
+.agenda-counter-value:disabled,
+.agenda-checklist-item input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.agenda-progress-unit,
+.agenda-progress-readonly-note {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.agenda-checklist-control {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.agenda-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.agenda-checklist-item input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin: 0.05rem 0 0;
+  accent-color: var(--accent-green);
+}
+
+.agenda-checklist-item.checked span {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.quest-tracking-drawer {
+  max-width: 480px;
+}
+
+.quest-tracking-date {
+  margin: -0.45rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.quest-tracking-drawer .agenda-progress-control {
+  grid-column: auto;
+  margin: 0;
+  padding: 0.9rem;
+}
+
 .agenda-quest-meta,
 .agenda-quest-actions {
   display: flex;
@@ -3199,6 +3451,12 @@ body {
   flex-wrap: wrap;
   margin-top: 0.55rem;
   grid-column: 2;
+}
+
+.agenda-progress-quest {
+  border-color: rgba(6, 182, 212, 0.34);
+  background: rgba(6, 182, 212, 0.11);
+  color: #cffafe;
 }
 
 .agenda-config-flag {
@@ -3317,7 +3575,8 @@ body {
 
 .agenda-block-edit-btn,
 .agenda-block-stats-btn,
-.agenda-block-fail-btn {
+.agenda-block-fail-btn,
+.agenda-block-progress-btn {
   display: none;
   width: 14px;
   height: 14px;
@@ -3337,13 +3596,15 @@ body {
 
 .agenda-quest-block:hover .agenda-block-edit-btn,
 .agenda-quest-block:hover .agenda-block-stats-btn,
-.agenda-quest-block:hover .agenda-block-fail-btn {
+.agenda-quest-block:hover .agenda-block-fail-btn,
+.agenda-quest-block:hover .agenda-block-progress-btn {
   display: inline-flex;
 }
 
 .agenda-block-edit-btn:hover,
 .agenda-block-stats-btn:hover,
-.agenda-block-fail-btn:hover {
+.agenda-block-fail-btn:hover,
+.agenda-block-progress-btn:hover {
   background: rgba(255, 255, 255, 0.22);
 }
 
@@ -3353,6 +3614,18 @@ body {
 
 .agenda-block-fail-btn.undo {
   color: #a5f3fc;
+}
+
+.agenda-block-progress-btn {
+  display: inline-flex;
+  width: auto;
+  min-width: 14px;
+  max-width: 72px;
+  padding: 0 0.25rem;
+  color: #cffafe;
+  font-size: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .agenda-buffer-block {
