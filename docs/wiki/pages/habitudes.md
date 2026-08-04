@@ -22,11 +22,11 @@ Le suivi est séparé pour **aujourd'hui** et **hier**, puis repart sur un nouve
 
 ## Valider en un clic depuis Telegram
 
-`/quetes` (alias `/habitudes`) affiche le **panneau des quêtes du jour** : un bouton par habitude prévue aujourd'hui, plus celles déjà traitées même hors planning. Chaque bouton porte son état : ⬜ à faire, ✅ validée, `(1/3)` pour une habitude à cible multiple, 📊 avec le total loggé, ⏭️ skippée, ❌ ratée.
+`/quetes` (alias `/habitudes`, `/habits` et `/quests`) affiche le **panneau des quêtes du jour** : un bouton par habitude prévue aujourd'hui, plus celles déjà traitées même hors planning. Chaque bouton porte son état : ⬜ à faire, ✅ validée, `(1/3)` pour une habitude à cible multiple, 📊 avec le total loggé, ⏭️ skippée, ❌ ratée. Au-delà de 20 quêtes, les flèches permettent de changer de page.
 
-Un clic sur une habitude binaire la valide immédiatement et redessine le panneau sur place. Une habitude quantitative demande d'abord la valeur (ex. `30`), puis renvoie le panneau à jour. Le bouton **🔄 Rafraîchir** recharge l'état sans rien valider, et une habitude déjà ratée doit d'abord être annulée avec `/fail_habit <nom> --undo`.
+Un clic sur une habitude binaire la valide immédiatement et redessine le panneau sur place. Une habitude quantitative demande d'abord la valeur (ex. `30`), puis actualise le panneau d'origine. Une fois sa cible atteinte, ou si elle est skippée ou ratée, la quête reste visible mais son bouton ne crée plus de validation. Les répétitions supplémentaires d'une quête à cible restent possibles avec `/done` ou `/log`. Le bouton **🔄 Rafraîchir** recharge l'état sans rien valider, et une habitude déjà ratée doit d'abord être annulée avec `/fail_habit <nom> --undo`.
 
-Les quêtes privées apparaissent sous le nom « Chose secrète 🔒 », comme dans `/status`, car le panneau peut vivre dans le groupe.
+Chaque panneau appartient à la personne qui l'a ouvert : un autre membre du groupe ne peut ni le remplacer par ses propres quêtes ni utiliser ses boutons. Les quêtes privées apparaissent sous le nom « Chose secrète 🔒 », comme dans `/status`, car le panneau peut vivre dans le groupe.
 
 ## Planning
 

@@ -300,8 +300,25 @@ def _habit_button_label(habit: Habit, logs: list) -> str:
     return f"{'✅' if done else '⬜'} {name}"
 
 
+QUEST_PANEL_PAGE_SIZE = 20
+
+
+def _quest_callback_data(action: str, *parts: int) -> str:
+    """Build a Telegram callback payload and enforce Bot API's 64-byte limit."""
+    data = ":".join(["quest", action, *(str(part) for part in parts)])
+    if len(data.encode("utf-8")) > 64:
+        raise ValueError("Quest callback data exceeds Telegram's 64-byte limit.")
+    return data
+
+
+def _habit_panel_actionable(habit: Habit, logs: list) -> bool:
+    if any(log.log_type in {"failed", "skip"} for log in logs):
+        return False
+    return not habit_target_completed(habit, logs)
+
+
 def _render_habit_panel(
-    db, user_id: int, header: str | None = None
+    db, user_id: int, header: str | None = None, page: int = 0
 ) -> tuple[str, InlineKeyboardMarkup]:
     """Interactive checklist of today's quests: one button per habit, one tap to
     validate. Used by /quetes and re-rendered in place after each button press."""
@@ -313,6 +330,13 @@ def _render_habit_panel(
     if header:
         lines.append(header)
 
+    page_count = max(
+        1, (len(entries) + QUEST_PANEL_PAGE_SIZE - 1) // QUEST_PANEL_PAGE_SIZE
+    )
+    page = min(max(page, 0), page_count - 1)
+    page_start = page * QUEST_PANEL_PAGE_SIZE
+    page_entries = entries[page_start : page_start + QUEST_PANEL_PAGE_SIZE]
+
     keyboard = []
     if not entries:
         lines.append("\nAucune quête prévue aujourd'hui.")
@@ -321,18 +345,50 @@ def _render_habit_panel(
             1 for habit, logs in entries if habit_target_completed(habit, logs)
         )
         lines.append(f"\n✅ {done_count}/{len(entries)} validées — tape pour valider.")
-        for habit, logs in entries:
+        for habit, logs in page_entries:
+            callback_data = (
+                _quest_callback_data("do", user_id, habit.id, page)
+                if _habit_panel_actionable(habit, logs)
+                else _quest_callback_data("noop", user_id, page)
+            )
             keyboard.append(
                 [
                     InlineKeyboardButton(
                         _habit_button_label(habit, logs),
-                        callback_data=f"quest:do:{habit.id}",
+                        callback_data=callback_data,
                     )
                 ]
             )
 
+    if page_count > 1:
+        navigation = []
+        if page > 0:
+            navigation.append(
+                InlineKeyboardButton(
+                    "◀️", callback_data=_quest_callback_data("page", user_id, page - 1)
+                )
+            )
+        navigation.append(
+            InlineKeyboardButton(
+                f"Page {page + 1}/{page_count}",
+                callback_data=_quest_callback_data("page", user_id, page),
+            )
+        )
+        if page < page_count - 1:
+            navigation.append(
+                InlineKeyboardButton(
+                    "▶️", callback_data=_quest_callback_data("page", user_id, page + 1)
+                )
+            )
+        keyboard.append(navigation)
+
     keyboard.append(
-        [InlineKeyboardButton("🔄 Rafraîchir", callback_data="quest:refresh")]
+        [
+            InlineKeyboardButton(
+                "🔄 Rafraîchir",
+                callback_data=_quest_callback_data("refresh", user_id, page),
+            )
+        ]
     )
     return "\n".join(lines), InlineKeyboardMarkup(keyboard)
 
@@ -458,10 +514,16 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # A new command aborts the pending flow; fall through to normal routing.
                 context.user_data.pop("pending_log_habit_id", None)
                 context.user_data.pop("pending_log_from_panel", None)
+                context.user_data.pop("pending_log_panel", None)
             else:
                 habit = (
                     db.query(Habit)
-                    .filter_by(id=pending_log, user_id=user.id, is_active=True)
+                    .filter_by(
+                        id=pending_log,
+                        user_id=user.id,
+                        is_active=True,
+                        archived_at=None,
+                    )
                     .first()
                 )
                 if not habit:
@@ -470,6 +532,7 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
                     context.user_data.pop("pending_log_habit_id", None)
                     context.user_data.pop("pending_log_from_panel", None)
+                    context.user_data.pop("pending_log_panel", None)
                     db.close()
                     return
 
@@ -507,6 +570,7 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except DailyLogConflict as exc:
                     context.user_data.pop("pending_log_habit_id", None)
                     context.user_data.pop("pending_log_from_panel", None)
+                    context.user_data.pop("pending_log_panel", None)
                     await update.message.reply_text(f"❌ {exc}")
                     return
                 log.unit = resolved_unit
@@ -521,18 +585,31 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
 
                 context.user_data.pop("pending_log_habit_id", None)
-                from_panel = context.user_data.pop("pending_log_from_panel", False)
+                context.user_data.pop("pending_log_from_panel", None)
+                panel_context = context.user_data.pop("pending_log_panel", None)
                 await update.message.reply_text(
                     f'📚 {username} a loggé {val}{resolved_unit} pour la quête "{html.escape(habit.name)}" !\n'
                     f"Perfect Day recalculé.{cap_info}",
                     parse_mode="HTML",
                 )
-                if from_panel:
-                    # The tap came from the quest panel: send it back, updated.
-                    panel_text, panel_markup = _render_habit_panel(db, user.id)
-                    await update.message.reply_text(
-                        panel_text, reply_markup=panel_markup, parse_mode="HTML"
+                if panel_context and panel_context.get("owner_id") == user.id:
+                    panel_text, panel_markup = _render_habit_panel(
+                        db, user.id, page=panel_context["page"]
                     )
+                    try:
+                        await context.bot.edit_message_text(
+                            chat_id=panel_context["chat_id"],
+                            message_id=panel_context["message_id"],
+                            text=panel_text,
+                            reply_markup=panel_markup,
+                            parse_mode="HTML",
+                        )
+                    except BadRequest:
+                        await update.message.reply_text(
+                            panel_text,
+                            reply_markup=panel_markup,
+                            parse_mode="HTML",
+                        )
                 db.close()
                 return
 
@@ -1515,10 +1592,151 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.close()
 
 
+async def _handle_quest_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    query = update.callback_query
+    data = query.data or ""
+    parts = data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
+    expected_length = 5 if action == "do" else 4
+    if (
+        parts[0] != "quest"
+        or action not in {"do", "noop", "page", "refresh"}
+        or len(parts) != expected_length
+    ):
+        await query.answer("Ce panneau est expiré. Relance /quetes.", show_alert=True)
+        return
+
+    try:
+        owner_id = int(parts[2])
+        habit_id = int(parts[3]) if action == "do" else None
+        page = int(parts[4] if action == "do" else parts[3])
+        if owner_id <= 0 or page < 0 or (habit_id is not None and habit_id <= 0):
+            raise ValueError
+    except ValueError:
+        await query.answer("Ce panneau est expiré. Relance /quetes.", show_alert=True)
+        return
+
+    db = SessionLocal()
+    answered = False
+    try:
+        user = _resolve_user(db, query.from_user)
+        if not user or user.id != owner_id:
+            await query.answer(
+                "Ce panneau appartient à un autre utilisateur.", show_alert=True
+            )
+            answered = True
+            return
+
+        if action == "noop":
+            await query.answer("Cette quête est déjà traitée aujourd'hui.")
+            answered = True
+            return
+
+        header = None
+        if action == "refresh":
+            await query.answer()
+            answered = True
+            header = f"🔄 Mis à jour à {datetime.datetime.now().strftime('%H:%M')}"
+        elif action == "page":
+            await query.answer()
+            answered = True
+        else:
+            habit = (
+                db.query(Habit)
+                .filter_by(
+                    id=habit_id,
+                    user_id=user.id,
+                    is_active=True,
+                    archived_at=None,
+                )
+                .first()
+            )
+            if not habit:
+                await query.answer(
+                    "Quête introuvable ou inactive. Relance /quetes.",
+                    show_alert=True,
+                )
+                answered = True
+                return
+
+            today = datetime.date.today()
+            logs = _habit_logs_by_id(db, user.id, today).get(habit.id, [])
+            if not _habit_panel_actionable(habit, logs):
+                await query.answer("Cette quête est déjà traitée aujourd'hui.")
+                answered = True
+                panel_text, panel_markup = _render_habit_panel(db, user.id, page=page)
+                await _edit_habit_panel(query, panel_text, panel_markup)
+                return
+
+            name = html.escape(_habit_display_name(habit))
+            if habit.type == "quantitative":
+                context.user_data["pending_log_habit_id"] = habit.id
+                context.user_data["pending_log_panel"] = {
+                    "owner_id": user.id,
+                    "chat_id": query.message.chat_id,
+                    "message_id": query.message.message_id,
+                    "page": page,
+                }
+                unit_prompt = f" (ex: 30{habit.unit})" if habit.unit else " (ex: 30)"
+                await query.answer()
+                answered = True
+                await query.message.reply_text(
+                    f"✏️ Envoie la valeur pour la quête <b>{name}</b>{unit_prompt} :",
+                    parse_mode="HTML",
+                )
+                return
+
+            await query.answer()
+            answered = True
+            try:
+                _, created = create_habit_log(
+                    db,
+                    user_id=user.id,
+                    habit=habit,
+                    log_type="done",
+                    date_value=today,
+                )
+            except DailyLogConflict as exc:
+                header = f"⚠️ {html.escape(str(exc))}"
+            else:
+                db.commit()
+                if created:
+                    _, milestone_events = recalculate_day(
+                        db, user_id=user.id, date_value=today
+                    )
+                    _queue_milestone_notifications(milestone_events)
+                    header = f"✅ Quête validée : <b>{name}</b>"
+                else:
+                    header = f"🎯 <b>{name}</b> était déjà validée aujourd'hui."
+
+        panel_text, panel_markup = _render_habit_panel(
+            db, user.id, header=header, page=page
+        )
+        await _edit_habit_panel(query, panel_text, panel_markup)
+    except Exception as exc:
+        print(f"Error handling quest panel callback {data}: {exc}")
+        if not answered:
+            await query.answer(
+                "Impossible de traiter ce panneau. Relance /quetes.", show_alert=True
+            )
+        else:
+            await query.message.reply_text(
+                "❌ Impossible de traiter ce panneau. Relance /quetes."
+            )
+    finally:
+        db.close()
+
+
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
     data = query.data or ""
+    if data.startswith("quest:"):
+        await _handle_quest_callback(update, context)
+        return
+
+    await query.answer()
 
     # --- Level up milestones -------------------------------------------------
     if data.startswith("lvlup:") or data.startswith("lvlkeep:"):
@@ -1562,7 +1780,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📋 <b>Liste des commandes</b>\n\n"
             "<b>/done</b> [nom] [--yesterday] — Valide une habitude binaire\n"
             "<b>/log</b> [nom] [valeur][unité] [--yesterday] — Enregistre une habitude quantitative\n"
-            "<b>/quetes</b> (alias <b>/habitudes</b>) — Panneau des quêtes du jour : un bouton par habitude, un clic pour valider\n"
+            "<b>/quetes</b> (alias <b>/habitudes</b>, <b>/habits</b>, <b>/quests</b>) — Panneau paginé des quêtes du jour : un bouton par habitude, un clic pour valider\n"
             "<b>/skip</b> [nom] raison: [texte] — Saute une habitude sans casser le streak\n"
             "<b>/status</b> — Affiche le statut du jour\n"
             "<b>/set-day</b> (alias <b>/template</b>) [template] — Change le type de journée (boutons si sans argument)\n"
@@ -1630,77 +1848,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{'↩️' if undo else '❌'} {status} : "
                 f"{html.escape(habit.name)}.{xp_message}"
             )
-        finally:
-            db.close()
-        return
-
-    # --- Daily quest panel: one button per habit, one tap to validate --------
-    if data.startswith("quest:"):
-        db = SessionLocal()
-        try:
-            user = _resolve_user(db, query.from_user)
-            action = data.split(":", 2)[1]
-            header = None
-
-            if action == "do":
-                habit_id = int(data.rsplit(":", 1)[1])
-                habit = (
-                    db.query(Habit)
-                    .filter_by(
-                        id=habit_id, user_id=user.id, is_active=True, archived_at=None
-                    )
-                    .first()
-                )
-                if not habit:
-                    await query.edit_message_text(
-                        "❌ Quête introuvable ou inactive. Relance /quetes."
-                    )
-                    return
-
-                name = html.escape(_habit_display_name(habit))
-                if habit.type == "quantitative":
-                    # Quantitative quests need a value: hand over to the /log flow,
-                    # which re-sends a fresh panel once the value is received.
-                    context.user_data["pending_log_habit_id"] = habit.id
-                    context.user_data["pending_log_from_panel"] = True
-                    unit_prompt = (
-                        f" (ex: 30{habit.unit})" if habit.unit else " (ex: 30)"
-                    )
-                    await query.message.reply_text(
-                        f"✏️ Envoie la valeur pour la quête <b>{name}</b>{unit_prompt} :",
-                        parse_mode="HTML",
-                    )
-                    return
-
-                today = datetime.date.today()
-                try:
-                    _, created = create_habit_log(
-                        db,
-                        user_id=user.id,
-                        habit=habit,
-                        log_type="done",
-                        date_value=today,
-                    )
-                except DailyLogConflict as exc:
-                    header = f"⚠️ {html.escape(str(exc))}"
-                else:
-                    db.commit()
-                    if created:
-                        _, milestone_events = recalculate_day(
-                            db, user_id=user.id, date_value=today
-                        )
-                        _queue_milestone_notifications(milestone_events)
-                        header = f"✅ Quête validée : <b>{name}</b>"
-                    else:
-                        header = f"🎯 <b>{name}</b> était déjà validée aujourd'hui."
-            elif action == "refresh":
-                header = f"🔄 Mis à jour à {datetime.datetime.now().strftime('%H:%M')}"
-
-            panel_text, panel_markup = _render_habit_panel(db, user.id, header)
-            await _edit_habit_panel(query, panel_text, panel_markup)
-        except Exception as e:
-            print(f"Error handling quest panel callback {data}: {e}")
-            await query.message.reply_text(f"❌ Une erreur est survenue : {e}")
         finally:
             db.close()
         return
