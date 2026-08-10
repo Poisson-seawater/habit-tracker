@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=7">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -1082,6 +1082,18 @@
                 </label>
               </div>
 
+              <div class="quest-tags-editor">
+                <details class="quest-tags-picker">
+                  <summary id="new-quest-tags-summary">Choisir les tags</summary>
+                  <div class="quest-tags-menu">
+                    <section><h4>Objectifs 🏆</h4><div id="new-quest-tag-goals" class="quest-tag-options"></div></section>
+                    <section><h4>Branches softskills 🧬</h4><div id="new-quest-tag-branches" class="quest-tag-options"></div></section>
+                  </div>
+                </details>
+                <div id="new-quest-tags-preview" class="quest-tags-preview" aria-live="polite"></div>
+                <span class="quest-tags-help">Les tags sont optionnels et restent les mêmes pour toutes les étapes V1/V2.</span>
+              </div>
+
               <button class="quest-action-btn" id="submit-quest-btn" type="button" style="padding: 10px;">Forger la Quête</button>
             </div>
 
@@ -2026,6 +2038,17 @@
         <span>À placer dans l'agenda</span>
       </label>
     </div>
+    <div class="quest-tags-editor">
+      <details class="quest-tags-picker">
+        <summary id="edit-quest-tags-summary">Choisir les tags</summary>
+        <div class="quest-tags-menu">
+          <section><h4>Objectifs 🏆</h4><div id="edit-quest-tag-goals" class="quest-tag-options"></div></section>
+          <section><h4>Branches softskills 🧬</h4><div id="edit-quest-tag-branches" class="quest-tag-options"></div></section>
+        </div>
+      </details>
+      <div id="edit-quest-tags-preview" class="quest-tags-preview" aria-live="polite"></div>
+      <span class="quest-tags-help">Les badges sont en lecture seule sur la quête; utilise ce menu pour les modifier.</span>
+    </div>
     <div style="display:flex;gap:0.8rem;margin-top:0.5rem;">
       <button id="save-edit-quest-btn" class="quest-action-btn" style="flex:1;padding:10px;">Sauvegarder</button>
       <button id="archive-quest-btn" class="quest-action-btn" style="flex:1;padding:10px;background:rgba(245,158,11,0.16);border-color:rgba(245,158,11,0.35);color:var(--accent-gold);">Archiver</button>
@@ -2248,6 +2271,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.10"></script>
+  <script src="js/app.js?v=1.0.12"></script>
 </body>
 </html>

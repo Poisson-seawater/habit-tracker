@@ -173,7 +173,7 @@ def test_quest_bank_lists_non_visible_quests_separately_from_archives(client):
     assert archived[0]["bank_reasons"][0]["code"] == "archived"
 
 
-def test_generated_focus_quests_are_reused_across_unpin_repin(client):
+def test_focus_pins_never_generate_quests(client):
     db = TestingSessionLocal()
     try:
         goal = Goal(id=10, user_id=1, title="Business", description="Build business")
@@ -194,50 +194,11 @@ def test_generated_focus_quests_are_reused_across_unpin_repin(client):
     finally:
         db.close()
 
-    # Pin goal (Top 3) + substep + softskill
-    response = client.put(
-        "/api/v1/profile/pins",
-        json={
-            "pinned_goals": [10],
-            "pinned_substeps": [100],
-            "pinned_softskills": ["python"],
-        },
+    before = client.get(
+        "/api/v1/habits?include_archived=true&include_all_versions=true",
         headers={"X-User-ID": "1"},
-    )
-    assert response.status_code == 200
-
-    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
-    assert agenda.status_code == 200
-    quests = agenda.json()["unplaced_quests"]
-    # Should have a substep quest (not a goal quest) and a softskill quest
-    substep_quest = next(q for q in quests if q["source_type"] == "substep")
-    skill_quest = next(q for q in quests if q["source_type"] == "softskill")
-    assert "goal" not in [q["source_type"] for q in quests]
-    original_substep_quest_id = substep_quest["habit_id"]
-    original_skill_id = skill_quest["habit_id"]
-
-    # Unpin substep → quest should be auto-archived and absent from agenda
-    response = client.put(
-        "/api/v1/profile/pins",
-        json={
-            "pinned_goals": [10],
-            "pinned_substeps": [],
-            "pinned_softskills": ["python"],
-        },
-        headers={"X-User-ID": "1"},
-    )
-    assert response.status_code == 200
-    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
-    assert all(q["source_type"] != "substep" for q in agenda.json()["unplaced_quests"])
-
-    # Verify the quest is archived (not deleted)
-    bank = client.get(
-        "/api/v1/habits?include_archived=true", headers={"X-User-ID": "1"}
     ).json()
-    archived_quest = next(h for h in bank if h["id"] == original_substep_quest_id)
-    assert archived_quest["archived_at"] is not None
 
-    # Re-pin substep → same quest should be auto-unarchived
     response = client.put(
         "/api/v1/profile/pins",
         json={
@@ -248,16 +209,15 @@ def test_generated_focus_quests_are_reused_across_unpin_repin(client):
         headers={"X-User-ID": "1"},
     )
     assert response.status_code == 200
-    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
-    substep_quest_again = next(
-        q for q in agenda.json()["unplaced_quests"] if q["source_type"] == "substep"
-    )
-    assert substep_quest_again["habit_id"] == original_substep_quest_id
-    # Softskill quest should also still be reused
-    skill_quest_again = next(
-        q for q in agenda.json()["unplaced_quests"] if q["source_type"] == "softskill"
-    )
-    assert skill_quest_again["habit_id"] == original_skill_id
+
+    for path in ("/api/v1/agenda?date=2026-07-06", "/api/v1/habits/bank"):
+        assert client.get(path, headers={"X-User-ID": "1"}).status_code == 200
+
+    after = client.get(
+        "/api/v1/habits?include_archived=true&include_all_versions=true",
+        headers={"X-User-ID": "1"},
+    ).json()
+    assert [habit["id"] for habit in after] == [habit["id"] for habit in before]
 
 
 def test_placement_update_rejects_overlap_and_delete_unplaces(client):
@@ -299,6 +259,61 @@ def test_placement_update_rejects_overlap_and_delete_unplaces(client):
     assert {q["habit_id"] for q in removed.json()["unplaced_quests"]} == {
         first_id,
     }
+
+
+def test_editing_quest_duration_updates_existing_placement_size(client):
+    habit_id = add_habit(name="Lecture", agenda_duration_minutes=60)
+    db = TestingSessionLocal()
+    try:
+        template = (
+            db.query(PerfectDayTemplate)
+            .filter_by(user_id=1, template_name="regular")
+            .first()
+        )
+        template.agenda_json = {
+            **template.agenda_json,
+            "default_placements": [
+                {"habit_id": habit_id, "start": "10:00", "duration_minutes": 60}
+            ],
+        }
+        db.commit()
+    finally:
+        db.close()
+
+    placed = client.put(
+        f"/api/v1/agenda/2026-07-06/quests/{habit_id}/placement",
+        json={"start_time": "08:00", "duration_minutes": 60},
+        headers={"X-User-ID": "1"},
+    )
+    assert placed.status_code == 200
+    assert (
+        next(q for q in placed.json()["placed_quests"] if q["habit_id"] == habit_id)[
+            "duration_minutes"
+        ]
+        == 60
+    )
+
+    updated = client.put(
+        f"/api/v1/habits/{habit_id}",
+        json={"agenda_duration_minutes": 120, "effort_duration": 2.0},
+        headers={"X-User-ID": "1"},
+    )
+    assert updated.status_code == 200
+
+    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
+    assert agenda.status_code == 200
+    quest = next(q for q in agenda.json()["placed_quests"] if q["habit_id"] == habit_id)
+    assert quest["duration_minutes"] == 120
+    assert quest["agenda_duration_minutes"] == 120
+
+    template_agenda = client.get(
+        "/api/v1/agenda?date=2026-07-07", headers={"X-User-ID": "1"}
+    )
+    assert template_agenda.status_code == 200
+    template_quest = next(
+        q for q in template_agenda.json()["placed_quests"] if q["habit_id"] == habit_id
+    )
+    assert template_quest["duration_minutes"] == 120
 
 
 def test_placement_auto_shift_rejects_when_gap_is_too_small(client):
@@ -654,8 +669,7 @@ def test_pinned_goal_alone_does_not_generate_quest(client):
     assert all(q["source_type"] not in ("goal", "substep") for q in quests)
 
 
-def test_unpin_substep_auto_archives_quest(client):
-    """Unpinning a substep should auto-archive its generated quest."""
+def test_pin_changes_do_not_archive_manual_quests(client):
     db = TestingSessionLocal()
     try:
         goal = Goal(id=30, user_id=1, title="Learning", description="Learn things")
@@ -674,39 +688,25 @@ def test_unpin_substep_auto_archives_quest(client):
     finally:
         db.close()
 
-    # Pin goal + substep
+    quest_id = add_habit(name="Read chapter every day")
     client.put(
         "/api/v1/profile/pins",
         json={"pinned_goals": [30], "pinned_substeps": [200]},
         headers={"X-User-ID": "1"},
     )
 
-    # Verify quest exists in agenda
-    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
-    substep_quests = [
-        q for q in agenda.json()["unplaced_quests"] if q["source_type"] == "substep"
-    ]
-    assert len(substep_quests) == 1
-    quest_id = substep_quests[0]["habit_id"]
-
-    # Unpin substep (keep goal pinned)
     client.put(
         "/api/v1/profile/pins",
         json={"pinned_goals": [30], "pinned_substeps": []},
         headers={"X-User-ID": "1"},
     )
 
-    # Quest should be absent from agenda
     agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
-    assert all(q["source_type"] != "substep" for q in agenda.json()["unplaced_quests"])
-
-    # Quest should be archived in the bank
-    bank = client.get(
-        "/api/v1/habits?include_archived=true", headers={"X-User-ID": "1"}
-    ).json()
-    quest = next(h for h in bank if h["id"] == quest_id)
-    assert quest["archived_at"] is not None
-    assert quest["source_type"] == "substep"
+    quest = next(
+        q for q in agenda.json()["unplaced_quests"] if q["habit_id"] == quest_id
+    )
+    assert quest["source_type"] == "manual"
+    assert quest["archived_at"] is None
 
 
 def test_agenda_quest_done_only_when_target_reached(client):
@@ -758,154 +758,207 @@ def test_agenda_quest_done_only_when_target_reached(client):
     assert quest["today_count"] == 2
 
 
-def _seed_focus_pins(client):
-    """Crée un objectif + une sous-étape, puis épingle objectif / étape / compétence."""
-    db = TestingSessionLocal()
-    try:
-        db.add(Goal(id=10, user_id=1, title="Business", description="Build business"))
-        db.flush()
-        db.add(
-            SubStep(
-                id=100,
-                user_id=1,
-                title="Market research",
-                description="Research the market",
-                effort_type="cerveau",
-                effort_duration=1.5,
-            )
-        )
-        db.flush()
-        db.add(GoalSubStepLink(goal_id=10, substep_id=100, execution_order=1))
-        db.commit()
-    finally:
-        db.close()
-
-    response = client.put(
-        "/api/v1/profile/pins",
-        json={
-            "pinned_goals": [10],
-            "pinned_substeps": [100],
-            "pinned_softskills": ["python"],
-        },
-        headers={"X-User-ID": "1"},
-    )
-    assert response.status_code == 200
-
-    quests = client.get(
-        "/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"}
-    ).json()["unplaced_quests"]
-    return (
-        next(q for q in quests if q["source_type"] == "substep")["habit_id"],
-        next(q for q in quests if q["source_type"] == "softskill")["habit_id"],
-    )
-
-
 def _pins(client):
     return client.get("/api/v1/profile", headers={"X-User-ID": "1"}).json()
 
 
-def test_archiving_substep_quest_unpins_the_substep_only(client):
-    substep_quest_id, _ = _seed_focus_pins(client)
-
+def test_archiving_quest_never_changes_focus_pins(client):
+    quest_id = add_habit(name="Independent quest")
+    with TestingSessionLocal() as db:
+        db.add(Goal(id=10, user_id=1, title="Business"))
+        db.commit()
+    client.put(
+        "/api/v1/profile/pins",
+        json={"pinned_goals": [10], "pinned_softskills": ["python"]},
+        headers={"X-User-ID": "1"},
+    )
     archived = client.post(
-        f"/api/v1/habits/{substep_quest_id}/archive", headers={"X-User-ID": "1"}
+        f"/api/v1/habits/{quest_id}/archive", headers={"X-User-ID": "1"}
     )
     assert archived.status_code == 200
-    assert archived.json()["unpinned"] is True
+    assert archived.json()["unpinned"] is False
 
     profile = _pins(client)
     assert profile["pinned_substeps"] == []
-    # Le Top 3 verrouillé n'est jamais touché
     assert profile["pinned_goals"] == [10]
     assert profile["pinned_softskills"] == ["python"]
 
-    # Le sync tourne à chaque agenda : la quête doit rester archivée
-    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
-    assert all(q["source_type"] != "substep" for q in agenda.json()["unplaced_quests"])
-    bank = client.get(
-        "/api/v1/habits?include_archived=true", headers={"X-User-ID": "1"}
-    ).json()
-    assert (
-        next(h for h in bank if h["id"] == substep_quest_id)["archived_at"] is not None
-    )
 
+def test_quest_supports_optional_objective_and_softskill_branch_tags(client):
+    with TestingSessionLocal() as db:
+        db.add_all(
+            [
+                Goal(id=40, user_id=1, title="Devenir Millionnaire"),
+                Goal(id=41, user_id=1, title="Forme physique"),
+            ]
+        )
+        db.commit()
 
-def test_archiving_softskill_quest_unpins_the_skill(client):
-    _, skill_quest_id = _seed_focus_pins(client)
-
-    archived = client.post(
-        f"/api/v1/habits/{skill_quest_id}/archive", headers={"X-User-ID": "1"}
-    )
-    assert archived.status_code == 200
-    assert archived.json()["unpinned"] is True
-
-    profile = _pins(client)
-    assert profile["pinned_softskills"] == []
-    assert profile["pinned_substeps"] == [100]
-
-    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
-    assert all(
-        q["source_type"] != "softskill" for q in agenda.json()["unplaced_quests"]
-    )
-
-
-def test_unarchiving_generated_quest_detaches_it_from_its_source(client):
-    substep_quest_id, _ = _seed_focus_pins(client)
-    client.post(
-        f"/api/v1/habits/{substep_quest_id}/archive", headers={"X-User-ID": "1"}
-    )
-
-    unarchived = client.post(
-        f"/api/v1/habits/{substep_quest_id}/unarchive", headers={"X-User-ID": "1"}
-    )
-    assert unarchived.status_code == 200
-    assert unarchived.json()["detached"] is True
-
-    db = TestingSessionLocal()
-    try:
-        habit = db.query(Habit).filter_by(id=substep_quest_id).first()
-        assert habit.source_type == "manual"
-        assert habit.source_ref is None
-        assert habit.auto_managed is False
-        assert habit.archived_at is None
-    finally:
-        db.close()
-
-    # Détachée : le sync ne la ré-archive plus, elle reste une quête normale
-    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
-    quest = next(
-        q for q in agenda.json()["unplaced_quests"] if q["habit_id"] == substep_quest_id
-    )
-    assert quest["source_type"] == "manual"
-
-
-def test_unarchiving_detaches_every_version_of_the_quest(client):
-    substep_quest_id, _ = _seed_focus_pins(client)
-
-    versioned = client.post(
-        f"/api/v1/habits/{substep_quest_id}/versions",
-        json={"source_description": "Research the market"},
+    created = client.post(
+        "/api/v1/habits",
+        json={
+            "name": "Hustle",
+            "type": "binary",
+            "tags": [
+                {"kind": "goal", "ref": "40"},
+                {"kind": "softskill_branch", "ref": "productivite"},
+                {"kind": "goal", "ref": "40"},
+            ],
+        },
         headers={"X-User-ID": "1"},
     )
-    assert versioned.status_code in (200, 201)
-    v2_id = versioned.json()["id"]
-    assert v2_id != substep_quest_id
+    assert created.status_code == 201, created.text
+    habit_id = created.json()["id"]
 
-    client.post(f"/api/v1/habits/{v2_id}/archive", headers={"X-User-ID": "1"})
-    unarchived = client.post(
-        f"/api/v1/habits/{v2_id}/unarchive", headers={"X-User-ID": "1"}
+    habits = client.get("/api/v1/habits", headers={"X-User-ID": "1"}).json()
+    tags = next(h for h in habits if h["id"] == habit_id)["tags"]
+    assert [(tag["kind"], tag["ref"]) for tag in tags] == [
+        ("goal", "40"),
+        ("softskill_branch", "productivite"),
+    ]
+
+    agenda = client.get("/api/v1/agenda", headers={"X-User-ID": "1"}).json()
+    agenda_tags = next(
+        q for q in agenda["unplaced_quests"] if q["habit_id"] == habit_id
+    )["tags"]
+    assert agenda_tags == tags
+
+
+def test_quest_can_remain_tagless_and_tag_update_is_explicit(client):
+    with TestingSessionLocal() as db:
+        db.add(Goal(id=42, user_id=1, title="Fitness"))
+        db.commit()
+
+    created = client.post(
+        "/api/v1/habits",
+        json={
+            "name": "push up today",
+            "type": "binary",
+            "tags": [{"kind": "goal", "ref": "42"}],
+        },
+        headers={"X-User-ID": "1"},
     )
-    assert unarchived.status_code == 200
+    assert created.status_code == 201, created.text
+    habit_id = created.json()["id"]
 
-    db = TestingSessionLocal()
-    try:
-        versions = db.query(Habit).filter(Habit.id.in_([substep_quest_id, v2_id])).all()
-        assert {habit.source_type for habit in versions} == {"manual"}
-        assert all(habit.source_ref is None for habit in versions)
-        assert all(habit.auto_managed is False for habit in versions)
-    finally:
-        db.close()
+    unchanged = client.put(
+        f"/api/v1/habits/{habit_id}",
+        json={"description": "Etape 1"},
+        headers={"X-User-ID": "1"},
+    )
+    assert unchanged.status_code == 200
+    tags = next(
+        h
+        for h in client.get("/api/v1/habits", headers={"X-User-ID": "1"}).json()
+        if h["id"] == habit_id
+    )["tags"]
+    assert [(tag["kind"], tag["ref"]) for tag in tags] == [("goal", "42")]
 
-    # Aucune ancienne version ne revient après un passage du sync
-    agenda = client.get("/api/v1/agenda?date=2026-07-06", headers={"X-User-ID": "1"})
-    assert all(q["source_type"] != "substep" for q in agenda.json()["unplaced_quests"])
+    cleared = client.put(
+        f"/api/v1/habits/{habit_id}",
+        json={"tags": []},
+        headers={"X-User-ID": "1"},
+    )
+    assert cleared.status_code == 200
+    tags = next(
+        h
+        for h in client.get("/api/v1/habits", headers={"X-User-ID": "1"}).json()
+        if h["id"] == habit_id
+    )["tags"]
+    assert tags == []
+
+
+def test_quest_tags_are_shared_by_all_quest_levels(client):
+    with TestingSessionLocal() as db:
+        db.add(Goal(id=43, user_id=1, title="Endurance"))
+        db.commit()
+
+    created = client.post(
+        "/api/v1/habits",
+        json={
+            "name": "Pompes",
+            "type": "binary",
+            "tags": [{"kind": "goal", "ref": "43"}],
+        },
+        headers={"X-User-ID": "1"},
+    )
+    v1_id = created.json()["id"]
+    versioned = client.post(
+        f"/api/v1/habits/{v1_id}/versions",
+        json={"description": "Etape 2", "source_description": "Etape 1"},
+        headers={"X-User-ID": "1"},
+    )
+    assert versioned.status_code == 201, versioned.text
+    v2_id = versioned.json()["id"]
+
+    versions = client.get(
+        "/api/v1/habits?include_inactive=true&include_all_versions=true",
+        headers={"X-User-ID": "1"},
+    ).json()
+    tag_payloads = {
+        habit["id"]: habit["tags"]
+        for habit in versions
+        if habit["id"] in {v1_id, v2_id}
+    }
+    assert tag_payloads[v1_id] == tag_payloads[v2_id]
+
+    cleared = client.put(
+        f"/api/v1/habits/{v2_id}",
+        json={"tags": []},
+        headers={"X-User-ID": "1"},
+    )
+    assert cleared.status_code == 200
+    versions = client.get(
+        "/api/v1/habits?include_inactive=true&include_all_versions=true",
+        headers={"X-User-ID": "1"},
+    ).json()
+    assert all(
+        habit["tags"] == [] for habit in versions if habit["id"] in {v1_id, v2_id}
+    )
+
+
+def test_quest_tags_reject_other_user_and_unknown_sources(client):
+    with TestingSessionLocal() as db:
+        db.add(User(id=2, username="Other", xp=0, level=1, gold=0))
+        db.add(Goal(id=90, user_id=2, title="Private goal"))
+        db.commit()
+
+    for tags in (
+        [{"kind": "goal", "ref": "90"}],
+        [{"kind": "softskill_branch", "ref": "missing"}],
+    ):
+        response = client.post(
+            "/api/v1/habits",
+            json={
+                "name": f"Invalid {tags}",
+                "type": "binary",
+                "tags": tags,
+            },
+            headers={"X-User-ID": "1"},
+        )
+        assert response.status_code == 422
+
+
+def test_deleting_goal_removes_quest_tag_without_deleting_quest(client):
+    with TestingSessionLocal() as db:
+        db.add(Goal(id=44, user_id=1, title="Objectif temporaire"))
+        db.commit()
+
+    created = client.post(
+        "/api/v1/habits",
+        json={
+            "name": "Quête durable",
+            "type": "binary",
+            "tags": [{"kind": "goal", "ref": "44"}],
+        },
+        headers={"X-User-ID": "1"},
+    )
+    assert created.status_code == 201
+    habit_id = created.json()["id"]
+
+    deleted = client.delete("/api/v1/goals/44", headers={"X-User-ID": "1"})
+    assert deleted.status_code == 200
+
+    habits = client.get("/api/v1/habits", headers={"X-User-ID": "1"}).json()
+    quest = next(habit for habit in habits if habit["id"] == habit_id)
+    assert quest["tags"] == []

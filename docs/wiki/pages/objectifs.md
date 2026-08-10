@@ -16,9 +16,9 @@ Valider manuellement une sous-étape résolue te donne de l'**Or (Gold)**, perso
 
 Tu peux épingler jusqu'à 3 sous-étapes en cours dans le panneau [Recap 3-3-3](#/recap-3-3-3). Elles restent visibles directement sur la page d'accueil du dashboard — un clic dessus t'amène à cet onglet, l'objectif parent sélectionné et la sous-étape mise en valeur. Le crayon du panneau ouvre un modal pour changer la sélection.
 
-Épingler une sous-étape fait plus que l'afficher : le système génère aussi une quête automatique (« Étape: *titre* ») dans ton [agenda](#/agenda-timeline), pour te rappeler d'y travailler chaque jour. Désépingle-la et la quête s'archive d'elle-même ; ré-épingle-la, et elle réapparaît.
+Épingler ou désépingler une sous-étape ne crée, n'archive et ne duplique aucune quête. Les épingles servent uniquement à choisir ce qui apparaît dans le Recap.
 
-L'inverse marche aussi : **archiver** cette quête depuis l'agenda désépingle la sous-étape. Et si tu la **désarchives** ensuite, elle est détachée de la sous-étape et devient une quête indépendante — utile quand tu veux garder l'habitude quotidienne après avoir sorti l'étape de ton Top 3. Voir [Archiver une quête](#/habitudes).
+Pour donner du sens au planning, une [quête](#/habitudes) existante peut recevoir le tag d'un ou plusieurs objectifs. Le tag reste informatif : accomplir la quête ne valide ni l'objectif ni ses sous-étapes et n'ajoute aucune récompense.
 
 ## Sous-étape partagée : délier sans supprimer
 

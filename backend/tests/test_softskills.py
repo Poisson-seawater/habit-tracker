@@ -233,7 +233,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.database.session import Base, get_db
-from src.database.models import User
+from src.database.models import Habit, QuestTag, User
 from src.main import app
 
 TEST_DB_FILE = "backend/tests/.test_softskills.db"
@@ -487,6 +487,58 @@ class TestSoftskillRoutes:
 
         response = client.delete("/api/v1/softskills/skills/leaderskill")
         assert response.status_code == 200
+
+    def test_branch_rename_and_deletion_clean_quest_tags(self, client):
+        branch = client.post(
+            "/api/v1/softskills/branches",
+            json={
+                "key": "relation_branch",
+                "color": "#123456",
+                "pale_color": "#abcdef",
+            },
+        )
+        assert branch.status_code == 201
+        with TestingSessionLocal() as db:
+            habit = Habit(
+                user_id=1,
+                name="Quest tag cleanup",
+                type="binary",
+                frequency="daily",
+            )
+            db.add(habit)
+            db.flush()
+            habit.relationship_root_id = habit.id
+            db.add(
+                QuestTag(
+                    relationship_root_id=habit.id,
+                    kind="softskill_branch",
+                    ref="relation_branch",
+                )
+            )
+            db.commit()
+            habit_id = habit.id
+
+        renamed = client.put(
+            "/api/v1/softskills/branches/relation_branch",
+            json={
+                "new_key": "relation_branch_renamed",
+                "color": "#123456",
+                "pale_color": "#abcdef",
+            },
+        )
+        assert renamed.status_code == 200
+        with TestingSessionLocal() as db:
+            tag = db.query(QuestTag).filter_by(relationship_root_id=habit_id).one()
+            assert tag.ref == "relation_branch_renamed"
+
+        deleted_branch = client.delete(
+            "/api/v1/softskills/branches/relation_branch_renamed"
+        )
+        assert deleted_branch.status_code == 200
+        with TestingSessionLocal() as db:
+            assert (
+                db.query(QuestTag).filter_by(relationship_root_id=habit_id).count() == 0
+            )
 
     def test_related_skill_same_branch_fails(self, client):
         """Creating or updating a skill to relate it to a skill in the same branch should return 400."""

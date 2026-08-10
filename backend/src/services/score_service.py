@@ -403,6 +403,15 @@ def perform_habit_levelup(
                 unversioned_base_habit.name = first_version_name
                 used_names.add(first_version_name)
 
+        relationship_root_id = source.relationship_root_id
+        if relationship_root_id is None:
+            relationship_root_id = min(
+                habit.id for habit in (version_group_habits or [source])
+            )
+            for version_habit in version_group_habits or [source]:
+                if version_habit.relationship_root_id is None:
+                    version_habit.relationship_root_id = relationship_root_id
+
         next_version_index = max_version_index + 1
         next_version_name = build_habit_version_name(next_version_index, base_name)
         while next_version_name in used_names:
@@ -445,6 +454,7 @@ def perform_habit_levelup(
             auto_managed=bool(source.auto_managed),
             archived_at=source.archived_at,
             agenda_duration_minutes=source.agenda_duration_minutes,
+            relationship_root_id=relationship_root_id,
             is_active=True,
         )
         db.add(habit)

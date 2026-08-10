@@ -24,3 +24,5 @@ Un softskill passe par trois états distincts :
 ## Épinglage dans le Recap 3-3-3
 
 Tu peux épingler jusqu'à 3 softskills non complétées dans le panneau [Recap 3-3-3](#/recap-3-3-3). Un clic sur l'une d'elles depuis le recap bascule directement sur l'onglet Softskills et met en valeur le nœud correspondant dans l'arbre. Le crayon du panneau ouvre un modal pour changer la sélection.
+
+Épingler une softskill ne crée aucune quête. Une [quête](#/habitudes) peut toutefois utiliser une ou plusieurs branches de l'arbre comme tags. Ces tags servent uniquement à organiser le travail : ils ne changent ni les prérequis, ni le test de succès, ni la validation manuelle d'une softskill.

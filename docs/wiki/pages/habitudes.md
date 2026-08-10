@@ -36,9 +36,17 @@ Le jour venu, l'agenda, le Perfect Day, `/status` et `/liste habit` ne retiennen
 
 Tu peux quand même valider manuellement une habitude hors type de journée avec `/done`, `/log`, l'API ou les contrôles du dashboard. Le log reste visible et la progression normale du streak s'applique, mais cette habitude ne devient pas une exigence du Perfect Day de ce jour.
 
+## Tags
+
+Une quête peut rester sans tag ou recevoir plusieurs tags. Les [objectifs](#/objectifs) et les branches de [softskills](#/softskills) existants forment le catalogue : aucun tag personnalisé séparé n'est nécessaire.
+
+Le petit menu **Choisir les tags** du formulaire permet de les sélectionner. Sur la quête, ils apparaissent ensuite comme des badges en lecture seule : il faut rouvrir ce menu pour les modifier. `Routine_matin` peut donc rester sans tag, tandis que `Hustle` peut recevoir plusieurs tags d'objectifs ou de branches.
+
+Les tags sont communs à toutes les étapes V1/V2 d'une même quête : changer d'étape ne les retire pas. Ils n'ajoutent ni validation, ni XP, ni score, ni streak; seule la validation normale de la quête produit ses effets habituels.
+
 ## Banque des quêtes
 
-Depuis le dashboard, le bouton **Banque** dans le panneau « Quêtes à placer » liste les quêtes actives qui existent mais ne sont pas visibles pour la date affichée. Chaque ligne indique pourquoi elle est absente : mauvais jour de semaine, mauvais type de journée, quête mensuelle pas encore due, skill non épinglée, ou ancien format de quête d'objectif.
+Depuis le dashboard, le bouton **Banque** dans le panneau « Quêtes à placer » liste les quêtes actives qui existent mais ne sont pas visibles pour la date affichée. Chaque ligne indique pourquoi elle est absente : mauvais jour de semaine, mauvais type de journée ou quête mensuelle pas encore due.
 
 La banque est séparée des archives : une quête « pas ce jour » reste active et peut revenir automatiquement à sa prochaine date prévue. Une quête archivée, elle, a été retirée explicitement du quotidien.
 
@@ -54,7 +62,7 @@ La liste Archives affiche la date d'archive, la fréquence, la source et les gro
 
 Le bouton **Désarchiver** remet la quête dans la banque active si elle est encore éligible à la date affichée, mais il ne restaure pas ses anciens créneaux : elle revient non placée, à replacer manuellement si besoin.
 
-Les quêtes générées automatiquement par le [Recap 3-3-3](#/recap-3-3-3) (« Étape: … » d'une sous-étape, « Competence: … » d'une compétence) suivent une règle en plus. **Archiver** l'une d'elles désépingle aussi sa source du Recap — sans quoi le système la recréerait aussitôt. Le Top 3 des objectifs, lui, n'est jamais modifié. **Désarchiver** la **détache** de sa source : elle devient une quête manuelle ordinaire, que plus rien ne gère automatiquement. Si tu ré-épingles la même sous-étape plus tard, une nouvelle quête est générée à côté de celle que tu as détachée.
+Le Recap 3-3-3 ne crée plus de quêtes. Lors de la migration vers les tags, les anciennes quêtes auto-générées ont été archivées et retirées de leurs placements, tout en conservant leurs logs, streaks, versions et suivis quotidiens. Elles restent consultables dans Archives. Les épingles du Recap ne sont pas modifiées par l'archivage d'une quête.
 
 ## Déclarer une habitude ratée
 
@@ -68,9 +76,9 @@ Le sélecteur **Hier / Aujourd'hui** de l'agenda permet de revenir sur la veille
 
 Une correction d'hier recalcule la journée concernée, notamment son Perfect Day et les streaks. Elle ne permet pas d'éditer librement tout l'historique.
 
-## Séparées des objectifs
+## Exécution séparée des objectifs
 
-Les habitudes et les [objectifs](#/objectifs) sont **séparés** : faire des habitudes ne valide pas tout seul une sous-étape d'objectif. Le lien est d'**intention** — la régularité construite par les habitudes rend les objectifs atteignables.
+Les habitudes et les [objectifs](#/objectifs) gardent des validations **séparées** : faire une quête ne valide pas tout seul un objectif ou une sous-étape. Les tags donnent du contexte au planning sans créer un second état d'accomplissement.
 
 ## Paliers d'ancrage (30J / 90J)
 

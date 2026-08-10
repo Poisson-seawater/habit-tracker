@@ -76,6 +76,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const questBankCount = document.getElementById("quest-bank-count");
   const toggleQuestBankBtn = document.getElementById("toggle-quest-bank-btn");
   let allHabitsCache = [];
+  let questTagCatalog = null;
+  const questTagEditorReady = { new: false, edit: false };
   let questPanelMode = "agenda";
   let showTodayBounties = true;
   const toastNotification = document.getElementById("toast-notification");
@@ -826,6 +828,149 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  async function loadQuestTagCatalog(force = false) {
+    if (questTagCatalog && !force) return questTagCatalog;
+    const [goalsResponse, softskillsResponse] = await Promise.all([
+      fetch(`${API_BASE}/goals`),
+      fetch(`${API_BASE}/softskills`)
+    ]);
+    if (!goalsResponse.ok || !softskillsResponse.ok) {
+      throw new Error("Impossible de charger les objectifs et softskills.");
+    }
+    const goals = await goalsResponse.json();
+    const softskills = await softskillsResponse.json();
+    questTagCatalog = {
+      goals: goals || [],
+      branches: Object.entries(softskills.branches || {}).map(([key, value]) => ({
+        key,
+        ...(value || {})
+      }))
+    };
+    return questTagCatalog;
+  }
+
+  function renderQuestTagOptions(containerId, kind, options, selectedValues, prefix) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const selected = new Set((selectedValues || []).map(value => String(value)));
+    container.innerHTML = "";
+    options.forEach(option => {
+      const label = document.createElement("label");
+      label.className = "quest-tag-option";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = String(option.value);
+      checkbox.dataset.kind = kind;
+      checkbox.dataset.label = option.label;
+      if (option.color) checkbox.dataset.color = option.color;
+      checkbox.checked = selected.has(String(option.value));
+      checkbox.addEventListener("change", () => updateQuestTagPreview(prefix));
+      const text = document.createElement("span");
+      text.textContent = option.label;
+      label.append(checkbox, text);
+      container.appendChild(label);
+    });
+  }
+
+  async function renderQuestTagEditor(prefix, tags = [], force = false) {
+    questTagEditorReady[prefix] = false;
+    const summary = document.getElementById(`${prefix}-quest-tags-summary`);
+    if (summary?.parentElement) summary.parentElement.open = false;
+    try {
+      const catalog = await loadQuestTagCatalog(force);
+      const goalTagIds = tags
+        .filter(tag => tag.kind === "goal")
+        .map(tag => tag.ref);
+      const branchTagKeys = tags
+        .filter(tag => tag.kind === "softskill_branch")
+        .map(tag => tag.ref);
+      const goalOptions = catalog.goals.map(goal => ({
+        value: goal.id,
+        label: goal.title
+      }));
+      renderQuestTagOptions(
+        `${prefix}-quest-tag-goals`,
+        "goal",
+        goalOptions,
+        goalTagIds,
+        prefix
+      );
+      renderQuestTagOptions(
+        `${prefix}-quest-tag-branches`,
+        "softskill_branch",
+        catalog.branches.map(branch => ({
+          value: branch.key,
+          label: branch.key.replaceAll("_", " "),
+          color: branch.color
+        })),
+        branchTagKeys,
+        prefix
+      );
+      questTagEditorReady[prefix] = true;
+      updateQuestTagPreview(prefix);
+    } catch (error) {
+      console.error(error);
+      ["tag-goals", "tag-branches"].forEach(suffix => {
+        const container = document.getElementById(`${prefix}-quest-${suffix}`);
+        if (container) container.innerHTML = `<span class="form-helper-text">Chargement impossible.</span>`;
+      });
+    }
+  }
+
+  function selectedQuestTags(prefix) {
+    return Array.from(document.querySelectorAll(
+      `#${prefix}-quest-tag-goals input:checked, #${prefix}-quest-tag-branches input:checked`
+    )).map(input => ({
+      kind: input.dataset.kind,
+      ref: input.value,
+      label: input.dataset.label || input.value,
+      color: input.dataset.color || null
+    }));
+  }
+
+  function collectQuestTags(prefix) {
+    if (!questTagEditorReady[prefix]) return null;
+    return selectedQuestTags(prefix).map(tag => ({ kind: tag.kind, ref: tag.ref }));
+  }
+
+  function questTagBadges(tags) {
+    if (!tags?.length) return null;
+
+    const container = document.createElement("div");
+    container.className = "quest-tag-badges";
+    tags.forEach(tag => {
+      const badge = document.createElement("span");
+      badge.className = "quest-tag-badge";
+      badge.textContent = `# ${tag.label || tag.ref}`;
+      if (tag.color) badge.style.borderColor = tag.color;
+      container.appendChild(badge);
+    });
+    return container;
+  }
+
+  function appendQuestTagBadges(parent, tags) {
+    const badges = questTagBadges(tags);
+    if (badges) parent.appendChild(badges);
+  }
+
+  function updateQuestTagPreview(prefix) {
+    const tags = selectedQuestTags(prefix);
+    const preview = document.getElementById(`${prefix}-quest-tags-preview`);
+    const summary = document.getElementById(`${prefix}-quest-tags-summary`);
+    if (summary) summary.textContent = tags.length ? `Choisir les tags · ${tags.length}` : "Choisir les tags";
+    if (!preview) return;
+    preview.innerHTML = "";
+    const badges = questTagBadges(tags);
+    if (badges) {
+      preview.appendChild(badges);
+    } else {
+      const empty = document.createElement("span");
+      empty.className = "quest-tags-empty";
+      empty.textContent = "Aucun tag";
+      preview.appendChild(empty);
+    }
+  }
+
   function normalizedQuestArchiveKey(name) {
     const { baseName } = splitQuestVersionName(name || "");
     return baseName
@@ -946,6 +1091,7 @@ document.addEventListener("DOMContentLoaded", () => {
               meta.appendChild(item);
             });
           main.appendChild(meta);
+          appendQuestTagBadges(main, habit.tags);
 
           const action = document.createElement("button");
           action.type = "button";
@@ -1033,6 +1179,7 @@ document.addEventListener("DOMContentLoaded", () => {
           meta.appendChild(item);
         });
       main.appendChild(meta);
+      appendQuestTagBadges(main, quest.tags);
 
       const actions = document.createElement("div");
       actions.className = "quest-bank-actions";
@@ -1080,7 +1227,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Libellé de la source d'une quête auto-générée ; null si quête manuelle.
+  // Les anciennes quêtes auto-générées restent détachables à la désarchivation.
   function questSourceKindLabel(sourceType) {
     if (sourceType === "substep" || sourceType === "goal") return "sous-étape";
     if (sourceType === "softskill") return "compétence";
@@ -1089,11 +1236,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function confirmQuestArchiveAction(sourceType, archived) {
     const kind = questSourceKindLabel(sourceType);
-    if (!kind) return true;
+    if (!archived || !kind) return true;
     return confirm(
-      archived
-        ? `Cette quête sera détachée de sa ${kind} et deviendra une quête indépendante, plus jamais gérée automatiquement.`
-        : `Cette quête sera archivée et sa ${kind} sera désépinglée du Recap 3-3-3.`
+      `Cette ancienne quête générée sera détachée de sa ${kind} et deviendra une quête indépendante.`
     );
   }
 
@@ -1101,7 +1246,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (archived) {
       return data?.detached ? "Quête désarchivée et détachée de sa source." : "Quête désarchivée.";
     }
-    return data?.unpinned ? "Quête archivée et source désépinglée." : "Quête archivée.";
+    return "Quête archivée.";
   }
 
   async function archiveQuestFromBank(habitId, sourceType) {
@@ -1660,6 +1805,7 @@ document.addEventListener("DOMContentLoaded", () => {
       progress_mode: item.progress_mode || "standard",
       checklist_items: Array.isArray(item.checklist_items) ? item.checklist_items : [],
       daily_progress: item.daily_progress || null,
+      tags: item.tags || [],
       version_history: []
     };
   }
@@ -1806,6 +1952,7 @@ document.addEventListener("DOMContentLoaded", () => {
       main.appendChild(description);
     }
     main.appendChild(source);
+    appendQuestTagBadges(main, item.tags);
 
     const meta = document.createElement("div");
     meta.className = "agenda-quest-meta";
@@ -2102,6 +2249,8 @@ document.addEventListener("DOMContentLoaded", () => {
       failBtn.setAttribute("aria-label", failBtn.title);
       failBtn.textContent = isFailed ? "↶" : "×";
       block.append(blockCheck, blockTitle);
+      const tagBadges = questTagBadges(item.tags);
+      if (tagBadges) block.appendChild(tagBadges);
       if (progressMode !== "standard") block.appendChild(progressBtn);
       block.append(editBtn, statsBtn);
       if (isToday && !isDone && !isSkipped) block.appendChild(failBtn);
@@ -4717,8 +4866,9 @@ document.addEventListener("DOMContentLoaded", () => {
     content.appendChild(note);
   }
 
-  function openEditQuestModal(habit, agendaItem = null) {
+  async function openEditQuestModal(habit, agendaItem = null) {
     activeEditQuest = habit;
+    await renderQuestTagEditor("edit", habit.tags || [], true);
     document.getElementById("edit-quest-id").value        = habit.id;
     document.getElementById("edit-quest-name").value      = habit.name;
     document.getElementById("edit-quest-type").value      = habit.type || "binary";
@@ -4879,6 +5029,7 @@ document.addEventListener("DOMContentLoaded", () => {
       effort_duration,
       agenda_duration_minutes,
       agenda_placeable,
+      tags: collectQuestTags("edit"),
     };
     try {
       const r = await fetch(`${API_BASE}/habits/${id}`, {
@@ -5303,8 +5454,9 @@ document.addEventListener("DOMContentLoaded", () => {
     setupQuestProgressEditor("edit");
 
     if (openQuestBtn && questForm) {
-      openQuestBtn.addEventListener("click", () => {
+      openQuestBtn.addEventListener("click", async () => {
         if (questForm.style.display === "none") {
+          await renderQuestTagEditor("new", [], true);
           questForm.style.display = "flex";
           openQuestBtn.textContent = "Fermer Formulaire";
         } else {
@@ -5392,6 +5544,7 @@ document.addEventListener("DOMContentLoaded", () => {
               effort_duration: effort_duration,
               agenda_duration_minutes: agenda_duration_minutes,
               agenda_placeable: agenda_placeable,
+              tags: collectQuestTags("new") || undefined,
             })
           });
 
@@ -5416,6 +5569,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (daysGroup) { daysGroup.style.display = "none"; daysGroup.querySelectorAll("input").forEach(cb => cb.checked = false); }
           newDayTypesGroup?.querySelectorAll("input").forEach(cb => { cb.checked = true; });
           updateFrequencyNote(freqSelect, newQuestFrequencyNote);
+          await renderQuestTagEditor("new", []);
 
           questForm.style.display = "none";
           openQuestBtn.textContent = "+ Quête";

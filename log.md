@@ -3,6 +3,24 @@
 > Une entrée par session / push, anti-chronologique. Rédigé par `/doc-sync` avant push.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-08-09 — feat(quests): remplacer les quêtes générées par des tags persistants
+
+- **Modèle** : les objectifs, sous-étapes et softskills ne créent plus de quêtes. Une quête reste l'unique unité exécutable et peut être sans tag ou recevoir plusieurs tags issus des objectifs et branches softskills.
+- **Frontières métier** : les tags n'ont aucun effet sur XP, score, streak, complétion, validations d'objectifs/softskills ou progression quotidienne. Ils restent identiques à travers toutes les étapes V1/V2. Les épingles du Recap restent indépendantes et aucune commande Telegram n'a été ajoutée.
+- **Persistance et migration** : migration automatique v32 avec racine commune au groupe de versions et une petite table de tags indexée. Les anciennes quêtes auto-générées sont archivées et retirées des placements, sans supprimer logs, streaks, versions, checklist ou progression datée.
+- **Dashboard/API** : mini-menu de sélection dans les formulaires, badges en lecture seule sur agenda/timeline/banque/archives, validation des sources et nettoyage des tags lors de la suppression ou du renommage d'une source. Aucun filtre supplémentaire et aucune duplication de quête.
+- **Contraintes opérationnelles** : requêtes groupées, aucune bibliothèque ajoutée, aucun changement de `docker-compose.yml` ni de `COMMANDS-INDEX.md`.
+- **Validation** : 288 tests backend, Black, syntaxe JavaScript et `git diff --check` réussissent. Aucun test Compose lancé, car la cible locale ou Raspberry Pi n'a pas été spécifiée.
+- **Déploiement local reporté** : le 2026-08-09, `localhost:5000/openapi.json` confirmait que l'image API Compose active ne connaissait encore ni `HabitCreate.tags`, ni `HabitUpdate.tags`, ni `QuestTagRef`. Le frontend monté depuis le worktree affichait donc le nouveau menu tandis que l'ancien backend ignorait silencieusement les tags. La reconstruction/recréation Compose locale et l'application de la migration v32 sont reportées au 2026-08-10 à la demande de l'utilisateur.
+
+## 2026-08-09 — fix(agenda): synchroniser la durée des quêtes avec les placements par défaut
+
+- **Problème confirmé** : modifier `routine_matin` à 120 minutes ne redimensionnait pas son bloc dans l'agenda, alors qu'une quête `hustle` similaire fonctionnait.
+- **Cause** : `routine_matin` était placé par défaut dans le template `regular` avec `duration_minutes: 60`. La durée de la quête (`habits.agenda_duration_minutes`) et celle du placement de template étaient deux valeurs indépendantes.
+- **Correction** : l'édition d'une quête synchronise maintenant sa durée avec les placements datés et les placements par défaut des templates `rest`, `regular` et `hustle`.
+- **Validation** : test de régression ajouté pour le passage 60 → 120 minutes; suite backend complète, Black et `git diff --check` réussis. API Compose locale reconstruite/recréée sur `localhost:5000`, `/health` à 200. Validation utilisateur confirmée : le redimensionnement fonctionne.
+- **Périmètre** : aucun changement de schéma DB, de contrat API ou de commande Telegram; `COMMANDS-INDEX.md` non concerné.
+
 ## 2026-08-04 — fix(quests): rendre les checklists visibles et validables dans Modifier
 
 - **Symptôme vérifié sur l'instance Compose locale** : les quêtes `routine_matin` et `Étape: Trouver un bon avocat` conservaient bien leur `progress_mode=checklist` et leurs éléments dans `data/habit_tracker.db`, mais le chemin « Modifier » reconstruisait la quête depuis l'objet agenda et la validation quotidienne restait peu visible.

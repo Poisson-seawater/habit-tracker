@@ -46,6 +46,8 @@ Le système laisse toujours un **tampon de 15 minutes** entre deux blocs placés
 
 Chaque quête placée porte sa propre case à cocher, directement sur sa carte ou son bloc dans la timeline : valider une quête binaire ou logger une mesure se fait sans quitter l'agenda, sans passer par `/done` ou `/log`. Une fois validée, skippée ou déclarée ratée, la carte affiche son état (`✅ Fait`, `⏭️ Passé` ou échec) et les actions encore permises.
 
+Les tags apparaissent comme des badges en lecture seule sur les cartes et la timeline. Le petit menu de tags du formulaire de quête permet de les modifier. Ils expliquent le contexte de la quête sans changer son placement, sa validation, son score ou son suivi quotidien.
+
 ## Le budget d'effort, plafonné par template
 
 Chaque [quête](#/habitudes) a un type d'effort : `musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`, ou `repos`. Le [template de jour](#/templates-de-jour) actif fixe combien d'heures de chaque type tu peux raisonnablement planifier :

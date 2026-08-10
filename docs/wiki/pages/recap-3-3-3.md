@@ -26,6 +26,8 @@ Le panneau contient trois sections fixes, chacune limitée à 3 items :
 
 Les sélections épinglées (sous-étapes et softskills) sont sauvegardées en base de données. Elles persistent d'une session à l'autre. L'endpoint utilisé est `PUT /api/v1/profile/pins` ; le profil retourné par `GET /api/v1/profile` inclut les listes `pinned_substeps` (IDs de sous-étapes) et `pinned_softskills` (clés de softskills).
 
+Les épingles sont indépendantes du planning : les modifier ne crée, ne duplique et n'archive aucune quête. Les tags d'objectifs et de branches softskills se configurent directement sur chaque [quête](#/habitudes).
+
 > [!note] Si un item épinglé est complété ou supprimé ailleurs, il apparaît automatiquement comme complété dans le recap (ou est ignoré) lors du prochain chargement.
 
 ## Cas limites

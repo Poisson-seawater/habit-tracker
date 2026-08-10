@@ -36,7 +36,7 @@ Current source of truth for implemented behavior is the code plus `README.md`,
 | `009-perfect-day-agenda/` | `superseded` | Older agenda prototype and 4-template/stat-threshold assumptions. Superseded by specs 010/011 and the current agenda implementation. |
 | `010-perfect-day-redesign/` | `done` | Current effort-budget model: `rest`, `regular`, `hustle`, effort ceilings, rest target, agenda JSON. |
 | `011-perfect-day-rendering/` | `done` | Biological zones, Perfect Day rendering, daily recap, and budget gauge implemented; tasks checked. |
-| `quest-agenda-fusion-plan.md` | `implemented-stale` | Manual agenda, focus-generated quests, archive/unarchive, Google agenda export, and docs are implemented. Keep as historical design context; do not treat as next work without checking code/log first. |
+| `quest-agenda-fusion-plan.md` | `superseded` | The manual agenda and Google export remain implemented, but its focus-generated quest model was replaced by persistent quest tags in migration v32. Keep only as historical context. |
 | `next-steps-multi-agent-brief.md` | `done` | Day-type habits, explicit failure with XP reversal, yesterday corrections, biological-zone suggestions, and 90-day auth/device expiry implemented together on 2026-07-17. |
 
 ## Current Planning Notes
@@ -61,3 +61,10 @@ Current source of truth for implemented behavior is the code plus `README.md`,
   `tests/test_quest_daily_progress.py`, and user behavior in
   `docs/wiki/pages/habitudes.md`. Telegram commands were intentionally left
   unchanged. Do not plan these two features again unless extending them.
+- Quest tags were implemented on 2026-08-09 without a separate Spec Kit folder.
+  Objectives and softskills no longer generate executable quests; objective and
+  softskill-branch tags are organizational metadata shared by every V1/V2
+  version and have no scoring or validation effect. Migration v32 adds
+  `habits.relationship_root_id` and `quest_tags`, assigns legacy
+  version groups a common root, and archives old generated quests while
+  preserving their logs and daily progress. The Recap pins remain independent.

@@ -165,6 +165,12 @@ class Habit(Base):
     archived_at = Column(DateTime, nullable=True)
     agenda_duration_minutes = Column(Integer, nullable=True)
     agenda_placeable = Column(Boolean, default=True, nullable=False)
+    relationship_root_id = Column(
+        Integer,
+        ForeignKey("habits.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at = Column(DateTime, default=datetime.datetime.now)
 
     user = relationship("User", back_populates="habits")
@@ -177,6 +183,28 @@ class Habit(Base):
     daily_progress = relationship(
         "HabitDailyProgress", back_populates="habit", cascade="all, delete-orphan"
     )
+
+
+class QuestTag(Base):
+    __tablename__ = "quest_tags"
+    __table_args__ = (
+        UniqueConstraint(
+            "relationship_root_id",
+            "kind",
+            "ref",
+            name="uix_quest_tag_root_kind_ref",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    relationship_root_id = Column(
+        Integer,
+        ForeignKey("habits.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    kind = Column(String(32), nullable=False, index=True)
+    ref = Column(String(100), nullable=False, index=True)
 
 
 class HabitLog(Base):

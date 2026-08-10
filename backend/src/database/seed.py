@@ -1,5 +1,6 @@
 import os
 import datetime
+import json
 from src.database.session import SessionLocal, engine, Base
 from src.database.models import (
     User,
@@ -382,6 +383,7 @@ def seed_db():
                 daily_cap=h_info["daily_cap"],
                 unit=h_info["unit"],
                 is_active=h_info["is_active"],
+                relationship_root_id=h_info["id"],
             )
             db.add(habit)
 
@@ -1264,6 +1266,204 @@ def _run_migrations():
                 )
             db.commit()
             print("Migration v31 (habit_daily_progress table) applied successfully.")
+
+        # v32: Stable quest roots plus optional objective/softskill-branch tags.
+        if "habits" in inspector.get_table_names():
+            columns = {c["name"] for c in inspect(engine).get_columns("habits")}
+            if "relationship_root_id" not in columns:
+                print("Running migration v32: adding quest relationship roots...")
+                db.execute(
+                    text(
+                        "ALTER TABLE habits ADD COLUMN relationship_root_id INTEGER "
+                        "REFERENCES habits(id) ON DELETE SET NULL"
+                    )
+                )
+                db.commit()
+
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_habits_relationship_root_id "
+                    "ON habits (relationship_root_id)"
+                )
+            )
+
+        if "quest_tags" not in inspect(engine).get_table_names():
+            print("Running migration v32: creating quest_tags table...")
+            db.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS quest_tags (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        relationship_root_id INTEGER NOT NULL,
+                        kind VARCHAR(32) NOT NULL,
+                        ref VARCHAR(100) NOT NULL,
+                        FOREIGN KEY(relationship_root_id) REFERENCES habits (id)
+                            ON DELETE CASCADE,
+                        CONSTRAINT uix_quest_tag_root_kind_ref
+                            UNIQUE (relationship_root_id, kind, ref)
+                    )
+                    """
+                )
+            )
+        for column_name in ("relationship_root_id", "kind", "ref"):
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS "
+                    f"ix_quest_tags_{column_name} "
+                    f"ON quest_tags ({column_name})"
+                )
+            )
+
+        if "quest_links" in inspect(engine).get_table_names():
+            print("Running migration v32: removing abandoned quest_links table...")
+            db.execute(text("DROP TABLE quest_links"))
+        db.commit()
+
+        if "habits" in inspect(engine).get_table_names():
+            habit_columns = {c["name"] for c in inspect(engine).get_columns("habits")}
+            user_id_select = "user_id" if "user_id" in habit_columns else "0"
+            name_select = "name" if "name" in habit_columns else "CAST(id AS TEXT)"
+            source_type_select = (
+                "source_type" if "source_type" in habit_columns else "'manual'"
+            )
+            auto_managed_select = (
+                "auto_managed" if "auto_managed" in habit_columns else "0"
+            )
+            archived_at_select = (
+                "archived_at" if "archived_at" in habit_columns else "NULL"
+            )
+            habit_rows = db.execute(
+                text(
+                    "SELECT id, "
+                    f"{user_id_select} AS user_id, "
+                    f"{name_select} AS name, relationship_root_id, "
+                    f"{source_type_select} AS source_type, "
+                    f"{auto_managed_select} AS auto_managed, "
+                    f"{archived_at_select} AS archived_at "
+                    "FROM habits ORDER BY user_id, id"
+                )
+            ).fetchall()
+            groups = {}
+            for habit in habit_rows:
+                cleaned_name = (habit[2] or "").strip()
+                base_name = cleaned_name
+                for prefix in ("Étape ", "Etape "):
+                    if not cleaned_name.startswith(prefix):
+                        continue
+                    version_part, separator, candidate = cleaned_name[
+                        len(prefix) :
+                    ].partition(" - ")
+                    if separator and version_part.isdigit() and candidate.strip():
+                        base_name = candidate.strip()
+                    break
+                groups.setdefault((habit[1], base_name), []).append(habit)
+
+            roots_changed = False
+            for grouped_rows in groups.values():
+                existing_roots = [row[3] for row in grouped_rows if row[3] is not None]
+                root_id = min(existing_roots or [row[0] for row in grouped_rows])
+                for row in grouped_rows:
+                    if row[3] is None:
+                        db.execute(
+                            text(
+                                "UPDATE habits SET relationship_root_id = :root_id "
+                                "WHERE id = :habit_id"
+                            ),
+                            {"root_id": root_id, "habit_id": row[0]},
+                        )
+                        roots_changed = True
+
+            legacy_generated = [
+                row
+                for row in habit_rows
+                if bool(row[5])
+                or (row[4] or "manual") in {"goal", "substep", "softskill"}
+            ]
+            if legacy_generated and "archived_at" in habit_columns:
+                legacy_ids = [row[0] for row in legacy_generated]
+                archived_at = datetime.datetime.now()
+                for row in legacy_generated:
+                    if row[6] is None:
+                        db.execute(
+                            text(
+                                "UPDATE habits SET archived_at = :archived_at "
+                                "WHERE id = :habit_id"
+                            ),
+                            {"archived_at": archived_at, "habit_id": row[0]},
+                        )
+                        roots_changed = True
+                if "daily_agenda_placements" in inspect(engine).get_table_names():
+                    for legacy_id in legacy_ids:
+                        deleted = db.execute(
+                            text(
+                                "DELETE FROM daily_agenda_placements "
+                                "WHERE habit_id = :habit_id"
+                            ),
+                            {"habit_id": legacy_id},
+                        )
+                        if deleted.rowcount:
+                            roots_changed = True
+
+                if "perfect_day_templates" in inspect(engine).get_table_names():
+                    template_columns = {
+                        c["name"]
+                        for c in inspect(engine).get_columns("perfect_day_templates")
+                    }
+                    if {"id", "agenda_json"}.issubset(template_columns):
+                        template_rows = db.execute(
+                            text(
+                                "SELECT id, agenda_json FROM perfect_day_templates "
+                                "WHERE agenda_json IS NOT NULL"
+                            )
+                        ).fetchall()
+                        legacy_id_set = set(legacy_ids)
+                        for template_id, raw_agenda in template_rows:
+                            if isinstance(raw_agenda, str):
+                                try:
+                                    agenda = json.loads(raw_agenda)
+                                except (TypeError, ValueError):
+                                    continue
+                            else:
+                                agenda = raw_agenda
+                            if not isinstance(agenda, dict):
+                                continue
+                            placements = agenda.get("default_placements", [])
+                            if not isinstance(placements, list):
+                                continue
+                            kept = []
+                            for placement in placements:
+                                if not isinstance(placement, dict):
+                                    kept.append(placement)
+                                    continue
+                                try:
+                                    placement_habit_id = int(
+                                        placement.get("habit_id") or 0
+                                    )
+                                except (TypeError, ValueError):
+                                    placement_habit_id = 0
+                                if placement_habit_id not in legacy_id_set:
+                                    kept.append(placement)
+                            if len(kept) == len(placements):
+                                continue
+                            agenda["default_placements"] = kept
+                            db.execute(
+                                text(
+                                    "UPDATE perfect_day_templates "
+                                    "SET agenda_json = :agenda_json WHERE id = :template_id"
+                                ),
+                                {
+                                    "agenda_json": json.dumps(agenda),
+                                    "template_id": template_id,
+                                },
+                            )
+                            roots_changed = True
+
+            if roots_changed:
+                db.commit()
+                print(
+                    "Migration v32 backfill applied: relationship roots assigned and "
+                    "legacy generated quests archived."
+                )
 
         # v19: Destructively remove the legacy RPG stat/tag columns.
         v19_dropped = False

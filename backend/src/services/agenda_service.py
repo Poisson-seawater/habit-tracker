@@ -17,7 +17,7 @@ from src.database.models import (
     User,
     Streak,
 )
-from src.services import softskill_service
+from src.services import quest_tag_service, softskill_service
 from src.services.quest_progress_service import (
     completion_count,
     completion_target,
@@ -333,42 +333,54 @@ def remove_habit_agenda_references(db: Session, user_id: int, habit_id: int) -> 
     return changed
 
 
-def unpin_habit_source(db: Session, user: User, habit: Habit) -> bool:
-    """Retire du Recap 3-3-3 la source qui genere cette quete.
+def sync_habit_agenda_duration(
+    db: Session, user_id: int, habit_id: int, duration_minutes: int
+) -> bool:
+    """Keep dated and template agenda placements aligned with a quest duration."""
+    changed = False
+    dated_count = (
+        db.query(DailyAgendaPlacement)
+        .filter(
+            DailyAgendaPlacement.user_id == user_id,
+            DailyAgendaPlacement.habit_id == habit_id,
+            DailyAgendaPlacement.duration_minutes != duration_minutes,
+        )
+        .update(
+            {DailyAgendaPlacement.duration_minutes: duration_minutes},
+            synchronize_session=False,
+        )
+    )
+    if dated_count:
+        changed = True
 
-    Ne touche jamais `pinned_goals` (Top 3 verrouillable, gere par son propre bouton).
-    Les colonnes JSON n'ont pas de `MutableList` : on reassigne une nouvelle liste.
-    """
-    source_type = habit.source_type or "manual"
-    source_ref = str(habit.source_ref or "")
-    if not source_ref:
-        return False
+    templates = (
+        db.query(PerfectDayTemplate)
+        .filter(
+            PerfectDayTemplate.user_id == user_id,
+            PerfectDayTemplate.template_name.in_(DAY_TYPES),
+        )
+        .all()
+    )
+    for template in templates:
+        agenda_json = normalize_agenda_json(template.agenda_json)
+        template_changed = False
+        for placement in agenda_json.get("default_placements", []):
+            if int(placement.get("habit_id") or 0) != habit_id:
+                continue
+            if placement.get("duration_minutes") != duration_minutes:
+                placement["duration_minutes"] = duration_minutes
+                template_changed = True
+        if template_changed:
+            template.agenda_json = agenda_json
+            changed = True
 
-    if source_type == "substep":
-        pinned = [int(sid) for sid in (user.pinned_substeps or [])]
-        kept = [sid for sid in pinned if str(sid) != source_ref]
-        if len(kept) == len(pinned):
-            return False
-        user.pinned_substeps = kept
-        return True
-
-    if source_type == "softskill":
-        pinned = [str(skill_id) for skill_id in (user.pinned_softskills or [])]
-        kept = [skill_id for skill_id in pinned if skill_id != source_ref]
-        if len(kept) == len(pinned):
-            return False
-        user.pinned_softskills = kept
-        return True
-
-    return False
+    return changed
 
 
 def detach_habit_from_source(db: Session, user_id: int, habit: Habit) -> bool:
-    """Transforme une quete auto-generee en quete manuelle independante.
+    """Detach a legacy generated quest when it is explicitly unarchived.
 
-    S'applique a tout le groupe de versions : `create_habit_version()` recopie
-    `source_type` / `source_ref` / `auto_managed`, et `_find_generated_habit()`
-    ressusciterait une ancienne version restee rattachee.
+    This applies to every version that still points at the historical source.
     """
     source_type = habit.source_type or "manual"
     if source_type == "manual" and not habit.auto_managed and not habit.source_ref:
@@ -405,128 +417,9 @@ def _softskill_names_by_id() -> dict:
     }
 
 
-def _unique_habit_name(db: Session, user_id: int, base_name: str) -> str:
-    existing_names = {
-        row[0] for row in db.query(Habit.name).filter(Habit.user_id == user_id).all()
-    }
-    if base_name not in existing_names:
-        return base_name
-    suffix = 2
-    while f"{base_name} ({suffix})" in existing_names:
-        suffix += 1
-    return f"{base_name} ({suffix})"
-
-
-def _find_generated_habit(
-    db: Session, user_id: int, source_type: str, source_ref: str
-) -> Optional[Habit]:
-    return (
-        db.query(Habit)
-        .filter(
-            Habit.user_id == user_id,
-            Habit.source_type == source_type,
-            Habit.source_ref == source_ref,
-        )
-        .order_by(Habit.is_active.desc(), Habit.id.desc())
-        .first()
-    )
-
-
 def sync_generated_focus_quests(db: Session, user: User) -> bool:
-    changed = False
-    pinned_substep_ids = [int(sid) for sid in (user.pinned_substeps or [])]
-    pinned_substep_refs = {str(sid) for sid in pinned_substep_ids}
-
-    # --- Substep quests: create / unarchive pinned, auto-archive unpinned ---
-    if pinned_substep_ids:
-        substeps = (
-            db.query(SubStep)
-            .filter(SubStep.user_id == user.id, SubStep.id.in_(pinned_substep_ids))
-            .all()
-        )
-        for substep in substeps:
-            source_ref = str(substep.id)
-            existing = _find_generated_habit(db, user.id, "substep", source_ref)
-            if existing:
-                # Re-pinned: auto-unarchive if it was archived
-                if existing.archived_at is not None:
-                    existing.archived_at = None
-                    if not existing.is_active:
-                        existing.is_active = True
-                    changed = True
-                continue
-            db.add(
-                Habit(
-                    user_id=user.id,
-                    name=_unique_habit_name(db, user.id, f"Étape: {substep.title}"),
-                    description=substep.description,
-                    type="binary",
-                    frequency="daily",
-                    scheduled_days="0,1,2,3,4,5,6",
-                    is_private=False,
-                    is_reportable=True,
-                    is_mandatory=False,
-                    effort_type=substep.effort_type,
-                    effort_duration=substep.effort_duration or 1.0,
-                    source_type="substep",
-                    source_ref=source_ref,
-                    auto_managed=True,
-                    agenda_duration_minutes=60,
-                    is_active=True,
-                )
-            )
-            changed = True
-
-    # Auto-archive substep quests that are no longer pinned
-    existing_substep_quests = (
-        db.query(Habit)
-        .filter(
-            Habit.user_id == user.id,
-            Habit.source_type == "substep",
-            Habit.auto_managed == True,
-            Habit.archived_at.is_(None),
-        )
-        .all()
-    )
-    now = datetime.datetime.now()
-    for habit in existing_substep_quests:
-        if str(habit.source_ref or "") not in pinned_substep_refs:
-            habit.archived_at = now
-            remove_habit_agenda_references(db, user.id, habit.id)
-            changed = True
-
-    # --- Softskill quests: create if missing (no auto-archive) ---
-    softskill_names = _softskill_names_by_id()
-    for skill_id in user.pinned_softskills or []:
-        source_ref = str(skill_id)
-        if _find_generated_habit(db, user.id, "softskill", source_ref):
-            continue
-        skill_name = softskill_names.get(source_ref, source_ref)
-        db.add(
-            Habit(
-                user_id=user.id,
-                name=_unique_habit_name(db, user.id, f"Competence: {skill_name}"),
-                description=f"Quest generated from focused skill: {skill_name}",
-                type="binary",
-                frequency="daily",
-                scheduled_days="0,1,2,3,4,5,6",
-                is_private=False,
-                is_reportable=True,
-                is_mandatory=False,
-                effort_type=None,
-                effort_duration=1.0,
-                source_type="softskill",
-                source_ref=source_ref,
-                auto_managed=True,
-                agenda_duration_minutes=60,
-                is_active=True,
-            )
-        )
-        changed = True
-
-    if changed:
-        db.flush()
-    return changed
+    """Deprecated compatibility shim: focus pins no longer generate quests."""
+    return False
 
 
 def is_habit_eligible_on_date(
@@ -537,18 +430,6 @@ def is_habit_eligible_on_date(
 ) -> bool:
     if not habit.is_active or habit.archived_at is not None:
         return False
-
-    source_type = habit.source_type or "manual"
-    # Legacy goal quests are no longer eligible (replaced by substep quests)
-    if source_type == "goal":
-        return False
-    # Substep quests rely on archived_at managed by sync_generated_focus_quests
-    if habit.auto_managed or source_type in {"substep", "softskill"}:
-        source_ref = str(habit.source_ref or "")
-        if source_type == "softskill" and source_ref not in {
-            str(skill_id) for skill_id in (user.pinned_softskills or [])
-        }:
-            return False
 
     if normalize_day_type(day_type) not in normalize_habit_day_types(habit.day_types):
         return False
@@ -619,29 +500,6 @@ def _habit_bank_reasons(
             }
         )
         return reasons
-
-    source_type = habit.source_type or "manual"
-    if source_type == "goal":
-        reasons.append(
-            {
-                "code": "legacy_goal",
-                "label": "Ancien objectif",
-                "detail": "Les anciennes quetes d'objectif sont remplacees par les quetes de sous-etapes.",
-            }
-        )
-
-    if habit.auto_managed or source_type in {"substep", "softskill"}:
-        source_ref = str(habit.source_ref or "")
-        if source_type == "softskill" and source_ref not in {
-            str(skill_id) for skill_id in (user.pinned_softskills or [])
-        }:
-            reasons.append(
-                {
-                    "code": "source_not_pinned",
-                    "label": "Skill non epinglee",
-                    "detail": "Cette quete de skill reapparait quand la skill est epinglee au Recap.",
-                }
-            )
 
     normalized_day_type = normalize_day_type(day_type)
     allowed_day_types = normalize_habit_day_types(habit.day_types)
@@ -730,9 +588,10 @@ def build_quest_bank_response(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    changed = sync_generated_focus_quests(db, user)
+    changed = False
     day_type = resolve_day_type(db, user_id, date_value)
     habits = db.query(Habit).filter(Habit.user_id == user_id).order_by(Habit.name).all()
+    tags_by_habit_id = quest_tag_service.tags_for_habits(db, user_id, habits)
     completions, skipped_ids, failed_ids = _completed_and_skipped_habit_ids(
         db, user_id, date_value, habits
     )
@@ -777,6 +636,7 @@ def build_quest_bank_response(
             failed_ids,
             current_streak_by_habit_id.get(habit.id, 0),
             progress_by_habit_id.get(habit.id),
+            tags_by_habit_id.get(habit.id),
         )
 
         if habit.archived_at is not None:
@@ -893,6 +753,7 @@ def habit_to_agenda_item(
     failed_habit_ids: set[int],
     current_streak: int = 0,
     progress_row=None,
+    tags: Optional[list[dict]] = None,
 ) -> dict:
     duration_minutes = _habit_duration_minutes(habit)
     needs_configuration = bool(
@@ -945,6 +806,7 @@ def habit_to_agenda_item(
         "progress_mode": habit.progress_mode or "standard",
         "checklist_items": [dict(item) for item in (habit.checklist_items or [])],
         "daily_progress": progress_payload(habit, date_value, progress_row),
+        "tags": tags or [],
     }
 
 
@@ -1096,12 +958,13 @@ def build_agenda_response(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    changed = sync_generated_focus_quests(db, user)
+    changed = False
 
     day_type = resolve_day_type(db, user_id, date_value)
     template_config = _template_config(db, user_id, day_type)
     agenda_json = template_config["agenda_json"]
     habits = db.query(Habit).filter(Habit.user_id == user_id).all()
+    tags_by_habit_id = quest_tag_service.tags_for_habits(db, user_id, habits)
     completions, skipped_ids, failed_ids = _completed_and_skipped_habit_ids(
         db, user_id, date_value, habits
     )
@@ -1167,6 +1030,7 @@ def build_agenda_response(
             failed_ids,
             current_streak_by_habit_id.get(habit.id, 0),
             progress_by_habit_id.get(habit.id),
+            tags_by_habit_id.get(habit.id),
         )
         placement = placement_by_habit_id.get(habit.id)
         default = default_by_habit_id.get(habit.id)
@@ -1328,7 +1192,7 @@ def update_placement(
     user = db.query(User).filter_by(id=user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    changed = sync_generated_focus_quests(db, user)
+    changed = False
     habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
     day_type = resolve_day_type(db, user_id, date_value)
     if not habit or not is_habit_eligible_on_date(habit, date_value, user, day_type):

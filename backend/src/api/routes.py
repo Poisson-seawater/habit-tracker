@@ -13,7 +13,7 @@ from fastapi import (
     Response,
 )
 from sqlalchemy.orm import Session
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 from src.database.session import get_db
@@ -70,7 +70,12 @@ from src.services.daily_log_service import (
     resolve_target_date,
     timestamp_on_date,
 )
-from src.services import agenda_service, quest_progress_service, softskill_service
+from src.services import (
+    agenda_service,
+    quest_progress_service,
+    quest_tag_service,
+    softskill_service,
+)
 from fastapi.responses import JSONResponse, RedirectResponse
 from src.database.session import SessionLocal
 from src.services.google_sync_service import (
@@ -207,6 +212,11 @@ class ChecklistItemConfig(BaseModel):
     label: str = Field(min_length=1, max_length=200)
 
 
+class QuestTagRef(BaseModel):
+    kind: Literal["goal", "softskill_branch"]
+    ref: str = Field(min_length=1, max_length=100)
+
+
 class HabitCreate(BaseModel):
     name: str
     type: str  # "binary", "quantitative"
@@ -229,6 +239,7 @@ class HabitCreate(BaseModel):
     effort_duration: Optional[float] = 1.0
     agenda_duration_minutes: Optional[int] = None
     agenda_placeable: Optional[bool] = True
+    tags: List[QuestTagRef] = Field(default_factory=list, max_length=100)
 
 
 class HabitVersionCreate(BaseModel):
@@ -1622,7 +1633,6 @@ def update_profile_pins(
     if payload.pinned_softskills is not None:
         user.pinned_softskills = payload.pinned_softskills
 
-    agenda_service.sync_generated_focus_quests(db, user)
     db.commit()
     return {"status": "success", "message": "Pins updated successfully"}
 
@@ -1928,6 +1938,7 @@ def delete_goal(
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
 
+    quest_tag_service.remove_goal_tags(db, goal.id)
     db.delete(goal)
     db.commit()
     return {"status": "success", "message": "Goal deleted successfully"}
@@ -3233,6 +3244,7 @@ def get_habits(
         if include_all_versions
         else _latest_visible_habit_versions(filtered_habits)
     )
+    tags_by_habit_id = quest_tag_service.tags_for_habits(db, user_id, habits)
     today = datetime.date.today()
     progress_by_habit_id = quest_progress_service.progress_rows_by_habit(
         db,
@@ -3343,6 +3355,7 @@ def get_habits(
                 "source_label": agenda_service._source_label(db, h),
                 "auto_managed": bool(h.auto_managed),
                 "archived_at": h.archived_at.isoformat() if h.archived_at else None,
+                "tags": tags_by_habit_id.get(h.id, []),
                 "version_history": version_history,
                 "current_streak": current_streak_by_habit_id.get(h.id, 0),
             }
@@ -3497,6 +3510,7 @@ class HabitUpdate(BaseModel):
     effort_duration: Optional[float] = None
     agenda_duration_minutes: Optional[int] = None
     agenda_placeable: Optional[bool] = None
+    tags: Optional[List[QuestTagRef]] = Field(default=None, max_length=100)
 
 
 @router.post("/habits/{habit_id}/versions", status_code=201)
@@ -3549,6 +3563,7 @@ def update_habit(
 
     # Handle active status transition logic
     payload_dict = payload.model_dump(exclude_unset=True)
+    tag_payload = payload_dict.pop("tags", None)
     current_progress_mode = habit.progress_mode or "standard"
     effective_mode = payload_dict.get(
         "progress_mode", habit.progress_mode or "standard"
@@ -3634,6 +3649,19 @@ def update_habit(
 
     for field, value in payload_dict.items():
         setattr(habit, field, value)
+    if tag_payload is not None:
+        try:
+            quest_tag_service.replace_tags(db, user_id, habit, tag_payload)
+        except quest_tag_service.QuestTagError as exc:
+            db.rollback()
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if payload.agenda_duration_minutes is not None:
+        agenda_service.sync_habit_agenda_duration(
+            db,
+            user_id=user_id,
+            habit_id=habit.id,
+            duration_minutes=payload.agenda_duration_minutes,
+        )
     quest_progress_service.reconcile_today_snapshot(db, user_id=user_id, habit=habit)
     db.commit()
     return {"status": "updated"}
@@ -3648,13 +3676,11 @@ def archive_habit(
     habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found.")
-    user = db.query(User).filter_by(id=user_id).first()
-    unpinned = agenda_service.unpin_habit_source(db, user, habit) if user else False
     if habit.archived_at is None:
         habit.archived_at = datetime.datetime.now()
     agenda_service.remove_habit_agenda_references(db, user_id, habit.id)
     db.commit()
-    return {"status": "archived", "id": habit.id, "unpinned": unpinned}
+    return {"status": "archived", "id": habit.id, "unpinned": False}
 
 
 @router.post("/habits/{habit_id}/unarchive")
@@ -3865,7 +3891,14 @@ def create_habit(
         is_active=True,
     )
     db.add(habit)
-    db.commit()
+    try:
+        db.flush()
+        habit.relationship_root_id = habit.id
+        quest_tag_service.replace_tags(db, user_id, habit, payload.tags)
+        db.commit()
+    except quest_tag_service.QuestTagError as exc:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     db.refresh(habit)
     return {"id": habit.id, "name": habit.name, "status": "success"}
 
@@ -4053,9 +4086,11 @@ def api_create_branch_with_skills(payload: BranchWithSkillsCreate):
 
 
 @router.put("/softskills/branches/{branch_key}")
-def api_update_branch(branch_key: str, payload: BranchUpdate):
+def api_update_branch(
+    branch_key: str, payload: BranchUpdate, db: Session = Depends(get_db)
+):
     try:
-        return softskill_service.update_branch(
+        result = softskill_service.update_branch(
             branch_key,
             payload.new_key,
             payload.color,
@@ -4063,15 +4098,23 @@ def api_update_branch(branch_key: str, payload: BranchUpdate):
             do_date=payload.do_date,
             due_date=payload.due_date,
         )
+        quest_tag_service.rename_branch_tags(db, branch_key, payload.new_key)
+        db.commit()
+        return result
     except ValueError as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.delete("/softskills/branches/{branch_key}")
 def api_delete_branch(branch_key: str, db: Session = Depends(get_db)):
     try:
-        return softskill_service.delete_branch(db, branch_key)
+        result = softskill_service.delete_branch(db, branch_key)
+        quest_tag_service.remove_branch_tags(db, branch_key)
+        db.commit()
+        return result
     except ValueError as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 
