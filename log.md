@@ -3,6 +3,15 @@
 > Une entrée par session / push, anti-chronologique. Rédigé par `/doc-sync` avant push.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-08-16 — chore(coaching): mettre en pause la réorganisation des quêtes et de la semaine
+
+- **Nettoyage distant effectué** : via `habit-tracker-control` sur le Pi, suppression confirmée de 10 anciennes quêtes auto-générées ainsi que `Swimming` et `nage`. Vérification finale : 12 quêtes actives restantes. Ces suppressions ne sont pas reproductibles sur localhost et aucune donnée locale n'a été touchée.
+- **Structure hebdomadaire retenue, non appliquée** : lundi `basic` + vélo; mardi `hustle` + natation + renforcements; mercredi `rest` + film; jeudi `basic` + vélo + renforcements; vendredi `hustle` + natation; samedi `basic` + marche/course + renforcements; dimanche `rest` + film et revue hebdomadaire.
+- **Journée active envisagée** : début à 07:00, étude protégée de 07:30 à 09:30, travail principal jusqu'au départ vers 13:00–14:00, puis sport, lunch, bibliothèque/café et entraînement social pendant les déplacements. Au retour, renforcements thérapeutiques de 30 à 45 minutes les mardi/jeudi/samedi, puis revue sociale, revue de journée, ukulélé et routine du soir. L'heure de retour reste volontairement flexible; la piscine représente environ 2 h au total et le déplacement café/bibliothèque environ 1 h.
+- **Priorités de coaching** : projet entrepreneurial d'abord, recherche d'emploi ensuite, développement social au même niveau stratégique, puis apprentissage LLM; capacité physique actuellement fragile, donc marche à la place de la course selon l'état du corps.
+- **État de reprise** : travail en pause avant toute création/édition de quête, modification de template ou placement d'agenda. Reprendre par un aperçu du programme, puis utiliser le flux `habitctl plan` → confirmation → `apply` pour chaque modification distante.
+- **Périmètre local** : cette entrée de journal est le seul changement de la session dans le worktree; aucun code, schéma, contrat API, service Compose, commande Telegram ou réglage localhost modifié. Aucun commit effectué.
+
 ## 2026-08-09 — feat(quests): remplacer les quêtes générées par des tags persistants
 
 - **Modèle** : les objectifs, sous-étapes et softskills ne créent plus de quêtes. Une quête reste l'unique unité exécutable et peut être sans tag ou recevoir plusieurs tags issus des objectifs et branches softskills.

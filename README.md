@@ -52,8 +52,19 @@ Exemples :
 
 Le cadrage détaillé et son statut sont conservés dans [`specs/next-steps-multi-agent-brief.md`](specs/next-steps-multi-agent-brief.md). Il couvre le filtrage des quêtes par type de journée, les habitudes ratées et leur pénalité XP, la correction d'hier, les suggestions de créneaux biologiques, la durée d'authentification de 90 jours et le retrait du champ d'effort des sous-étapes.
 
+### Correction livrée — durée des quêtes dans l'agenda
+
+La durée d'une quête modifiée est maintenant synchronisée avec ses placements
+datés et ses placements par défaut dans les templates `rest`, `regular` et
+`hustle`. Le bloc visuel de l'agenda reflète donc bien une durée comme 120
+minutes, y compris pour les quêtes déjà placées dans un template.
+
 
 ## NEXT ACTIONS
+- Pour objectifs "Social" j'ai plusieurs reflexe a prendre - comme routine avant de sortir de la maison. Des objectifs: parler a plusieurs inconnues. Et des options: bibliotheques, bars, meet up etc ... . Trouver un systeme pour les ranger visuellement dans le tableau de bord
+- Rédiger une description claire de l'application, centrée sur le parcours utilisateur, l'expérience vécue et les grandes intentions de design (sans code ni détails techniques). Décrire notamment l'utilisateur et son besoin, le parcours quotidien de la planification à la validation, les moments clés du dashboard et du bot, ainsi que les principes UX recherchés : clarté, motivation, responsabilité et absence de surcharge.
+
+
 
 ### 1. Revoir Cloudflare Access : arrêter la reconnexion quotidienne
 
@@ -104,20 +115,6 @@ champs possibles : déclencheur, besoin, mauvais réflexe, coût du mauvais réf
 réflexe de remplacement, durée minimale, preuve de réussite, règle de scoring,
 et lien éventuel avec un No-Todo existant.
 
-### 3. Débugger le système d'archives
-
-Constat : le système d'archives est à considérer comme cassé tant qu'il n'est pas
-revalidé bout en bout. Une quête archivée ne doit plus réapparaître dans
-l'agenda, les quêtes à placer, les placements datés, les placements par défaut
-des templates, ni les vues qui ne demandent pas explicitement les archives.
-
-À investiguer :
-- reproduire le bug depuis le dashboard avec une quête archivée qui reste visible
-  ou qui revient dans le calendrier ;
-- vérifier si le problème vient du backend, du frontend, de la banque de quêtes,
-  du compactage des versions, ou de vieux placements encore présents en base ;
-- confirmer le comportement attendu : archiver retire les références d'agenda,
-  désarchiver ne restaure pas automatiquement les anciens placements.
 
 ### 4. Penser un système de simple compteur relié aux skills et objectifs
 
@@ -173,6 +170,8 @@ Idée produit : ajouter une vue 2x2 de type matrice d'Eisenhower :
 - relier la matrice au Perfect Day : les items importants non urgents doivent
   pouvoir être planifiés dans les zones biologiques adaptées au lieu d'être
   oubliés.
+
+
 
 
 ## ROADMAP

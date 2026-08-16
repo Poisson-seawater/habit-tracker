@@ -275,7 +275,10 @@ class ApiClient:
 
     def request(self, method, path, payload=None, idempotency_key=None):
         body = None
-        headers = {"Accept": "application/json"}
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": "habit-tracker-control/1.0 (+https://habit.fastadmin.ca)",
+        }
         if self.api_token:
             headers["Authorization"] = f"Bearer {self.api_token}"
         if self.user_id is not None:
