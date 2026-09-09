@@ -107,6 +107,11 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
   pratique privilégiée aux étapes cohérentes du travail. Ce push de synchronisation est
   autorisé; ne pas créer de PR ni déclencher ou administrer manuellement des GitHub Actions
   sans demande explicite.
+- **Bot Telegram hors périmètre actuel** : jusqu'à instruction contraire de l'utilisateur,
+  ignorer le service Telegram dans le développement, les diagnostics et les validations.
+  Son absence, son arrêt ou une erreur de configuration locale ne bloque pas la livraison
+  du dashboard et de l'API. Ne pas démarrer, reconstruire, réparer ni tester le conteneur
+  `bot`; limiter les opérations Compose locales au service `api` lorsque c'est possible.
 - **Commandes Docker / DB / reset / migration / déploiement** : toujours préciser la cible
   avant de donner ou lancer la commande : instance locale, Raspberry Pi / serveur de prod,
   ou autre environnement. Si la cible est ambiguë, demander confirmation. Ne pas donner de
