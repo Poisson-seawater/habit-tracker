@@ -66,6 +66,9 @@ class User(Base):
     day_cycle_policies = relationship(
         "DayCyclePolicy", back_populates="user", cascade="all, delete-orphan"
     )
+    day_type_overrides = relationship(
+        "DayTypeOverride", back_populates="user", cascade="all, delete-orphan"
+    )
     rewards = relationship(
         "Reward", back_populates="user", cascade="all, delete-orphan"
     )
@@ -454,9 +457,56 @@ class DayCyclePolicy(Base):
     )
     anchor_date = Column(Date, nullable=False, index=True)
     effective_from = Column(Date, nullable=False, index=True)
+    normal_week_json = Column(
+        JSON,
+        nullable=False,
+        default=lambda: {
+            "monday": "regular",
+            "tuesday": "regular",
+            "wednesday": "regular",
+            "thursday": "regular",
+            "friday": "regular",
+            "saturday": "hustle",
+            "sunday": "rest",
+        },
+    )
+    chill_week_json = Column(
+        JSON,
+        nullable=False,
+        default=lambda: {
+            "monday": "regular",
+            "tuesday": "regular",
+            "wednesday": "regular",
+            "thursday": "regular",
+            "friday": "regular",
+            "saturday": "regular",
+            "sunday": "rest",
+        },
+    )
     created_at = Column(DateTime, default=datetime.datetime.now, nullable=False)
 
     user = relationship("User", back_populates="day_cycle_policies")
+
+
+class DayTypeOverride(Base):
+    __tablename__ = "day_type_overrides"
+    __table_args__ = (
+        UniqueConstraint("user_id", "date", name="uix_day_type_override_user_date"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    date = Column(Date, nullable=False, index=True)
+    day_type = Column(String, nullable=False)
+    source = Column(String, nullable=False, default="feel_off")
+    created_at = Column(DateTime, default=datetime.datetime.now, nullable=False)
+
+    user = relationship("User", back_populates="day_type_overrides")
 
 
 class Goal(Base):

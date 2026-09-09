@@ -104,10 +104,10 @@ def test_parse_status_success():
     assert result["target"] == "today"
 
 
-def test_parse_set_day_success():
-    result = parse_command("/set-day sick")
-    assert result["command"] == "set-day"
-    assert result["template_name"] == "sick"
+@pytest.mark.parametrize("command", ["/set-day sick", "/template rest"])
+def test_removed_day_template_commands_are_unknown(command):
+    with pytest.raises(ParserError, match="Commande inconnue"):
+        parse_command(command)
 
 
 def test_parse_help_aliases_aide():

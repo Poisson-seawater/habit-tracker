@@ -120,12 +120,6 @@ def parse_command(text: str) -> dict:
     elif cmd == "/status":
         return {"command": "status", "target": "today"}
 
-    elif cmd in ["/set-day", "/template"]:
-        # No argument → listener shows template choice buttons.
-        if not args_str:
-            return {"command": "set-day", "template_name": None}
-        return {"command": "set-day", "template_name": args_str}
-
     elif cmd in ["/aide", "/help"]:
         return {"command": "aide"}
 

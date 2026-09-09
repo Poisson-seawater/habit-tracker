@@ -117,12 +117,16 @@ def test_post_logs_endpoint():
     assert data["status"] == "logged"
 
 
-def test_change_template_success():
-    response = client.post("/api/v1/profile/template", json={"template_name": "rest"})
+def test_feel_off_and_restore_success():
+    response = client.post("/api/v1/profile/feel-off")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "updated"
+    assert data["status"] in {"overridden", "already_rest"}
     assert data["active_template"] == "rest"
+
+    response = client.delete("/api/v1/profile/feel-off")
+    assert response.status_code == 200
+    assert response.json()["feel_off_active"] is False
 
 
 def test_create_and_complete_todo_endpoints():

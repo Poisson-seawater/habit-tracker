@@ -6,7 +6,7 @@ Tu es déjà dans la boucle : tu logges tes habitudes, tu vois ton streak grandi
 
 Le [Perfect Day](#/perfect-day) ne se limite pas à cocher des cases : il compte aussi les paliers de continuité. Un streak de 30 jours sur une [habitude](#/habitudes) rapporte +100 XP et +50 Or ; 90 jours consécutifs, +300 XP et +150 Or. Ça se joue sur la durée, pas sur un jour isolé.
 
-Le rythme de la semaine se pilote avec les [templates de jour](#/templates-de-jour) : basculer en `hustle` un jour où tu vises l'intensité, en `rest` un jour de récupération. Le système recommande même un dosage sur 4 semaines pour éviter d'enchaîner les jours `hustle` sans respirer, visible dans l'[agenda et la timeline biologique](#/agenda-timeline).
+Le rythme se programme dans les [templates de jour](#/templates-de-jour) : deux grilles hebdomadaires alimentent automatiquement un cycle de trois semaines normales puis une semaine moins intense. Le type du jour est visible dans l'[agenda et la timeline biologique](#/agenda-timeline), sans décision quotidienne à reprendre.
 
 Tes primes planifiées peuvent vivre nativement dans tes outils habituels via la [synchronisation Google](#/sync-google), et tes plus grands projets restent visibles en permanence grâce au [Recap 3-3-3](#/recap-3-3-3).
 
@@ -14,7 +14,7 @@ Tes primes planifiées peuvent vivre nativement dans tes outils habituels via la
 
 **« Mes amis vont voir tout ce que je note ? »** Pas forcément envie que le groupe sache que ta tâche du jour, c'est « acheter un cadeau à ma copine ». Une [habitude](#/habitudes) marquée privée (`is_private`) compte pour ton [Perfect Day](#/perfect-day), mais reste masquée du recap public — juste comptée dans un total agrégé. Et dès que tu as posté une fois dans le groupe, tu peux parler au bot en message privé sans que rien n'apparaisse côté groupe.
 
-**« Et un jour où c'est la catastrophe parce que je suis malade ? »** Ta série ne va pas casser juste parce que ton corps a lâché. C'est le rôle des [templates de jour](#/templates-de-jour) : bascule en `rest`, et la journée se juge avec un rythme de récupération, agenda et budgets adaptés. Si c'est juste une habitude précise qui saute, `/skip <habitude> raison: <texte>` l'excuse pour aujourd'hui sans casser ton streak. La raison est obligatoire — c'est un garde-fou honnête, pas une échappatoire silencieuse.
+**« Et un jour où c'est la catastrophe parce que je suis malade ? »** Le bouton **Feel off today** du dashboard passe aujourd'hui en `rest`; tu peux revenir au planning tant que la journée n'est pas terminée. La journée se recalcule avec un rythme de récupération sans effacer ce qui a déjà été loggé. Si une seule habitude saute, `/skip <habitude> raison: <texte>` l'excuse sans casser son streak.
 
 **« J'ai trop d'objectifs et de softskills, je m'y perds. »** C'est exactement pour ça qu'existe le [Recap 3-3-3](#/recap-3-3-3) : tu épingles 3 sous-étapes d'[objectifs](#/objectifs), 3 [softskills](#/softskills), et tu vois tes 3 activités de récupération du jour. Un seul panneau, les vraies priorités, visible dès l'accueil du dashboard.
 

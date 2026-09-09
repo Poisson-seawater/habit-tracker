@@ -18,7 +18,12 @@ from src.database.models import (
 )
 from src.database.session import Base, get_db
 from src.main import app
-from src.services.day_cycle_service import cycle_info_for_date, monday_of_week
+from src.services.day_cycle_service import (
+    DEFAULT_CHILL_WEEK,
+    DEFAULT_NORMAL_WEEK,
+    cycle_info_for_date,
+    monday_of_week,
+)
 
 
 TEST_DB_FILE = "backend/tests/.test_history_cycle.db"
@@ -179,13 +184,18 @@ def test_cycle_anchor_change_is_not_retroactive(client_and_db):
     new_anchor = today + datetime.timedelta(days=21)
     response = client.put(
         "/api/v1/profile/cycle",
-        json={"anchor_date": new_anchor.isoformat()},
+        json={
+            "anchor_date": today.isoformat(),
+            "effective_from": today.isoformat(),
+            "normal_week": DEFAULT_NORMAL_WEEK,
+            "chill_week": DEFAULT_CHILL_WEEK,
+        },
         headers={"X-User-ID": "1"},
     )
 
     assert response.status_code == 200
     policy = response.json()["policy"]
-    assert policy["anchor_date"] == monday_of_week(new_anchor).isoformat()
+    assert policy["anchor_date"] == monday_of_week(today).isoformat()
     assert policy["effective_from"] == today.isoformat()
 
     after_past = _history_day(client, past_day)
@@ -193,6 +203,94 @@ def test_cycle_anchor_change_is_not_retroactive(client_and_db):
     assert after_past["cycle_policy_id"] == before["cycle_policy_id"]
     assert after_past["cycle_week_type"] == before["cycle_week_type"]
     assert after_today["cycle_policy_effective_from"] == today.isoformat()
+
+
+def test_future_cycle_policy_is_pending_and_replaced(client_and_db):
+    client, db = client_and_db
+    today = datetime.date.today()
+    first_date = today + datetime.timedelta(days=7)
+    second_date = today + datetime.timedelta(days=14)
+
+    for effective_from in (first_date, second_date):
+        response = client.put(
+            "/api/v1/profile/cycle",
+            json={
+                "anchor_date": effective_from.isoformat(),
+                "effective_from": effective_from.isoformat(),
+                "normal_week": DEFAULT_NORMAL_WEEK,
+                "chill_week": DEFAULT_CHILL_WEEK,
+            },
+            headers={"X-User-ID": "1"},
+        )
+        assert response.status_code == 200
+
+    payload = client.get("/api/v1/profile/cycle", headers={"X-User-ID": "1"}).json()
+    assert payload["pending_policy"]["effective_from"] == second_date.isoformat()
+    db.expire_all()
+    future_policies = (
+        db.query(DayCyclePolicy)
+        .filter(
+            DayCyclePolicy.user_id == 1,
+            DayCyclePolicy.effective_from > today,
+        )
+        .all()
+    )
+    assert len(future_policies) == 1
+
+
+def test_cycle_policy_rejects_past_effective_date(client_and_db):
+    client, _db = client_and_db
+    yesterday = datetime.date.today() - datetime.timedelta(days=1)
+    response = client.put(
+        "/api/v1/profile/cycle",
+        json={
+            "anchor_date": yesterday.isoformat(),
+            "effective_from": yesterday.isoformat(),
+            "normal_week": DEFAULT_NORMAL_WEEK,
+            "chill_week": DEFAULT_CHILL_WEEK,
+        },
+        headers={"X-User-ID": "1"},
+    )
+    assert response.status_code == 422
+
+
+def test_feel_off_recalculates_perfect_xp_and_restores_plan(client_and_db):
+    client, db = client_and_db
+    today = datetime.date.today()
+    all_regular = {weekday: "regular" for weekday in DEFAULT_NORMAL_WEEK}
+    response = client.put(
+        "/api/v1/profile/cycle",
+        json={
+            "anchor_date": today.isoformat(),
+            "effective_from": today.isoformat(),
+            "normal_week": all_regular,
+            "chill_week": all_regular,
+        },
+        headers={"X-User-ID": "1"},
+    )
+    assert response.status_code == 200
+    habit = db.query(Habit).filter_by(id=1).one()
+    habit.day_types = ["regular"]
+    db.commit()
+
+    profile = client.get("/api/v1/profile", headers={"X-User-ID": "1"}).json()
+    starting_xp = profile["xp"]
+    assert profile["scores"]["status"] == "Failed"
+
+    feel_off = client.post("/api/v1/profile/feel-off", headers={"X-User-ID": "1"})
+    assert feel_off.status_code == 200
+    assert feel_off.json()["active_template"] == "rest", feel_off.json()
+    assert feel_off.json()["feel_off_active"] is True
+    profile = client.get("/api/v1/profile", headers={"X-User-ID": "1"}).json()
+    assert profile["scores"]["status"] == "Perfect"
+    assert profile["xp"] == starting_xp + 5
+
+    restored = client.delete("/api/v1/profile/feel-off", headers={"X-User-ID": "1"})
+    assert restored.status_code == 200
+    assert restored.json()["active_template"] == "regular"
+    profile = client.get("/api/v1/profile", headers={"X-User-ID": "1"}).json()
+    assert profile["scores"]["status"] == "Failed"
+    assert profile["xp"] == starting_xp
 
 
 @pytest.mark.asyncio

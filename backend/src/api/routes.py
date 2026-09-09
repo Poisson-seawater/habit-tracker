@@ -32,6 +32,7 @@ from src.database.models import (
     NoTodo,
     NoTodoLog,
     DayCyclePolicy,
+    DayTypeOverride,
     UserSoftskillProgress,
     Reward,
     RemoteOperation,
@@ -46,7 +47,10 @@ from src.services.day_cycle_service import (
     ensure_default_cycle_policy,
     get_cycle_policies,
     monday_of_week,
+    pending_cycle_policy,
+    resolve_planned_day_type,
     resolve_cycle_policy,
+    validate_week_pattern,
 )
 from src.services.notodo_service import (
     get_notodo_failures_on_date,
@@ -255,10 +259,6 @@ class ChecklistProgressUpdate(BaseModel):
     checked: bool
 
 
-class TemplateOverride(BaseModel):
-    template_name: str
-
-
 class TemplateSave(BaseModel):
     template_name: str
     focus_hours: float = 6.0
@@ -269,6 +269,9 @@ class TemplateSave(BaseModel):
 
 class CyclePolicyUpdate(BaseModel):
     anchor_date: datetime.date
+    effective_from: datetime.date
+    normal_week: Dict[str, str]
+    chill_week: Dict[str, str]
 
 
 class AgendaPlacementUpdate(BaseModel):
@@ -955,7 +958,28 @@ def _cycle_policy_payload_for_user(
     ensure_default_cycle_policy(db, user)
     policies = get_cycle_policies(db, user.id)
     policy = resolve_cycle_policy(policies, date_value)
-    return active_cycle_payload(policy, date_value)
+    return active_cycle_payload(
+        policy,
+        date_value,
+        pending_policy=pending_cycle_policy(policies, date_value),
+    )
+
+
+def _day_type_state_payload(
+    db: Session, user_id: int, date_value: datetime.date, score: DailyScore
+) -> dict:
+    scheduled_template = resolve_planned_day_type(db, user_id, date_value)
+    override = (
+        db.query(DayTypeOverride).filter_by(user_id=user_id, date=date_value).first()
+    )
+    return {
+        "date": date_value.isoformat(),
+        "active_template": score.template_used,
+        "scheduled_template": scheduled_template,
+        "day_type_source": "feel_off" if override else "schedule",
+        "feel_off_active": bool(override),
+        "daily_score_status": score.status,
+    }
 
 
 # --- Server-side validation helpers ---
@@ -1366,7 +1390,7 @@ def admin_set_user_password(
 @router.get("/capabilities")
 def get_capabilities():
     return {
-        "protocol_version": 2,
+        "protocol_version": 3,
         "auth": {
             "machine_header": "Authorization: Bearer <HABIT_API_TOKEN>",
             "user_header": "X-User-ID",
@@ -1440,10 +1464,9 @@ def get_profile(
         raise HTTPException(status_code=404, detail="User not found")
 
     today = datetime.date.today()
-    # Ensure a DailyScore exists for today
-    score = db.query(DailyScore).filter_by(user_id=user.id, date=today).first()
-    if not score:
-        score = calculate_daily_score(db, user_id=user.id, date=today)
+    # Keep today's score aligned with the automatic policy or Feel off override.
+    score = calculate_daily_score(db, user_id=user.id, date=today)
+    day_type_state = _day_type_state_payload(db, user.id, today, score)
 
     # Get today's completed habit IDs
     start_dt = datetime.datetime.combine(today, datetime.time.min)
@@ -1492,6 +1515,9 @@ def get_profile(
     return {
         "username": user.username,
         "active_template": score.template_used,
+        "scheduled_template": day_type_state["scheduled_template"],
+        "day_type_source": day_type_state["day_type_source"],
+        "feel_off_active": day_type_state["feel_off_active"],
         "completed_habit_ids": completed_habit_ids,
         "scores": {
             "status": score.status,
@@ -1549,6 +1575,7 @@ def get_profile_cycle(
 @router.put("/profile/cycle")
 def update_profile_cycle(
     payload: CyclePolicyUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ):
@@ -1557,20 +1584,130 @@ def update_profile_cycle(
         raise HTTPException(status_code=404, detail="User not found")
 
     today = datetime.date.today()
+    if payload.effective_from < today:
+        raise HTTPException(
+            status_code=422,
+            detail="effective_from must be today or a future date.",
+        )
+    normalized_anchor = monday_of_week(payload.anchor_date)
+    if normalized_anchor > payload.effective_from:
+        raise HTTPException(
+            status_code=422,
+            detail="The cycle anchor week must start on or before effective_from.",
+        )
+    try:
+        normal_week = validate_week_pattern(payload.normal_week, "normal_week")
+        chill_week = validate_week_pattern(payload.chill_week, "chill_week")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     ensure_default_cycle_policy(db, user)
+    replace_from = (
+        today if payload.effective_from == today else today + datetime.timedelta(days=1)
+    )
+    db.query(DayCyclePolicy).filter(
+        DayCyclePolicy.user_id == user_id,
+        DayCyclePolicy.effective_from >= replace_from,
+    ).delete(synchronize_session=False)
     policy = DayCyclePolicy(
         user_id=user_id,
-        anchor_date=monday_of_week(payload.anchor_date),
-        effective_from=today,
+        anchor_date=normalized_anchor,
+        effective_from=payload.effective_from,
+        normal_week_json=normal_week,
+        chill_week_json=chill_week,
     )
     db.add(policy)
-    db.commit()
+    db.flush()
+
+    milestone_events = []
+    if payload.effective_from == today:
+        if resolve_planned_day_type(db, user_id, today) == "rest":
+            db.query(DayTypeOverride).filter_by(
+                user_id=user_id,
+                date=today,
+                source="feel_off",
+            ).delete(synchronize_session=False)
+        _score, milestone_events = recalculate_day(
+            db,
+            user_id=user_id,
+            date_value=today,
+            force_rebuild=True,
+        )
+    else:
+        db.commit()
+    if milestone_events:
+        background_tasks.add_task(dispatch_milestone_notifications, milestone_events)
     db.refresh(policy)
 
     return {
         "status": "success",
-        "message": "Cycle mis a jour a partir d'aujourd'hui.",
-        "policy": active_cycle_payload(policy, today),
+        "message": f"Cycle mis a jour a partir du {payload.effective_from.isoformat()}.",
+        "policy": active_cycle_payload(policy, payload.effective_from),
+    }
+
+
+@router.post("/profile/feel-off")
+def enable_feel_off(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    today = datetime.date.today()
+    scheduled_template = resolve_planned_day_type(db, user_id, today)
+    override = db.query(DayTypeOverride).filter_by(user_id=user_id, date=today).first()
+    status = "already_rest" if scheduled_template == "rest" else "overridden"
+    if scheduled_template == "rest" and override:
+        db.delete(override)
+        db.flush()
+    elif not override:
+        db.add(
+            DayTypeOverride(
+                user_id=user_id,
+                date=today,
+                day_type="rest",
+                source="feel_off",
+            )
+        )
+        db.flush()
+
+    score, milestone_events = recalculate_day(
+        db,
+        user_id=user_id,
+        date_value=today,
+        force_rebuild=True,
+    )
+    if milestone_events:
+        background_tasks.add_task(dispatch_milestone_notifications, milestone_events)
+    return {"status": status, **_day_type_state_payload(db, user_id, today, score)}
+
+
+@router.delete("/profile/feel-off")
+def disable_feel_off(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    today = datetime.date.today()
+    deleted = (
+        db.query(DayTypeOverride)
+        .filter_by(user_id=user_id, date=today, source="feel_off")
+        .delete(synchronize_session=False)
+    )
+    score, milestone_events = recalculate_day(
+        db,
+        user_id=user_id,
+        date_value=today,
+        force_rebuild=True,
+    )
+    if milestone_events:
+        background_tasks.add_task(dispatch_milestone_notifications, milestone_events)
+    return {
+        "status": "restored" if deleted else "already_planned",
+        **_day_type_state_payload(db, user_id, today, score),
     }
 
 
@@ -2830,53 +2967,6 @@ def undo_habit_failure(
     }
 
 
-# --- Switch Template ---
-
-
-@router.post("/profile/template")
-def change_profile_template(
-    payload: TemplateOverride,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id),
-):
-    """
-    Override the day's active score template and recalculate.
-    """
-    t_name = payload.template_name.lower()
-    t_map = {
-        "normal": "regular",
-        "regular": "regular",
-        "semaine": "regular",
-        "week": "regular",
-        "weekend": "regular",
-        "repos": "rest",
-        "rest": "rest",
-        "recovery": "rest",
-        "recup": "rest",
-        "hustle": "hustle",
-        "rush": "hustle",
-        "sick": "rest",
-        "malade": "rest",
-        "default": "regular",
-    }
-    matched_name = t_map.get(t_name, "regular")
-
-    today = datetime.date.today()
-    score = calculate_daily_score(
-        db, user_id=user_id, date=today, template_name=matched_name
-    )
-    milestone_events = update_streaks(db, user_id=user_id, date=today)
-    if milestone_events:
-        background_tasks.add_task(dispatch_milestone_notifications, milestone_events)
-
-    return {
-        "status": "updated",
-        "active_template": score.template_used,
-        "daily_score_status": score.status,
-    }
-
-
 # --- Todos / Primes with Custom XP ---
 
 
@@ -3962,9 +4052,9 @@ def get_history(
     for i in range(num_days):
         d = start_date + datetime.timedelta(days=i)
         score = score_map.get(d)
-        template = score.template_used if score else None
         policy = resolve_cycle_policy(cycle_policies, d)
         cycle_info = cycle_info_for_date(policy, d)
+        template = score.template_used if score else cycle_info["planned_day_type"]
 
         ui_status = "future"
         if d <= today:

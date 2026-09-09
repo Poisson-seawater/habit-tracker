@@ -1400,8 +1400,78 @@ body {
   font-weight: 600;
 }
 
+.cycle-date-grid,
+.cycle-week-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cycle-date-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cycle-week-grid {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin-bottom: 1rem;
+}
+
+.cycle-pattern-title {
+  margin: 0.8rem 0 0.6rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.cycle-day-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.cycle-day-field .template-dropdown {
+  width: 100%;
+  padding: 0.55rem 0.35rem;
+  border: 1px solid var(--border-glass);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.day-type-status-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.day-type-status,
+.feel-off-btn {
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  border-radius: 8px;
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--accent-cyan);
+  padding: 0.35rem 0.65rem;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.feel-off-btn {
+  cursor: pointer;
+}
+
+.feel-off-btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 @media (max-width: 680px) {
   .cycle-current-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cycle-date-grid,
+  .cycle-week-grid {
     grid-template-columns: 1fr;
   }
 

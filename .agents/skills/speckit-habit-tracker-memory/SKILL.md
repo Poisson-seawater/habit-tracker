@@ -1,10 +1,10 @@
 ---
 name: "speckit-habit-tracker-memory"
 description: "Recalls design decisions, codebase architecture, and implementation details for Gabriel's Habit Tracker project."
-compatibility: "Habit Tracker current project"
 metadata:
   author: "Antigravity"
   purpose: "Knowledge recall and codebase memory"
+  compatibility: "Habit Tracker current project"
 ---
 
 ## Overview
@@ -43,12 +43,26 @@ graph TD
 - The old daily RPG stat/threshold system has been removed from the live schema.
   Do not describe current habits, todos, substeps, or Perfect Day validation as
   awarding daily character-sheet stats.
-- Current day templates are `rest`, `regular`, and `hustle`; older names such as
+- Current day types are `rest`, `regular`, and `hustle`; older names such as
   `week`, `weekend`, `recup`, and `malade` are historical aliases/context only.
+- Day types are server-authoritative. A fixed four-week cycle contains three
+  normal weeks and one less-intense week, with a configurable seven-day map for
+  each week type. Defaults are Monday-Friday `regular`, Saturday `hustle`, and
+  Sunday `rest`; the less-intense week changes Saturday to `regular`.
+- Cycle policies may take effect today or in the future. Keep at most one pending
+  future policy, preserve past policies, and resolve historical days from their
+  `DailyScore` snapshot when one exists.
+- `Feel off today` is the only manual day-type exception. It creates a reversible
+  dated `rest` override for today, then fully recalculates the score, Perfect Day,
+  effort budgets, agenda filtering, streak transitions, and the existing +/-5 XP
+  transition without deleting habit logs or failures.
+- Do not restore the dashboard day selector, Telegram `/set-day` or `/template`,
+  API `/api/v1/profile/template`, or habitctl `template-set`. Remote control uses
+  protocol v3 actions `feel-off` and `day-plan-restore`.
 - The dashboard uses cookie sessions and approved devices. `X-User-ID` remains
   important compatibility for local development, tests, bot/automation, and the
   habit-tracker-control plugin.
-- For spec status, check `specs/README.md` before relying on old `tasks.md`
+- For spec status, check `specs/ETAT_DES_SPECS.md` before relying on old `tasks.md`
   checkboxes.
 
 ---
@@ -116,6 +130,17 @@ Represents user-configurable biological capacity windows for Perfect Day renderi
 ### 7. `DailyAgendaPlacement`
 Stores per-date quest placements for the vertical agenda/timeline.
 
+### 8. `DayCyclePolicy` and `DayTypeOverride`
+- `DayCyclePolicy` stores `anchor_date`, `effective_from`, `normal_week_json`, and
+  `chill_week_json`. The anchor is normalized to Monday and selects the position
+  in the repeating four-week cycle.
+- `DayTypeOverride` stores a unique `(user_id, date)` exception. The implemented
+  source is `feel_off`, with `day_type=rest`.
+- Automatic migration v33 in `database/seed.py` adds the two JSON schedules,
+  backfills their defaults, and creates `day_type_overrides` idempotently.
+- Resolution belongs in `services/day_cycle_service.py`; consumers such as score
+  and agenda services must not implement competing day-type logic.
+
 ---
 
 ## 3. Backend Endpoints
@@ -123,6 +148,17 @@ Stores per-date quest placements for the vertical agenda/timeline.
 ### Profile & Pins
 - `GET /api/v1/profile` — Retrieves active player statistics and pinned lists.
 - `PUT /api/v1/profile/pins` — Saves user's pinned sub-step and softskill IDs (max 3 per category).
+
+### Automatic Day Planning
+- `GET /api/v1/profile/cycle` — Returns the active policy and optional pending
+  policy, both weekly maps, current cycle week, and planned type.
+- `PUT /api/v1/profile/cycle` — Programs complete normal/less-intense weekday
+  maps with `anchor_date` and a today-or-future `effective_from`.
+- `POST /api/v1/profile/feel-off` — Turns today into an exceptional Rest Day.
+- `DELETE /api/v1/profile/feel-off` — Removes today's exception and restores the
+  scheduled type.
+- `GET /api/v1/profile` exposes `active_template`, `scheduled_template`,
+  `day_type_source`, and `feel_off_active` for the dashboard status control.
 
 ### Goals
 - `GET /api/v1/goals` — Retrieves all goals with resolved substeps and completeness percentages.

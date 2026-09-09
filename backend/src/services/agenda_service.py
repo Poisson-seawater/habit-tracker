@@ -17,7 +17,7 @@ from src.database.models import (
     User,
     Streak,
 )
-from src.services import quest_tag_service, softskill_service
+from src.services import day_cycle_service, quest_tag_service, softskill_service
 from src.services.quest_progress_service import (
     completion_count,
     completion_target,
@@ -848,10 +848,7 @@ def _completed_and_skipped_habit_ids(
 
 
 def resolve_day_type(db: Session, user_id: int, date_value: datetime.date) -> str:
-    score = db.query(DailyScore).filter_by(user_id=user_id, date=date_value).first()
-    if not score:
-        return "regular"
-    return normalize_day_type(score.template_used)
+    return day_cycle_service.resolve_effective_day_type(db, user_id, date_value)
 
 
 def _template_config(db: Session, user_id: int, template_name: str) -> dict:

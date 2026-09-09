@@ -1,6 +1,6 @@
 ---
 name: habit-tracker-action
-description: Exécuter immédiatement une action courante et bornée dans le Habit Tracker distant. Utiliser pour valider, logger ou skipper une habitude, compléter un todo ou une sous-étape, échouer un no-todo, compléter ou réinitialiser un softskill, acheter ou réclamer une récompense, ou changer le modèle du jour.
+description: Exécuter immédiatement une action courante et bornée dans le Habit Tracker distant. Utiliser pour valider, logger ou skipper une habitude, compléter un todo ou une sous-étape, échouer un no-todo, compléter ou réinitialiser un softskill, acheter ou réclamer une récompense, activer Feel off ou restaurer le planning du jour.
 ---
 
 # Habit Tracker Action
@@ -18,9 +18,11 @@ Utiliser uniquement `plugins/habit-tracker-control/scripts/habitctl.py act`.
 python3 plugins/habit-tracker-control/scripts/habitctl.py act habit-done --target "Routine matin"
 python3 plugins/habit-tracker-control/scripts/habitctl.py act habit-log --target "Lecture" --amount 20
 python3 plugins/habit-tracker-control/scripts/habitctl.py act reward-purchase --target "Film"
+python3 plugins/habit-tracker-control/scripts/habitctl.py act feel-off
+python3 plugins/habit-tracker-control/scripts/habitctl.py act day-plan-restore
 python3 plugins/habit-tracker-control/scripts/habitctl.py recover KEY
 ```
 
 Actions : `habit-done`, `habit-log`, `habit-skip`, `todo-complete`,
 `notodo-fail`, `substep-complete`, `softskill-complete`, `softskill-reset`,
-`reward-purchase`, `template-set`.
+`reward-purchase`, `feel-off`, `day-plan-restore`.

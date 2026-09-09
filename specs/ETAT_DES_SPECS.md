@@ -68,3 +68,10 @@ Current source of truth for implemented behavior is the code plus `README.md`,
   `habits.relationship_root_id` and `quest_tags`, assigns legacy
   version groups a common root, and archives old generated quests while
   preserving their logs and daily progress. The Recap pins remain independent.
+- Automatic day-type scheduling was implemented on 2026-08-31 without a separate
+  Spec Kit folder. A server-side four-week cycle uses three normal weeks and one
+  less-intense week, each backed by a configurable weekday map. Migration v33
+  extends `day_cycle_policies` and adds dated `day_type_overrides`; the dashboard
+  exposes `Feel off today` instead of a manual selector. Telegram `/set-day` and
+  `/template`, API `/profile/template`, and plugin `template-set` were removed;
+  the remote-control protocol is now v3 with `feel-off` and `day-plan-restore`.

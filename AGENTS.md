@@ -99,6 +99,14 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
 
 ## Journal et décisions
 
+- **Portée opérationnelle actuelle — local uniquement** : jusqu'à instruction contraire
+  de l'utilisateur, travailler et valider exclusivement sur l'instance locale. Pour les
+  commandes Docker, DB, migration et serveur, la cible locale est déjà confirmée et il
+  n'est pas nécessaire de la redemander. Ne pas intervenir sur la Raspberry Pi / la prod
+  ni y déployer. Les commits Git locaux suivis d'un push automatique constituent la
+  pratique privilégiée aux étapes cohérentes du travail. Ce push de synchronisation est
+  autorisé; ne pas créer de PR ni déclencher ou administrer manuellement des GitHub Actions
+  sans demande explicite.
 - **Commandes Docker / DB / reset / migration / déploiement** : toujours préciser la cible
   avant de donner ou lancer la commande : instance locale, Raspberry Pi / serveur de prod,
   ou autre environnement. Si la cible est ambiguë, demander confirmation. Ne pas donner de
@@ -121,9 +129,11 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
   versions V1/V2 d'une quête. Ils servent uniquement à l'organisation : ne jamais les brancher sur XP, score, streak,
   complétion, validation ou checklist. Les anciennes quêtes générées sont des archives
   historiques; les désarchiver peut encore les détacher de leur ancienne source.
-- **log.md** : documenter les décisions opérationnelles, les échecs et les pistes écartées.
-  Priorité aux décisions rejetées ou aux tentatives qui n'ont pas fonctionné, car les
-  décisions retenues sont généralement déjà visibles dans les commits, PR et GitHub Actions.
+- **log.md — code uniquement** : réserver ce journal aux changements du code du projet
+  (implémentations, corrections, migrations, tests et documentation directement liée au
+  code). Ne jamais y consigner les opérations sur les données distantes, le coaching, les
+  habitudes ou plannings personnels, les données personnelles ni les actions propres à une
+  session sans changement de code.
 
 ## Patterns à respecter
 

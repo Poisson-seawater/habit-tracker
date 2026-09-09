@@ -1,6 +1,6 @@
 {
   "name": "habit-tracker-control",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Deterministic remote control for Gabriel's Habit Tracker through its HTTP API.",
   "author": {
     "name": "Gabriel"

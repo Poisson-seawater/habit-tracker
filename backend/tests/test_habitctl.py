@@ -455,7 +455,7 @@ def test_missing_capabilities_has_deployment_hint():
 def test_protocol_mismatch_reports_versions():
     with pytest.raises(
         habitctl.HabitCtlError,
-        match=r"Expected 2, received 1",
+        match=r"Expected 3, received 1",
     ):
         habitctl.validate_protocol({"protocol_version": 1})
 
@@ -491,7 +491,7 @@ def test_configure_does_not_write_on_protocol_mismatch(monkeypatch, tmp_path):
     monkeypatch.setenv("HABIT_TRACKER_CONFIG", str(config_path))
     monkeypatch.setattr(habitctl, "ApiClient", lambda *_args, **_kwargs: client)
 
-    with pytest.raises(habitctl.HabitCtlError, match="Expected 2, received 1"):
+    with pytest.raises(habitctl.HabitCtlError, match="Expected 3, received 1"):
         habitctl.command_configure(
             SimpleNamespace(
                 base_url="http://192.168.0.199:5000",
@@ -501,3 +501,21 @@ def test_configure_does_not_write_on_protocol_mismatch(monkeypatch, tmp_path):
         )
 
     assert not config_path.exists()
+
+
+def test_day_schedule_actions_do_not_require_target():
+    assert habitctl.action_request(None, "feel-off", None) == (
+        "POST",
+        "/api/v1/profile/feel-off",
+        None,
+    )
+    assert habitctl.action_request(None, "day-plan-restore", None) == (
+        "DELETE",
+        "/api/v1/profile/feel-off",
+        None,
+    )
+
+
+def test_other_actions_still_require_target():
+    with pytest.raises(habitctl.HabitCtlError, match="--target is required"):
+        habitctl.action_request(None, "habit-done", None)

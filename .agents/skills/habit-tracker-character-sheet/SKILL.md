@@ -27,7 +27,7 @@ A Perfect Day is now based on scheduled habit accountability:
 1. Load active habits planned for the date.
 2. Each planned habit must be completed/logged or skipped with a reason.
 3. If every planned habit is handled, the daily score is `"Perfect"`; otherwise it is `"Failed"`.
-4. The active template (`rest`, `regular`, `hustle`) still provides the day context, agenda, and effort budgets.
+4. The scheduled day type (`rest`, `regular`, `hustle`) still provides the day context, agenda, and effort budgets.
 
 Todos still grant direct XP. Substeps still grant Gold. Effort categories are still active:
 
@@ -39,5 +39,5 @@ Todos still grant direct XP. Substeps still grant Gold. Effort categories are st
 ## Bot/API Notes
 
 - `/status` reports Perfect Day status, streak, gold, level/XP, completed/skipped/remaining habits, failed No-Todos, and Life Lore. It does not show stats.
-- `/set-day` / `/template` switches between `rest`, `regular`, and `hustle` and recalculates the day.
+- The recurring schedule chooses `rest`, `regular`, or `hustle`; `Feel off today` can exceptionally turn today into a Rest Day.
 - `/add_habit` creates a habit without stat rewards.

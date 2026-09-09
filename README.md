@@ -52,6 +52,15 @@ Exemples :
 
 Le cadrage détaillé et son statut sont conservés dans [`specs/next-steps-multi-agent-brief.md`](specs/next-steps-multi-agent-brief.md). Il couvre le filtrage des quêtes par type de journée, les habitudes ratées et leur pénalité XP, la correction d'hier, les suggestions de créneaux biologiques, la durée d'authentification de 90 jours et le retrait du champ d'effort des sous-étapes.
 
+### Planification automatique des types de journée
+
+Le type du jour n'est plus choisi manuellement dans le dashboard ou Telegram.
+Chaque utilisateur configure à l'avance une semaine normale et une semaine moins
+intense dans un cycle fixe de quatre semaines. Par défaut, les trois premières
+semaines sont `regular` du lundi au vendredi, `hustle` le samedi et `rest` le
+dimanche; la quatrième retire le Hustle Day. Le bouton **Feel off today** transforme
+exceptionnellement aujourd'hui en Rest Day et permet ensuite de revenir au planning.
+
 ### Correction livrée — durée des quêtes dans l'agenda
 
 La durée d'une quête modifiée est maintenant synchronisée avec ses placements
@@ -175,9 +184,105 @@ Idée produit : ajouter une vue 2x2 de type matrice d'Eisenhower :
 
 
 ## ROADMAP
-- avec IA ou UX pour voir les quest archiver et les quest avec le meme nom
-- a réfléchir, voir si je garde le systeme les 3 objectifs et competence créer une habitude OU je relie une quest a l'un des 3objectifs. et ses 3 objectifs deviennent une forme de tag ? pareil pour lier des to do a ses tags ET je peux mettre sa dans la matrix de einsenhower. exemple corps heal peut prendre tendon, natation, course et velo.
-- Maybe / à réfléchir : version professionnelle de l'app pour partager des to-do provenant d'une compagnie. Ces to-do professionnels auraient aussi leur propre agenda spécifique, via la feature de quêtes, et leur propre Google Calendar spécifique. Exemples : quand un cx book un meeting, la to-do professionnelle reçoit automatiquement le meeting à la bonne heure ; quand j'assigne une tâche à un employé, l'employé reçoit automatiquement une to-do professionnelle avec une due date et une do date.
+
+### Direction retenue : une seule action exécutable, plusieurs couches de sens
+
+Les objets ne doivent pas se remplacer ou se valider entre eux :
+
+| Couche | Rôle | Exemple « Corps / heal » |
+| --- | --- | --- |
+| Objectif et sous-étapes | résultat durable et jalons à atteindre | « Guérir le tendon », « reprendre la course sans douleur » |
+| Compétence et branche | capacité à développer et preuve de maîtrise | branche « Réhabilitation », compétence « gérer une reprise progressive » |
+| Quête | action récurrente, planifiable et validable au quotidien | tendon, natation, vélo, marche/course adaptée |
+| To-do / prime | action ponctuelle avec date ou échéance | prendre le rendez-vous physio, acheter une bande élastique |
+
+Une quête reste donc l'unité d'exécution récurrente. Les objectifs et les
+branches de compétences restent des **tags de contexte** : ils expliquent
+pourquoi l'action compte, sans créer une seconde quête, ni déclencher une
+validation, XP, Or ou streak supplémentaire. Les épingles 3-3-3 restent une
+couche de focus indépendante, et ne deviennent pas des tags automatiques.
+
+À étudier ensuite : faire adopter aux To-dos le même catalogue de tags que les
+quêtes (objectif + branche de compétence), pour qu'une vue comme Eisenhower ou
+le bocal puisse regrouper les actions par intention. Une sous-étape est un
+jalon, pas une action à mélanger automatiquement dans ces vues.
+
+### Now — deux vues de recul, sans nouvelle mécanique de score
+
+#### My Life in Weeks
+
+Une grille personnelle où chaque case représente une semaine de vie : les
+semaines vécues, la semaine courante et les semaines restantes jusqu'à un âge
+de référence choisi par l'utilisateur. C'est une vue de perspective et de
+réflexion, non un calendrier de productivité : aucune note rouge/verte ni
+pression de "semaine parfaite". Des repères optionnels (moments de vie et
+horizons d'objectifs à 1, 3 ou 5 ans) peuvent relier le présent à la vision
+long terme, sans promettre une date de complétion.
+
+Les données sensibles nécessaires (date de naissance, âge de référence,
+événements) devront rester privées et minimales. La grille peut partir du
+concept popularisé par « Your Life in Weeks » : une petite case par semaine,
+plutôt qu'une prédiction sur la durée de vie.
+
+#### The Jar of Life — les gros cailloux d'abord
+
+Une vue hebdomadaire d'allocation de l'attention, inspirée de
+[The Jar of Life: First Things First](https://balancedaction.me/2012/10/17/the-jar-of-life-first-things-first/).
+Elle rend visible ce qui entre dans la capacité volontairement disponible de la
+semaine :
+
+- les **gros cailloux** : jusqu'à 3 priorités choisies (santé, relation,
+  projet décisif) et leurs créneaux protégés ;
+- les **galets** : obligations et routines importantes ;
+- le **sable** : petites tâches, administration et demandes opportunistes ;
+- l'espace restant : repos, social, imprévu et marge — pas une ressource à
+  remplir à 100 %.
+
+La vue s'appuie d'abord sur les créneaux réellement placés dans l'agenda et les
+To-dos avec un jour de travail, puis laisse l'utilisateur classer explicitement
+ses priorités. Elle ne déduit pas l'importance depuis les XP, les tags ou le
+nombre de validations. Son test de réussite est simple : les gros cailloux ont
+une place avant que le sable ne prenne toute la semaine.
+
+Le compteur auxiliaire déjà disponible sur une quête reste l'outil pour les
+répétitions (« 25/100 appels », « 7/10 expositions »). Il ne faut pas le
+confondre avec le Jar of Life, qui est une visualisation de priorités et de
+capacité, pas un bocal de reps.
+
+### Next — préparer des actions mieux reliées
+
+- Ajouter, au-dessus ou en parallèle du planificateur de journée, un **mode de
+  période de vie** choisi explicitement par l'utilisateur : période de travail,
+  vacances, congé sabbatique, période entrepreneuriale ou autre contexte sans
+  emploi régulier. Ce mode doit aider à interpréter et organiser le planning sans
+  remplacer les types de journée `rest`, `regular` et `hustle`.
+- Étendre le tagging commun aux To-dos, en gardant un lien optionnel et
+  multi-tags : une même action peut contribuer à « Corps / heal » et à une
+  branche « Réhabilitation ».
+- Donner à chaque To-do/quête un minimum de contexte utilisable pour les vues :
+  durée estimée ou créneau, importance choisie, urgence/échéance et note de
+  succès légère. Ne pas demander tous ces champs pour toute création.
+- Concevoir la matrice d'Eisenhower sur les **actions** (To-dos et occurrences
+  de quêtes), pas sur les objectifs ou compétences eux-mêmes. Les tags servent
+  à expliquer l'impact d'une action dans la matrice.
+- Ajouter un **diagramme de Gantt** pour suivre la progression dans le temps et
+  rendre lisibles les liens entre objectifs, jalons et projections d'ambition.
+  Explorer aussi d'autres visualisations de progression personnelle afin de ne
+  pas perdre le présent au milieu de tous les objectifs et horizons futurs.
+- Ajouter un **compteur pour les activités libres** qui ne sont ni des To-dos ni
+  des quêtes obligatoires, ainsi qu'une réserve d'idées ou d'actions aléatoires à
+  faire apparaître le dimanche, inspirée de la méthode du « 8e jour de la
+  semaine » de Fabien Olicard.
+- Garder l'UX de recherche des archives et doublons de quêtes comme amélioration
+  de maintenance, séparée de la stratégie de priorisation.
+
+### Later — pistes à ne pas mélanger au noyau personnel
+
+- Réflexes de remplacement liés aux No-Todos : fiche légère déclencheur →
+  besoin → alternative → preuve minimale.
+- Une version professionnelle avec To-dos partagés et agenda/Google Calendar
+  séparés : sujet distinct, à cadrer seulement après avoir validé le modèle
+  personnel d'actions, tags et priorités.
 
 
 

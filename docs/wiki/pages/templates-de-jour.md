@@ -1,6 +1,6 @@
 # Templates de jour
 
-Selon les jours, tu peux en faire plus ou moins. Le template, c'est le « type de journée » que tu choisis. Il fixe un agenda type et des budgets d'effort pour cadrer ton [Perfect Day](#/perfect-day).
+Selon les jours, tu peux en faire plus ou moins. Le template est le type de journée calculé automatiquement par ton planning. Il fixe un agenda type et des budgets d'effort pour cadrer ton [Perfect Day](#/perfect-day).
 
 ## Les 3 templates
 
@@ -10,9 +10,13 @@ Selon les jours, tu peux en faire plus ou moins. Le template, c'est le « type d
 | Regular | `regular` | Journée normale et soutenable |
 | Hustle | `hustle` | Journée intense, charge haute mais bornée |
 
-## Bascule
+## Planning automatique
 
-`/set-day <template>` (alias `/template`) change le type de journée et recalcule **instantanément** l'état du Perfect Day. Le bon template évite de juger une journée de repos avec les attentes d'une journée intense.
+Dans Réglages → Cycle des Journées, tu configures une semaine normale et une semaine moins intense, jour par jour. Le serveur déroule trois semaines normales puis une semaine moins intense depuis l'ancrage choisi. Une nouvelle programmation prend effet aujourd'hui ou à une date future; elle ne réécrit jamais les journées déjà calculées.
+
+Le dashboard affiche le type actif sans menu de sélection. Si ton énergie chute, **Feel off today** applique `rest` uniquement à aujourd'hui et recalcule immédiatement agenda, Perfect Day, XP et streaks. **Revenir au planning prévu** retire cette dérogation. Les validations, skips, échecs et pénalités déjà enregistrés sont conservés.
+
+Les anciennes commandes Telegram `/set-day` et `/template` ont été retirées.
 
 Chaque template a ses propres budgets par catégorie d'effort (`musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`), un objectif de focus et un objectif de repos minimum — les deux sont éditables directement dans l'onglet ⚙️ Perfect Days du dashboard, avec son propre sélecteur de template.
 

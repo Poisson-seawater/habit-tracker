@@ -68,9 +68,7 @@ def test_daily_score_calculation_incomplete(db_session):
     today = datetime.date.today()
 
     # When calculating daily score using V2 week template
-    score = calculate_daily_score(
-        db_session, user_id=1, date=today, template_name="week"
-    )
+    score = calculate_daily_score(db_session, user_id=1, date=today)
 
     # Then Gabriel is in "Failed" state (incomplete)
     assert score.status == "Failed"
@@ -97,9 +95,7 @@ def test_daily_score_calculation_perfect_day(db_session):
     db_session.commit()
 
     # When calculating
-    score = calculate_daily_score(
-        db_session, user_id=1, date=today, template_name="week"
-    )
+    score = calculate_daily_score(db_session, user_id=1, date=today)
 
     # Then status is Perfect
     assert score.status == "Perfect"

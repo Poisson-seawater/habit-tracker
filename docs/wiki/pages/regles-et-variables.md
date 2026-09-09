@@ -14,7 +14,6 @@ Tu logges des [habitudes](#/habitudes) et tu coches des [primes](#/primes-todo).
 | `/log` | `<habitude> <valeur><unité>` | Enregistre une habitude quantitative (vérifie l'unité) |
 | `/skip` | `<habitude> raison: <texte>` | Saute une habitude sans casser le streak (raison obligatoire) |
 | `/status` | *(aucun)* | Perfect Day, streak, or, niveau/XP, quêtes faites/skippées/restantes, No-Todos échoués |
-| `/set-day` *(alias `/template`)* | `<template>` | Change le type de journée : `rest`, `regular`, `hustle` |
 | `/liste` | `todo` \| `habit` \| `notodo` | Liste ce qui reste (todo/habit) ou les règles à tenir (notodo) |
 | `/add` | `todo` \| `notodo` \| `habit` `<titre>` | Ajoute une tâche, une règle, ou guide la création d'une habitude |
 | `/add_habit` | `binary` \| `quant` `<titre> [unité]` | Crée une habitude avec des valeurs par défaut |
@@ -55,7 +54,7 @@ Tu logges des [habitudes](#/habitudes) et tu coches des [primes](#/primes-todo).
 
 **XP ≠ Or.** L'XP (et le niveau) mesure la **régularité** (Perfect Days + primes). L'Or mesure l'**avancement réel** des projets (sous-étapes d'objectifs). Deux monnaies, deux significations.
 
-**Le template protège les jours off.** Basculer en `rest` donne un agenda et un budget d'effort adaptés : un jour de repos reste « réussissable ».
+**Le planning protège les jours off.** Le cycle choisit automatiquement `rest`, `regular` ou `hustle`. Le bouton **Feel off today** permet une dérogation `rest` réversible quand ton état réel ne correspond plus au planning.
 
 **Le streak récompense la constance.** Un `/skip` justifié préserve le streak ; une habitude prévue laissée sans traitement le casse.
 

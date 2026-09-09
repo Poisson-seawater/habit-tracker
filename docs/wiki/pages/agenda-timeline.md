@@ -64,9 +64,9 @@ Envie de voir cette journée type sur ton téléphone plutôt que sur le dashboa
 
 ## Le cycle hebdomadaire hustle / repos
 
-Le système ne te laisse pas enchaîner les jours `hustle` indéfiniment : une politique de cycle, par tranche de **4 semaines**, recommande un dosage :
+Le type de chaque date vient d'une politique de cycle de **4 semaines** :
 
-- **Semaine normale** (3 semaines sur 4) : 2 à 3 jours `hustle`, 1 jour `rest`.
-- **Semaine chill** (1 semaine sur 4) : 1 à 2 jours `hustle`, 2 jours `rest`.
+- **Semaines normales** (semaines 1 à 3) : chaque jour utilise la grille normale configurée.
+- **Semaine moins intense** (semaine 4) : chaque jour utilise sa seconde grille configurable.
 
-La bascule est automatique : le système calcule le nombre de semaines écoulées depuis ton installation et détermine si la semaine en cours est « normale » ou « chill ». C'est une recommandation affichée, pas une limite bloquante — tu choisis toujours librement ton [template](#/templates-de-jour) du jour.
+Par défaut, lundi à vendredi sont `regular`, samedi `hustle` et dimanche `rest`; la semaine moins intense remplace le samedi par `regular`. La bascule est automatique depuis une semaine d'ancrage. Le résumé du calendrier compte les jours `hustle` et `rest` réellement configurés. Pour une baisse d'énergie imprévue, **Feel off today** passe seulement aujourd'hui en `rest` sans supprimer les placements datés; ils réapparaissent si tu reviens au planning.

@@ -144,25 +144,6 @@ def parse_todo_text(
     return title_str, do_date, due_date
 
 
-# Maps the words a user can type for /set-day to the internal template keys.
-# The button flow passes the internal keys (rest/regular/hustle) directly.
-TEMPLATE_WORD_MAP = {
-    "normal": "regular",
-    "regular": "regular",
-    "semaine": "regular",
-    "week": "regular",
-    "weekend": "regular",
-    "repos": "rest",
-    "rest": "rest",
-    "recovery": "rest",
-    "recup": "rest",
-    "hustle": "hustle",
-    "rush": "hustle",
-    "sick": "rest",
-    "malade": "rest",
-}
-
-
 def _resolve_user(db, from_user) -> User:
     """Look up (or create) the User row for a Telegram sender. Shared by the
     command router and the inline-button callback handler."""
@@ -401,20 +382,6 @@ async def _edit_habit_panel(query, text: str, markup: InlineKeyboardMarkup):
     except BadRequest as exc:
         if "not modified" not in str(exc).lower():
             raise
-
-
-def _apply_set_day(db, user_id: int, db_template_name: str) -> str:
-    """Apply a day template (internal key), recalc score & streaks, return confirmation."""
-    today = datetime.date.today()
-    score = calculate_daily_score(
-        db, user_id=user_id, date=today, template_name=db_template_name
-    )
-    milestone_events = update_streaks(db, user_id=user_id, date=today)
-    _queue_milestone_notifications(milestone_events)
-    return (
-        f'🩹 Template de journée mis à jour vers : "{score.template_used.upper()}".\n'
-        f"✨ Le Perfect Day est recalculé avec ce rythme."
-    )
 
 
 def _create_pending_item(db, user: User, pending: str, title: str) -> str:
@@ -1224,37 +1191,6 @@ async def route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             await update.message.reply_text(msg, parse_mode="HTML")
 
-        elif cmd == "set-day":
-            t_name = parsed["template_name"]
-            if t_name is None:
-                keyboard = [
-                    [
-                        InlineKeyboardButton("🧘 Rest", callback_data="setday:rest"),
-                        InlineKeyboardButton(
-                            "⚖️ Regular", callback_data="setday:regular"
-                        ),
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            "🔥 Hustle", callback_data="setday:hustle"
-                        ),
-                    ],
-                ]
-                await update.message.reply_text(
-                    "Quel type de journée veux-tu ?",
-                    reply_markup=InlineKeyboardMarkup(keyboard),
-                )
-                return
-
-            matched_name = TEMPLATE_WORD_MAP.get(t_name.lower())
-            if not matched_name:
-                await update.message.reply_text(
-                    "❌ Template inconnu. Choisissez parmi : rest, regular, hustle"
-                )
-                return
-
-            await update.message.reply_text(_apply_set_day(db, user.id, matched_name))
-
         elif cmd == "quetes":
             panel_text, panel_markup = _render_habit_panel(db, user.id)
             await update.message.reply_text(
@@ -1783,7 +1719,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "<b>/quetes</b> (alias <b>/habitudes</b>, <b>/habits</b>, <b>/quests</b>) — Panneau paginé des quêtes du jour : un bouton par habitude, un clic pour valider\n"
             "<b>/skip</b> [nom] raison: [texte] — Saute une habitude sans casser le streak\n"
             "<b>/status</b> — Affiche le statut du jour\n"
-            "<b>/set-day</b> (alias <b>/template</b>) [template] — Change le type de journée (boutons si sans argument)\n"
             "<b>/liste</b> [todo|habit|notodo] — Liste tes éléments (boutons si sans argument)\n"
             "<b>/add</b> [todo|notodo|habit] [titre] — Ajoute une tâche ou une règle (boutons si sans argument)\n"
             "<b>/add_habit</b> [binary|quant] [titre] [unité] — Crée une habitude\n"
@@ -2288,17 +2223,21 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # --- Data-backed buttons (need a DB session + the user) ------------------
-    if data.startswith("liste:") or data.startswith("setday:"):
+    if data.startswith("setday:"):
+        await query.answer(
+            "Cette commande a été retirée. Utilise Feel off dans le dashboard.",
+            show_alert=True,
+        )
+        return
+
+    if data.startswith("liste:"):
         db = SessionLocal()
         try:
             user = _resolve_user(db, query.from_user)
             key = data.split(":", 1)[1]
-            if data.startswith("liste:"):
-                await query.message.reply_text(
-                    _render_liste(db, user.id, key), parse_mode="HTML"
-                )
-            else:
-                await query.message.reply_text(_apply_set_day(db, user.id, key))
+            await query.message.reply_text(
+                _render_liste(db, user.id, key), parse_mode="HTML"
+            )
         except Exception as e:
             print(f"Error handling callback {data}: {e}")
             await query.message.reply_text(f"❌ Une erreur est survenue : {e}")
@@ -2441,7 +2380,6 @@ async def main():
             "skip", "Passer une habitude pour aujourd'hui (sans casser le streak)"
         ),
         BotCommand("status", "Afficher ton résumé et statut de la journée"),
-        BotCommand("template", "Changer le type de journée (Perfect Day template)"),
         BotCommand("quetes", "Panneau des quêtes du jour : 1 bouton = 1 validation"),
         BotCommand("liste", "Lister tes todos, habitudes ou no-todos"),
         BotCommand("add", "Ajouter un todo, un no-todo ou une habitude"),

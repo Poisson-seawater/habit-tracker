@@ -7,7 +7,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src.database.models import DailyScore, Habit, HabitLog, Streak, User
+from src.database.models import (
+    DailyScore,
+    DayTypeOverride,
+    Habit,
+    HabitLog,
+    Streak,
+    User,
+)
 from src.database.session import Base, get_db
 from src.main import app
 from src.bot.listener import _render_liste
@@ -130,7 +137,7 @@ def test_day_type_filters_agenda_and_perfect_but_manual_log_advances_streak(clie
         )
         db.commit()
 
-        score = calculate_daily_score(db, 1, date_value, template_name="rest")
+        score = calculate_daily_score(db, 1, date_value)
         assert score.status == "Perfect"
         update_streaks(db, 1, date_value)
         hustle_streak = (
@@ -227,6 +234,12 @@ def test_telegram_habit_list_filters_current_day_type():
             [
                 DailyScore(
                     user_id=1, date=today, status="Failed", template_used="rest"
+                ),
+                DayTypeOverride(
+                    user_id=1,
+                    date=today,
+                    day_type="rest",
+                    source="feel_off",
                 ),
                 Habit(
                     user_id=1,

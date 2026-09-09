@@ -20,24 +20,13 @@ from src.services.agenda_service import (
 from src.services.quest_progress_service import completion_count, completion_target
 
 
-def calculate_daily_score(
-    db: Session, user_id: int, date: datetime.date, template_name: str = None
-) -> DailyScore:
+def calculate_daily_score(db: Session, user_id: int, date: datetime.date) -> DailyScore:
     """
     Evaluates the daily score for a user on a given date.
     A Perfect Day is achieved if all active, scheduled habits for that day are logged (completed or skipped).
     """
-    # 1. Resolve template name.
-    if not template_name:
-        existing_score = (
-            db.query(DailyScore).filter_by(user_id=user_id, date=date).first()
-        )
-        if existing_score:
-            template_name = existing_score.template_used
-        else:
-            template_name = "regular"
-
-    template_name = normalize_day_type(template_name)
+    # 1. Resolve the effective server-side day schedule.
+    template_name = normalize_day_type(resolve_day_type(db, user_id, date))
 
     # 2. Get today's logs
     start_dt = datetime.datetime.combine(date, datetime.time.min)

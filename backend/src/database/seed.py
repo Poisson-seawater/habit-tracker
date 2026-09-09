@@ -60,6 +60,25 @@ DEFAULT_BIOLOGICAL_ZONES = [
     },
 ]
 
+DEFAULT_NORMAL_WEEK = {
+    "monday": "regular",
+    "tuesday": "regular",
+    "wednesday": "regular",
+    "thursday": "regular",
+    "friday": "regular",
+    "saturday": "hustle",
+    "sunday": "rest",
+}
+DEFAULT_CHILL_WEEK = {
+    "monday": "regular",
+    "tuesday": "regular",
+    "wednesday": "regular",
+    "thursday": "regular",
+    "friday": "regular",
+    "saturday": "regular",
+    "sunday": "rest",
+}
+
 
 def seed_default_biological_zones(db, user_id=None):
     if user_id is not None:
@@ -105,6 +124,13 @@ def seed_default_day_cycle_policies(db, user_id=None):
         return
 
     user_columns = {column["name"] for column in inspector.get_columns("users")}
+    policy_columns = {
+        column["name"] for column in inspector.get_columns("day_cycle_policies")
+    }
+    has_week_schedules = {
+        "normal_week_json",
+        "chill_week_json",
+    }.issubset(policy_columns)
     created_at_select = "created_at" if "created_at" in user_columns else "NULL"
     query = f"SELECT id, {created_at_select} AS created_at FROM users"
     params = {}
@@ -127,22 +153,44 @@ def seed_default_day_cycle_policies(db, user_id=None):
             continue
 
         install_date = _date_from_db_value(user_row[1])
-        db.execute(
-            text(
-                """
-                INSERT INTO day_cycle_policies
-                    (user_id, anchor_date, effective_from, created_at)
-                VALUES
-                    (:user_id, :anchor_date, :effective_from, :created_at)
-                """
-            ),
-            {
-                "user_id": current_user_id,
-                "anchor_date": _monday_of_week(install_date),
-                "effective_from": install_date,
-                "created_at": now,
-            },
-        )
+        values = {
+            "user_id": current_user_id,
+            "anchor_date": _monday_of_week(install_date),
+            "effective_from": install_date,
+            "created_at": now,
+        }
+        if has_week_schedules:
+            values.update(
+                {
+                    "normal_week_json": json.dumps(DEFAULT_NORMAL_WEEK),
+                    "chill_week_json": json.dumps(DEFAULT_CHILL_WEEK),
+                }
+            )
+            db.execute(
+                text(
+                    """
+                    INSERT INTO day_cycle_policies
+                        (user_id, anchor_date, effective_from, normal_week_json,
+                         chill_week_json, created_at)
+                    VALUES
+                        (:user_id, :anchor_date, :effective_from, :normal_week_json,
+                         :chill_week_json, :created_at)
+                    """
+                ),
+                values,
+            )
+        else:
+            db.execute(
+                text(
+                    """
+                    INSERT INTO day_cycle_policies
+                        (user_id, anchor_date, effective_from, created_at)
+                    VALUES
+                        (:user_id, :anchor_date, :effective_from, :created_at)
+                    """
+                ),
+                values,
+            )
 
 
 def backfill_notodo_logs_from_failed_at(db):
@@ -1464,6 +1512,74 @@ def _run_migrations():
                     "Migration v32 backfill applied: relationship roots assigned and "
                     "legacy generated quests archived."
                 )
+
+        # v33: Automatic weekly day-type schedules and dated Feel off overrides.
+        if "day_cycle_policies" in inspect(engine).get_table_names():
+            cycle_columns = {
+                column["name"]
+                for column in inspect(engine).get_columns("day_cycle_policies")
+            }
+            if "normal_week_json" not in cycle_columns:
+                print("Running migration v33: adding normal week schedules...")
+                db.execute(
+                    text(
+                        "ALTER TABLE day_cycle_policies "
+                        "ADD COLUMN normal_week_json JSON"
+                    )
+                )
+            if "chill_week_json" not in cycle_columns:
+                print("Running migration v33: adding less-intense week schedules...")
+                db.execute(
+                    text(
+                        "ALTER TABLE day_cycle_policies "
+                        "ADD COLUMN chill_week_json JSON"
+                    )
+                )
+            db.execute(
+                text(
+                    "UPDATE day_cycle_policies SET normal_week_json = :pattern "
+                    "WHERE normal_week_json IS NULL OR TRIM(normal_week_json) = ''"
+                ),
+                {"pattern": json.dumps(DEFAULT_NORMAL_WEEK)},
+            )
+            db.execute(
+                text(
+                    "UPDATE day_cycle_policies SET chill_week_json = :pattern "
+                    "WHERE chill_week_json IS NULL OR TRIM(chill_week_json) = ''"
+                ),
+                {"pattern": json.dumps(DEFAULT_CHILL_WEEK)},
+            )
+            db.commit()
+
+        if "day_type_overrides" not in inspect(engine).get_table_names():
+            print("Running migration v33: creating day_type_overrides table...")
+            db.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS day_type_overrides (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        date DATE NOT NULL,
+                        day_type VARCHAR NOT NULL,
+                        source VARCHAR NOT NULL,
+                        created_at DATETIME NOT NULL,
+                        FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE,
+                        UNIQUE (user_id, date)
+                    )
+                    """
+                )
+            )
+            for column_name in ("user_id", "date"):
+                db.execute(
+                    text(
+                        f"CREATE INDEX IF NOT EXISTS "
+                        f"ix_day_type_overrides_{column_name} "
+                        f"ON day_type_overrides ({column_name})"
+                    )
+                )
+            db.commit()
+            print("Migration v33 (automatic day schedules) applied successfully.")
+            inspector = inspect(engine)
 
         # v19: Destructively remove the legacy RPG stat/tag columns.
         v19_dropped = False

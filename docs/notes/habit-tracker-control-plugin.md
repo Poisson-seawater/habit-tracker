@@ -67,7 +67,7 @@ python3 plugins/habit-tracker-control/scripts/habitctl.py doctor
 ```
 
 `doctor` vérifie `/health`, l'utilisateur et `/api/v1/capabilities`. Le protocole
-actuel est la version `2`.
+actuel est la version `3`.
 
 Les erreurs HTTP conservent le format JSON existant et indiquent aussi la méthode et
 le chemin en cause. Si le serveur ne fournit pas `/api/v1/capabilities`, le CLI
@@ -80,7 +80,7 @@ retourne par exemple :
   "error": {"detail": "Not Found"},
   "method": "GET",
   "path": "/api/v1/capabilities",
-  "hint": "The Habit Tracker server does not expose protocol version 1. Deploy a backend version that provides GET /api/v1/capabilities before configuring this plugin."
+  "hint": "The Habit Tracker server does not expose protocol version 3. Deploy a backend version that provides GET /api/v1/capabilities before configuring this plugin."
 }
 ```
 
@@ -120,7 +120,8 @@ python3 plugins/habit-tracker-control/scripts/habitctl.py act \
 
 Actions : `habit-done`, `habit-log`, `habit-skip`, `todo-complete`,
 `notodo-fail`, `substep-complete`, `softskill-complete`, `softskill-reset`,
-`reward-purchase`, `template-set`.
+`reward-purchase`, `feel-off`, `day-plan-restore`. Les deux dernières actions ne
+prennent pas de cible et concernent uniquement la date du jour.
 
 Chaque appel génère une clé d'idempotence. Si le client reçoit un timeout après
 l'envoi, il retourne `status: ambiguous`. Il ne faut jamais répéter l'action :

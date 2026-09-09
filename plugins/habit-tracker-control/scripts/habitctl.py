@@ -15,7 +15,7 @@ import uuid
 from pathlib import Path
 
 
-PROTOCOL_VERSION = 2
+PROTOCOL_VERSION = 3
 # Placeholder X-User-ID sent only to bootstrap user discovery: the server's
 # machine-auth path requires an integer X-User-ID header, but GET /auth/users
 # returns every user regardless of its value.
@@ -332,15 +332,14 @@ def resolve_one(items, target, label_key, kind):
         raise HabitCtlError(f"No {kind} matches '{target}'.")
     if len(candidates) > 1:
         names = [item[label_key] for item in candidates]
-        raise HabitCtlError(
-            f"Ambiguous {kind} '{target}': {', '.join(names)}."
-        )
+        raise HabitCtlError(f"Ambiguous {kind} '{target}': {', '.join(names)}.")
     return candidates[0]
 
 
 def resolve_user(base_url, username, api_token, user_id=None):
     users = ApiClient(
-        base_url, user_id=user_id if user_id is not None else BOOTSTRAP_USER_ID,
+        base_url,
+        user_id=user_id if user_id is not None else BOOTSTRAP_USER_ID,
         api_token=api_token,
     ).request("GET", "/api/v1/auth/users")
     return resolve_one(users, username, "username", "user")
@@ -367,7 +366,7 @@ def api_error_payload(exc):
         payload["path"] = exc.path
     if exc.status == 404 and exc.path == "/api/v1/capabilities":
         payload["hint"] = (
-            "The Habit Tracker server does not expose protocol version 2. "
+            f"The Habit Tracker server does not expose protocol version {PROTOCOL_VERSION}. "
             "Deploy a backend version that provides "
             "GET /api/v1/capabilities before configuring this plugin."
         )
@@ -382,7 +381,9 @@ def configured_client():
             "Missing api_token in configuration. Run configure with --api-token."
         )
     user = resolve_user(
-        config["base_url"], config["username"], api_token,
+        config["base_url"],
+        config["username"],
+        api_token,
         user_id=config.get("user_id"),
     )
     if config.get("user_id") != user["id"]:
@@ -455,9 +456,7 @@ def compact_query(resource, payload, name=None):
         }[resource]
         return {
             "count": len(payload),
-            "items": [
-                {field: item.get(field) for field in fields} for item in payload
-            ],
+            "items": [{field: item.get(field) for field in fields} for item in payload],
         }
     if resource == "biological-zones":
         if name:
@@ -486,9 +485,7 @@ def compact_query(resource, payload, name=None):
                     "id": skill["id"],
                     "name": skill["name"],
                     "branch": skill["branch"],
-                    "completed": skill.get("progress", {}).get(
-                        "completed", False
-                    ),
+                    "completed": skill.get("progress", {}).get("completed", False),
                 }
                 for skill in skills
             ],
@@ -541,9 +538,7 @@ def command_query(args):
             raise HabitCtlError("--name is required for habit-calendar.")
         habits = client.request("GET", QUERY_PATHS["habits"])
         habit = resolve_one(habits, args.name, "name", "habit")
-        query = urllib.parse.urlencode(
-            {"year": args.year, "month": args.month}
-        )
+        query = urllib.parse.urlencode({"year": args.year, "month": args.month})
         return client.request(
             "GET",
             f"/api/v1/habits/{habit['id']}/calendar?{query}",
@@ -564,6 +559,12 @@ def flatten_substeps(goals):
 
 
 def action_request(client, action, target, amount=None, reason=None):
+    if action == "feel-off":
+        return "POST", "/api/v1/profile/feel-off", None
+    if action == "day-plan-restore":
+        return "DELETE", "/api/v1/profile/feel-off", None
+    if not target:
+        raise HabitCtlError(f"--target is required for {action}.")
     if action.startswith("habit-"):
         habits = client.request("GET", QUERY_PATHS["habits"])
         item = resolve_one(habits, target, "name", "habit")
@@ -622,8 +623,6 @@ def action_request(client, action, target, amount=None, reason=None):
         rewards = client.request("GET", QUERY_PATHS["rewards"])
         item = resolve_one(rewards, target, "title", "reward")
         return "POST", f"/api/v1/rewards/{item['id']}/purchase", None
-    if action == "template-set":
-        return "POST", "/api/v1/profile/template", {"template_name": target}
     raise HabitCtlError(f"Unsupported action: {action}")
 
 
@@ -634,9 +633,7 @@ def command_act(args):
     )
     key = f"habitctl-{uuid.uuid4()}"
     try:
-        result = client.request(
-            method, path, payload=payload, idempotency_key=key
-        )
+        result = client.request(method, path, payload=payload, idempotency_key=key)
     except AmbiguousWrite:
         return {
             "status": "ambiguous",
@@ -731,9 +728,7 @@ def operation_request(client, operation, data):
         key = payload.pop("target", None)
         if not key:
             raise HabitCtlError("This operation requires a 'target' field.")
-        branches = client.request("GET", QUERY_PATHS["softskills"])[
-            "branches"
-        ]
+        branches = client.request("GET", QUERY_PATHS["softskills"])["branches"]
         branch = resolve_one(
             [{"key": branch_key} for branch_key in branches],
             key,
@@ -755,18 +750,14 @@ def operation_request(client, operation, data):
         if "{habit_id}" in path_template:
             habit_target = payload.pop("habit", None)
             if not habit_target:
-                raise HabitCtlError(
-                    "This operation requires a 'habit' field."
-                )
+                raise HabitCtlError("This operation requires a 'habit' field.")
             habit = resolve_one(
                 client.request("GET", QUERY_PATHS["habits"]),
                 habit_target,
                 "name",
                 "habit",
             )
-            path_template = path_template.format(
-                date=date_value, habit_id=habit["id"]
-            )
+            path_template = path_template.format(date=date_value, habit_id=habit["id"])
         else:
             path_template = path_template.format(date=date_value)
         if operation == "agenda-placement-clear":
@@ -776,9 +767,7 @@ def operation_request(client, operation, data):
         goal_target = payload.pop("goal", None)
         substep_target = payload.pop("substep", None)
         if not goal_target or not substep_target:
-            raise HabitCtlError(
-                "substep-link requires 'goal' and 'substep' fields."
-            )
+            raise HabitCtlError("substep-link requires 'goal' and 'substep' fields.")
         goals = client.request("GET", QUERY_PATHS["goals"])
         goal = resolve_one(goals, goal_target, "title", "goal")
         substep = resolve_one(
@@ -793,9 +782,9 @@ def operation_request(client, operation, data):
             (
                 item
                 if isinstance(item, int)
-                else resolve_one(
-                    flatten_substeps(goals), item, "title", "substep"
-                )["id"]
+                else resolve_one(flatten_substeps(goals), item, "title", "substep")[
+                    "id"
+                ]
             )
             for item in payload.get("pinned_substeps", [])
         ]
@@ -820,12 +809,8 @@ def operation_request(client, operation, data):
             payload["required_goal_id"] = goal["id"]
         softskill_target = payload.pop("required_softskill", None)
         if softskill_target:
-            skills = client.request("GET", QUERY_PATHS["softskills"])[
-                "skills"
-            ]
-            skill = resolve_one(
-                skills, softskill_target, "name", "softskill"
-            )
+            skills = client.request("GET", QUERY_PATHS["softskills"])["skills"]
+            skill = resolve_one(skills, softskill_target, "name", "softskill")
             payload["required_softskill_id"] = skill["id"]
 
     if operation.endswith("-delete"):
@@ -863,9 +848,7 @@ def prepare_plan_data(operation, data):
                 elif isinstance(raw_skill, dict):
                     skill = dict(raw_skill)
                 else:
-                    raise HabitCtlError(
-                        "Each skill must be a name or an object."
-                    )
+                    raise HabitCtlError("Each skill must be a name or an object.")
                 name = skill.get("name")
                 if not name:
                     raise HabitCtlError("Each skill requires a name.")
@@ -921,9 +904,7 @@ def read_plan(plan_id):
 
 def command_plan(args):
     client, config, user = configured_client()
-    data = prepare_plan_data(
-        args.operation, load_json_argument(args.data)
-    )
+    data = prepare_plan_data(args.operation, load_json_argument(args.data))
     method, path, payload, inspect_resource = operation_request(
         client, args.operation, data
     )
@@ -940,9 +921,7 @@ def command_plan(args):
         "state_hash": stable_hash(state),
         "idempotency_key": f"habitctl-{uuid.uuid4()}",
         "created_at": now.isoformat(),
-        "expires_at": (
-            now + dt.timedelta(seconds=PLAN_TTL_SECONDS)
-        ).isoformat(),
+        "expires_at": (now + dt.timedelta(seconds=PLAN_TTL_SECONDS)).isoformat(),
         "base_url": config["base_url"],
         "user_id": user["id"],
         "username": user["username"],
@@ -1011,9 +990,7 @@ def command_apply(args):
 
 def command_recover(args):
     client, _config, _user = configured_client()
-    return client.request(
-        "GET", f"/api/v1/remote-operations/{args.idempotency_key}"
-    )
+    return client.request("GET", f"/api/v1/remote-operations/{args.idempotency_key}")
 
 
 def build_parser():
@@ -1030,9 +1007,7 @@ def build_parser():
     doctor.set_defaults(handler=command_doctor)
 
     query = subparsers.add_parser("query")
-    query.add_argument(
-        "resource", choices=sorted([*QUERY_PATHS, "habit-calendar"])
-    )
+    query.add_argument("resource", choices=sorted([*QUERY_PATHS, "habit-calendar"]))
     query.add_argument("--name")
     query.add_argument("--year", type=int, default=dt.date.today().year)
     query.add_argument("--month", type=int, default=dt.date.today().month)
@@ -1052,10 +1027,11 @@ def build_parser():
             "softskill-complete",
             "softskill-reset",
             "reward-purchase",
-            "template-set",
+            "feel-off",
+            "day-plan-restore",
         ],
     )
-    action.add_argument("--target", required=True)
+    action.add_argument("--target")
     action.add_argument("--amount", type=int)
     action.add_argument("--reason")
     action.set_defaults(handler=command_act)

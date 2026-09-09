@@ -27,7 +27,7 @@ Use these rules when changing auth-sensitive code:
 - Browser API access must resolve through session cookies.
 - Machine clients must send `Authorization: Bearer <HABIT_API_TOKEN>` plus `X-User-ID`.
 - `X-User-ID` alone is only legacy fallback when no password exists and `AUTH_BOOTSTRAP_CODE` is unset.
-- `/api/v1/capabilities` protocol is `2` and advertises machine auth.
+- `/api/v1/capabilities` protocol is `3` and advertises machine auth.
 - `habitctl.py configure` requires `--api-token` and stores it in its `0600` config.
 
 Public auth endpoints:
@@ -56,7 +56,7 @@ Auth behavior is intentionally centralized:
 - `backend/src/database/models.py`: `AuthDevice`, `AuthSession`, user auth fields
 - `backend/src/database/seed.py`: idempotent migration v24
 - `frontend/js/app.js`, `frontend/index.html`, `frontend/css/style.css`: bootstrap/login/device UI
-- `plugins/habit-tracker-control/scripts/habitctl.py`: protocol v2 API-token client
+- `plugins/habit-tracker-control/scripts/habitctl.py`: protocol v3 API-token client
 - `.env.example`, `README.md`, `docs/notes/habit-tracker-control-plugin.md`, `docs/adr/002-plugin-habit-tracker-control.md`: rollout docs
 
 ## Safe Change Checklist

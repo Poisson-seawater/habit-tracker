@@ -1,16 +1,22 @@
 # Journal des changements
 
-> Une entrée par session / push, anti-chronologique. Rédigé par `/doc-sync` avant push.
+> Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
-## 2026-08-16 — chore(coaching): mettre en pause la réorganisation des quêtes et de la semaine
+## 2026-09-08 — test(day-planning): valider la version actuelle en Compose local
 
-- **Nettoyage distant effectué** : via `habit-tracker-control` sur le Pi, suppression confirmée de 10 anciennes quêtes auto-générées ainsi que `Swimming` et `nage`. Vérification finale : 12 quêtes actives restantes. Ces suppressions ne sont pas reproductibles sur localhost et aucune donnée locale n'a été touchée.
-- **Structure hebdomadaire retenue, non appliquée** : lundi `basic` + vélo; mardi `hustle` + natation + renforcements; mercredi `rest` + film; jeudi `basic` + vélo + renforcements; vendredi `hustle` + natation; samedi `basic` + marche/course + renforcements; dimanche `rest` + film et revue hebdomadaire.
-- **Journée active envisagée** : début à 07:00, étude protégée de 07:30 à 09:30, travail principal jusqu'au départ vers 13:00–14:00, puis sport, lunch, bibliothèque/café et entraînement social pendant les déplacements. Au retour, renforcements thérapeutiques de 30 à 45 minutes les mardi/jeudi/samedi, puis revue sociale, revue de journée, ukulélé et routine du soir. L'heure de retour reste volontairement flexible; la piscine représente environ 2 h au total et le déplacement café/bibliothèque environ 1 h.
-- **Priorités de coaching** : projet entrepreneurial d'abord, recherche d'emploi ensuite, développement social au même niveau stratégique, puis apprentissage LLM; capacité physique actuellement fragile, donc marche à la place de la course selon l'état du corps.
-- **État de reprise** : travail en pause avant toute création/édition de quête, modification de template ou placement d'agenda. Reprendre par un aperçu du programme, puis utiliser le flux `habitctl plan` → confirmation → `apply` pour chaque modification distante.
-- **Périmètre local** : cette entrée de journal est le seul changement de la session dans le worktree; aucun code, schéma, contrat API, service Compose, commande Telegram ou réglage localhost modifié. Aucun commit effectué.
+- **Validation statique et automatisée** : 295 tests backend réussissent; Black laisse les 58 fichiers Python inchangés; la syntaxe de `frontend/js/app.js` et de `habitctl.py`, ainsi que `git diff --check`, réussissent.
+- **Compose local reconstruit** : les services `api` et `bot` ont été reconstruits et recréés depuis le worktree actuel. L'API démarre sans erreur, `/health` et le dashboard répondent 200, et le conteneur API ne redémarre pas.
+- **Schéma et contrats confirmés** : les migrations v32 et v33 se sont appliquées sur la base locale; `day_type_overrides` et les colonnes de programmation hebdomadaire existent. OpenAPI expose `GET`/`PUT /profile/cycle` et `POST`/`DELETE /profile/feel-off`, n'expose plus `/profile/template`, et `/capabilities` annonce le protocole distant v3.
+- **Limite locale restante** : le conteneur Telegram redémarre parce que son jeton local est rejeté par Telegram. Aucun secret n'est consigné ici. Les tests du bot sont verts; le service ne pourra toutefois pas être qualifié opérationnel tant que sa configuration locale ne sera pas corrigée.
+
+## 2026-08-31 — feat(day-planning): automatiser les types de journée et ajouter Feel off
+
+- **Planning autoritatif** : le serveur résout maintenant `rest`, `regular` ou `hustle` depuis un cycle fixe de quatre semaines — trois normales et une moins intense — avec une grille configurable par jour pour chaque type de semaine. Une programmation future unique peut remplacer la programmation en attente sans modifier le passé.
+- **Exception quotidienne** : `Feel off today` transforme uniquement aujourd'hui en Rest Day et peut être annulé. Le score, Perfect Day, les budgets, l'agenda et les quêtes sont recalculés par le même résolveur; les logs et échecs existants sont conservés et les transitions XP restent idempotentes.
+- **Persistance et migration** : migration automatique v33 avec les grilles JSON sur `day_cycle_policies` et la table datée `day_type_overrides`, accompagnée d'un test d'idempotence.
+- **Interfaces et contrats** : le sélecteur manuel du dashboard est remplacé par un statut calculé, le bouton Feel off et l'éditeur des deux semaines. `/api/v1/profile/template`, les commandes Telegram `/set-day` et `/template`, et l'action distante `template-set` sont retirés. Le protocole `habitctl` passe en v3 avec `feel-off` et `day-plan-restore`; `COMMANDS-INDEX.md` et les docs actives sont synchronisés.
+- **Validation** : 295 tests backend réussissent; Black, syntaxe JavaScript et `git diff --check` réussissent. Aucun test Compose ni déploiement n'a été lancé, car la cible locale ou Raspberry Pi n'a pas été spécifiée.
 
 ## 2026-08-09 — feat(quests): remplacer les quêtes générées par des tags persistants
 

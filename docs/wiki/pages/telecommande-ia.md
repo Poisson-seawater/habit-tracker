@@ -23,9 +23,13 @@ La CLI sait consulter les ressources courantes avec `habitctl.py query ...`. Exe
 python3 plugins/habit-tracker-control/scripts/habitctl.py query agenda
 python3 plugins/habit-tracker-control/scripts/habitctl.py query habits
 python3 plugins/habit-tracker-control/scripts/habitctl.py query archived-habits
+python3 plugins/habit-tracker-control/scripts/habitctl.py act feel-off
+python3 plugins/habit-tracker-control/scripts/habitctl.py act day-plan-restore
 ```
 
 `archived-habits` est une lecture pure : elle liste les quêtes archivées avec leur `id`, nom, fréquence, date d'archive et source. Elle ne désarchive rien toute seule.
+
+`feel-off` applique le repos exceptionnel d'aujourd'hui et `day-plan-restore` revient au type calculé par le cycle. L'ancienne action `template-set` a été retirée avec les changements arbitraires de type de journée.
 
 ## Idempotence : rejouer sans casser
 

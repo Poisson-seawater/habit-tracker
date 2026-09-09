@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=8">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -825,13 +825,9 @@
             <span class="xp-text" id="char-xp-text">0 / 10 XP</span>
           </div>
           <div class="profile-badges" style="margin-top: 0.8rem; display: flex; align-items: center; gap: 0.8rem;">
-            <div class="template-select-container">
-              <label for="template-select" style="font-size: 0.75rem; color: var(--text-muted); margin-right: 4px;">Journée :</label>
-              <select id="template-select" class="template-dropdown" style="background: rgba(255,255,255,0.05); padding: 4px 8px; border: 1px solid var(--border-glass); border-radius: 6px; color: var(--text-primary); cursor: pointer; font-size: 0.8rem;">
-                <option value="rest">Repos 💤</option>
-                <option value="regular" selected>Normal ⚔️</option>
-                <option value="hustle">Hustle 🔥</option>
-              </select>
+            <div class="day-type-status-container">
+              <span id="day-type-status" class="day-type-status">Normal · planning automatique</span>
+              <button type="button" id="feel-off-btn" class="feel-off-btn">Feel off today</button>
             </div>
             <span class="badge badge-status" id="badge-status">Perfect Day : En cours</span>
           </div>
@@ -1596,13 +1592,23 @@
             </div>
           </div>
           <form id="day-cycle-form" class="modal-form">
-            <div class="form-group">
-              <label for="cycle-anchor-input">Nouvel ancrage</label>
-              <input type="date" id="cycle-anchor-input" required>
+            <div class="cycle-date-grid">
+              <div class="form-group">
+                <label for="cycle-anchor-input">Semaine 1 du cycle</label>
+                <input type="date" id="cycle-anchor-input" required>
+              </div>
+              <div class="form-group">
+                <label for="cycle-effective-input">Date d'effet</label>
+                <input type="date" id="cycle-effective-input" required>
+              </div>
             </div>
-            <p class="cycle-note">S'applique à partir d'aujourd'hui seulement.</p>
+            <h3 class="cycle-pattern-title">Semaine normale</h3>
+            <div id="normal-week-grid" class="cycle-week-grid"></div>
+            <h3 class="cycle-pattern-title">Semaine moins intense</h3>
+            <div id="chill-week-grid" class="cycle-week-grid"></div>
+            <p id="cycle-pending-note" class="cycle-note"></p>
             <div id="cycle-save-message" class="cycle-save-message" style="display: none;"></div>
-            <button type="submit" id="cycle-save-btn" class="quest-action-btn submit-btn">Sauvegarder le cycle</button>
+            <button type="submit" id="cycle-save-btn" class="quest-action-btn submit-btn">Programmer ce cycle</button>
           </form>
         </section>
 
@@ -2271,6 +2277,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.12"></script>
+  <script src="js/app.js?v=1.0.13"></script>
 </body>
 </html>

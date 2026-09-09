@@ -63,7 +63,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Profile and Dashboard Elements
   const charLevel = document.getElementById("char-level");
   const badgeStatus = document.getElementById("badge-status");
-  const templateSelect = document.getElementById("template-select");
+  const dayTypeStatus = document.getElementById("day-type-status");
+  const feelOffBtn = document.getElementById("feel-off-btn");
+  let activeDayType = "regular";
   const questsPanelTitle = document.getElementById("quests-panel-title");
   const questsListContainer = document.getElementById("quests-list-container");
   const questArchivesPanel = document.getElementById("quest-archives-panel");
@@ -686,6 +688,51 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==============================================
   // FETCH PROFILE & DAILY DASHBOARD               //
   // ==============================================
+  const dayTypeLabels = {
+    rest: "Repos",
+    regular: "Normal",
+    hustle: "Hustle"
+  };
+
+  function renderDayTypeState(data) {
+    activeDayType = data.active_template || "regular";
+    if (!dayTypeStatus || !feelOffBtn) return;
+    if (data.feel_off_active) {
+      dayTypeStatus.textContent = "Repos exceptionnel · Feel off";
+      feelOffBtn.textContent = "Revenir au planning prévu";
+      feelOffBtn.dataset.action = "restore";
+      feelOffBtn.style.display = "inline-flex";
+      return;
+    }
+    const label = dayTypeLabels[data.scheduled_template || activeDayType] || "Normal";
+    dayTypeStatus.textContent = `${label} · planning automatique`;
+    feelOffBtn.dataset.action = "feel-off";
+    feelOffBtn.textContent = "Feel off today";
+    feelOffBtn.style.display = activeDayType === "rest" ? "none" : "inline-flex";
+  }
+
+  async function toggleFeelOff() {
+    if (!feelOffBtn) return;
+    const restoring = feelOffBtn.dataset.action === "restore";
+    feelOffBtn.disabled = true;
+    try {
+      const response = await fetch(`${API_BASE}/profile/feel-off`, {
+        method: restoring ? "DELETE" : "POST"
+      });
+      if (!response.ok) throw new Error(await readApiError(response));
+      showToast(restoring ? "Planning automatique restauré." : "Journée passée en repos exceptionnel.");
+      refreshAll();
+      await showAgendaDate(getAgendaDate());
+    } catch (error) {
+      console.error(error);
+      showToast(error.message || "Impossible de modifier la journée.", true);
+    } finally {
+      feelOffBtn.disabled = false;
+    }
+  }
+
+  feelOffBtn?.addEventListener("click", toggleFeelOff);
+
   async function fetchProfile() {
     try {
       const response = await fetch(`${API_BASE}/profile`);
@@ -721,27 +768,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (topGoldVal) topGoldVal.textContent = `💰 ${data.gold} Gold`;
       if (charGoldVal) charGoldVal.textContent = data.gold;
 
-      // Update template dropdown selection
-      if (data.active_template) {
-        const tMap = {
-          "normal": "regular",
-          "regular": "regular",
-          "semaine": "regular",
-          "week": "regular",
-          "weekend": "regular",
-          "repos": "rest",
-          "rest": "rest",
-          "recovery": "rest",
-          "recup": "rest",
-          "hustle": "hustle",
-          "rush": "hustle",
-          "sick": "rest",
-          "malade": "rest",
-          "default": "regular"
-        };
-        const mappedTemplateName = tMap[data.active_template.toLowerCase()] || "regular";
-        templateSelect.value = mappedTemplateName;
-      }
+      renderDayTypeState(data);
 
       // Update Daily Status Badge
       badgeStatus.textContent = data.scores.perfect_day_validated ? "🏆 Perfect Day !" : "🟥 Journée Incomplète";
@@ -1509,28 +1536,6 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       console.error(err);
       alert("Erreur lors de la mise à jour de l'état.");
-    }
-  });
-
-  // ==============================================
-  // DAILY SCORES TEMPLATE OVERRIDES               //
-  // ==============================================
-  templateSelect.addEventListener("change", async () => {
-    const selectedTemplate = templateSelect.value;
-    try {
-      const response = await fetch(`${API_BASE}/profile/template`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template_name: selectedTemplate })
-      });
-
-      if (!response.ok) throw new Error("Erreur template change");
-      const data = await response.json();
-      showToast(`Template réajusté : ${data.active_template.toUpperCase()} 🩹`);
-      refreshAll();
-    } catch (error) {
-      console.error(error);
-      showToast("Erreur lors du changement de template", true);
     }
   });
 
@@ -2656,7 +2661,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function reevaluateOverlapWarning() {
-    const activeTemplateName = templateSelect.value || "regular";
+    const activeTemplateName = activeDayType;
     const templateConfig = loadedTemplates[activeTemplateName] || {};
     const currentAgenda = templateConfig.agenda_json || [];
     const start = blockStartInput.value;
@@ -2685,7 +2690,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const activeTemplateName = templateSelect.value || "regular";
+      const activeTemplateName = activeDayType;
       const templateConfig = loadedTemplates[activeTemplateName] || {};
       const currentAgenda = templateConfig.agenda_json || [];
 
@@ -4407,10 +4412,46 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function formatCycleType(policy) {
     const rec = policy?.cycle_recommendation || {};
-    const label = rec.label || (policy?.cycle_week_type === "chill" ? "Semaine chill" : "Semaine normale");
-    const hustle = rec.hustle || `${rec.hustle_min || "-"}-${rec.hustle_max || "-"}`;
-    const rest = rec.rest || `${rec.rest_max || "-"}`;
+    const label = rec.label || (policy?.cycle_week_type === "chill" ? "Semaine moins intense" : "Semaine normale");
+    const hustle = rec.hustle ?? rec.hustle_max ?? "-";
+    const rest = rec.rest ?? rec.rest_max ?? "-";
     return `${label} · 🔥 ${hustle} · 💤 ${rest}`;
+  }
+
+  const cycleWeekdays = [
+    ["monday", "Lun"],
+    ["tuesday", "Mar"],
+    ["wednesday", "Mer"],
+    ["thursday", "Jeu"],
+    ["friday", "Ven"],
+    ["saturday", "Sam"],
+    ["sunday", "Dim"]
+  ];
+
+  function renderCycleWeek(containerId, prefix, pattern) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = cycleWeekdays.map(([key, label]) => `
+      <label class="cycle-day-field">
+        <span>${label}</span>
+        <select id="${prefix}-${key}" class="template-dropdown">
+          <option value="rest">Repos</option>
+          <option value="regular">Normal</option>
+          <option value="hustle">Hustle</option>
+        </select>
+      </label>
+    `).join("");
+    cycleWeekdays.forEach(([key]) => {
+      const input = document.getElementById(`${prefix}-${key}`);
+      if (input) input.value = pattern?.[key] || "regular";
+    });
+  }
+
+  function collectCycleWeek(prefix) {
+    return Object.fromEntries(cycleWeekdays.map(([key]) => [
+      key,
+      document.getElementById(`${prefix}-${key}`)?.value || "regular"
+    ]));
   }
 
   function setCycleMessage(message, isError = false) {
@@ -4425,17 +4466,29 @@ document.addEventListener("DOMContentLoaded", () => {
     const anchorEl = document.getElementById("cycle-current-anchor");
     const effectiveEl = document.getElementById("cycle-current-effective");
     const typeEl = document.getElementById("cycle-current-type");
-    const input = document.getElementById("cycle-anchor-input");
-    if (!anchorEl || !effectiveEl || !typeEl || !input) return;
+    const anchorInput = document.getElementById("cycle-anchor-input");
+    const effectiveInput = document.getElementById("cycle-effective-input");
+    const pendingNote = document.getElementById("cycle-pending-note");
+    if (!anchorEl || !effectiveEl || !typeEl || !anchorInput || !effectiveInput) return;
 
     try {
       const response = await fetch(`${API_BASE}/profile/cycle`);
       if (!response.ok) throw new Error(await readApiError(response));
       const policy = await response.json();
+      const editablePolicy = policy.pending_policy || policy;
       anchorEl.textContent = policy.anchor_date;
       effectiveEl.textContent = policy.effective_from;
       typeEl.textContent = formatCycleType(policy);
-      input.value = policy.anchor_date;
+      anchorInput.value = editablePolicy.anchor_date;
+      effectiveInput.min = todayDateString();
+      effectiveInput.value = policy.pending_policy?.effective_from || todayDateString();
+      renderCycleWeek("normal-week-grid", "normal-week", editablePolicy.normal_week);
+      renderCycleWeek("chill-week-grid", "chill-week", editablePolicy.chill_week);
+      if (pendingNote) {
+        pendingNote.textContent = policy.pending_policy
+          ? `Programmation à venir le ${policy.pending_policy.effective_from}. Une nouvelle sauvegarde la remplacera.`
+          : "La date d'effet peut être aujourd'hui ou une date future.";
+      }
       setCycleMessage("");
     } catch (error) {
       console.error(error);
@@ -4445,19 +4498,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function saveCycleSettings(event) {
     event.preventDefault();
-    const input = document.getElementById("cycle-anchor-input");
-    if (!input || !input.value) return;
+    const anchorInput = document.getElementById("cycle-anchor-input");
+    const effectiveInput = document.getElementById("cycle-effective-input");
+    if (!anchorInput?.value || !effectiveInput?.value) return;
 
     try {
       const response = await fetch(`${API_BASE}/profile/cycle`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ anchor_date: input.value })
+        body: JSON.stringify({
+          anchor_date: anchorInput.value,
+          effective_from: effectiveInput.value,
+          normal_week: collectCycleWeek("normal-week"),
+          chill_week: collectCycleWeek("chill-week")
+        })
       });
       if (!response.ok) throw new Error(await readApiError(response));
       await loadCycleSettings();
       await fetchHistory();
-      setCycleMessage("Changement appliqué à partir d'aujourd'hui.");
+      setCycleMessage(`Changement programmé à partir du ${effectiveInput.value}.`);
       showToast("Cycle des journées mis à jour.");
     } catch (error) {
       console.error(error);
