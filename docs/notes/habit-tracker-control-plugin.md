@@ -67,7 +67,10 @@ python3 plugins/habit-tracker-control/scripts/habitctl.py doctor
 ```
 
 `doctor` vérifie `/health`, l'utilisateur et `/api/v1/capabilities`. Le protocole
-actuel est la version `3`.
+actuel est la version `3`. Le client accepte aussi le protocole `2` pour maintenir
+les lectures et opérations historiques pendant une transition de déploiement. Les
+actions `feel-off` et `day-plan-restore` restent explicitement limitées au protocole
+`3`.
 
 Les erreurs HTTP conservent le format JSON existant et indiquent aussi la méthode et
 le chemin en cause. Si le serveur ne fournit pas `/api/v1/capabilities`, le CLI

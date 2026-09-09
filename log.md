@@ -3,6 +3,19 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-09-08 — fix(plugin): maintenir la lecture distante pendant la transition v2/v3
+
+- **Compatibilité distante** : `habitctl` accepte désormais les serveurs de protocole
+  `2` et `3`, et enregistre dans sa configuration la version réellement annoncée par
+  le serveur.
+- **Garde-fou** : les actions `feel-off` et `day-plan-restore`, propres au protocole
+  `3`, échouent localement avec un message explicite lorsqu'une cible v2 est utilisée;
+  les lectures et opérations historiques restent disponibles.
+- **Validation** : tests CLI ajoutés pour l'acceptation v2/v3, le rejet des versions
+  obsolètes, la persistance de la version serveur et le blocage des actions v3 sur v2.
+- **Docs** : `docs/notes/habit-tracker-control-plugin.md` synchronisé; aucune commande
+  Telegram modifiée, donc `COMMANDS-INDEX.md` n'est pas concerné.
+
 ## 2026-09-08 — test(day-planning): valider la version actuelle en Compose local
 
 - **Validation statique et automatisée** : 295 tests backend réussissent; Black laisse les 58 fichiers Python inchangés; la syntaxe de `frontend/js/app.js` et de `habitctl.py`, ainsi que `git diff --check`, réussissent.

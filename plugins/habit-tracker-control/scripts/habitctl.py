@@ -16,6 +16,11 @@ from pathlib import Path
 
 
 PROTOCOL_VERSION = 3
+SUPPORTED_PROTOCOL_VERSIONS = (2, 3)
+ACTION_MIN_PROTOCOL = {
+    "feel-off": 3,
+    "day-plan-restore": 3,
+}
 # Placeholder X-User-ID sent only to bootstrap user discovery: the server's
 # machine-auth path requires an integer X-User-ID header, but GET /auth/users
 # returns every user regardless of its value.
@@ -347,10 +352,23 @@ def resolve_user(base_url, username, api_token, user_id=None):
 
 def validate_protocol(capabilities):
     received_version = capabilities.get("protocol_version")
-    if received_version != PROTOCOL_VERSION:
+    if received_version not in SUPPORTED_PROTOCOL_VERSIONS:
+        supported = ", ".join(str(version) for version in SUPPORTED_PROTOCOL_VERSIONS)
         raise HabitCtlError(
             "The server protocol version is not supported. "
-            f"Expected {PROTOCOL_VERSION}, received {received_version!r}."
+            f"Supported versions: {supported}; received {received_version!r}."
+        )
+    return received_version
+
+
+def validate_action_protocol(action, protocol_version):
+    required_version = ACTION_MIN_PROTOCOL.get(action, 2)
+    if protocol_version is None:
+        protocol_version = PROTOCOL_VERSION
+    if protocol_version < required_version:
+        raise HabitCtlError(
+            f"Action '{action}' requires protocol version {required_version}; "
+            f"the configured server provides version {protocol_version}."
         )
 
 
@@ -499,13 +517,13 @@ def command_configure(args):
     capabilities = ApiClient(base_url, user["id"], args.api_token).request(
         "GET", "/api/v1/capabilities"
     )
-    validate_protocol(capabilities)
+    server_protocol_version = validate_protocol(capabilities)
     config = {
         "base_url": base_url,
         "username": user["username"],
         "user_id": user["id"],
         "api_token": args.api_token,
-        "protocol_version": PROTOCOL_VERSION,
+        "protocol_version": server_protocol_version,
     }
     write_config(config)
     return {
@@ -522,7 +540,10 @@ def command_doctor(_args):
     client, config, user = configured_client()
     health = ApiClient(config["base_url"]).request("GET", "/health")
     capabilities = client.request("GET", "/api/v1/capabilities")
-    validate_protocol(capabilities)
+    server_protocol_version = validate_protocol(capabilities)
+    if config.get("protocol_version") != server_protocol_version:
+        config["protocol_version"] = server_protocol_version
+        write_config(config)
     return {
         "status": "ok",
         "server": health,
@@ -627,7 +648,8 @@ def action_request(client, action, target, amount=None, reason=None):
 
 
 def command_act(args):
-    client, _config, _user = configured_client()
+    client, config, _user = configured_client()
+    validate_action_protocol(args.action, config.get("protocol_version"))
     method, path, payload = action_request(
         client, args.action, args.target, args.amount, args.reason
     )

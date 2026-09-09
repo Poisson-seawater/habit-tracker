@@ -455,9 +455,17 @@ def test_missing_capabilities_has_deployment_hint():
 def test_protocol_mismatch_reports_versions():
     with pytest.raises(
         habitctl.HabitCtlError,
-        match=r"Expected 3, received 1",
+        match=r"Supported versions: 2, 3; received 1",
     ):
         habitctl.validate_protocol({"protocol_version": 1})
+
+
+@pytest.mark.parametrize("protocol_version", [2, 3])
+def test_supported_protocol_versions(protocol_version):
+    assert (
+        habitctl.validate_protocol({"protocol_version": protocol_version})
+        == protocol_version
+    )
 
 
 def test_configure_does_not_write_when_capabilities_are_missing(monkeypatch, tmp_path):
@@ -491,7 +499,10 @@ def test_configure_does_not_write_on_protocol_mismatch(monkeypatch, tmp_path):
     monkeypatch.setenv("HABIT_TRACKER_CONFIG", str(config_path))
     monkeypatch.setattr(habitctl, "ApiClient", lambda *_args, **_kwargs: client)
 
-    with pytest.raises(habitctl.HabitCtlError, match="Expected 3, received 1"):
+    with pytest.raises(
+        habitctl.HabitCtlError,
+        match=r"Supported versions: 2, 3; received 1",
+    ):
         habitctl.command_configure(
             SimpleNamespace(
                 base_url="http://192.168.0.199:5000",
@@ -501,6 +512,24 @@ def test_configure_does_not_write_on_protocol_mismatch(monkeypatch, tmp_path):
         )
 
     assert not config_path.exists()
+
+
+def test_configure_records_server_protocol_version(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    client = ConfigureClient(capabilities={"protocol_version": 2})
+    monkeypatch.setenv("HABIT_TRACKER_CONFIG", str(config_path))
+    monkeypatch.setattr(habitctl, "ApiClient", lambda *_args, **_kwargs: client)
+
+    result = habitctl.command_configure(
+        SimpleNamespace(
+            base_url="http://192.168.0.199:5000",
+            username="Gabriel",
+            api_token="token",
+        )
+    )
+
+    assert result["protocol_version"] == 2
+    assert habitctl.read_config()["protocol_version"] == 2
 
 
 def test_day_schedule_actions_do_not_require_target():
@@ -519,3 +548,14 @@ def test_day_schedule_actions_do_not_require_target():
 def test_other_actions_still_require_target():
     with pytest.raises(habitctl.HabitCtlError, match="--target is required"):
         habitctl.action_request(None, "habit-done", None)
+
+
+def test_protocol_two_rejects_day_schedule_actions():
+    with pytest.raises(habitctl.HabitCtlError, match="requires protocol version 3"):
+        habitctl.validate_action_protocol("feel-off", 2)
+    with pytest.raises(habitctl.HabitCtlError, match="requires protocol version 3"):
+        habitctl.validate_action_protocol("day-plan-restore", 2)
+
+
+def test_protocol_two_keeps_existing_actions_available():
+    habitctl.validate_action_protocol("habit-done", 2)
