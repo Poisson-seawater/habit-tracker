@@ -28,6 +28,8 @@ markmap:
 - actions récurrentes du Perfect Day
 ### [Objectifs](index.html#/objectifs)
 - sous-étapes → Or permanent
+### [Ma vie en semaines](index.html#/vie-en-semaines)
+- grille de perspective, sans score ni date prédite
 ### [Softskills](index.html#/softskills)
 - arbre de compétences + test de succès
 ### [Recap 3-3-3](index.html#/recap-3-3-3)

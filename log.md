@@ -3,6 +3,12 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-09-22 — feat(dashboard): afficher Ma vie en semaines
+
+- Nouvel onglet de perspective : une case par semaine de la naissance à un âge de référence choisi, avec passé, semaine courante et semaines à venir. Les lignes suivent les anniversaires réels, y compris les années de 53 semaines.
+- Date de naissance et âge de référence conservés seulement dans le navigateur, avec bouton Effacer. Aucun score, endpoint, schéma DB ou commande Telegram modifié.
+- README et wiki utilisateur mis à jour. `node --check` et `git diff --check` réussissent; rendu vérifié dans Chrome headless avec une naissance un 29 février : 90 lignes, 4 697 cases, une semaine courante et une ligne de 53 semaines.
+
 ## 2026-09-08 — fix(plugin): maintenir la lecture distante pendant la transition v2/v3
 
 - **Compatibilité distante** : `habitctl` accepte désormais les serveurs de protocole

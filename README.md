@@ -207,9 +207,14 @@ quêtes (objectif + branche de compétence), pour qu'une vue comme Eisenhower ou
 le bocal puisse regrouper les actions par intention. Une sous-étape est un
 jalon, pas une action à mélanger automatiquement dans ces vues.
 
-### Now — deux vues de recul, sans nouvelle mécanique de score
+### Now — vues de recul, sans nouvelle mécanique de score
 
 #### My Life in Weeks
+
+**Livré dans le dashboard** : un onglet affiche une case par semaine, de la
+naissance à un âge de référence choisi. La semaine actuelle est distinguée; la
+date de naissance et l'âge choisi restent dans le navigateur et peuvent être
+effacés. Les repères de vie et horizons d'objectifs optionnels restent à explorer.
 
 Une grille personnelle où chaque case représente une semaine de vie : les
 semaines vécues, la semaine courante et les semaines restantes jusqu'à un âge

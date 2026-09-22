@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=8">
+  <link rel="stylesheet" href="css/style.css?v=9">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -794,6 +794,7 @@
       <div class="nav-links">
         <button class="nav-tab active" data-tab="dashboard-tab">⚔️ Dashboard</button>
         <button class="nav-tab" data-tab="goals-tab">🏆 Objectifs & Graphes</button>
+        <button class="nav-tab" data-tab="life-weeks-tab">▦ Ma vie en semaines</button>
         <button class="nav-tab" data-tab="softskills-tab">🌳 Softskills</button>
         <button class="nav-tab" data-tab="notodo-tab">🚫 NO To-Do</button>
         <button class="nav-tab" data-tab="settings-tab">⚙️ Perfect Days</button>
@@ -1385,6 +1386,44 @@
         </section>
       </div> <!-- Close #creators-drawer -->
     </div> <!-- Close #goals-tab -->
+
+    <!-- A personal perspective view, independent from daily scores. -->
+    <section id="life-weeks-tab" class="tab-content" aria-labelledby="life-weeks-title">
+      <div class="glass-card life-weeks-card">
+        <div class="life-weeks-heading">
+          <div>
+            <p class="life-weeks-eyebrow">Vue de perspective</p>
+            <h2 id="life-weeks-title">Ma vie en semaines</h2>
+            <p>Une case par semaine depuis ta naissance. Le repère de fin est ton choix, pas une prédiction.</p>
+          </div>
+          <form id="life-weeks-form" class="life-weeks-form">
+            <label for="life-weeks-birthdate">Date de naissance
+              <input id="life-weeks-birthdate" type="date" min="1900-01-01" required>
+            </label>
+            <label for="life-weeks-horizon">Âge de référence
+              <input id="life-weeks-horizon" type="number" min="1" max="120" step="1" value="90" required>
+            </label>
+            <button type="submit" class="nav-tab">Afficher</button>
+            <button type="button" id="life-weeks-clear" class="nav-tab">Effacer</button>
+          </form>
+        </div>
+        <p class="life-weeks-privacy">Ces réglages restent dans ce navigateur. Tu peux les modifier à tout moment.</p>
+        <p id="life-weeks-error" class="life-weeks-error" role="alert" hidden></p>
+        <div id="life-weeks-view" hidden>
+          <p id="life-weeks-summary" class="life-weeks-summary" aria-live="polite"></p>
+          <div class="life-weeks-legend" aria-hidden="true">
+            <span><i class="life-week life-week-lived"></i> Traversée</span>
+            <span><i class="life-week life-week-current"></i> En cours</span>
+            <span><i class="life-week life-week-future"></i> À venir</span>
+          </div>
+          <p class="life-weeks-hint">Chaque ligne correspond à une année d'âge. Survole une case pour voir sa date.</p>
+          <div class="life-weeks-scroll">
+            <div id="life-weeks-grid" class="life-weeks-grid" aria-hidden="true"></div>
+          </div>
+        </div>
+        <p id="life-weeks-empty" class="life-weeks-empty">Indique ta date de naissance pour dessiner la grille.</p>
+      </div>
+    </section>
 
     <!-- ============================================== -->
     <!-- SCREEN 2.5: REWARDS SHOP TAB                   -->
@@ -2277,6 +2316,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.13"></script>
+  <script src="js/app.js?v=1.0.14"></script>
 </body>
 </html>
