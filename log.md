@@ -9,6 +9,7 @@
 - Ma vie en semaines lit les objectifs, déduplique les sous-étapes partagées et place les blocs futurs sans chevauchement, en donnant d'abord une place aux fenêtres qui ferment le plus tôt. Les aventures sans place automatique restent visibles et ouvrent leur fiche.
 - Les bornes enregistrées sont des mois fixes; l'illustration n'écrit ni dans l'agenda ni dans le score. Formulaires, README, état des specs et wiki mis à jour. Aucune commande Telegram modifiée.
 - Validation : suite backend complète, syntaxe JavaScript et `git diff --check` réussis; Chrome headless confirme 78 + 26 semaines placées à la suite et une aventure trop longue signalée comme non placée. L'API Compose locale a été reconstruite seule après sauvegarde SQLite; `/health` répond 200, le démarrage a appliqué v34 et OpenAPI expose les trois nouveaux champs.
+- La roadmap du README marque maintenant My Life in Weeks comme terminé; les repères de vie datés et les horizons à 1, 3 ou 5 ans restent des améliorations possibles.
 
 ## 2026-09-22 — fix(dashboard): valeur initiale et réglages de Ma vie en semaines
 

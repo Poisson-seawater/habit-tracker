@@ -207,15 +207,12 @@ quêtes (objectif + branche de compétence), pour qu'une vue comme Eisenhower ou
 le bocal puisse regrouper les actions par intention. Une sous-étape est un
 jalon, pas une action à mélanger automatiquement dans ces vues.
 
-### Now — vues de recul, sans nouvelle mécanique de score
+### Done — My Life in Weeks
 
-#### My Life in Weeks
-
-**Livré dans le dashboard** : un onglet affiche une case par semaine, de la
+**Terminé dans le dashboard** : un onglet affiche une case par semaine, de la
 naissance à un âge de référence choisi. La semaine actuelle est distinguée.
 Par défaut, la grille part du 01-01-2001 et va jusqu'à 90 ans; ces valeurs se
 modifient dans Paramètres et les choix enregistrés restent dans le navigateur.
-Les repères de vie et horizons d'objectifs optionnels restent à explorer.
 
 Les sous-étapes peuvent maintenant recevoir une durée estimée en mois et une
 fenêtre possible (premier mois de départ, dernier mois de fin). La vue place
@@ -223,20 +220,16 @@ automatiquement les aventures configurées à la suite, sans chevauchement, et
 signale celles pour lesquelles elle ne trouve pas de place. Ce placement est
 indicatif et indépendant du score et de l'agenda.
 
-Une grille personnelle où chaque case représente une semaine de vie : les
-semaines vécues, la semaine courante et les semaines restantes jusqu'à un âge
-de référence choisi par l'utilisateur. C'est une vue de perspective et de
-réflexion, non un calendrier de productivité : aucune note rouge/verte ni
-pression de "semaine parfaite". Des repères optionnels (moments de vie et
-horizons d'objectifs à 1, 3 ou 5 ans) peuvent relier le présent à la vision
-long terme, sans promettre une date de complétion.
+C'est une vue de perspective et de réflexion : aucune note rouge/verte ni
+pression de « semaine parfaite ». Des repères de vie datés ou des horizons
+d'objectifs à 1, 3 ou 5 ans restent des améliorations possibles.
 
-Les données sensibles nécessaires (date de naissance, âge de référence,
-événements) devront rester privées et minimales. La grille peut partir du
-concept popularisé par « Your Life in Weeks » : une petite case par semaine,
-plutôt qu'une prédiction sur la durée de vie.
+La date de naissance et l'âge de référence restent dans le navigateur; les
+fenêtres des sous-étapes sont conservées avec les objectifs. La grille reprend
+le concept « Your Life in Weeks » : une petite case par semaine, sans prédire
+la durée de vie.
 
-#### The Jar of Life — les gros cailloux d'abord
+### Now — The Jar of Life, les gros cailloux d'abord
 
 Une vue hebdomadaire d'allocation de l'attention, inspirée de
 [The Jar of Life: First Things First](https://balancedaction.me/2012/10/17/the-jar-of-life-first-things-first/).
