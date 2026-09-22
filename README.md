@@ -70,6 +70,11 @@ minutes, y compris pour les quêtes déjà placées dans un template.
 
 
 ## NEXT ACTIONS
+- **Prochaine session : demander le retour de Gabriel sur le calendrier des
+  objectifs avant de commencer le Jar of Life.** Faire tester la lecture des
+  fenêtres possibles VS périodes choisies, le choix du mois, les
+  chevauchements et le reflet dans « Ma vie en semaines »; corriger les points
+  gênants constatés.
 - Pour objectifs "Social" j'ai plusieurs reflexe a prendre - comme routine avant de sortir de la maison. Des objectifs: parler a plusieurs inconnues. Et des options: bibliotheques, bars, meet up etc ... . Trouver un systeme pour les ranger visuellement dans le tableau de bord
 - Rédiger une description claire de l'application, centrée sur le parcours utilisateur, l'expérience vécue et les grandes intentions de design (sans code ni détails techniques). Décrire notamment l'utilisateur et son besoin, le parcours quotidien de la planification à la validation, les moments clés du dashboard et du bot, ainsi que les principes UX recherchés : clarté, motivation, responsabilité et absence de surcharge.
 

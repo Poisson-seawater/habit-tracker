@@ -9,6 +9,7 @@
 - Un mois de départ choisi est enregistré par sous-étape; la durée estimée fixe sa fin. Migration idempotente v35, route dédiée, validation de la fenêtre et préservation lors des éditions classiques. Un changement de fenêtre qui rend le choix impossible le retire.
 - Ma vie en semaines affiche les choix manuels en priorité, accepte leurs chevauchements et place automatiquement les autres sous-étapes dans les espaces libres. Aucun effet sur l'agenda ou le score. Documentation et tests API mis à jour.
 - Validation : 302 tests backend, Black, syntaxe JavaScript et `git diff --check` réussis. API Compose locale seule reconstruite après sauvegarde SQLite; `/health` répond 200, v35 s'est appliquée et OpenAPI expose la route. Chrome headless avec données synthétiques confirme le Gantt, les mois chargés, l'enregistrement depuis le formulaire et les semaines partagées.
+- Livraison : commit `e6028d1` poussé sur `feat/automatic-day-planning`. Le test visuel authentifié sur les données locales reste à faire : le mot de passe de développement documenté a été refusé par cette base locale.
 
 ## 2026-09-22 — feat(life-weeks): placer les aventures des objectifs sur la grille
 
