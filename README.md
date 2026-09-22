@@ -212,9 +212,10 @@ jalon, pas une action à mélanger automatiquement dans ces vues.
 #### My Life in Weeks
 
 **Livré dans le dashboard** : un onglet affiche une case par semaine, de la
-naissance à un âge de référence choisi. La semaine actuelle est distinguée; la
-date de naissance et l'âge choisi restent dans le navigateur et peuvent être
-effacés. Les repères de vie et horizons d'objectifs optionnels restent à explorer.
+naissance à un âge de référence choisi. La semaine actuelle est distinguée.
+Par défaut, la grille part du 01-01-2001 et va jusqu'à 90 ans; ces valeurs se
+modifient dans Paramètres et les choix enregistrés restent dans le navigateur.
+Les repères de vie et horizons d'objectifs optionnels restent à explorer.
 
 Une grille personnelle où chaque case représente une semaine de vie : les
 semaines vécues, la semaine courante et les semaines restantes jusqu'à un âge

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=9">
+  <link rel="stylesheet" href="css/style.css?v=10">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -797,7 +797,7 @@
         <button class="nav-tab" data-tab="life-weeks-tab">▦ Ma vie en semaines</button>
         <button class="nav-tab" data-tab="softskills-tab">🌳 Softskills</button>
         <button class="nav-tab" data-tab="notodo-tab">🚫 NO To-Do</button>
-        <button class="nav-tab" data-tab="settings-tab">⚙️ Perfect Days</button>
+        <button class="nav-tab" data-tab="settings-tab">⚙️ Paramètres</button>
         <a href="/docs/index.html" class="nav-tab" target="_blank" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">📖 Docs</a>
       </div>
       <button class="nav-tab user-quick-stats" data-tab="rewards-tab">
@@ -1396,19 +1396,8 @@
             <h2 id="life-weeks-title">Ma vie en semaines</h2>
             <p>Une case par semaine depuis ta naissance. Le repère de fin est ton choix, pas une prédiction.</p>
           </div>
-          <form id="life-weeks-form" class="life-weeks-form">
-            <label for="life-weeks-birthdate">Date de naissance
-              <input id="life-weeks-birthdate" type="date" min="1900-01-01" required>
-            </label>
-            <label for="life-weeks-horizon">Âge de référence
-              <input id="life-weeks-horizon" type="number" min="1" max="120" step="1" value="90" required>
-            </label>
-            <button type="submit" class="nav-tab">Afficher</button>
-            <button type="button" id="life-weeks-clear" class="nav-tab">Effacer</button>
-          </form>
+          <button type="button" id="life-weeks-settings-link" class="nav-tab">Modifier dans Paramètres</button>
         </div>
-        <p class="life-weeks-privacy">Ces réglages restent dans ce navigateur. Tu peux les modifier à tout moment.</p>
-        <p id="life-weeks-error" class="life-weeks-error" role="alert" hidden></p>
         <div id="life-weeks-view" hidden>
           <p id="life-weeks-summary" class="life-weeks-summary" aria-live="polite"></p>
           <div class="life-weeks-legend" aria-hidden="true">
@@ -1421,7 +1410,6 @@
             <div id="life-weeks-grid" class="life-weeks-grid" aria-hidden="true"></div>
           </div>
         </div>
-        <p id="life-weeks-empty" class="life-weeks-empty">Indique ta date de naissance pour dessiner la grille.</p>
       </div>
     </section>
 
@@ -1491,6 +1479,22 @@
         >Download plugin for LLM access</a>
         <button id="switch-profile-btn" class="nav-tab" style="border-color: var(--accent-red); color: var(--accent-red);">🔌 Changer de profil</button>
       </div>
+
+      <section class="glass-card life-weeks-card life-weeks-settings" aria-labelledby="life-weeks-settings-title">
+        <h2 id="life-weeks-settings-title" class="section-header">▦ <span>Ma vie en semaines</span></h2>
+        <p class="life-weeks-privacy">Date de naissance par défaut : 01-01-2001. Ces réglages restent dans ce navigateur.</p>
+        <form id="life-weeks-form" class="life-weeks-form">
+          <label for="life-weeks-birthdate">Date de naissance
+            <input id="life-weeks-birthdate" type="date" min="1900-01-01" value="2001-01-01" required>
+          </label>
+          <label for="life-weeks-horizon">Âge de référence
+            <input id="life-weeks-horizon" type="number" min="1" max="120" step="1" value="90" required>
+          </label>
+          <button type="submit" class="nav-tab">Enregistrer</button>
+          <button type="button" id="life-weeks-reset" class="nav-tab">Valeurs par défaut</button>
+        </form>
+        <p id="life-weeks-error" class="life-weeks-error" role="alert" hidden></p>
+      </section>
 
       <section class="glass-card auth-settings-card" id="auth-settings-section" style="padding: 1.8rem; margin-bottom: 1.5rem;">
         <h2 class="section-header">🔐 <span>Sécurité & Appareils</span></h2>
@@ -2316,6 +2320,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.14"></script>
+  <script src="js/app.js?v=1.0.15"></script>
 </body>
 </html>

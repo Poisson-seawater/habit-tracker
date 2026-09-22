@@ -3,6 +3,12 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-09-22 — fix(dashboard): valeur initiale et réglages de Ma vie en semaines
+
+- La grille part maintenant du 01-01-2001 jusqu'à 90 ans quand aucun choix local n'existe et s'affiche directement dans son onglet.
+- Le formulaire de date et d'âge de référence passe dans Paramètres. La vue garde un raccourci vers ce formulaire; « Valeurs par défaut » retire les choix locaux et restaure la grille initiale.
+- Documentation utilisateur et cache des assets mis à jour. Chrome headless confirme le défaut, l'absence d'effet avant Enregistrer, la sauvegarde d'une date du 29 février et la remise à zéro; rendu Paramètres inspecté. Aucun backend, schéma DB ou commande Telegram touché.
+
 ## 2026-09-22 — feat(dashboard): afficher Ma vie en semaines
 
 - Nouvel onglet de perspective : une case par semaine de la naissance à un âge de référence choisi, avec passé, semaine courante et semaines à venir. Les lignes suivent les anniversaires réels, y compris les années de 53 semaines.

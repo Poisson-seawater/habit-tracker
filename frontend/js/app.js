@@ -166,11 +166,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const lifeWeeksHorizon = document.getElementById("life-weeks-horizon");
   const lifeWeeksError = document.getElementById("life-weeks-error");
   const lifeWeeksView = document.getElementById("life-weeks-view");
-  const lifeWeeksEmpty = document.getElementById("life-weeks-empty");
   const lifeWeeksGrid = document.getElementById("life-weeks-grid");
   const lifeWeeksSummary = document.getElementById("life-weeks-summary");
   const LIFE_WEEKS_STORAGE_KEY = "habit-tracker-life-weeks";
+  const LIFE_WEEKS_DEFAULTS = { birthdate: "2001-01-01", horizon: 90 };
   const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+  let lifeWeeksSettings = { ...LIFE_WEEKS_DEFAULTS };
 
   function parseLifeWeeksBirthdate(value) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -187,27 +188,22 @@ document.addEventListener("DOMContentLoaded", () => {
       birthdate.getUTCMonth(), birthdate.getUTCDate());
   }
 
-  function renderLifeWeeks() {
-    if (!lifeWeeksForm) return;
-    const birthdate = parseLifeWeeksBirthdate(lifeWeeksBirthdate.value);
-    const horizon = Number(lifeWeeksHorizon.value);
+  function validLifeWeeksSettings(settings) {
+    const birthdate = parseLifeWeeksBirthdate(settings.birthdate);
+    const horizon = settings.horizon;
     const now = new Date();
     const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-    lifeWeeksError.hidden = true;
+    return birthdate && birthdate.getTime() <= today &&
+      Number.isInteger(horizon) && horizon >= 1 && horizon <= 120 &&
+      lifeWeeksAnniversary(birthdate, horizon) > today;
+  }
 
-    if (!lifeWeeksBirthdate.value) {
-      lifeWeeksView.hidden = true;
-      lifeWeeksEmpty.hidden = false;
-      return;
-    }
-    if (!birthdate || birthdate.getTime() > today || !Number.isInteger(horizon) ||
-        horizon < 1 || horizon > 120 || lifeWeeksAnniversary(birthdate, horizon) <= today) {
-      lifeWeeksView.hidden = true;
-      lifeWeeksEmpty.hidden = true;
-      lifeWeeksError.textContent = "Entre une date de naissance valide et un âge de référence situé après aujourd'hui (1 à 120 ans).";
-      lifeWeeksError.hidden = false;
-      return;
-    }
+  function renderLifeWeeks() {
+    if (!lifeWeeksForm) return;
+    const birthdate = parseLifeWeeksBirthdate(lifeWeeksSettings.birthdate);
+    const horizon = lifeWeeksSettings.horizon;
+    const now = new Date();
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
 
     const fragment = document.createDocumentFragment();
     const formatDate = new Intl.DateTimeFormat("fr-CA", {
@@ -243,44 +239,53 @@ document.addEventListener("DOMContentLoaded", () => {
     lifeWeeksGrid.replaceChildren(fragment);
     lifeWeeksSummary.textContent = `${lived.toLocaleString("fr-CA")} semaines traversées · Cette semaine en cours · ${future.toLocaleString("fr-CA")} semaines à venir jusqu'à ${horizon} ans`;
     lifeWeeksView.hidden = false;
-    lifeWeeksEmpty.hidden = true;
   }
 
   if (lifeWeeksForm) {
     lifeWeeksBirthdate.max = todayDateString();
     try {
       const saved = JSON.parse(localStorage.getItem(LIFE_WEEKS_STORAGE_KEY) || "null");
-      if (saved && typeof saved.birthdate === "string") lifeWeeksBirthdate.value = saved.birthdate;
-      if (saved && Number.isInteger(saved.horizon)) lifeWeeksHorizon.value = saved.horizon;
+      if (saved && validLifeWeeksSettings(saved)) lifeWeeksSettings = saved;
     } catch (error) {
-      // The graph remains usable when browser storage is unavailable or invalid.
+      // Use defaults when browser storage is unavailable or invalid.
     }
+    lifeWeeksBirthdate.value = lifeWeeksSettings.birthdate;
+    lifeWeeksHorizon.value = lifeWeeksSettings.horizon;
     lifeWeeksForm.addEventListener("submit", event => {
       event.preventDefault();
+      const nextSettings = {
+        birthdate: lifeWeeksBirthdate.value,
+        horizon: Number(lifeWeeksHorizon.value)
+      };
+      if (!validLifeWeeksSettings(nextSettings)) {
+        lifeWeeksError.textContent = "Entre une date de naissance valide et un âge de référence situé après aujourd'hui (1 à 120 ans).";
+        lifeWeeksError.hidden = false;
+        return;
+      }
+      lifeWeeksError.hidden = true;
+      lifeWeeksSettings = nextSettings;
       renderLifeWeeks();
-      if (lifeWeeksError.hidden) {
-        try {
-          localStorage.setItem(LIFE_WEEKS_STORAGE_KEY, JSON.stringify({
-            birthdate: lifeWeeksBirthdate.value,
-            horizon: Number(lifeWeeksHorizon.value)
-          }));
-        } catch (error) {
-          // Display still works without persistence.
-        }
+      try {
+        localStorage.setItem(LIFE_WEEKS_STORAGE_KEY, JSON.stringify(lifeWeeksSettings));
+      } catch (error) {
+        // Display still works without persistence.
       }
     });
-    document.getElementById("life-weeks-clear").addEventListener("click", () => {
-      lifeWeeksBirthdate.value = "";
-      lifeWeeksHorizon.value = "90";
-      lifeWeeksGrid.replaceChildren();
+    document.getElementById("life-weeks-reset").addEventListener("click", () => {
+      lifeWeeksSettings = { ...LIFE_WEEKS_DEFAULTS };
+      lifeWeeksBirthdate.value = lifeWeeksSettings.birthdate;
+      lifeWeeksHorizon.value = lifeWeeksSettings.horizon;
       lifeWeeksError.hidden = true;
-      lifeWeeksView.hidden = true;
-      lifeWeeksEmpty.hidden = false;
+      renderLifeWeeks();
       try {
         localStorage.removeItem(LIFE_WEEKS_STORAGE_KEY);
       } catch (error) {
-        // The visible view can still be cleared without browser storage.
+        // Defaults still work without browser storage.
       }
+    });
+    document.getElementById("life-weeks-settings-link").addEventListener("click", () => {
+      document.querySelector('.nav-tab[data-tab="settings-tab"]').click();
+      lifeWeeksBirthdate.focus();
     });
   }
 

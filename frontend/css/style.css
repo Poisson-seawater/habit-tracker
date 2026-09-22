@@ -32,6 +32,15 @@
   padding: clamp(1.25rem, 3vw, 2rem);
 }
 
+.life-weeks-settings {
+  margin-bottom: 1.5rem;
+}
+
+.life-weeks-settings .life-weeks-privacy {
+  margin-top: -0.75rem;
+  margin-bottom: 1rem;
+}
+
 .life-weeks-heading {
   display: flex;
   justify-content: space-between;
@@ -55,8 +64,7 @@
 
 .life-weeks-heading p:not(.life-weeks-eyebrow),
 .life-weeks-privacy,
-.life-weeks-hint,
-.life-weeks-empty {
+.life-weeks-hint {
   color: var(--text-secondary);
   font-size: 0.85rem;
 }
@@ -92,8 +100,7 @@
 }
 
 .life-weeks-privacy,
-.life-weeks-error,
-.life-weeks-empty {
+.life-weeks-error {
   margin-top: 1rem;
 }
 
