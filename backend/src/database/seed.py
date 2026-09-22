@@ -1581,6 +1581,26 @@ def _run_migrations():
             print("Migration v33 (automatic day schedules) applied successfully.")
             inspector = inspect(engine)
 
+        # v34: Optional substep windows for the Life in Weeks perspective graph.
+        if "substeps" in inspect(engine).get_table_names():
+            substep_columns = {
+                column["name"] for column in inspect(engine).get_columns("substeps")
+            }
+            for column_name, sql_type in (
+                ("life_duration_months", "INTEGER"),
+                ("life_earliest_month", "DATE"),
+                ("life_latest_month", "DATE"),
+            ):
+                if column_name not in substep_columns:
+                    print(f"Running migration v34: adding substeps.{column_name}...")
+                    db.execute(
+                        text(
+                            f"ALTER TABLE substeps ADD COLUMN {column_name} {sql_type}"
+                        )
+                    )
+            db.commit()
+            inspector = inspect(engine)
+
         # v19: Destructively remove the legacy RPG stat/tag columns.
         v19_dropped = False
         for table, columns in {

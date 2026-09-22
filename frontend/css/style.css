@@ -130,6 +130,79 @@
   gap: 0.35rem;
 }
 
+.life-weeks-plan-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.life-weeks-plan-item {
+  max-width: 100%;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.life-weeks-plan-item:hover,
+.life-weeks-plan-item:focus-visible {
+  border-color: var(--accent-green);
+}
+
+.life-weeks-unplaced {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.life-window-fields {
+  margin-top: 0.8rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border-glass-hover);
+  border-radius: 10px;
+}
+
+.life-window-fields legend {
+  padding: 0 0.3rem;
+  color: var(--accent-cyan);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.life-window-fields p {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.life-window-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.6rem;
+  margin: 0.65rem 0;
+}
+
+.life-window-inputs label {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.life-window-inputs input {
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.4rem;
+  border: 1px solid var(--border-glass-hover);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+}
+
 .life-weeks-scroll {
   overflow-x: auto;
   margin-top: 0.75rem;
@@ -187,6 +260,12 @@
 .life-week-future {
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.life-week-planned {
+  background: var(--accent-green);
+  box-shadow: 0 0 5px var(--accent-green-glow);
+  cursor: pointer;
 }
 
 * {

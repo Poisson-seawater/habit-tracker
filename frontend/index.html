@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=10">
+  <link rel="stylesheet" href="css/style.css?v=11">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -1287,6 +1287,22 @@
               </div>
             </div>
             <input type="hidden" id="substep-effort-duration" value="1.0">
+            <fieldset class="life-window-fields">
+              <legend>Ma vie en semaines (facultatif)</legend>
+              <p>Une aventure = une sous-étape. Indique sa durée et la période où elle pourrait tenir.</p>
+              <div class="life-window-inputs">
+                <label for="substep-life-duration">Durée estimée (mois)
+                  <input id="substep-life-duration" type="number" min="1" max="1200" step="1" placeholder="18">
+                </label>
+                <label for="substep-life-earliest">Début possible dès
+                  <input id="substep-life-earliest" type="month">
+                </label>
+                <label for="substep-life-latest">Fin au plus tard
+                  <input id="substep-life-latest" type="month">
+                </label>
+              </div>
+              <p>Ex. 18 mois dans une fenêtre de janvier 2027 à septembre 2061. Le graphe choisit une place indicative.</p>
+            </fieldset>
             <div class="form-group checkbox-group" style="margin-top: 0.8rem;">
               <label class="checkbox-label" style="margin-top: 0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                 <input type="checkbox" id="substep-life-lore-input" style="cursor: pointer;">
@@ -1338,6 +1354,22 @@
               </div>
             </div>
             <input type="hidden" id="edit-substep-effort-duration" value="1.0">
+            <fieldset class="life-window-fields">
+              <legend>Ma vie en semaines (facultatif)</legend>
+              <p>La durée et les deux bornes forment une fenêtre possible, sans fixer de date de voyage.</p>
+              <div class="life-window-inputs">
+                <label for="edit-substep-life-duration">Durée estimée (mois)
+                  <input id="edit-substep-life-duration" type="number" min="1" max="1200" step="1" placeholder="18">
+                </label>
+                <label for="edit-substep-life-earliest">Début possible dès
+                  <input id="edit-substep-life-earliest" type="month">
+                </label>
+                <label for="edit-substep-life-latest">Fin au plus tard
+                  <input id="edit-substep-life-latest" type="month">
+                </label>
+              </div>
+              <p>Pour retirer cette aventure du graphe, vide les trois champs et enregistre.</p>
+            </fieldset>
             <div class="form-group checkbox-group" style="margin-top: 0.8rem;">
               <label class="checkbox-label" style="margin-top: 0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                 <input type="checkbox" id="edit-substep-life-lore-input" style="cursor: pointer;">
@@ -1404,7 +1436,9 @@
             <span><i class="life-week life-week-lived"></i> Traversée</span>
             <span><i class="life-week life-week-current"></i> En cours</span>
             <span><i class="life-week life-week-future"></i> À venir</span>
+            <span><i class="life-week life-week-planned"></i> Aventure possible</span>
           </div>
+          <div id="life-weeks-plan-list" class="life-weeks-plan-list" aria-live="polite"></div>
           <p class="life-weeks-hint">Chaque ligne correspond à une année d'âge. Survole une case pour voir sa date.</p>
           <div class="life-weeks-scroll">
             <div id="life-weeks-grid" class="life-weeks-grid" aria-hidden="true"></div>
@@ -2320,6 +2354,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.15"></script>
+  <script src="js/app.js?v=1.0.16"></script>
 </body>
 </html>

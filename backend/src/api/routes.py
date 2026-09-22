@@ -14,7 +14,7 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict, Any, Literal
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from src.database.session import get_db
 from src.database.models import (
@@ -344,7 +344,37 @@ class GoalWithSubstepsCreate(GoalCreate):
     substeps: List["SubStepCreate"] = Field(default_factory=list)
 
 
-class SubStepCreate(BaseModel):
+class SubStepLifeWindow(BaseModel):
+    life_duration_months: Optional[int] = Field(default=None, ge=1, le=1200)
+    life_earliest_month: Optional[datetime.date] = None
+    life_latest_month: Optional[datetime.date] = None
+
+    @model_validator(mode="after")
+    def validate_life_window(self):
+        values = (
+            self.life_duration_months,
+            self.life_earliest_month,
+            self.life_latest_month,
+        )
+        if any(value is not None for value in values) and any(
+            value is None for value in values
+        ):
+            raise ValueError(
+                "La durée et les deux bornes doivent être renseignées ensemble"
+            )
+        if self.life_earliest_month and (
+            self.life_earliest_month.day != 1 or self.life_latest_month.day != 1
+        ):
+            raise ValueError("Les bornes doivent être le premier jour d'un mois")
+        if (
+            self.life_earliest_month
+            and self.life_earliest_month > self.life_latest_month
+        ):
+            raise ValueError("La fin possible doit suivre le début possible")
+        return self
+
+
+class SubStepCreate(SubStepLifeWindow):
     title: str
     description: Optional[str] = None
     gold_reward: Optional[int] = 50
@@ -354,7 +384,7 @@ class SubStepCreate(BaseModel):
     effort_duration: Optional[float] = 1.0
 
 
-class SubStepUpdate(BaseModel):
+class SubStepUpdate(SubStepLifeWindow):
     title: str
     description: Optional[str] = None
     gold_reward: Optional[int] = 50
@@ -1947,6 +1977,15 @@ def get_goals(
                     "is_life_lore": s.is_life_lore,
                     "effort_type": s.effort_type,
                     "effort_duration": s.effort_duration,
+                    "life_duration_months": s.life_duration_months,
+                    "life_earliest_month": (
+                        s.life_earliest_month.isoformat()
+                        if s.life_earliest_month
+                        else None
+                    ),
+                    "life_latest_month": (
+                        s.life_latest_month.isoformat() if s.life_latest_month else None
+                    ),
                 }
             )
 
@@ -2029,6 +2068,9 @@ def create_goal_with_substeps(
             gold_reward=substep_payload.gold_reward,
             execution_order=substep_payload.execution_order,
             is_life_lore=substep_payload.is_life_lore or False,
+            life_duration_months=substep_payload.life_duration_months,
+            life_earliest_month=substep_payload.life_earliest_month,
+            life_latest_month=substep_payload.life_latest_month,
         )
         db.add(substep)
         db.flush()
@@ -2047,6 +2089,17 @@ def create_goal_with_substeps(
                 "gold_reward": substep.gold_reward,
                 "execution_order": substep.execution_order,
                 "is_life_lore": substep.is_life_lore,
+                "life_duration_months": substep.life_duration_months,
+                "life_earliest_month": (
+                    substep.life_earliest_month.isoformat()
+                    if substep.life_earliest_month
+                    else None
+                ),
+                "life_latest_month": (
+                    substep.life_latest_month.isoformat()
+                    if substep.life_latest_month
+                    else None
+                ),
             }
         )
 
@@ -2136,6 +2189,9 @@ def create_substep(
         is_life_lore=payload.is_life_lore or False,
         effort_type=payload.effort_type,
         effort_duration=payload.effort_duration,
+        life_duration_months=payload.life_duration_months,
+        life_earliest_month=payload.life_earliest_month,
+        life_latest_month=payload.life_latest_month,
     )
     db.add(substep)
     db.flush()  # Generate substep ID
@@ -2160,6 +2216,17 @@ def create_substep(
             "is_life_lore": substep.is_life_lore,
             "effort_type": substep.effort_type,
             "effort_duration": substep.effort_duration,
+            "life_duration_months": substep.life_duration_months,
+            "life_earliest_month": (
+                substep.life_earliest_month.isoformat()
+                if substep.life_earliest_month
+                else None
+            ),
+            "life_latest_month": (
+                substep.life_latest_month.isoformat()
+                if substep.life_latest_month
+                else None
+            ),
         },
     }
 
@@ -2261,6 +2328,14 @@ def update_substep(
     substep.is_life_lore = payload.is_life_lore or False
     substep.effort_type = payload.effort_type
     substep.effort_duration = payload.effort_duration
+    if {
+        "life_duration_months",
+        "life_earliest_month",
+        "life_latest_month",
+    } & payload.model_fields_set:
+        substep.life_duration_months = payload.life_duration_months
+        substep.life_earliest_month = payload.life_earliest_month
+        substep.life_latest_month = payload.life_latest_month
 
     db.commit()
     db.refresh(substep)
@@ -2276,6 +2351,17 @@ def update_substep(
             "is_life_lore": substep.is_life_lore,
             "effort_type": substep.effort_type,
             "effort_duration": substep.effort_duration,
+            "life_duration_months": substep.life_duration_months,
+            "life_earliest_month": (
+                substep.life_earliest_month.isoformat()
+                if substep.life_earliest_month
+                else None
+            ),
+            "life_latest_month": (
+                substep.life_latest_month.isoformat()
+                if substep.life_latest_month
+                else None
+            ),
         },
     }
 

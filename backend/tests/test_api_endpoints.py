@@ -776,3 +776,55 @@ def test_goal_linked_substep_relations():
     client.delete(f"/api/v1/goals/{g2_id}")
     # Delete the substep itself (cascaded from goal links)
     client.delete(f"/api/v1/substeps/{sub_id}")
+
+
+def test_life_weeks_window_on_substep_is_optional_and_preserved():
+    goal = client.post("/api/v1/goals", json={"title": "Voyages possibles"}).json()[
+        "goal"
+    ]
+    goal_id = goal["id"]
+    try:
+        incomplete = client.post(
+            f"/api/v1/goals/{goal_id}/substeps",
+            json={"title": "Incomplet", "life_duration_months": 18},
+        )
+        assert incomplete.status_code == 422
+
+        response = client.post(
+            f"/api/v1/goals/{goal_id}/substeps",
+            json={
+                "title": "Traversée à vélo",
+                "life_duration_months": 18,
+                "life_earliest_month": "2027-01-01",
+                "life_latest_month": "2061-09-01",
+            },
+        )
+        assert response.status_code == 201
+        substep_id = response.json()["substep"]["id"]
+
+        listed = client.get("/api/v1/goals").json()
+        window = next(g for g in listed if g["id"] == goal_id)["substeps"][0]
+        assert window["life_duration_months"] == 18
+        assert window["life_earliest_month"] == "2027-01-01"
+        assert window["life_latest_month"] == "2061-09-01"
+
+        # Legacy callers that omit the window must not erase it.
+        response = client.put(
+            f"/api/v1/substeps/{substep_id}", json={"title": "Traversée à vélo"}
+        )
+        assert response.status_code == 200
+        assert response.json()["substep"]["life_duration_months"] == 18
+
+        response = client.put(
+            f"/api/v1/substeps/{substep_id}",
+            json={
+                "title": "Traversée à vélo",
+                "life_duration_months": None,
+                "life_earliest_month": None,
+                "life_latest_month": None,
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["substep"]["life_duration_months"] is None
+    finally:
+        client.delete(f"/api/v1/goals/{goal_id}")

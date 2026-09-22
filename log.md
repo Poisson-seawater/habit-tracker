@@ -3,6 +3,13 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-09-22 — feat(life-weeks): placer les aventures des objectifs sur la grille
+
+- Les sous-étapes peuvent recevoir une durée estimée en mois et une fenêtre de départ/fin approximative. Migration idempotente v34; les anciens clients qui omettent ces champs pendant une édition préservent les valeurs existantes.
+- Ma vie en semaines lit les objectifs, déduplique les sous-étapes partagées et place les blocs futurs sans chevauchement, en donnant d'abord une place aux fenêtres qui ferment le plus tôt. Les aventures sans place automatique restent visibles et ouvrent leur fiche.
+- Les bornes enregistrées sont des mois fixes; l'illustration n'écrit ni dans l'agenda ni dans le score. Formulaires, README, état des specs et wiki mis à jour. Aucune commande Telegram modifiée.
+- Validation : suite backend complète, syntaxe JavaScript et `git diff --check` réussis; Chrome headless confirme 78 + 26 semaines placées à la suite et une aventure trop longue signalée comme non placée. L'API Compose locale a été reconstruite seule après sauvegarde SQLite; `/health` répond 200, le démarrage a appliqué v34 et OpenAPI expose les trois nouveaux champs.
+
 ## 2026-09-22 — fix(dashboard): valeur initiale et réglages de Ma vie en semaines
 
 - La grille part maintenant du 01-01-2001 jusqu'à 90 ans quand aucun choix local n'existe et s'affiche directement dans son onglet.

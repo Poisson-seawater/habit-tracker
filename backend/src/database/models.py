@@ -549,6 +549,10 @@ class SubStep(Base):
     )  # "musculaire", "cerveau", "emotionnel_social", "creatif_divergent", "repos"
     effort_duration = Column(Float, default=1.0, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.now)
+    # Optional perspective window for My Life in Weeks; never affects scoring.
+    life_duration_months = Column(Integer, nullable=True)
+    life_earliest_month = Column(Date, nullable=True)
+    life_latest_month = Column(Date, nullable=True)
 
     user = relationship("User", back_populates="substeps")
     goal_links = relationship(

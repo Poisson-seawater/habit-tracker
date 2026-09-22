@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } else if (targetTab === "rewards-tab") {
         fetchRewards();
       } else if (targetTab === "life-weeks-tab") {
-        renderLifeWeeks();
+        loadLifeWeeks();
       }
     });
   });
@@ -167,11 +167,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const lifeWeeksError = document.getElementById("life-weeks-error");
   const lifeWeeksView = document.getElementById("life-weeks-view");
   const lifeWeeksGrid = document.getElementById("life-weeks-grid");
+  const lifeWeeksPlanList = document.getElementById("life-weeks-plan-list");
   const lifeWeeksSummary = document.getElementById("life-weeks-summary");
   const LIFE_WEEKS_STORAGE_KEY = "habit-tracker-life-weeks";
   const LIFE_WEEKS_DEFAULTS = { birthdate: "2001-01-01", horizon: 90 };
   const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
   let lifeWeeksSettings = { ...LIFE_WEEKS_DEFAULTS };
+  let lifeWeeksGoals = [];
+  let lifeWeeksLoadError = false;
 
   function parseLifeWeeksBirthdate(value) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -198,12 +201,131 @@ document.addEventListener("DOMContentLoaded", () => {
       lifeWeeksAnniversary(birthdate, horizon) > today;
   }
 
+  function planLifeWeeks(goals, birthdate, horizon, today) {
+    const birth = birthdate.getTime();
+    const horizonEnd = lifeWeeksAnniversary(birthdate, horizon);
+    const totalWeeks = Math.ceil((horizonEnd - birth) / WEEK_MS);
+    const firstFutureWeek = Math.floor((today - birth) / WEEK_MS) + 1;
+    const candidates = [];
+    const seen = new Set();
+    for (const goal of goals) {
+      for (const substep of goal.substeps || []) {
+        if (seen.has(substep.id) || substep.completed ||
+            !substep.life_duration_months || !substep.life_earliest_month ||
+            !substep.life_latest_month) continue;
+        seen.add(substep.id);
+        const durationWeeks = Math.max(1, Math.round(
+          substep.life_duration_months * 365.2425 / 12 / 7
+        ));
+        const earliest = Date.parse(`${substep.life_earliest_month.slice(0, 7)}-01T00:00:00Z`);
+        const [year, month] = substep.life_latest_month.slice(0, 7).split("-").map(Number);
+        const latestExclusive = Date.UTC(year, month, 1);
+        candidates.push({
+          goal, substep, durationWeeks,
+          earliestIndex: Math.max(firstFutureWeek, Math.ceil((earliest - birth) / WEEK_MS)),
+          endIndex: Math.min(totalWeeks, Math.floor((latestExclusive - birth) / WEEK_MS))
+        });
+      }
+    }
+    // Narrower deadlines get the first chance; the result is illustrative.
+    candidates.sort((a, b) => a.endIndex - b.endIndex ||
+      a.earliestIndex - b.earliestIndex || a.goal.id - b.goal.id ||
+      a.substep.execution_order - b.substep.execution_order || a.substep.id - b.substep.id);
+    const occupied = new Uint8Array(totalWeeks);
+    const byWeek = new Map();
+    const placed = [];
+    const unplaced = [];
+    for (const item of candidates) {
+      let chosen = -1;
+      for (let start = item.earliestIndex;
+           start + item.durationWeeks <= item.endIndex; start++) {
+        let free = true;
+        for (let week = start; week < start + item.durationWeeks; week++) {
+          if (occupied[week]) { free = false; break; }
+        }
+        if (free) { chosen = start; break; }
+      }
+      if (chosen < 0) {
+        unplaced.push(item);
+        continue;
+      }
+      item.startIndex = chosen;
+      placed.push(item);
+      for (let week = chosen; week < chosen + item.durationWeeks; week++) {
+        occupied[week] = 1;
+        byWeek.set(week, item);
+      }
+    }
+    placed.sort((a, b) => a.startIndex - b.startIndex);
+    return { placed, unplaced, byWeek };
+  }
+
+  async function openLifeWeekSubstep(item) {
+    activeGoalId = item.goal.id;
+    document.querySelector('.nav-tab[data-tab="goals-tab"]').click();
+    const goals = await fetchGoals();
+    const goal = goals.find(entry => entry.id === item.goal.id);
+    const substep = goal?.substeps.find(entry => entry.id === item.substep.id);
+    if (substep) openDrawer("edit-substep", null, substep, goal.substeps);
+  }
+
+  function renderLifeWeeksPlanList(plan, birthdate) {
+    lifeWeeksPlanList.replaceChildren();
+    if (lifeWeeksLoadError) {
+      lifeWeeksPlanList.textContent = "Impossible de charger les objectifs pour cette vue.";
+      return;
+    }
+    if (!plan.placed.length && !plan.unplaced.length) {
+      lifeWeeksPlanList.textContent = "Aucune sous-étape avec durée et fenêtre possible. Configure-en une dans Objectifs & Graphes.";
+      return;
+    }
+    const monthLabel = new Intl.DateTimeFormat("fr-CA", {
+      month: "long", year: "numeric", timeZone: "UTC"
+    });
+    for (const item of plan.placed) {
+      const start = birthdate.getTime() + item.startIndex * WEEK_MS;
+      const end = start + item.durationWeeks * WEEK_MS - 1;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "life-weeks-plan-item";
+      const possibleStart = monthLabel.format(Date.parse(`${item.substep.life_earliest_month.slice(0, 7)}-01T00:00:00Z`));
+      const possibleEnd = monthLabel.format(Date.parse(`${item.substep.life_latest_month.slice(0, 7)}-01T00:00:00Z`));
+      button.textContent = `${item.substep.title} · ${item.goal.title} · ${item.durationWeeks} semaines · possible de ${possibleStart} à ${possibleEnd} · placé vers ${monthLabel.format(start)}–${monthLabel.format(end)}`;
+      button.title = "Placement indicatif. Ouvrir la sous-étape";
+      button.addEventListener("click", () => openLifeWeekSubstep(item));
+      lifeWeeksPlanList.appendChild(button);
+    }
+    for (const item of plan.unplaced) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "life-weeks-plan-item life-weeks-unplaced";
+      button.textContent = `${item.substep.title} · ${item.durationWeeks} semaines · aucune place automatique trouvée avant ${monthLabel.format(Date.parse(`${item.substep.life_latest_month.slice(0, 7)}-01T00:00:00Z`))}`;
+      button.addEventListener("click", () => openLifeWeekSubstep(item));
+      lifeWeeksPlanList.appendChild(button);
+    }
+  }
+
+  async function loadLifeWeeks() {
+    try {
+      const response = await fetch(`${API_BASE}/goals`);
+      if (!response.ok) throw new Error("Goals unavailable");
+      lifeWeeksGoals = await response.json();
+      lifeWeeksLoadError = false;
+    } catch (error) {
+      lifeWeeksGoals = [];
+      lifeWeeksLoadError = true;
+    }
+    renderLifeWeeks();
+  }
+
   function renderLifeWeeks() {
     if (!lifeWeeksForm) return;
     const birthdate = parseLifeWeeksBirthdate(lifeWeeksSettings.birthdate);
     const horizon = lifeWeeksSettings.horizon;
     const now = new Date();
     const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const plan = planLifeWeeks(lifeWeeksGoals, birthdate, horizon, today);
+    renderLifeWeeksPlanList(plan, birthdate);
 
     const fragment = document.createDocumentFragment();
     const formatDate = new Intl.DateTimeFormat("fr-CA", {
@@ -212,6 +334,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let weekStart = birthdate.getTime();
     let lived = 0;
     let future = 0;
+    let weekIndex = 0;
     for (let age = 0; age < horizon; age++) {
       const nextAnniversary = lifeWeeksAnniversary(birthdate, age + 1);
       const row = document.createElement("div");
@@ -226,12 +349,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const cell = document.createElement("span");
         const state = weekStart + WEEK_MS <= today ? "lived" :
           weekStart <= today ? "current" : "future";
-        cell.className = `life-week life-week-${state}`;
-        cell.title = `Semaine du ${formatDate.format(weekStart)}`;
+        const adventure = plan.byWeek.get(weekIndex);
+        cell.className = `life-week life-week-${adventure ? "planned" : state}`;
+        cell.title = adventure
+          ? `${adventure.substep.title} · ${adventure.goal.title} · placement indicatif · semaine du ${formatDate.format(weekStart)}`
+          : `Semaine du ${formatDate.format(weekStart)}`;
+        if (adventure) cell.addEventListener("click", () => openLifeWeekSubstep(adventure));
         cells.appendChild(cell);
         if (state === "lived") lived++;
         if (state === "future") future++;
         weekStart += WEEK_MS;
+        weekIndex++;
       }
       row.appendChild(cells);
       fragment.appendChild(row);
@@ -3633,6 +3761,9 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("edit-substep-life-lore-input").checked = substepData.is_life_lore || false;
       document.getElementById("edit-substep-effort-type").value = substepData.effort_type || "";
       document.getElementById("edit-substep-effort-duration").value = substepData.effort_duration !== undefined && substepData.effort_duration !== null ? substepData.effort_duration : 1.0;
+      document.getElementById("edit-substep-life-duration").value = substepData.life_duration_months ?? "";
+      document.getElementById("edit-substep-life-earliest").value = substepData.life_earliest_month?.slice(0, 7) || "";
+      document.getElementById("edit-substep-life-latest").value = substepData.life_latest_month?.slice(0, 7) || "";
 
 
       const linkedGoalsContainer = document.getElementById("edit-substep-linked-goals");
@@ -3739,6 +3870,26 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==============================================
   // SCREEN 2: GOALS & SUBSTEPS DAG GRAPH           //
   // ==============================================
+  function readLifeWindowFields(prefix) {
+    const duration = document.getElementById(`${prefix}-life-duration`).value;
+    const earliest = document.getElementById(`${prefix}-life-earliest`).value;
+    const latest = document.getElementById(`${prefix}-life-latest`).value;
+    if (!duration && !earliest && !latest) {
+      return { life_duration_months: null, life_earliest_month: null, life_latest_month: null };
+    }
+    if (!duration || !earliest || !latest) {
+      throw new Error("Renseigne la durée et les deux bornes de la fenêtre, ou laisse les trois vides.");
+    }
+    if (earliest > latest) {
+      throw new Error("La fin possible doit suivre le début possible.");
+    }
+    return {
+      life_duration_months: Number(duration),
+      life_earliest_month: `${earliest}-01`,
+      life_latest_month: `${latest}-01`
+    };
+  }
+
   async function fetchGoals() {
     try {
       await fetchProfile();
@@ -4165,6 +4316,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const effortDuration = parseFloat(document.getElementById("substep-effort-duration").value) || 1.0;
 
     try {
+      const lifeWindow = readLifeWindowFields("substep");
       const resp = await fetch(`${API_BASE}/goals/${goalId}/substeps`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -4175,7 +4327,8 @@ document.addEventListener("DOMContentLoaded", () => {
           execution_order: order,
           is_life_lore: isLifeLore,
           effort_type: effortType,
-          effort_duration: effortDuration
+          effort_duration: effortDuration,
+          ...lifeWindow
         })
       });
       if (!resp.ok) throw new Error();
@@ -4184,8 +4337,8 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("substep-effort-duration").value = "1.0";
       closeDrawer();
       fetchGoals();
-    } catch {
-      showToast("Erreur lors de la création de la sous-étape", true);
+    } catch (error) {
+      showToast(error.message || "Erreur lors de la création de la sous-étape", true);
     }
   });
 
@@ -4202,6 +4355,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const effortDuration = parseFloat(document.getElementById("edit-substep-effort-duration").value) || 1.0;
 
     try {
+      const lifeWindow = readLifeWindowFields("edit-substep");
       const resp = await fetch(`${API_BASE}/substeps/${subId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -4212,7 +4366,8 @@ document.addEventListener("DOMContentLoaded", () => {
           execution_order: order,
           is_life_lore: isLifeLore,
           effort_type: effortType,
-          effort_duration: effortDuration
+          effort_duration: effortDuration,
+          ...lifeWindow
         })
       });
       if (!resp.ok) throw new Error();
@@ -4230,8 +4385,8 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast("Sous-étape modifiée avec succès ! ✏️");
       closeDrawer();
       fetchGoals();
-    } catch {
-      showToast("Erreur lors de la modification de la sous-étape", true);
+    } catch (error) {
+      showToast(error.message || "Erreur lors de la modification de la sous-étape", true);
     }
   });
 

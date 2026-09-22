@@ -75,3 +75,8 @@ Current source of truth for implemented behavior is the code plus `README.md`,
   exposes `Feel off today` instead of a manual selector. Telegram `/set-day` and
   `/template`, API `/profile/template`, and plugin `template-set` were removed;
   the remote-control protocol is now v3 with `feel-off` and `day-plan-restore`.
+- My Life in Weeks was implemented in September 2026 without a separate Spec Kit
+  folder. Migration v34 adds optional duration and possible month window to
+  substeps. The dashboard places configured substeps in non-overlapping future
+  week blocks; unplaced items remain visible. This is perspective metadata only,
+  with no scoring, goal-completion, or agenda effect.

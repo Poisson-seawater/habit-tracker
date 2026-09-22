@@ -217,6 +217,12 @@ Par défaut, la grille part du 01-01-2001 et va jusqu'à 90 ans; ces valeurs se
 modifient dans Paramètres et les choix enregistrés restent dans le navigateur.
 Les repères de vie et horizons d'objectifs optionnels restent à explorer.
 
+Les sous-étapes peuvent maintenant recevoir une durée estimée en mois et une
+fenêtre possible (premier mois de départ, dernier mois de fin). La vue place
+automatiquement les aventures configurées à la suite, sans chevauchement, et
+signale celles pour lesquelles elle ne trouve pas de place. Ce placement est
+indicatif et indépendant du score et de l'agenda.
+
 Une grille personnelle où chaque case représente une semaine de vie : les
 semaines vécues, la semaine courante et les semaines restantes jusqu'à un âge
 de référence choisi par l'utilisateur. C'est une vue de perspective et de
