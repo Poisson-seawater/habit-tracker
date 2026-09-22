@@ -553,6 +553,7 @@ class SubStep(Base):
     life_duration_months = Column(Integer, nullable=True)
     life_earliest_month = Column(Date, nullable=True)
     life_latest_month = Column(Date, nullable=True)
+    life_chosen_start_month = Column(Date, nullable=True)
 
     user = relationship("User", back_populates="substeps")
     goal_links = relationship(

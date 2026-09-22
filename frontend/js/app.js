@@ -58,6 +58,8 @@ document.addEventListener("DOMContentLoaded", () => {
         fetchRewards();
       } else if (targetTab === "life-weeks-tab") {
         loadLifeWeeks();
+      } else if (targetTab === "goal-calendar-tab") {
+        loadGoalCalendar();
       }
     });
   });
@@ -160,7 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return local.toISOString().slice(0, 10);
   }
 
-  // My Life in Weeks is a local perspective view; it has no scoring or API writes.
+  // Perspective views share goal data; only explicit Gantt choices write to the API.
   const lifeWeeksForm = document.getElementById("life-weeks-form");
   const lifeWeeksBirthdate = document.getElementById("life-weeks-birthdate");
   const lifeWeeksHorizon = document.getElementById("life-weeks-horizon");
@@ -175,6 +177,15 @@ document.addEventListener("DOMContentLoaded", () => {
   let lifeWeeksSettings = { ...LIFE_WEEKS_DEFAULTS };
   let lifeWeeksGoals = [];
   let lifeWeeksLoadError = false;
+
+  function monthNumber(value) {
+    const [year, month] = value.slice(0, 7).split("-").map(Number);
+    return year * 12 + month - 1;
+  }
+
+  function monthValue(number) {
+    return `${Math.floor(number / 12).toString().padStart(4, "0")}-${String(number % 12 + 1).padStart(2, "0")}`;
+  }
 
   function parseLifeWeeksBirthdate(value) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -207,10 +218,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const totalWeeks = Math.ceil((horizonEnd - birth) / WEEK_MS);
     const firstFutureWeek = Math.floor((today - birth) / WEEK_MS) + 1;
     const candidates = [];
+    const manual = [];
     const seen = new Set();
     for (const goal of goals) {
       for (const substep of goal.substeps || []) {
-        if (seen.has(substep.id) || substep.completed ||
+        if (seen.has(substep.id) || (substep.completed && !substep.life_chosen_start_month) ||
             !substep.life_duration_months || !substep.life_earliest_month ||
             !substep.life_latest_month) continue;
         seen.add(substep.id);
@@ -220,11 +232,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const earliest = Date.parse(`${substep.life_earliest_month.slice(0, 7)}-01T00:00:00Z`);
         const [year, month] = substep.life_latest_month.slice(0, 7).split("-").map(Number);
         const latestExclusive = Date.UTC(year, month, 1);
-        candidates.push({
+        const item = {
           goal, substep, durationWeeks,
           earliestIndex: Math.max(firstFutureWeek, Math.ceil((earliest - birth) / WEEK_MS)),
           endIndex: Math.min(totalWeeks, Math.floor((latestExclusive - birth) / WEEK_MS))
-        });
+        };
+        if (substep.life_chosen_start_month) manual.push(item);
+        else candidates.push(item);
       }
     }
     // Narrower deadlines get the first chance; the result is illustrative.
@@ -235,6 +249,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const byWeek = new Map();
     const placed = [];
     const unplaced = [];
+    for (const item of manual) {
+      const startMonth = monthNumber(item.substep.life_chosen_start_month);
+      const start = Date.parse(`${monthValue(startMonth)}-01T00:00:00Z`);
+      const end = Date.parse(`${monthValue(startMonth + item.substep.life_duration_months)}-01T00:00:00Z`);
+      item.startIndex = Math.floor((start - birth) / WEEK_MS);
+      item.durationWeeks = Math.ceil((end - birth) / WEEK_MS) - item.startIndex;
+      item.manual = true;
+      placed.push(item);
+      for (let week = Math.max(0, item.startIndex);
+           week < Math.min(totalWeeks, item.startIndex + item.durationWeeks); week++) {
+        occupied[week] = 1;
+        if (!byWeek.has(week)) byWeek.set(week, []);
+        byWeek.get(week).push(item);
+      }
+    }
     for (const item of candidates) {
       let chosen = -1;
       for (let start = item.earliestIndex;
@@ -253,7 +282,8 @@ document.addEventListener("DOMContentLoaded", () => {
       placed.push(item);
       for (let week = chosen; week < chosen + item.durationWeeks; week++) {
         occupied[week] = 1;
-        byWeek.set(week, item);
+        if (!byWeek.has(week)) byWeek.set(week, []);
+        byWeek.get(week).push(item);
       }
     }
     placed.sort((a, b) => a.startIndex - b.startIndex);
@@ -283,15 +313,19 @@ document.addEventListener("DOMContentLoaded", () => {
       month: "long", year: "numeric", timeZone: "UTC"
     });
     for (const item of plan.placed) {
-      const start = birthdate.getTime() + item.startIndex * WEEK_MS;
-      const end = start + item.durationWeeks * WEEK_MS - 1;
+      const start = item.manual
+        ? Date.parse(`${item.substep.life_chosen_start_month.slice(0, 7)}-01T00:00:00Z`)
+        : birthdate.getTime() + item.startIndex * WEEK_MS;
+      const end = item.manual
+        ? Date.parse(`${monthValue(monthNumber(item.substep.life_chosen_start_month) + item.substep.life_duration_months - 1)}-01T00:00:00Z`)
+        : start + item.durationWeeks * WEEK_MS - 1;
       const button = document.createElement("button");
       button.type = "button";
       button.className = "life-weeks-plan-item";
       const possibleStart = monthLabel.format(Date.parse(`${item.substep.life_earliest_month.slice(0, 7)}-01T00:00:00Z`));
       const possibleEnd = monthLabel.format(Date.parse(`${item.substep.life_latest_month.slice(0, 7)}-01T00:00:00Z`));
-      button.textContent = `${item.substep.title} · ${item.goal.title} · ${item.durationWeeks} semaines · possible de ${possibleStart} à ${possibleEnd} · placé vers ${monthLabel.format(start)}–${monthLabel.format(end)}`;
-      button.title = "Placement indicatif. Ouvrir la sous-étape";
+      button.textContent = `${item.substep.title} · ${item.goal.title} · ${item.manual ? "choisi" : "suggestion"} ${monthLabel.format(start)}–${monthLabel.format(end)} · possible de ${possibleStart} à ${possibleEnd}`;
+      button.title = "Ouvrir la sous-étape";
       button.addEventListener("click", () => openLifeWeekSubstep(item));
       lifeWeeksPlanList.appendChild(button);
     }
@@ -349,12 +383,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const cell = document.createElement("span");
         const state = weekStart + WEEK_MS <= today ? "lived" :
           weekStart <= today ? "current" : "future";
-        const adventure = plan.byWeek.get(weekIndex);
-        cell.className = `life-week life-week-${adventure ? "planned" : state}`;
-        cell.title = adventure
-          ? `${adventure.substep.title} · ${adventure.goal.title} · placement indicatif · semaine du ${formatDate.format(weekStart)}`
+        const adventures = plan.byWeek.get(weekIndex) || [];
+        cell.className = `life-week life-week-${adventures.length ? adventures.some(item => item.manual) ? "chosen" : "planned" : state}`;
+        if (adventures.length > 1) cell.classList.add("life-week-overlap");
+        cell.title = adventures.length
+          ? `${adventures.map(item => `${item.substep.title} (${item.manual ? "choisi" : "suggestion"})`).join(" · ")} · semaine du ${formatDate.format(weekStart)}`
           : `Semaine du ${formatDate.format(weekStart)}`;
-        if (adventure) cell.addEventListener("click", () => openLifeWeekSubstep(adventure));
+        if (adventures.length === 1) cell.addEventListener("click", () => openLifeWeekSubstep(adventures[0]));
         cells.appendChild(cell);
         if (state === "lived") lived++;
         if (state === "future") future++;
@@ -414,6 +449,195 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("life-weeks-settings-link").addEventListener("click", () => {
       document.querySelector('.nav-tab[data-tab="settings-tab"]').click();
       lifeWeeksBirthdate.focus();
+    });
+  }
+
+  const goalCalendarView = document.getElementById("goal-calendar-view");
+  const goalCalendarStatus = document.getElementById("goal-calendar-status");
+  const currentMonth = new Date();
+  let goalCalendarStart = currentMonth.getFullYear() * 12 + currentMonth.getMonth() - 3;
+  let goalCalendarGoals = [];
+  const calendarMonthLabel = new Intl.DateTimeFormat("fr-CA", {
+    month: "short", year: "numeric", timeZone: "UTC"
+  });
+
+  function calendarLabel(month) {
+    return calendarMonthLabel.format(Date.parse(`${monthValue(month)}-01T00:00:00Z`));
+  }
+
+  function calendarButton(label, action) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.addEventListener("click", action);
+    return button;
+  }
+
+  function renderGoalCalendar() {
+    if (!goalCalendarView) return;
+    goalCalendarView.replaceChildren();
+    const seen = new Set();
+    const entries = [];
+    for (const goal of goalCalendarGoals) {
+      const steps = [];
+      for (const substep of goal.substeps || []) {
+        if (seen.has(substep.id)) continue;
+        seen.add(substep.id);
+        steps.push(substep);
+        entries.push({ goal, substep });
+      }
+      goal._calendarSteps = steps;
+    }
+    if (!entries.length) {
+      goalCalendarStatus.textContent = "Aucune sous-étape. Crée un objectif et ses étapes dans Objectifs & Graphes.";
+      return;
+    }
+    const counts = new Map();
+    for (const { substep } of entries) {
+      if (!substep.life_chosen_start_month || !substep.life_duration_months) continue;
+      const start = monthNumber(substep.life_chosen_start_month);
+      for (let month = start; month < start + substep.life_duration_months; month++) {
+        counts.set(month, (counts.get(month) || 0) + 1);
+      }
+    }
+    const header = document.createElement("div");
+    header.className = "goal-calendar-row goal-calendar-months";
+    const title = document.createElement("strong");
+    title.textContent = "Objectifs / sous-étapes";
+    header.appendChild(title);
+    for (let offset = 0; offset < 24; offset++) {
+      const month = goalCalendarStart + offset;
+      const cell = document.createElement("span");
+      cell.textContent = calendarLabel(month);
+      if ((counts.get(month) || 0) > 1) {
+        cell.className = "goal-calendar-busy";
+        cell.title = `${counts.get(month)} sous-étapes choisies sur ce mois`;
+      }
+      header.appendChild(cell);
+    }
+    goalCalendarView.appendChild(header);
+    for (const goal of goalCalendarGoals) {
+      if (!goal._calendarSteps.length) continue;
+      const heading = document.createElement("h3");
+      heading.className = "goal-calendar-goal";
+      heading.textContent = goal.title;
+      goalCalendarView.appendChild(heading);
+      for (const substep of goal._calendarSteps) {
+        const row = document.createElement("div");
+        row.className = "goal-calendar-row";
+        const label = document.createElement("div");
+        label.className = "goal-calendar-label";
+        label.appendChild(calendarButton(substep.title, () => openLifeWeekSubstep({ goal, substep })));
+        if (substep.completed) label.classList.add("goal-calendar-completed");
+        row.appendChild(label);
+        const hasWindow = Boolean(substep.life_duration_months && substep.life_earliest_month && substep.life_latest_month);
+        const first = hasWindow ? monthNumber(substep.life_earliest_month) : -1;
+        const last = hasWindow ? monthNumber(substep.life_latest_month) : -1;
+        const chosen = substep.life_chosen_start_month ? monthNumber(substep.life_chosen_start_month) : -1;
+        for (let offset = 0; offset < 24; offset++) {
+          const month = goalCalendarStart + offset;
+          const cell = document.createElement("span");
+          cell.className = "goal-calendar-cell";
+          if (hasWindow && month >= first && month <= last) cell.classList.add("goal-calendar-possible");
+          if (chosen >= 0 && month >= chosen && month < chosen + substep.life_duration_months) {
+            cell.classList.add("goal-calendar-chosen");
+          }
+          if (month === currentMonth.getFullYear() * 12 + currentMonth.getMonth()) {
+            cell.classList.add("goal-calendar-current");
+          }
+          row.appendChild(cell);
+        }
+        goalCalendarView.appendChild(row);
+        const controls = document.createElement("div");
+        controls.className = "goal-calendar-placement";
+        if (!hasWindow || last - first + 1 < substep.life_duration_months) {
+          controls.append(hasWindow
+            ? "La durée dépasse la fenêtre possible. "
+            : "Ajoute d'abord une durée et une fenêtre possible. ");
+          controls.appendChild(calendarButton("Configurer", () => openLifeWeekSubstep({ goal, substep })));
+        } else {
+          const possible = document.createElement("span");
+          possible.textContent = `Possible : ${calendarLabel(first)} → ${calendarLabel(last)} · durée ${substep.life_duration_months} mois`;
+          controls.appendChild(possible);
+          const form = document.createElement("form");
+          form.className = "goal-calendar-form";
+          const inputLabel = document.createElement("label");
+          inputLabel.textContent = "Début choisi ";
+          const input = document.createElement("input");
+          input.type = "month";
+          input.required = true;
+          input.min = monthValue(first);
+          input.max = monthValue(last - substep.life_duration_months + 1);
+          input.value = substep.life_chosen_start_month?.slice(0, 7) || "";
+          inputLabel.appendChild(input);
+          form.appendChild(inputLabel);
+          form.appendChild(calendarButton("Enregistrer", () => form.requestSubmit()));
+          if (substep.life_chosen_start_month) {
+            form.appendChild(calendarButton("Retirer le choix", () => saveGoalCalendarPlacement(substep, null)));
+          }
+          form.addEventListener("submit", event => {
+            event.preventDefault();
+            saveGoalCalendarPlacement(substep, `${input.value}-01`);
+          });
+          controls.appendChild(form);
+        }
+        goalCalendarView.appendChild(controls);
+      }
+    }
+    goalCalendarStatus.textContent = "Plusieurs périodes choisies peuvent se chevaucher. Les mois chargés sont signalés en ambre.";
+  }
+
+  async function saveGoalCalendarPlacement(substep, chosenStart) {
+    try {
+      const response = await fetch(`${API_BASE}/substeps/${substep.id}/life-placement`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chosen_start_month: chosenStart })
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(typeof error.detail === "string" ? error.detail : "Période invalide");
+      }
+      substep.life_chosen_start_month = chosenStart;
+      lifeWeeksGoals = goalCalendarGoals;
+      renderGoalCalendar();
+      renderLifeWeeks();
+      showToast(chosenStart ? "Période choisie enregistrée" : "Période choisie retirée");
+    } catch (error) {
+      showToast(error.message || "Impossible d'enregistrer la période", true);
+    }
+  }
+
+  async function loadGoalCalendar() {
+    try {
+      const response = await fetch(`${API_BASE}/goals`);
+      if (!response.ok) throw new Error("Objectifs indisponibles");
+      goalCalendarGoals = await response.json();
+      renderGoalCalendar();
+    } catch (error) {
+      goalCalendarStatus.textContent = "Impossible de charger le calendrier des objectifs.";
+      goalCalendarView.replaceChildren();
+    }
+  }
+
+  if (goalCalendarView) {
+    document.getElementById("goal-calendar-prev").addEventListener("click", () => {
+      goalCalendarStart -= 12;
+      renderGoalCalendar();
+    });
+    document.getElementById("goal-calendar-next").addEventListener("click", () => {
+      goalCalendarStart += 12;
+      renderGoalCalendar();
+    });
+    document.getElementById("goal-calendar-today").addEventListener("click", () => {
+      goalCalendarStart = currentMonth.getFullYear() * 12 + currentMonth.getMonth() - 3;
+      renderGoalCalendar();
+    });
+    document.getElementById("goal-calendar-jump-btn").addEventListener("click", () => {
+      const value = document.getElementById("goal-calendar-jump").value;
+      if (!value) return;
+      goalCalendarStart = monthNumber(value) - 3;
+      renderGoalCalendar();
     });
   }
 

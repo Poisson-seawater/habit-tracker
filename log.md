@@ -3,6 +3,13 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-09-22 — feat(goals): calendrier mensuel des objectifs
+
+- Nouvelle vue Gantt légère des objectifs et sous-étapes : fenêtre possible pâle, période choisie vive, navigation par 24 mois et signalement des mois chargés.
+- Un mois de départ choisi est enregistré par sous-étape; la durée estimée fixe sa fin. Migration idempotente v35, route dédiée, validation de la fenêtre et préservation lors des éditions classiques. Un changement de fenêtre qui rend le choix impossible le retire.
+- Ma vie en semaines affiche les choix manuels en priorité, accepte leurs chevauchements et place automatiquement les autres sous-étapes dans les espaces libres. Aucun effet sur l'agenda ou le score. Documentation et tests API mis à jour.
+- Validation : 302 tests backend, Black, syntaxe JavaScript et `git diff --check` réussis. API Compose locale seule reconstruite après sauvegarde SQLite; `/health` répond 200, v35 s'est appliquée et OpenAPI expose la route. Chrome headless avec données synthétiques confirme le Gantt, les mois chargés, l'enregistrement depuis le formulaire et les semaines partagées.
+
 ## 2026-09-22 — feat(life-weeks): placer les aventures des objectifs sur la grille
 
 - Les sous-étapes peuvent recevoir une durée estimée en mois et une fenêtre de départ/fin approximative. Migration idempotente v34; les anciens clients qui omettent ces champs pendant une édition préservent les valeurs existantes.

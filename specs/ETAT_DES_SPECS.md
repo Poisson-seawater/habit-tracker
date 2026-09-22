@@ -80,3 +80,8 @@ Current source of truth for implemented behavior is the code plus `README.md`,
   substeps. The dashboard places configured substeps in non-overlapping future
   week blocks; unplaced items remain visible. This is perspective metadata only,
   with no scoring, goal-completion, or agenda effect.
+- The monthly goal calendar was implemented on 2026-09-22 without a separate
+  Spec Kit folder. Migration v35 adds an optional chosen start month to a
+  substep; its estimated duration determines the chosen end. The dashboard
+  displays possible windows and chosen periods, and My Life in Weeks honors
+  chosen periods before placing the remaining substeps automatically.

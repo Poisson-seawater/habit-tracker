@@ -1601,6 +1601,21 @@ def _run_migrations():
             db.commit()
             inspector = inspect(engine)
 
+        # v35: An explicit month chosen for an objective substep's time block.
+        if "substeps" in inspect(engine).get_table_names():
+            substep_columns = {
+                column["name"] for column in inspect(engine).get_columns("substeps")
+            }
+            if "life_chosen_start_month" not in substep_columns:
+                print(
+                    "Running migration v35: adding substeps.life_chosen_start_month..."
+                )
+                db.execute(
+                    text("ALTER TABLE substeps ADD COLUMN life_chosen_start_month DATE")
+                )
+                db.commit()
+                inspector = inspect(engine)
+
         # v19: Destructively remove the legacy RPG stat/tag columns.
         v19_dropped = False
         for table, columns in {

@@ -828,3 +828,84 @@ def test_life_weeks_window_on_substep_is_optional_and_preserved():
         assert response.json()["substep"]["life_duration_months"] is None
     finally:
         client.delete(f"/api/v1/goals/{goal_id}")
+
+
+def test_substep_chosen_month_stays_in_window_and_survives_legacy_update():
+    goal_id = client.post("/api/v1/goals", json={"title": "Calendrier"}).json()["goal"][
+        "id"
+    ]
+    try:
+        created = client.post(
+            f"/api/v1/goals/{goal_id}/substeps",
+            json={
+                "title": "Projet A",
+                "life_duration_months": 3,
+                "life_earliest_month": "2027-01-01",
+                "life_latest_month": "2027-06-01",
+            },
+        )
+        assert created.status_code == 201
+        substep_id = created.json()["substep"]["id"]
+        endpoint = f"/api/v1/substeps/{substep_id}/life-placement"
+        assert (
+            client.put(endpoint, json={"chosen_start_month": "2027-05-01"}).status_code
+            == 422
+        )
+        assert (
+            client.put(endpoint, json={"chosen_start_month": "2027-02-10"}).status_code
+            == 422
+        )
+        chosen = client.put(endpoint, json={"chosen_start_month": "2027-03-01"})
+        assert chosen.status_code == 200
+        assert chosen.json()["life_chosen_start_month"] == "2027-03-01"
+        listed = client.get("/api/v1/goals").json()
+        assert (
+            next(g for g in listed if g["id"] == goal_id)["substeps"][0][
+                "life_chosen_start_month"
+            ]
+            == "2027-03-01"
+        )
+        edited = client.put(
+            f"/api/v1/substeps/{substep_id}", json={"title": "Projet A"}
+        )
+        assert edited.json()["substep"]["life_chosen_start_month"] == "2027-03-01"
+        second = client.post(
+            f"/api/v1/goals/{goal_id}/substeps",
+            json={
+                "title": "Projet B",
+                "life_duration_months": 2,
+                "life_earliest_month": "2027-01-01",
+                "life_latest_month": "2027-06-01",
+            },
+        )
+        other_endpoint = (
+            f"/api/v1/substeps/{second.json()['substep']['id']}/life-placement"
+        )
+        assert (
+            client.put(
+                other_endpoint, json={"chosen_start_month": "2027-03-01"}
+            ).status_code
+            == 200
+        )
+        assert (
+            client.put(endpoint, json={"chosen_start_month": None}).json()[
+                "life_chosen_start_month"
+            ]
+            is None
+        )
+        assert (
+            client.put(endpoint, json={"chosen_start_month": "2027-03-01"}).status_code
+            == 200
+        )
+        narrowed = client.put(
+            f"/api/v1/substeps/{substep_id}",
+            json={
+                "title": "Projet A",
+                "life_duration_months": 3,
+                "life_earliest_month": "2027-01-01",
+                "life_latest_month": "2027-04-01",
+            },
+        )
+        assert narrowed.json()["substep"]["life_chosen_start_month"] is None
+    finally:
+        client.delete(f"/api/v1/goals/{goal_id}")

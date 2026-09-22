@@ -394,6 +394,31 @@ class SubStepUpdate(SubStepLifeWindow):
     effort_duration: Optional[float] = 1.0
 
 
+class SubStepLifePlacement(BaseModel):
+    chosen_start_month: Optional[datetime.date] = None
+
+    @model_validator(mode="after")
+    def validate_month(self):
+        if self.chosen_start_month and self.chosen_start_month.day != 1:
+            raise ValueError("La période choisie doit commencer le premier du mois")
+        return self
+
+
+def life_placement_fits(substep: SubStep, start: datetime.date) -> bool:
+    if not (
+        substep.life_duration_months
+        and substep.life_earliest_month
+        and substep.life_latest_month
+    ):
+        return False
+    first = start.year * 12 + start.month - 1
+    earliest = (
+        substep.life_earliest_month.year * 12 + substep.life_earliest_month.month - 1
+    )
+    latest = substep.life_latest_month.year * 12 + substep.life_latest_month.month - 1
+    return earliest <= first and first + substep.life_duration_months - 1 <= latest
+
+
 class SubStepLinkRequest(BaseModel):
     goal_id: int
     substep_id: int
@@ -1986,6 +2011,11 @@ def get_goals(
                     "life_latest_month": (
                         s.life_latest_month.isoformat() if s.life_latest_month else None
                     ),
+                    "life_chosen_start_month": (
+                        s.life_chosen_start_month.isoformat()
+                        if s.life_chosen_start_month
+                        else None
+                    ),
                 }
             )
 
@@ -2100,6 +2130,7 @@ def create_goal_with_substeps(
                     if substep.life_latest_month
                     else None
                 ),
+                "life_chosen_start_month": None,
             }
         )
 
@@ -2227,6 +2258,7 @@ def create_substep(
                 if substep.life_latest_month
                 else None
             ),
+            "life_chosen_start_month": None,
         },
     }
 
@@ -2336,6 +2368,10 @@ def update_substep(
         substep.life_duration_months = payload.life_duration_months
         substep.life_earliest_month = payload.life_earliest_month
         substep.life_latest_month = payload.life_latest_month
+        if substep.life_chosen_start_month and not life_placement_fits(
+            substep, substep.life_chosen_start_month
+        ):
+            substep.life_chosen_start_month = None
 
     db.commit()
     db.refresh(substep)
@@ -2362,7 +2398,41 @@ def update_substep(
                 if substep.life_latest_month
                 else None
             ),
+            "life_chosen_start_month": (
+                substep.life_chosen_start_month.isoformat()
+                if substep.life_chosen_start_month
+                else None
+            ),
         },
+    }
+
+
+@router.put("/substeps/{substep_id}/life-placement")
+def set_substep_life_placement(
+    substep_id: int,
+    payload: SubStepLifePlacement,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    substep = db.query(SubStep).filter_by(id=substep_id, user_id=user_id).first()
+    if not substep:
+        raise HTTPException(status_code=404, detail="Substep not found")
+    if payload.chosen_start_month and not life_placement_fits(
+        substep, payload.chosen_start_month
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="La période choisie doit tenir dans la fenêtre possible",
+        )
+    substep.life_chosen_start_month = payload.chosen_start_month
+    db.commit()
+    return {
+        "status": "success",
+        "life_chosen_start_month": (
+            substep.life_chosen_start_month.isoformat()
+            if substep.life_chosen_start_month
+            else None
+        ),
     }
 
 

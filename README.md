@@ -229,6 +229,22 @@ fenêtres des sous-étapes sont conservées avec les objectifs. La grille repren
 le concept « Your Life in Weeks » : une petite case par semaine, sans prédire
 la durée de vie.
 
+### Done — calendrier des objectifs, vue Gantt légère
+
+Le dashboard affiche les objectifs et leurs sous-étapes sur une échelle
+mensuelle. Chaque sous-étape distingue sa **fenêtre possible** (pâle) de la
+**période choisie** (bloc net). Le mois de départ choisi se règle directement
+dans cette vue; la durée estimée fixe le mois de fin.
+Une sous-étape sans période choisie garde sa fenêtre possible visible.
+
+Le choix manuel devient le placement de référence dans **Ma vie en semaines**.
+Son placement automatique ne concerne que les sous-étapes sans période choisie.
+Les périodes choisies de plusieurs objectifs peuvent se chevaucher : la vue
+signale les mois chargés sans refuser le placement.
+Le Gantt sert à situer les jalons et les projets dans le temps; les périodes
+possibles restent des hypothèses, et une période choisie est un choix de
+planification explicite.
+
 ### Now — The Jar of Life, les gros cailloux d'abord
 
 Une vue hebdomadaire d'allocation de l'attention, inspirée de
@@ -270,10 +286,8 @@ capacité, pas un bocal de reps.
 - Concevoir la matrice d'Eisenhower sur les **actions** (To-dos et occurrences
   de quêtes), pas sur les objectifs ou compétences eux-mêmes. Les tags servent
   à expliquer l'impact d'une action dans la matrice.
-- Ajouter un **diagramme de Gantt** pour suivre la progression dans le temps et
-  rendre lisibles les liens entre objectifs, jalons et projections d'ambition.
-  Explorer aussi d'autres visualisations de progression personnelle afin de ne
-  pas perdre le présent au milieu de tous les objectifs et horizons futurs.
+- Explorer d'autres visualisations de progression personnelle afin de ne pas
+  perdre le présent au milieu de tous les objectifs et horizons futurs.
 - Ajouter un **compteur pour les activités libres** qui ne sont ni des To-dos ni
   des quêtes obligatoires, ainsi qu'une réserve d'idées ou d'actions aléatoires à
   faire apparaître le dimanche, inspirée de la méthode du « 8e jour de la

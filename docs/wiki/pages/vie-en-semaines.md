@@ -27,13 +27,29 @@ le dernier mois où elle devrait être terminée. Par exemple, 18 mois entre
 janvier 2027 et septembre 2061. Ces mois sont des repères approximatifs;
 ils restent fixes après l'enregistrement.
 
-Le graphe place automatiquement chaque sous-étape configurée dans cette
-fenêtre. Les blocs verts représentent la durée estimée en semaines. Ils sont
-placés à la suite, sans chevauchement, et ne réservent aucune date dans
-l'agenda. Une sous-étape liée à plusieurs objectifs n'est placée qu'une fois.
+Le graphe place automatiquement chaque sous-étape configurée sans période
+choisie dans cette fenêtre. Les blocs verts représentent une suggestion : ils
+sont placés à la suite, sans chevauchement. Une sous-étape liée à plusieurs
+objectifs n'est placée qu'une fois.
+
+Dans **Calendrier des objectifs**, tu peux choisir un mois de départ. La durée
+estimée détermine alors la fin de la période. La bande pâle montre la fenêtre
+possible et la bande vive la période choisie. Ce choix est enregistré avec la
+sous-étape et apparaît en cyan dans Ma vie en semaines. Plusieurs périodes
+choisies peuvent se chevaucher; les semaines partagées sont rayées et les mois
+chargés sont signalés dans le calendrier. Les suggestions automatiques évitent
+les périodes choisies. Retirer le choix rend la sous-étape au placement
+automatique. Aucun de ces placements ne réserve de temps dans l'agenda.
+
 Clique sur son nom ou sur une de ses semaines pour rouvrir sa fiche.
 
 Si aucune place automatique n'est trouvée avant la fin de sa fenêtre, la
 sous-étape apparaît comme **non placée**. Les sous-étapes sans ces trois valeurs
 ne sont pas ajoutées au graphe. Vider les trois champs retire une aventure du
 graphe sans supprimer la sous-étape.
+
+Le calendrier montre 24 mois à la fois. Les boutons permettent d'avancer ou
+reculer de 12 mois, et **Aller à** saute directement au mois demandé. Si tu
+modifies une fenêtre de façon à exclure une période déjà choisie, le choix est
+retiré et la sous-étape revient au placement
+automatique.

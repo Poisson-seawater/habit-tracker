@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=11">
+  <link rel="stylesheet" href="css/style.css?v=12">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -794,6 +794,7 @@
       <div class="nav-links">
         <button class="nav-tab active" data-tab="dashboard-tab">⚔️ Dashboard</button>
         <button class="nav-tab" data-tab="goals-tab">🏆 Objectifs & Graphes</button>
+        <button class="nav-tab" data-tab="goal-calendar-tab">▤ Calendrier des objectifs</button>
         <button class="nav-tab" data-tab="life-weeks-tab">▦ Ma vie en semaines</button>
         <button class="nav-tab" data-tab="softskills-tab">🌳 Softskills</button>
         <button class="nav-tab" data-tab="notodo-tab">🚫 NO To-Do</button>
@@ -1419,6 +1420,27 @@
       </div> <!-- Close #creators-drawer -->
     </div> <!-- Close #goals-tab -->
 
+    <section id="goal-calendar-tab" class="tab-content" aria-labelledby="goal-calendar-title">
+      <div class="glass-card goal-calendar-card">
+        <div class="goal-calendar-heading">
+          <div>
+            <p class="life-weeks-eyebrow">Vue mensuelle</p>
+            <h2 id="goal-calendar-title">Calendrier des objectifs</h2>
+            <p>La bande pâle montre la fenêtre possible. La bande vive montre la période que tu as choisie.</p>
+          </div>
+          <div class="goal-calendar-controls">
+            <button type="button" id="goal-calendar-prev">← 12 mois</button>
+            <button type="button" id="goal-calendar-today">Aujourd'hui</button>
+            <button type="button" id="goal-calendar-next">12 mois →</button>
+            <label for="goal-calendar-jump">Aller à <input type="month" id="goal-calendar-jump"></label>
+            <button type="button" id="goal-calendar-jump-btn">Afficher</button>
+          </div>
+        </div>
+        <p id="goal-calendar-status" role="status" aria-live="polite"></p>
+        <div id="goal-calendar-view" class="goal-calendar-scroll"></div>
+      </div>
+    </section>
+
     <!-- A personal perspective view, independent from daily scores. -->
     <section id="life-weeks-tab" class="tab-content" aria-labelledby="life-weeks-title">
       <div class="glass-card life-weeks-card">
@@ -1437,6 +1459,7 @@
             <span><i class="life-week life-week-current"></i> En cours</span>
             <span><i class="life-week life-week-future"></i> À venir</span>
             <span><i class="life-week life-week-planned"></i> Aventure possible</span>
+            <span><i class="life-week life-week-chosen"></i> Période choisie</span>
           </div>
           <div id="life-weeks-plan-list" class="life-weeks-plan-list" aria-live="polite"></div>
           <p class="life-weeks-hint">Chaque ligne correspond à une année d'âge. Survole une case pour voir sa date.</p>
@@ -2354,6 +2377,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.16"></script>
+  <script src="js/app.js?v=1.0.17"></script>
 </body>
 </html>
