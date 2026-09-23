@@ -3,6 +3,11 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-09-22 — docs(goals): expliquer les données des objectifs et perspectives
+
+- Copie de l'explication pédagogique dans la page wiki « Des objectifs aux perspectives », avec schéma, exemple et limites du placement automatique.
+- Liens ajoutés depuis les pages Objectifs et Ma vie en semaines.
+
 ## 2026-09-22 — fix(front): réunir les vues de perspective dans un onglet
 
 - Un seul onglet principal « Perspectives » regroupe Calendrier des objectifs et Ma vie en semaines. Deux boutons internes affichent une seule vue à la fois, avec état sélectionné accessible et focus clavier visible.

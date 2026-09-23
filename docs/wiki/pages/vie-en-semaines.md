@@ -1,5 +1,7 @@
 # Ma vie en semaines
 
+Pour comprendre les données derrière ces vues, lis [Des objectifs aux perspectives](#/objectifs-et-perspectives).
+
 Dans l'onglet **Perspectives**, les deux boutons en haut permettent de choisir
 **Calendrier des objectifs** ou **Ma vie en semaines**. Le calendrier s'ouvre
 par défaut; ensuite, ta vue choisie est conservée quand tu quittes l'onglet

@@ -2,6 +2,8 @@
 
 Ce sont tes grands buts de vie : un tour du monde, un gros projet. Tu les découpes en sous-étapes reliées entre elles. Valider une sous-étape à la main te rapporte de l'Or permanent.
 
+Pour comprendre comment ces données alimentent le calendrier et la grille de vie, lis [Des objectifs aux perspectives](#/objectifs-et-perspectives).
+
 ## Le graphe d'objectifs
 
 - Un objectif (ex. « Tour du monde ») se découpe en **sous-étapes**.
