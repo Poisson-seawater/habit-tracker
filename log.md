@@ -3,6 +3,13 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-09-22 — fix(front): réunir les vues de perspective dans un onglet
+
+- Un seul onglet principal « Perspectives » regroupe Calendrier des objectifs et Ma vie en semaines. Deux boutons internes affichent une seule vue à la fois, avec état sélectionné accessible et focus clavier visible.
+- Le calendrier est affiché par défaut; le choix reste mémorisé pendant les changements d'onglet et la vue sélectionnée recharge ses données au retour. Les sections internes sont indépendantes de la navigation principale.
+- README, wiki et versions des assets actualisés. Aucun changement backend, DB ou Telegram.
+- Validation : syntaxe JavaScript, `git diff --check` et neuf contrôles Chrome headless de navigation avec chargements simulés réussis; rendu du sélecteur inspecté.
+
 ## 2026-09-22 — fix(goals): filtrer le calendrier et inscrire les dates dans les barres
 
 - Filtre par objectif (Tous, puis titres existants), conservé pendant la navigation et les enregistrements. Une sous-étape partagée reste visible quand un de ses objectifs est sélectionné; état vide explicite si nécessaire.

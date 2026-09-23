@@ -1,6 +1,11 @@
 # Ma vie en semaines
 
-L'onglet **Ma vie en semaines** montre le temps à grande échelle : chaque case
+Dans l'onglet **Perspectives**, les deux boutons en haut permettent de choisir
+**Calendrier des objectifs** ou **Ma vie en semaines**. Le calendrier s'ouvre
+par défaut; ensuite, ta vue choisie est conservée quand tu quittes l'onglet
+et y reviens, jusqu'au rechargement de la page.
+
+La vue **Ma vie en semaines** montre le temps à grande échelle : chaque case
 représente une semaine depuis ta naissance. Les cases déjà traversées, la
 semaine en cours et les semaines à venir ont des couleurs distinctes. Chaque
 ligne correspond à une année d'âge, donc certaines lignes ont 53 cases.

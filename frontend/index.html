@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=13">
+  <link rel="stylesheet" href="css/style.css?v=14">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -794,8 +794,7 @@
       <div class="nav-links">
         <button class="nav-tab active" data-tab="dashboard-tab">⚔️ Dashboard</button>
         <button class="nav-tab" data-tab="goals-tab">🏆 Objectifs & Graphes</button>
-        <button class="nav-tab" data-tab="goal-calendar-tab">▤ Calendrier des objectifs</button>
-        <button class="nav-tab" data-tab="life-weeks-tab">▦ Ma vie en semaines</button>
+        <button class="nav-tab" data-tab="perspectives-tab">▦ Perspectives</button>
         <button class="nav-tab" data-tab="softskills-tab">🌳 Softskills</button>
         <button class="nav-tab" data-tab="notodo-tab">🚫 NO To-Do</button>
         <button class="nav-tab" data-tab="settings-tab">⚙️ Paramètres</button>
@@ -1420,7 +1419,13 @@
       </div> <!-- Close #creators-drawer -->
     </div> <!-- Close #goals-tab -->
 
-    <section id="goal-calendar-tab" class="tab-content" aria-labelledby="goal-calendar-title">
+    <section id="perspectives-tab" class="tab-content" aria-label="Perspectives">
+      <div class="perspective-switch glass-card" role="group" aria-label="Choisir une vue">
+        <button type="button" class="perspective-view-button" data-perspective="goal-calendar-tab" aria-controls="goal-calendar-tab" aria-pressed="true">▤ Calendrier des objectifs</button>
+        <button type="button" class="perspective-view-button" data-perspective="life-weeks-tab" aria-controls="life-weeks-tab" aria-pressed="false">▦ Ma vie en semaines</button>
+      </div>
+
+    <section id="goal-calendar-tab" class="perspective-view" aria-labelledby="goal-calendar-title">
       <div class="glass-card goal-calendar-card">
         <div class="goal-calendar-heading">
           <div>
@@ -1445,7 +1450,7 @@
     </section>
 
     <!-- A personal perspective view, independent from daily scores. -->
-    <section id="life-weeks-tab" class="tab-content" aria-labelledby="life-weeks-title">
+    <section id="life-weeks-tab" class="perspective-view" aria-labelledby="life-weeks-title" hidden>
       <div class="glass-card life-weeks-card">
         <div class="life-weeks-heading">
           <div>
@@ -1472,6 +1477,8 @@
         </div>
       </div>
     </section>
+
+    </section> <!-- Close #perspectives-tab -->
 
     <!-- ============================================== -->
     <!-- SCREEN 2.5: REWARDS SHOP TAB                   -->
@@ -2380,6 +2387,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.18"></script>
+  <script src="js/app.js?v=1.0.19"></script>
 </body>
 </html>

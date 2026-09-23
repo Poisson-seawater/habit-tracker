@@ -29,6 +29,30 @@ document.addEventListener("DOMContentLoaded", () => {
   // Navigation Tabs
   const navTabs = document.querySelectorAll(".nav-tab");
   const tabContents = document.querySelectorAll(".tab-content");
+  const perspectiveButtons = document.querySelectorAll(".perspective-view-button");
+  const perspectiveViews = document.querySelectorAll(".perspective-view");
+  let activePerspective = "goal-calendar-tab";
+
+  function loadActivePerspective() {
+    if (activePerspective === "life-weeks-tab") {
+      loadLifeWeeks();
+    } else {
+      loadGoalCalendar();
+    }
+  }
+
+  perspectiveButtons.forEach(button => {
+    button.addEventListener("click", () => {
+      activePerspective = button.dataset.perspective;
+      perspectiveButtons.forEach(item => {
+        item.setAttribute("aria-pressed", String(item === button));
+      });
+      perspectiveViews.forEach(view => {
+        view.hidden = view.id !== activePerspective;
+      });
+      loadActivePerspective();
+    });
+  });
 
   navTabs.forEach(tab => {
     tab.addEventListener("click", () => {
@@ -56,10 +80,8 @@ document.addEventListener("DOMContentLoaded", () => {
         fetchSoftskills();
       } else if (targetTab === "rewards-tab") {
         fetchRewards();
-      } else if (targetTab === "life-weeks-tab") {
-        loadLifeWeeks();
-      } else if (targetTab === "goal-calendar-tab") {
-        loadGoalCalendar();
+      } else if (targetTab === "perspectives-tab") {
+        loadActivePerspective();
       }
     });
   });

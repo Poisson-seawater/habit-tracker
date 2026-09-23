@@ -235,6 +235,10 @@ la durée de vie.
 
 ### Done — calendrier des objectifs, vue Gantt légère
 
+L'onglet **Perspectives** regroupe **Calendrier des objectifs** et **Ma vie en
+semaines**. Les deux boutons en haut permettent de choisir la vue; ce choix
+est conservé lors des changements d'onglet pendant la session.
+
 Le dashboard affiche les objectifs et leurs sous-étapes sur une échelle
 mensuelle. Chaque sous-étape distingue sa **fenêtre possible** (pâle) de la
 **période choisie** (bloc net). Le mois de départ choisi se règle directement
