@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=12">
+  <link rel="stylesheet" href="css/style.css?v=13">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -1426,9 +1426,12 @@
           <div>
             <p class="life-weeks-eyebrow">Vue mensuelle</p>
             <h2 id="goal-calendar-title">Calendrier des objectifs</h2>
-            <p>La bande pâle montre la fenêtre possible. La bande vive montre la période que tu as choisie.</p>
+            <p>Les dates sont inscrites dans les barres : fenêtre possible en pâle, période choisie en vif.</p>
           </div>
           <div class="goal-calendar-controls">
+            <label for="goal-calendar-filter">Objectif
+              <select id="goal-calendar-filter"><option value="">Tous les objectifs</option></select>
+            </label>
             <button type="button" id="goal-calendar-prev">← 12 mois</button>
             <button type="button" id="goal-calendar-today">Aujourd'hui</button>
             <button type="button" id="goal-calendar-next">12 mois →</button>
@@ -2377,6 +2380,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.17"></script>
+  <script src="js/app.js?v=1.0.18"></script>
 </body>
 </html>

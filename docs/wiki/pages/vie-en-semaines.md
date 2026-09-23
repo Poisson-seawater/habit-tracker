@@ -49,7 +49,18 @@ ne sont pas ajoutées au graphe. Vider les trois champs retire une aventure du
 graphe sans supprimer la sous-étape.
 
 Le calendrier montre 24 mois à la fois. Les boutons permettent d'avancer ou
-reculer de 12 mois, et **Aller à** saute directement au mois demandé. Si tu
+reculer de 12 mois, et **Aller à** saute directement au mois demandé.
+Le filtre **Objectif** affiche tous les objectifs ou seulement celui choisi,
+avec ses sous-étapes, y compris celles partagées avec un autre objectif.
+Les dates sont écrites dans les barres au format **04/2027 → 09/2027**,
+sans axe des dates au-dessus. La fenêtre possible et la période choisie
+occupent chacune une bande dans la même ligne. Une période d'un seul mois
+affiche simplement **04/2027**. Si une barre dépasse la vue, ses dates
+complètes restent indiquées et ses bords sont en pointillés.
+Les chevauchements entre les sous-étapes affichées sont signalés par une
+bordure ambre et un indicateur dans la ligne.
+
+Si tu
 modifies une fenêtre de façon à exclure une période déjà choisie, le choix est
 retiré et la sous-étape revient au placement
 automatique.

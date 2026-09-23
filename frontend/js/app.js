@@ -454,15 +454,42 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const goalCalendarView = document.getElementById("goal-calendar-view");
   const goalCalendarStatus = document.getElementById("goal-calendar-status");
+  const goalCalendarFilter = document.getElementById("goal-calendar-filter");
   const currentMonth = new Date();
   let goalCalendarStart = currentMonth.getFullYear() * 12 + currentMonth.getMonth() - 3;
   let goalCalendarGoals = [];
-  const calendarMonthLabel = new Intl.DateTimeFormat("fr-CA", {
-    month: "short", year: "numeric", timeZone: "UTC"
-  });
-
   function calendarLabel(month) {
-    return calendarMonthLabel.format(Date.parse(`${monthValue(month)}-01T00:00:00Z`));
+    const [year, number] = monthValue(month).split("-");
+    return `${number}/${year}`;
+  }
+
+  function calendarPeriodLabel(first, last) {
+    return first === last ? calendarLabel(first) : `${calendarLabel(first)} → ${calendarLabel(last)}`;
+  }
+
+  function appendCalendarBar(track, first, last, kind, busyMonths = []) {
+    const visibleFirst = Math.max(first, goalCalendarStart);
+    const visibleLast = Math.min(last, goalCalendarStart + 23);
+    if (visibleFirst > visibleLast) return;
+    const bar = document.createElement("div");
+    bar.className = `goal-calendar-bar goal-calendar-${kind}`;
+    bar.style.gridColumn = `${visibleFirst - goalCalendarStart + 1} / ${visibleLast - goalCalendarStart + 2}`;
+    const period = calendarPeriodLabel(first, last);
+    const name = kind === "possible" ? "Fenêtre possible" : "Période choisie";
+    bar.title = `${name} : ${period}`;
+    if (first < visibleFirst || last > visibleLast) {
+      bar.classList.add("goal-calendar-clipped");
+      bar.title += " · période partiellement visible";
+    }
+    if (busyMonths.length) {
+      bar.classList.add("goal-calendar-busy");
+      bar.title += ` · Chevauchement : ${busyMonths.map(calendarLabel).join(", ")}`;
+    }
+    bar.setAttribute("aria-label", bar.title);
+    const dates = document.createElement("span");
+    dates.textContent = period;
+    bar.appendChild(dates);
+    track.appendChild(bar);
   }
 
   function calendarButton(label, action) {
@@ -478,7 +505,10 @@ document.addEventListener("DOMContentLoaded", () => {
     goalCalendarView.replaceChildren();
     const seen = new Set();
     const entries = [];
-    for (const goal of goalCalendarGoals) {
+    const visibleGoals = goalCalendarGoals.filter(goal =>
+      !goalCalendarFilter.value || String(goal.id) === goalCalendarFilter.value
+    );
+    for (const goal of visibleGoals) {
       const steps = [];
       for (const substep of goal.substeps || []) {
         if (seen.has(substep.id)) continue;
@@ -489,7 +519,9 @@ document.addEventListener("DOMContentLoaded", () => {
       goal._calendarSteps = steps;
     }
     if (!entries.length) {
-      goalCalendarStatus.textContent = "Aucune sous-étape. Crée un objectif et ses étapes dans Objectifs & Graphes.";
+      goalCalendarStatus.textContent = goalCalendarFilter.value
+        ? "Aucune sous-étape pour cet objectif. Ajoute ses étapes dans Objectifs & Graphes."
+        : "Aucune sous-étape. Crée un objectif et ses étapes dans Objectifs & Graphes.";
       return;
     }
     const counts = new Map();
@@ -500,23 +532,7 @@ document.addEventListener("DOMContentLoaded", () => {
         counts.set(month, (counts.get(month) || 0) + 1);
       }
     }
-    const header = document.createElement("div");
-    header.className = "goal-calendar-row goal-calendar-months";
-    const title = document.createElement("strong");
-    title.textContent = "Objectifs / sous-étapes";
-    header.appendChild(title);
-    for (let offset = 0; offset < 24; offset++) {
-      const month = goalCalendarStart + offset;
-      const cell = document.createElement("span");
-      cell.textContent = calendarLabel(month);
-      if ((counts.get(month) || 0) > 1) {
-        cell.className = "goal-calendar-busy";
-        cell.title = `${counts.get(month)} sous-étapes choisies sur ce mois`;
-      }
-      header.appendChild(cell);
-    }
-    goalCalendarView.appendChild(header);
-    for (const goal of goalCalendarGoals) {
+    for (const goal of visibleGoals) {
       if (!goal._calendarSteps.length) continue;
       const heading = document.createElement("h3");
       heading.className = "goal-calendar-goal";
@@ -534,19 +550,27 @@ document.addEventListener("DOMContentLoaded", () => {
         const first = hasWindow ? monthNumber(substep.life_earliest_month) : -1;
         const last = hasWindow ? monthNumber(substep.life_latest_month) : -1;
         const chosen = substep.life_chosen_start_month ? monthNumber(substep.life_chosen_start_month) : -1;
-        for (let offset = 0; offset < 24; offset++) {
-          const month = goalCalendarStart + offset;
-          const cell = document.createElement("span");
-          cell.className = "goal-calendar-cell";
-          if (hasWindow && month >= first && month <= last) cell.classList.add("goal-calendar-possible");
-          if (chosen >= 0 && month >= chosen && month < chosen + substep.life_duration_months) {
-            cell.classList.add("goal-calendar-chosen");
-          }
-          if (month === currentMonth.getFullYear() * 12 + currentMonth.getMonth()) {
-            cell.classList.add("goal-calendar-current");
-          }
-          row.appendChild(cell);
+        const track = document.createElement("div");
+        track.className = "goal-calendar-track";
+        const todayOffset = currentMonth.getFullYear() * 12 + currentMonth.getMonth() - goalCalendarStart;
+        if (todayOffset >= 0 && todayOffset < 24) {
+          const marker = document.createElement("span");
+          marker.className = "goal-calendar-current";
+          marker.style.gridColumn = `${todayOffset + 1}`;
+          marker.title = `Mois actuel : ${calendarLabel(goalCalendarStart + todayOffset)}`;
+          marker.setAttribute("aria-label", marker.title);
+          track.appendChild(marker);
         }
+        if (hasWindow) appendCalendarBar(track, first, last, "possible");
+        const busyMonths = [];
+        if (chosen >= 0 && substep.life_duration_months) {
+          const chosenEnd = chosen + substep.life_duration_months - 1;
+          for (let month = chosen; month <= chosenEnd; month++) {
+            if ((counts.get(month) || 0) > 1) busyMonths.push(month);
+          }
+          appendCalendarBar(track, chosen, chosenEnd, "chosen", busyMonths);
+        }
+        row.appendChild(track);
         goalCalendarView.appendChild(row);
         const controls = document.createElement("div");
         controls.className = "goal-calendar-placement";
@@ -557,8 +581,20 @@ document.addEventListener("DOMContentLoaded", () => {
           controls.appendChild(calendarButton("Configurer", () => openLifeWeekSubstep({ goal, substep })));
         } else {
           const possible = document.createElement("span");
-          possible.textContent = `Possible : ${calendarLabel(first)} → ${calendarLabel(last)} · durée ${substep.life_duration_months} mois`;
+          possible.textContent = `Possible : ${calendarPeriodLabel(first, last)} · durée ${substep.life_duration_months} mois`;
           controls.appendChild(possible);
+          if (chosen >= 0) {
+            const period = document.createElement("span");
+            period.textContent = `Choisi : ${calendarPeriodLabel(chosen, chosen + substep.life_duration_months - 1)}`;
+            controls.appendChild(period);
+          }
+          if (busyMonths.length) {
+            const warning = document.createElement("span");
+            warning.className = "goal-calendar-overlap";
+            warning.textContent = `Chevauchement · ${busyMonths.length} mois`;
+            warning.title = busyMonths.map(calendarLabel).join(", ");
+            controls.appendChild(warning);
+          }
           const form = document.createElement("form");
           form.className = "goal-calendar-form";
           const inputLabel = document.createElement("label");
@@ -584,7 +620,7 @@ document.addEventListener("DOMContentLoaded", () => {
         goalCalendarView.appendChild(controls);
       }
     }
-    goalCalendarStatus.textContent = "Plusieurs périodes choisies peuvent se chevaucher. Les mois chargés sont signalés en ambre.";
+    goalCalendarStatus.textContent = `Vue : ${calendarPeriodLabel(goalCalendarStart, goalCalendarStart + 23)}. Les périodes qui se chevauchent parmi les objectifs affichés sont bordées d'ambre.`;
   }
 
   async function saveGoalCalendarPlacement(substep, chosenStart) {
@@ -599,6 +635,11 @@ document.addEventListener("DOMContentLoaded", () => {
         throw new Error(typeof error.detail === "string" ? error.detail : "Période invalide");
       }
       substep.life_chosen_start_month = chosenStart;
+      for (const goal of goalCalendarGoals) {
+        for (const linkedStep of goal.substeps || []) {
+          if (linkedStep.id === substep.id) linkedStep.life_chosen_start_month = chosenStart;
+        }
+      }
       lifeWeeksGoals = goalCalendarGoals;
       renderGoalCalendar();
       renderLifeWeeks();
@@ -613,6 +654,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const response = await fetch(`${API_BASE}/goals`);
       if (!response.ok) throw new Error("Objectifs indisponibles");
       goalCalendarGoals = await response.json();
+      const selectedGoal = goalCalendarFilter.value;
+      goalCalendarFilter.replaceChildren(new Option("Tous les objectifs", ""));
+      for (const goal of goalCalendarGoals) {
+        goalCalendarFilter.add(new Option(goal.title, String(goal.id)));
+      }
+      goalCalendarFilter.value = goalCalendarGoals.some(goal => String(goal.id) === selectedGoal)
+        ? selectedGoal : "";
       renderGoalCalendar();
     } catch (error) {
       goalCalendarStatus.textContent = "Impossible de charger le calendrier des objectifs.";
@@ -621,6 +669,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (goalCalendarView) {
+    goalCalendarFilter.addEventListener("change", renderGoalCalendar);
     document.getElementById("goal-calendar-prev").addEventListener("click", () => {
       goalCalendarStart -= 12;
       renderGoalCalendar();

@@ -3,6 +3,13 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-09-22 — fix(goals): filtrer le calendrier et inscrire les dates dans les barres
+
+- Filtre par objectif (Tous, puis titres existants), conservé pendant la navigation et les enregistrements. Une sous-étape partagée reste visible quand un de ses objectifs est sélectionné; état vide explicite si nécessaire.
+- Suppression de l'axe des mois supérieur. Barres continues avec dates `MM/AAAA`, fenêtre possible et période choisie sur deux bandes dans la ligne. Les périodes courtes et tronquées gardent leurs dates lisibles; chevauchements des sous-étapes affichées signalés en ambre.
+- Frontend uniquement, versions des assets incrémentées, README et wiki synchronisés. Aucun changement d'API, de schéma DB ou de commande Telegram.
+- Validation : syntaxe JavaScript et `git diff --check` réussis; Chrome headless sur le code du calendrier avec données synthétiques vérifie filtre, sous-étapes partagées, dates, cas courts/tronqués, navigation et flux d'enregistrement/retrait avec API simulée. Capture du rendu inspectée. Pas de test authentifié avec les données locales.
+
 ## 2026-09-22 — feat(goals): calendrier mensuel des objectifs
 
 - Nouvelle vue Gantt légère des objectifs et sous-étapes : fenêtre possible pâle, période choisie vive, navigation par 24 mois et signalement des mois chargés.

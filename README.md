@@ -70,11 +70,10 @@ minutes, y compris pour les quêtes déjà placées dans un template.
 
 
 ## NEXT ACTIONS
-- **Prochaine session : demander le retour de Gabriel sur le calendrier des
-  objectifs avant de commencer le Jar of Life.** Faire tester la lecture des
-  fenêtres possibles VS périodes choisies, le choix du mois, les
-  chevauchements et le reflet dans « Ma vie en semaines »; corriger les points
-  gênants constatés.
+- **Prochaine session : valider le calendrier ajusté avant de commencer le
+  Jar of Life.** Le retour de Gabriel a été intégré : filtre par objectif et
+  dates directement dans les barres, sans axe des mois en haut. Faire tester
+  la lecture, le choix du mois et le reflet dans « Ma vie en semaines ».
 - Pour objectifs "Social" j'ai plusieurs reflexe a prendre - comme routine avant de sortir de la maison. Des objectifs: parler a plusieurs inconnues. Et des options: bibliotheques, bars, meet up etc ... . Trouver un systeme pour les ranger visuellement dans le tableau de bord
 - Rédiger une description claire de l'application, centrée sur le parcours utilisateur, l'expérience vécue et les grandes intentions de design (sans code ni détails techniques). Décrire notamment l'utilisateur et son besoin, le parcours quotidien de la planification à la validation, les moments clés du dashboard et du bot, ainsi que les principes UX recherchés : clarté, motivation, responsabilité et absence de surcharge.
 
@@ -241,11 +240,15 @@ mensuelle. Chaque sous-étape distingue sa **fenêtre possible** (pâle) de la
 **période choisie** (bloc net). Le mois de départ choisi se règle directement
 dans cette vue; la durée estimée fixe le mois de fin.
 Une sous-étape sans période choisie garde sa fenêtre possible visible.
+Un filtre permet d'afficher tous les objectifs ou un seul, avec ses sous-étapes.
+Les dates au format `MM/AAAA` sont inscrites dans les barres, sans axe des mois
+en haut. Les deux bandes de chaque ligne distinguent le possible du choisi.
 
 Le choix manuel devient le placement de référence dans **Ma vie en semaines**.
 Son placement automatique ne concerne que les sous-étapes sans période choisie.
 Les périodes choisies de plusieurs objectifs peuvent se chevaucher : la vue
-signale les mois chargés sans refuser le placement.
+signale les chevauchements parmi les objectifs affichés par une bordure ambre
+et un indicateur dans la ligne, sans refuser le placement.
 Le Gantt sert à situer les jalons et les projets dans le temps; les périodes
 possibles restent des hypothèses, et une période choisie est un choix de
 planification explicite.
