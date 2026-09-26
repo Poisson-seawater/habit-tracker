@@ -6,7 +6,7 @@ Tu es déjà dans la boucle : tu logges tes habitudes, tu vois ton streak grandi
 
 Le [Perfect Day](#/perfect-day) ne se limite pas à cocher des cases : il compte aussi les paliers de continuité. Un streak de 30 jours sur une [habitude](#/habitudes) rapporte +100 XP et +50 Or ; 90 jours consécutifs, +300 XP et +150 Or. Ça se joue sur la durée, pas sur un jour isolé.
 
-Le rythme se programme dans les [templates de jour](#/templates-de-jour) : deux grilles hebdomadaires alimentent automatiquement un cycle de trois semaines normales puis une semaine moins intense. Le type du jour est visible dans l'[agenda et la timeline biologique](#/agenda-timeline), sans décision quotidienne à reprendre.
+Le rythme se programme dans les [templates de jour](#/templates-de-jour) : deux grilles hebdomadaires alimentent automatiquement un cycle de trois semaines normales puis une semaine moins intense. Le type du jour apparaît au-dessus des [quêtes du jour](#/agenda-timeline), sans décision quotidienne à reprendre.
 
 Tes primes planifiées peuvent vivre nativement dans tes outils habituels via la [synchronisation Google](#/sync-google), et tes plus grands projets restent visibles en permanence grâce au [Recap 3-3-3](#/recap-3-3-3).
 

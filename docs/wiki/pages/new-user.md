@@ -18,9 +18,9 @@ Tu sais ce que c'est, une journée où tu as fait tout ce que tu voulais faire. 
 
 Quand tout est traité, c'est un Perfect Day. Résultat : +5 XP, et ta série (streak) continue. C'est la récompense qui boucle la journée. Où vont ces points, comment on monte de niveau, à quoi sert l'or : tout ça vit dans [Stats, XP, niveau & or](#/stats-xp-niveau-or).
 
-## Le décor de ta journée : l'agenda
+## Le fil de ta journée : les quêtes du jour
 
-Ta vue « Perfect Day » sur le dashboard combine trois blocs : ta [timeline biologique](#/agenda-timeline) (ton rythme perso — quand tu es plutôt concentré, plutôt physique, plutôt créatif), l'agenda du jour où tes quêtes sont placées, et une jauge qui te dit combien d'effort tu as déjà planifié. Si tu as connecté ton compte, tes primes du jour peuvent même apparaître directement dans ton [Google Agenda et tes Google Tasks](#/sync-google).
+Le Home rassemble les [quêtes prévues aujourd'hui](#/agenda-timeline) dans une liste. Tu vois ce qui reste, ce qui est fait et ce qui a été passé ou raté, sans devoir attribuer une heure à chaque action. Si tu as connecté ton compte, tes primes datées peuvent aussi apparaître dans ton [Google Agenda et tes Google Tasks](#/sync-google).
 
 Puis, à 21h30, la journée se fige : le bot publie le bilan de la guilde dans le groupe.
 

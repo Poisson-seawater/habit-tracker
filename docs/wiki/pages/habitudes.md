@@ -32,7 +32,7 @@ Chaque panneau appartient à la personne qui l'a ouvert : un autre membre du gro
 
 Une habitude n'est due que certains jours (tous les jours, ou par ex. lundi + mercredi). Elle peut aussi être associée à un ou plusieurs types de journée : `rest`, `regular` et `hustle`. Les trois sont sélectionnés par défaut, y compris pour les anciennes habitudes.
 
-Le jour venu, l'agenda, le Perfect Day, `/status` et `/liste habit` ne retiennent que les habitudes compatibles à la fois avec le planning et le type de journée actif. Une habitude `hustle` n'apparaît donc pas dans l'agenda d'un jour `rest` et ne bloque pas son Perfect Day.
+Le jour venu, « Quêtes du jour », le Perfect Day, `/status` et `/liste habit` ne retiennent que les habitudes compatibles à la fois avec le planning et le type de journée actif. Une habitude `hustle` n'apparaît donc pas dans la liste d'un jour `rest` et ne bloque pas son Perfect Day.
 
 Tu peux quand même valider manuellement une habitude hors type de journée avec `/done`, `/log`, l'API ou les contrôles du dashboard. Le log reste visible et la progression normale du streak s'applique, mais cette habitude ne devient pas une exigence du Perfect Day de ce jour.
 
@@ -46,7 +46,7 @@ Les tags sont communs à toutes les étapes V1/V2 d'une même quête : changer d
 
 ## Banque des quêtes
 
-Depuis le dashboard, le bouton **Banque** dans le panneau « Quêtes à placer » liste les quêtes actives qui existent mais ne sont pas visibles pour la date affichée. Chaque ligne indique pourquoi elle est absente : mauvais jour de semaine, mauvais type de journée ou quête mensuelle pas encore due.
+Sur le Home, **Quêtes du jour** réunit toutes les quêtes prévues pour la date affichée, qu'elles aient ou non un ancien placement horaire. Les quêtes restantes apparaissent avant celles déjà traitées. Le bouton **Banque** liste les quêtes actives qui ne sont pas prévues pour cette date, avec la raison : mauvais jour de semaine, mauvais type de journée ou quête mensuelle pas encore due.
 
 La banque est séparée des archives : une quête « pas ce jour » reste active et peut revenir automatiquement à sa prochaine date prévue. Une quête archivée, elle, a été retirée explicitement du quotidien.
 
@@ -56,23 +56,23 @@ Les habitudes alimentent le [Perfect Day](#/perfect-day) par leur statut : valid
 
 ## Archiver une quête
 
-Depuis le dashboard, le bouton **Archives** dans le panneau « Quêtes à placer » ouvre la liste des quêtes archivées. Une quête archivée disparaît de l'[agenda](#/agenda-timeline), de « Quêtes à placer » et des placements sauvegardés dans les templates de jour. C'est fait pour retirer une quête du quotidien sans la supprimer définitivement.
+Depuis le dashboard, le bouton **Archives** ouvre la liste des quêtes archivées. Une quête archivée disparaît de « Quêtes du jour » et des placements sauvegardés dans les templates de jour. C'est fait pour retirer une quête du quotidien sans la supprimer définitivement.
 
 La liste Archives affiche la date d'archive, la fréquence, la source et les groupes de noms proches ou identiques. Le badge « actif aussi » signale qu'une quête active porte le même nom normalisé qu'une archive.
 
-Le bouton **Désarchiver** remet la quête dans la banque active si elle est encore éligible à la date affichée, mais il ne restaure pas ses anciens créneaux : elle revient non placée, à replacer manuellement si besoin.
+Le bouton **Désarchiver** remet la quête parmi les quêtes actives. Si elle est éligible à la date affichée, elle revient dans « Quêtes du jour ». Ses anciens créneaux ne sont pas restaurés.
 
 Le Recap 3-3-3 ne crée plus de quêtes. Lors de la migration vers les tags, les anciennes quêtes auto-générées ont été archivées et retirées de leurs placements, tout en conservant leurs logs, streaks, versions et suivis quotidiens. Elles restent consultables dans Archives. Les épingles du Recap ne sont pas modifiées par l'archivage d'une quête.
 
 ## Déclarer une habitude ratée
 
-Une habitude prévue peut être marquée **ratée** depuis l'agenda, l'onglet Habitudes, l'API ou Telegram avec `/fail_habit <nom>`. Cette action est refusée si l'habitude est déjà complétée ou skippée aujourd'hui. Le statut raté retire **jusqu'à 5 XP** (sans passer sous le niveau 1 à 0 XP), empêche le Perfect Day et remet immédiatement le streak de cette habitude à 0. Répéter l'action ne retire pas d'XP supplémentaire.
+Une habitude prévue peut être marquée **ratée** depuis « Quêtes du jour », l'onglet Habitudes, l'API ou Telegram avec `/fail_habit <nom>`. Cette action est refusée si l'habitude est déjà complétée ou skippée aujourd'hui. Le statut raté retire **jusqu'à 5 XP** (sans passer sous le niveau 1 à 0 XP), empêche le Perfect Day et remet immédiatement le streak de cette habitude à 0. Répéter l'action ne retire pas d'XP supplémentaire.
 
 Tu peux annuler ce statut le même jour depuis l'interface, l'API ou avec `/fail_habit <nom> --undo`. Le montant d'XP réellement retiré est restauré une seule fois. Il faut d'abord annuler l'échec avant de logger une progression. L'annulation retire le statut raté, mais le streak n'est pas restauré immédiatement : il reste à 0 jusqu'au recalcul de fin de journée.
 
 ## Corriger hier
 
-Le sélecteur **Hier / Aujourd'hui** de l'agenda permet de revenir sur la veille pour enregistrer une quête réellement accomplie mais oubliée. Sur Telegram, ajoute `--yesterday` à `/done` ou `/log`. La fenêtre est volontairement limitée à aujourd'hui et hier : une date plus ancienne est refusée.
+Le sélecteur **Hier / Aujourd'hui** de « Quêtes du jour » permet de revenir sur la veille pour enregistrer une quête réellement accomplie mais oubliée. Sur Telegram, ajoute `--yesterday` à `/done` ou `/log`. La fenêtre est volontairement limitée à aujourd'hui et hier : une date plus ancienne est refusée.
 
 Une correction d'hier recalcule la journée concernée, notamment son Perfect Day et les streaks. Elle ne permet pas d'éditer librement tout l'historique.
 

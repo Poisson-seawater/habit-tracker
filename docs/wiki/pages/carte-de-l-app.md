@@ -7,7 +7,7 @@ Tout ce que l'app sait faire, sur une seule page. Chaque fonction vient avec un 
 | Fonction | Ce qu'elle doit faire | Pour vérifier | Détail |
 |---|---|---|---|
 | Perfect Day | Toutes les habitudes prévues traitées = +5 XP, série qui continue | Valide/skippe tout ce qui reste pour aujourd'hui → le bilan de 21h30 compte un Perfect Day | [Perfect Day](#/perfect-day) |
-| Valider une quête depuis l'agenda | La case à cocher sur la carte ou le bloc de la timeline valide directement, sans passer par le bot | Coche une quête binaire dans l'agenda → elle passe `✅ Fait` sans quitter le dashboard | [Agenda & timeline](#/agenda-timeline) |
+| Valider une quête depuis le Home | La carte de « Quêtes du jour » valide directement, sans passer par le bot | Coche une quête binaire → elle passe `✅ Fait` sans quitter le dashboard | [Quêtes du jour](#/agenda-timeline) |
 | Paliers de streak | 30 j de streak = +100 XP +50 Or ; 90 j = +300 XP +150 Or | Au passage du palier → célébration + les compteurs XP/Or montent des montants exacts | [Habitudes](#/habitudes) |
 | Recap 3-3-3 | 3 sous-étapes + 3 softskills épinglées + 3 allostasies, dès l'accueil | Épingle via le crayon → recharge la page → la sélection persiste ; clic sur un item → l'onglet cible s'ouvre, l'élément mis en valeur | [Recap 3-3-3](#/recap-3-3-3) |
 
@@ -18,7 +18,6 @@ Tout ce que l'app sait faire, sur une seule page. Chaque fonction vient avec un 
 | Objectifs & sous-étapes | Valider une sous-étape rapporte de l'Or (défaut 50) ; les dépendances verrouillent (🔒) | Coche une sous-étape débloquée → ton Or monte ; une sous-étape dont le prérequis n'est pas validé reste 🔒 | [Objectifs](#/objectifs) |
 | Sous-étape partagée | Une sous-étape liée à plusieurs objectifs se valide partout d'un coup | Valide-la dans un objectif → elle apparaît validée dans l'autre | [Objectifs](#/objectifs) |
 | Délier une sous-étape partagée | Retire le lien à un objectif sans supprimer la sous-étape ni casser les autres liens | Sur une sous-étape liée à 2 objectifs, délie-la d'un seul → elle reste intacte dans l'autre ; tente de délier son dernier lien → refus | [Objectifs](#/objectifs) |
-| Épingler une sous-étape → quête auto | Épingler une sous-étape en Recap 3-3-3 génère une quête quotidienne dans l'agenda | Épingle une sous-étape → une quête « Étape: … » apparaît dans l'agenda du jour ; désépingle → elle disparaît | [Objectifs](#/objectifs) |
 | Montée de niveau | XP requis double à chaque niveau : 10, 20, 40, 80… | Passe le seuil → le niveau s'incrémente dans `/status` et sur le dashboard | [XP, niveau & or](#/stats-xp-niveau-or) |
 
 ## 🌳 Softskills
@@ -39,12 +38,11 @@ Tout ce que l'app sait faire, sur une seule page. Chaque fonction vient avec un 
 | Fonction | Ce qu'elle doit faire | Pour vérifier | Détail |
 |---|---|---|---|
 | Type de journée automatique | Le cycle 3 semaines normales + 1 moins intense choisit `rest` / `regular` / `hustle` selon les deux grilles configurées | Ouvre le dashboard → le badge du jour correspond à la grille et à la semaine du cycle | [Templates de jour](#/templates-de-jour) |
-| Feel off today | Applique `rest` aujourd'hui puis permet de revenir au planning, sans effacer les logs | Clique **Feel off today** → agenda et Perfect Day passent en repos; clique **Revenir au planning prévu** → le type automatique revient | [Templates de jour](#/templates-de-jour) |
+| Feel off today | Applique `rest` aujourd'hui puis permet de revenir au planning, sans effacer les logs | Clique **Feel off today** → quêtes du jour et Perfect Day passent en repos; clique **Revenir au planning prévu** → le type automatique revient | [Templates de jour](#/templates-de-jour) |
 | Réglage du repos minimum par template | L'objectif de repos (`min_rest_hours`) de chaque template est éditable, pas seulement le focus | Ouvre ⚙️ Perfect Days → change la valeur du champ « Objectif Repos (h) » → sauvegarde → rechargée, la nouvelle valeur est bien celle affichée | [Templates de jour](#/templates-de-jour) |
-| Zones biologiques | Zones configurables, pas de chevauchement, minuit géré | Crée deux zones qui se chevauchent → erreur 422 ; la zone Sommeil (23:00 → 07:00) s'affiche correctement | [Agenda & timeline](#/agenda-timeline) |
+| Zones biologiques | Zones configurables, pas de chevauchement, minuit géré | Crée deux zones qui se chevauchent → erreur 422 ; la zone Sommeil (23:00 → 07:00) s'affiche correctement | [Quêtes du jour](#/agenda-timeline) |
 | Cycle hustle/repos | Programmation 4 semaines autoritative : 3 normales, 1 moins intense | Change les deux grilles avec une date d'effet future → la politique active reste inchangée jusqu'à cette date | [Agenda & timeline](#/agenda-timeline) |
 | Connexion Google | OAuth2 relie ton compte Google Calendar & Tasks | `GET /api/v1/auth/google/login` → accepte sur ton appareil → retour sur ⚙️ Perfect Days, statut « connecté » | [Sync Google](#/sync-google) |
-| Export agenda vers Google | Pousse les quêtes placées vers Calendar, sans doublon (idempotent) | Lance l'export deux fois sur le même jour → une seule série d'événements | [Sync Google](#/sync-google) |
 | Mot de passe applicatif | Chaque joueur change son propre mot de passe | Change ton mot de passe dans ⚙️ Perfect Days → déconnecte-toi → l'ancien mot de passe est refusé | [Authentification](#/authentification) |
 | Appareils auto-approuvés | Tout nouvel appareil est approuvé directement (depuis le 2026-07-02) | Ouvre le dashboard depuis un navigateur jamais utilisé → accès sans étape « en attente » | [Authentification](#/authentification) |
 | Bootstrap unique | `AUTH_BOOTSTRAP_CODE` crée le premier admin, puis se ferme | Une fois un admin créé, `POST /auth/bootstrap` refuse toute nouvelle tentative | [Authentification](#/authentification) |

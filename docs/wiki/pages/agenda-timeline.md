@@ -1,72 +1,13 @@
-# Agenda vertical & timeline biologique
+# Quêtes du jour
 
-Tu sais qu'il y a des heures de la journée où tu es plus efficace pour réfléchir, et d'autres plus propices à te dépenser physiquement. Ici, ce rythme personnel porte un nom : la **timeline biologique**. Elle sert de repère fixe pour placer tes [quêtes](#/habitudes) au bon moment de la journée.
+Le Home montre les quêtes prévues pour la date affichée, sans grille horaire. Une quête apparaît selon sa fréquence et le type de journée actif (`rest`, `regular` ou `hustle`). Les quêtes qui avaient un ancien placement à une heure précise restent visibles : ce placement ne décide pas si la quête doit être faite.
 
-## Trois zones, un seul écran
+Les quêtes restantes sont affichées avant les quêtes déjà traitées. Chaque carte permet de valider ou de mesurer la quête, d'ouvrir son compteur ou sa checklist quotidienne, de déclarer un échec aujourd'hui, de modifier la quête et de voir ses statistiques. Les tags donnent du contexte, sans changer la validation ni le score.
 
-La vue « Perfect Day » du dashboard affiche trois blocs côte à côte :
+Le compteur en haut distingue les quêtes faites ou passées des quêtes ratées. **Banque** montre les quêtes actives non prévues pour cette date; **Archives** montre celles qui ont été retirées du quotidien. Le choix **Hier / Aujourd'hui** permet de corriger une validation ou un échec No-Todo oublié la veille. Les dates plus anciennes ne sont pas modifiables depuis ces contrôles.
 
-```mermaid
-flowchart LR
-  A["Timeline biologique 24h\n(zones fixes, indépendantes du template)"] --- B["Agenda du jour\n(quêtes placées, template actif)"]
-  B --- C["Jauge de budget d'effort\n(lecture seule)"]
-```
+Le type du jour vient du cycle configuré dans les [templates de jour](#/templates-de-jour). Le bouton **Feel off today** peut transformer aujourd'hui en jour de repos; les quêtes visibles et les calculs du Perfect Day suivent alors le type actif.
 
-- **La timeline biologique** (en haut) ne bouge pas d'un jour à l'autre : c'est ta référence perso, configurée une fois dans Réglages → « Journée biologique ».
-- **L'agenda du jour** (à gauche) montre les [quêtes](#/habitudes) que tu as placées dans des créneaux, selon le [template de jour](#/templates-de-jour) actif.
-- **La jauge d'effort** (à droite) résume combien d'heures de chaque type d'effort sont déjà planifiées, en lecture seule.
+Les zones biologiques restent configurables dans Réglages comme repères personnels de rythme. Elles ne donnent pas d'heure obligatoire aux quêtes.
 
-## La timeline biologique (zones)
-
-Une zone biologique a un nom, un type (`deep_focus` 🧠, `physical_peak` 💪, `creative` 🎨, `rest` 🧘, `social` 🧡, `sleep` 😴), et une heure de début et de fin (`HH:MM`). L'affichage suit simplement les horaires. Les zones seedées par défaut à l'installation :
-
-| Zone | Type | Horaire |
-|---|---|---|
-| Focus Profond Matin | `deep_focus` | 08:00 → 12:00 |
-| Repos / Déjeuner | `rest` | 12:00 → 13:00 |
-| Pic Physique | `physical_peak` | 14:00 → 17:00 |
-| Zone Créative | `creative` | 20:00 → 22:00 |
-| Sommeil | `sleep` | 23:00 → 07:00 |
-
-Tu peux les modifier dans Réglages (`GET`/`POST`/`PUT`/`DELETE /api/v1/biological-zones`). Deux garde-fous : le système refuse (erreur 422) deux zones qui se chevauchent, et il gère correctement une zone qui traverse minuit (comme le Sommeil, dont l'heure de fin est plus petite que l'heure de début).
-
-En cas de chevauchement, le formulaire reste ouvert et propose le prochain créneau libre de même durée avant 24:00. Le bouton de proposition remplit les nouvelles heures sans sauvegarder silencieusement : tu peux les vérifier, les ajuster ou soumettre à nouveau. Si aucun espace suffisant ne reste avant la fin de la journée, le formulaire bloque la sauvegarde avec un message explicite.
-
-## Placer une quête dans l'agenda
-
-Une quête placée occupe un créneau précis du jour : heure de début, durée en minutes, et un statut (`planned` par défaut). Tu la places ou la retires via `PUT` / `DELETE /api/v1/agenda/{date}/quests/{habit_id}/placement`. `GET /api/v1/agenda` renvoie l'agenda complet du jour (zones + placements + budgets). Une fois content d'une disposition, `POST /api/v1/agenda/{date}/save-as-template` la sauvegarde pour la réutiliser.
-
-L'agenda filtre les quêtes selon le type de journée actif. Une quête peut être autorisée pour un, deux ou trois types parmi `rest`, `regular` et `hustle`; seules les quêtes compatibles apparaissent et comptent dans les budgets du jour. Une validation manuelle hors type reste possible depuis les autres contrôles et reste visible dans l'historique.
-
-À droite, le panneau **Quêtes à placer** montre les quêtes éligibles qui n'ont pas encore de créneau. Le bouton **Archives** ouvre les anciennes quêtes archivées : elles sont consultables et désarchivables, mais elles ne polluent pas l'agenda du jour. Si tu désarchives une quête, elle revient non placée; il faut la glisser ou la replacer manuellement.
-
-Les boutons **Hier** et **Aujourd'hui** changent la date affichée. La vue Hier sert à corriger une quête accomplie ou un No-Todo enfreint la veille mais oublié. La correction recalcule la journée concernée; l'interface et l'API refusent les dates antérieures à hier.
-
-Le système laisse toujours un **tampon de 15 minutes** entre deux blocs placés — pas de créneaux collés bord à bord.
-
-Chaque quête placée porte sa propre case à cocher, directement sur sa carte ou son bloc dans la timeline : valider une quête binaire ou logger une mesure se fait sans quitter l'agenda, sans passer par `/done` ou `/log`. Une fois validée, skippée ou déclarée ratée, la carte affiche son état (`✅ Fait`, `⏭️ Passé` ou échec) et les actions encore permises.
-
-Les tags apparaissent comme des badges en lecture seule sur les cartes et la timeline. Le petit menu de tags du formulaire de quête permet de les modifier. Ils expliquent le contexte de la quête sans changer son placement, sa validation, son score ou son suivi quotidien.
-
-## Le budget d'effort, plafonné par template
-
-Chaque [quête](#/habitudes) a un type d'effort : `musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`, ou `repos`. Le [template de jour](#/templates-de-jour) actif fixe combien d'heures de chaque type tu peux raisonnablement planifier :
-
-| Template | Plafond par type (sauf repos) | Plafond total | Focus par défaut | Repos min. par défaut |
-|---|---|---|---|---|
-| `rest` | 1,0 h | 4,0 h | 2 h | 10 h |
-| `regular` | 2,0 h | 8,0 h | 6 h | 8 h |
-| `hustle` | 4,0 h | 10,0 h | 9 h | 7 h |
-
-Ces plafonds évitent de te sur-planifier un jour `rest`, ou de te sous-planifier un jour `hustle`. Si le repos planifié tombe sous le minimum du template, l'agenda te le signale.
-
-Envie de voir cette journée type sur ton téléphone plutôt que sur le dashboard ? Le bouton d'export pousse les quêtes placées vers [Google Calendar](#/sync-google).
-
-## Le cycle hebdomadaire hustle / repos
-
-Le type de chaque date vient d'une politique de cycle de **4 semaines** :
-
-- **Semaines normales** (semaines 1 à 3) : chaque jour utilise la grille normale configurée.
-- **Semaine moins intense** (semaine 4) : chaque jour utilise sa seconde grille configurable.
-
-Par défaut, lundi à vendredi sont `regular`, samedi `hustle` et dimanche `rest`; la semaine moins intense remplace le samedi par `regular`. La bascule est automatique depuis une semaine d'ancrage. Le résumé du calendrier compte les jours `hustle` et `rest` réellement configurés. Pour une baisse d'énergie imprévue, **Feel off today** passe seulement aujourd'hui en `rest` sans supprimer les placements datés; ils réapparaissent si tu reviens au planning.
+Les anciennes routes API de placement horaire et d'export des quêtes vers Google restent disponibles pour compatibilité, mais le dashboard ne propose plus de grille, de placement, de sauvegarde de créneaux ni d'export manuel de quêtes. La synchronisation des [primes datées](#/sync-google) avec Google reste disponible.

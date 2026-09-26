@@ -39,13 +39,13 @@ markmap:
 ### [No-Todo](index.html#/no-todo)
 - règles à ne pas enfreindre (/fail)
 ### [Templates de jour](index.html#/templates-de-jour)
-- rest / regular / hustle → agenda + budgets d'effort
+- rest / regular / hustle → quêtes du jour + budgets d'effort
 ### [Stats, XP, niveau & or](index.html#/stats-xp-niveau-or)
 - XP/niveau, Or
 ### [Boutique & Allostasie](index.html#/boutique-recompenses)
 - achat de récompenses, Allostasie Daily/Weekly
-### [Agenda & timeline biologique](index.html#/agenda-timeline)
-- zones biologiques fixes + agenda du jour + budgets d'effort par template
+### [Quêtes du jour](index.html#/agenda-timeline)
+- quêtes prévues, statut et validation sans placement horaire
 ### [Synchronisation Google](index.html#/sync-google)
 - do_date → événement Calendar, due_date → Google Task, rappels J-7/3/1
 ### [Authentification & appareils](index.html#/authentification)

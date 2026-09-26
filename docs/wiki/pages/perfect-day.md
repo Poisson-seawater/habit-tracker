@@ -6,12 +6,12 @@ Tu sais ce que c'est, une journée où tu as traité ce qui était prévu. Ici, 
 
 1. Le système regarde les [habitudes](#/habitudes) actives prévues pour la date et compatibles avec le type de journée actif.
 2. Chaque habitude prévue doit être validée (`/done`), loggée (`/log`) ou skippée (`/skip ... raison:`).
-3. Le [template](#/templates-de-jour) actif (`rest`, `regular`, `hustle`) donne le contexte de la journée, l'agenda type et les budgets d'effort.
+3. Le [template](#/templates-de-jour) actif (`rest`, `regular`, `hustle`) donne le contexte de la journée et les budgets d'effort.
 4. Si **toutes** les habitudes prévues sont traitées, c'est un Perfect Day.
 
 Une habitude marquée ratée rend la journée non parfaite. À l'inverse, une habitude hors type de journée ne bloque pas le Perfect Day, même si tu la valides manuellement : son log et sa progression restent enregistrés sans l'ajouter aux exigences du jour.
 
-La vue « Perfect Day » du dashboard affiche aussi l'[agenda vertical et la timeline biologique](#/agenda-timeline) : ta référence de rythme perso en haut, l'agenda du jour à gauche, la jauge de budget d'effort à droite.
+Sur le Home, [« Quêtes du jour »](#/agenda-timeline) montre toutes les habitudes prévues pour la date, avec leur statut et leurs actions de validation. Aucun placement horaire n'est nécessaire pour le Perfect Day.
 
 > Les primes donnent de l'XP direct, mais elles ne remplacent pas les habitudes prévues pour le Perfect Day.
 
@@ -22,7 +22,7 @@ La vue « Perfect Day » du dashboard affiche aussi l'[agenda vertical et la tim
 
 ## Corriger la veille
 
-Depuis l'agenda, les boutons **Hier / Aujourd'hui** ouvrent une fenêtre de correction limitée à la veille. Tu peux y enregistrer une quête accomplie ou un No-Todo échoué qui avait été oublié. Telegram offre la même correction avec `--yesterday` sur `/done`, `/log` et `/fail`.
+Dans « Quêtes du jour », les boutons **Hier / Aujourd'hui** ouvrent une fenêtre de correction limitée à la veille. Tu peux y enregistrer une quête accomplie ou un No-Todo échoué qui avait été oublié. Telegram offre la même correction avec `--yesterday` sur `/done`, `/log` et `/fail`.
 
 La correction recalcule la journée d'hier : statut du Perfect Day, récompense de 5 XP si ce statut change, et streaks concernés. Avant-hier et les dates plus anciennes restent verrouillés.
 

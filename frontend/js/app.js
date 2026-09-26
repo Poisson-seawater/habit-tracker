@@ -94,6 +94,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeDayType = "regular";
   const questsPanelTitle = document.getElementById("quests-panel-title");
   const questsListContainer = document.getElementById("quests-list-container");
+  const questDaySummary = document.getElementById("quest-day-summary");
   const questArchivesPanel = document.getElementById("quest-archives-panel");
   const questArchivesList = document.getElementById("quest-archives-list");
   const questArchivesCount = document.getElementById("quest-archives-count");
@@ -110,12 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let showTodayBounties = true;
   const toastNotification = document.getElementById("toast-notification");
 
-  // Typical Day / Agenda Elements and state
-  const AGENDA_START_MINUTES = 4 * 60;
-  const AGENDA_END_MINUTES = 24 * 60;
-  const AGENDA_TOTAL_MINUTES = AGENDA_END_MINUTES - AGENDA_START_MINUTES;
-  const AGENDA_SLOT_MINUTES = 15;
-  const AGENDA_BUFFER_MINUTES = 15;
+  // Daily quest view and template settings
   let loadedTemplates = {};
   let biologicalZonesCache = null;
   const toggleAddBlockBtn = document.getElementById("toggle-add-block-btn");
@@ -132,13 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const agendaTodayBtn = document.getElementById("agenda-today-btn");
   const agendaRefreshBtn = document.getElementById("agenda-refresh-btn");
   const agendaDayTypeBadge = document.getElementById("agenda-day-type-badge");
-  const agendaEffortPanel = document.getElementById("agenda-effort-panel");
-  const agendaWarnings = document.getElementById("agenda-warnings");
-  const agendaEffortSummary = document.getElementById("agenda-effort-summary");
-  const toggleAgendaEffortsBtn = document.getElementById("toggle-agenda-efforts-btn");
-  const agendaSlotGrid = document.getElementById("agenda-slot-grid");
   let questAgendaState = null;
-  let agendaEffortSummaryVisible = true;
   let directProgressInputActive = false;
   let trackedQuestId = null;
   let questTrackingTrigger = null;
@@ -163,15 +153,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => {
       toastNotification.style.display = "none";
     }, 4500);
-  }
-
-  function mountPerfectDayRenderingLayout() {
-    const recapSlot = document.getElementById("perfect-day-recap-slot");
-    const agendaPanel = document.getElementById("typical-day-card");
-
-    if (recapSlot && agendaPanel && agendaPanel.parentElement !== recapSlot) {
-      recapSlot.appendChild(agendaPanel);
-    }
   }
 
   function getBioZoneMeta(zoneType) {
@@ -1041,7 +1022,8 @@ document.addEventListener("DOMContentLoaded", () => {
   async function showAgendaDate(date) {
     if (agendaDateInput) agendaDateInput.value = date;
     updateAgendaDateSwitch();
-    await Promise.all([loadCurrentQuestPanel(true), fetchNoTodos()]);
+    await Promise.all([loadQuestAgenda(true), fetchNoTodos()]);
+    if (questPanelMode !== "agenda") await loadCurrentQuestPanel(false);
   }
 
   function monthlyAnchorDay(value, fallbackDate = new Date()) {
@@ -1358,10 +1340,13 @@ document.addEventListener("DOMContentLoaded", () => {
         ? "🎯 Banque des quêtes"
         : isArchives
           ? "🎯 Archives"
-          : "🎯 Quêtes à placer";
+          : getAgendaDate() === todayDateString()
+            ? "🎯 Quêtes du jour"
+            : `🎯 Quêtes du ${getAgendaDate()}`;
     }
 
     if (questsListContainer) questsListContainer.hidden = !isAgenda;
+    if (questDaySummary) questDaySummary.hidden = !isAgenda;
     if (questBankPanel) questBankPanel.hidden = !isBank;
     if (questArchivesPanel) questArchivesPanel.hidden = !isArchives;
 
@@ -2312,7 +2297,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==============================================
-  // TYPICAL DAY AGENDA INTEGRATION                //
+  // DAILY QUESTS                                  //
   // ==============================================
 
   // Helper to convert time string to minutes
@@ -2375,55 +2360,6 @@ document.addEventListener("DOMContentLoaded", () => {
       || questFromAgendaItem(item);
   }
 
-  function renderAgendaEffortSummary(data) {
-    if (!agendaEffortSummary) return;
-    const labels = {
-      cerveau: "Cerveau",
-      musculaire: "Musculaire",
-      emotionnel_social: "Social",
-      creatif_divergent: "Créatif",
-      repos: "Repos"
-    };
-    const totals = data.effort_totals || {};
-    const ceilings = data.ceilings || {};
-    const minRest = Number(data.min_rest_hours || 0);
-    const keys = ["cerveau", "musculaire", "emotionnel_social", "creatif_divergent", "repos"];
-    agendaEffortSummary.innerHTML = keys.map(key => {
-      const total = Number(totals[key] || 0);
-      const target = key === "repos" ? minRest : Number(ceilings[key] || 0);
-      const pct = target > 0 ? Math.min((total / target) * 100, 100) : 0;
-      const over = key === "repos" ? (target > 0 && total < target) : (target > 0 && total > target);
-      const comparator = key === "repos" ? "min" : "";
-      return `
-        <div class="agenda-effort-item ${over ? "over" : ""}">
-          <div class="agenda-effort-top">
-            <span>${labels[key]}</span>
-            <strong>${total.toFixed(1)}h / ${target.toFixed(1)}h ${comparator}</strong>
-          </div>
-          <div class="agenda-effort-track"><span style="width:${pct}%;"></span></div>
-        </div>
-      `;
-    }).join("");
-
-    if (agendaWarnings) {
-      const warnings = data.warnings || [];
-      agendaWarnings.innerHTML = warnings.length
-        ? warnings.map(w => `<div class="agenda-warning">${w}</div>`).join("")
-        : `<div class="agenda-ok">Budget agenda valide.</div>`;
-    }
-  }
-
-  function setAgendaEffortSummaryVisible(isVisible) {
-    agendaEffortSummaryVisible = Boolean(isVisible);
-    if (agendaEffortPanel) {
-      agendaEffortPanel.hidden = !agendaEffortSummaryVisible;
-    }
-    if (toggleAgendaEffortsBtn) {
-      toggleAgendaEffortsBtn.textContent = agendaEffortSummaryVisible ? "Masquer" : "Afficher";
-      toggleAgendaEffortsBtn.setAttribute("aria-pressed", String(!agendaEffortSummaryVisible));
-    }
-  }
-
   function getStreakEmoji(streak) {
     if (streak >= 180) return "🥇";
     if (streak >= 90) return "🥈";
@@ -2431,25 +2367,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return "";
   }
 
-  function renderAgendaQuestCard(item, placed = false) {
+  function renderAgendaQuestCard(item) {
     const isDone = item.status === "done";
     const isSkipped = item.status === "skipped";
     const isFailed = item.status === "failed";
     const isToday = getAgendaDate() === todayDateString();
-    const isAgendaPlaceable = item.agenda_placeable !== false;
     const statusClass = isDone ? "quest-done" : isSkipped ? "quest-skipped" : isFailed ? "quest-failed" : "";
     const card = document.createElement("div");
-    card.className = `agenda-quest-card ${placed ? "placed" : "unplaced"} ${item.needs_configuration ? "needs-config" : ""} ${!isAgendaPlaceable ? "not-placeable" : ""} ${statusClass}`;
-    card.draggable = isAgendaPlaceable;
+    card.className = `agenda-quest-card ${item.needs_configuration ? "needs-config" : ""} ${statusClass}`;
     card.dataset.habitId = item.habit_id;
-    card.addEventListener("dragstart", (event) => {
-      if (!isAgendaPlaceable) {
-        event.preventDefault();
-        return;
-      }
-      event.dataTransfer.setData("text/plain", String(item.habit_id));
-      event.dataTransfer.effectAllowed = "move";
-    });
 
     const effortLabels = {
       musculaire: "Musculaire",
@@ -2459,9 +2385,9 @@ document.addEventListener("DOMContentLoaded", () => {
       repos: "Repos"
     };
     const effortLabel = item.effort_type
-      ? `${effortLabels[item.effort_type] || item.effort_type.replace("_", " ")} ${item.effort_duration || 0}h`
-      : "Rest of the day";
-    const sourceLabel = item.source_label || (item.source_type === "manual" ? "manuel" : item.source_type);
+      ? effortLabels[item.effort_type] || item.effort_type.replace("_", " ")
+      : "";
+    const sourceLabel = item.source_label || (item.source_type && item.source_type !== "manual" ? item.source_type : "");
 
     const emoji = getStreakEmoji(item.current_streak || 0);
     const emojiPrefix = emoji ? `${emoji} ` : "";
@@ -2498,10 +2424,13 @@ document.addEventListener("DOMContentLoaded", () => {
     main.className = "agenda-quest-main";
     const title = document.createElement("strong");
     title.textContent = `${emojiPrefix}${item.name}${targetSuffix}`;
-    const source = document.createElement("span");
-    source.className = "agenda-quest-source";
-    source.textContent = sourceLabel;
     main.appendChild(title);
+    if (sourceLabel) {
+      const source = document.createElement("span");
+      source.className = "agenda-quest-source";
+      source.textContent = sourceLabel;
+      main.appendChild(source);
+    }
     const descriptionText = (item.description || "").trim();
     if (descriptionText) {
       const description = document.createElement("p");
@@ -2510,19 +2439,15 @@ document.addEventListener("DOMContentLoaded", () => {
       description.title = descriptionText;
       main.appendChild(description);
     }
-    main.appendChild(source);
     appendQuestTagBadges(main, item.tags);
 
     const meta = document.createElement("div");
     meta.className = "agenda-quest-meta";
-    const timeChip = document.createElement("span");
-    timeChip.className = "agenda-time-chip";
-    timeChip.textContent = placed
-      ? `${item.start_time} · ${item.duration_minutes}min`
-      : `${item.duration_minutes || item.agenda_duration_minutes || 60}min`;
-    const effort = document.createElement("span");
-    effort.textContent = effortLabel;
-    meta.append(timeChip, effort);
+    if (effortLabel) {
+      const effort = document.createElement("span");
+      effort.textContent = effortLabel;
+      meta.appendChild(effort);
+    }
     if (isDone) {
       const doneBadge = document.createElement("span");
       doneBadge.className = "agenda-status-badge done";
@@ -2538,18 +2463,17 @@ document.addEventListener("DOMContentLoaded", () => {
       failedBadge.className = "agenda-status-badge failed";
       failedBadge.textContent = "Ratée";
       meta.appendChild(failedBadge);
+    } else {
+      const pendingBadge = document.createElement("span");
+      pendingBadge.className = "agenda-status-badge pending";
+      pendingBadge.textContent = "À faire";
+      meta.appendChild(pendingBadge);
     }
     if (item.needs_configuration) {
       const config = document.createElement("span");
       config.className = "agenda-config-flag";
       config.textContent = "à configurer";
       meta.appendChild(config);
-    }
-    if (!isAgendaPlaceable) {
-      const placeable = document.createElement("span");
-      placeable.className = "agenda-placeable-flag";
-      placeable.textContent = "hors agenda";
-      meta.appendChild(placeable);
     }
 
     const actions = document.createElement("div");
@@ -2587,13 +2511,6 @@ document.addEventListener("DOMContentLoaded", () => {
       failBtn.textContent = isFailed ? "↶" : "×";
       actions.appendChild(failBtn);
     }
-    if (placed) {
-      const unplaceBtn = document.createElement("button");
-      unplaceBtn.type = "button";
-      unplaceBtn.className = "agenda-small-btn agenda-unplace-quest";
-      unplaceBtn.textContent = "Retirer";
-      actions.appendChild(unplaceBtn);
-    }
     card.append(checkboxWrap, main, meta, actions);
 
     card.querySelector(".agenda-edit-quest")?.addEventListener("click", (event) => {
@@ -2609,260 +2526,29 @@ document.addEventListener("DOMContentLoaded", () => {
       event.stopPropagation();
       await setHabitFailure(item.habit_id, isFailed);
     });
-    card.querySelector(".agenda-unplace-quest")?.addEventListener("click", async (event) => {
-      event.stopPropagation();
-      await unplaceAgendaQuest(item.habit_id);
-    });
     return card;
   }
 
   function renderAgendaLists(data) {
     if (questsListContainer) {
       questsListContainer.innerHTML = "";
-      const unplaced = data.unplaced_quests || [];
-      if (unplaced.length === 0) {
-        questsListContainer.innerHTML = `<p class="agenda-empty">Aucune quête à placer.</p>`;
+      const quests = [...(data.placed_quests || []), ...(data.unplaced_quests || [])];
+      quests.sort((a, b) => {
+        const aFinished = ["done", "skipped", "failed"].includes(a.status);
+        const bFinished = ["done", "skipped", "failed"].includes(b.status);
+        return Number(aFinished) - Number(bFinished) || a.name.localeCompare(b.name, "fr");
+      });
+      if (quests.length === 0) {
+        questsListContainer.innerHTML = `<p class="agenda-empty">Aucune quête prévue pour ce jour.</p>`;
       } else {
-        unplaced.forEach(item => questsListContainer.appendChild(renderAgendaQuestCard(item, false)));
+        quests.forEach(item => questsListContainer.appendChild(renderAgendaQuestCard(item)));
+      }
+      const completed = quests.filter(item => ["done", "skipped"].includes(item.status)).length;
+      const failed = quests.filter(item => item.status === "failed").length;
+      if (questDaySummary) {
+        questDaySummary.textContent = `${completed}/${quests.length} faites ou passées${failed ? ` · ${failed} ratée${failed > 1 ? "s" : ""}` : ""}`;
       }
     }
-  }
-
-  function renderAgendaDropGrid() {
-    if (!agendaSlotGrid) return;
-    agendaSlotGrid.innerHTML = "";
-    const dropSurface = agendaSlotGrid.parentElement || agendaSlotGrid;
-
-    const clearHoverSlot = () => {
-      agendaSlotGrid.classList.remove("drag-over");
-      agendaSlotGrid.querySelectorAll(".agenda-slot.drag-over").forEach(slot => {
-        slot.classList.remove("drag-over");
-      });
-    };
-
-    const getDropTime = (event) => {
-      const rect = dropSurface.getBoundingClientRect();
-      const relativeY = Math.min(Math.max(event.clientY - rect.top, 0), rect.height);
-      const rawMinutes = AGENDA_START_MINUTES + (relativeY / rect.height) * AGENDA_TOTAL_MINUTES;
-      const snappedMinutes = Math.round(rawMinutes / AGENDA_SLOT_MINUTES) * AGENDA_SLOT_MINUTES;
-      const clampedMinutes = Math.min(
-        Math.max(snappedMinutes, AGENDA_START_MINUTES),
-        AGENDA_END_MINUTES - AGENDA_SLOT_MINUTES
-      );
-      return minutesToTime(clampedMinutes);
-    };
-
-    const highlightHoverSlot = (time) => {
-      agendaSlotGrid.classList.add("drag-over");
-      agendaSlotGrid.querySelectorAll(".agenda-slot.drag-over").forEach(slot => {
-        slot.classList.remove("drag-over");
-      });
-      agendaSlotGrid.querySelector(`[data-time="${time}"]`)?.classList.add("drag-over");
-    };
-
-    dropSurface.ondragover = (event) => {
-      event.preventDefault();
-      highlightHoverSlot(getDropTime(event));
-    };
-    dropSurface.ondragleave = (event) => {
-      if (!dropSurface.contains(event.relatedTarget)) {
-        clearHoverSlot();
-      }
-    };
-    dropSurface.ondrop = async (event) => {
-      event.preventDefault();
-      const startTime = getDropTime(event);
-      clearHoverSlot();
-      const habitId = event.dataTransfer.getData("text/plain");
-      const quest = agendaQuestById(habitId);
-      if (quest && quest.agenda_placeable === false) {
-        showToast("Cette quête est hors agenda.", true);
-        return;
-      }
-      await placeAgendaQuest(
-        habitId,
-        startTime,
-        quest ? quest.duration_minutes || quest.agenda_duration_minutes : null
-      );
-    };
-
-    for (let minute = AGENDA_START_MINUTES; minute < AGENDA_END_MINUTES; minute += AGENDA_SLOT_MINUTES) {
-      const slot = document.createElement("button");
-      slot.type = "button";
-      slot.className = "agenda-slot";
-      slot.dataset.time = minutesToTime(minute);
-      slot.tabIndex = -1;
-      slot.setAttribute("aria-hidden", "true");
-      if (minute % 60 === 0) {
-        slot.textContent = minutesToTime(minute);
-      }
-      agendaSlotGrid.appendChild(slot);
-    }
-  }
-
-  function renderAgendaTimeline(data) {
-    const bar = document.getElementById("timeline-bar");
-    if (!bar) return;
-    bar.innerHTML = "";
-    bar.classList.add("agenda-timeline-bar");
-
-    const visibleRange = (start, duration) => {
-      const end = start + duration;
-      const clippedStart = Math.max(start, AGENDA_START_MINUTES);
-      const clippedEnd = Math.min(end, AGENDA_END_MINUTES);
-      if (clippedEnd <= clippedStart) return null;
-      return {
-        top: ((clippedStart - AGENDA_START_MINUTES) / AGENDA_TOTAL_MINUTES) * 100,
-        height: ((clippedEnd - clippedStart) / AGENDA_TOTAL_MINUTES) * 100
-      };
-    };
-
-    (data.segments || []).forEach(segment => {
-      const start = timeToMinutes(segment.start);
-      const end = timeToMinutes(segment.end);
-      if (end <= start) return;
-      const range = visibleRange(start, end - start);
-      if (!range) return;
-      const el = document.createElement("div");
-      el.className = `agenda-template-segment segment-${segment.kind || "admin"}`;
-      el.style.top = `${range.top}%`;
-      el.style.height = `${range.height}%`;
-      el.title = `${segment.title || segment.kind} (${segment.start} - ${segment.end})`;
-      bar.appendChild(el);
-    });
-
-    let visiblePlacedCount = 0;
-    (data.placed_quests || []).forEach(item => {
-      const start = timeToMinutes(item.start_time);
-      const duration = Number(item.duration_minutes || item.agenda_duration_minutes || 60);
-      const range = visibleRange(start, duration);
-      if (!range) return;
-      visiblePlacedCount += 1;
-      const isDone = item.status === "done";
-      const isSkipped = item.status === "skipped";
-      const isFailed = item.status === "failed";
-      const isToday = getAgendaDate() === todayDateString();
-      const block = document.createElement("div");
-      block.className = `agenda-quest-block ${item.needs_configuration ? "needs-config" : ""} ${isDone ? "quest-done" : ""} ${isSkipped ? "quest-skipped" : ""} ${isFailed ? "quest-failed" : ""}`;
-      block.draggable = true;
-      block.dataset.habitId = item.habit_id;
-      block.style.top = `${range.top}%`;
-      block.style.height = `${range.height}%`;
-
-      const targetForDate = getQuestTargetForDate(item);
-      const targetSuffix = targetForDate > 1
-        ? ` (${item.today_count || 0}/${targetForDate})`
-        : "";
-      const emoji = getStreakEmoji(item.current_streak || 0);
-      const emojiPrefix = emoji ? `${emoji} ` : "";
-      block.title = `${emojiPrefix}${item.name}${targetSuffix} (${item.start_time}, ${duration}min)${isDone ? " - fait" : ""}${isSkipped ? " - passé" : ""}${isFailed ? " - ratée" : ""}`;
-
-      // Checkbox on the timeline block
-      const blockCheck = document.createElement("button");
-      blockCheck.type = "button";
-      blockCheck.className = `agenda-block-check-btn ${isDone ? "checked" : ""} ${isSkipped ? "skipped" : ""} ${isFailed ? "failed" : ""}`;
-      blockCheck.title = isDone ? "Fait" : isSkipped ? "Passé" : isFailed ? "Ratée" : "Marquer comme fait";
-      blockCheck.innerHTML = isDone ? "✓" : isSkipped ? "⏭" : isFailed ? "×" : "";
-      blockCheck.addEventListener("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (isDone || isSkipped || isFailed) return;
-        const habitType = getQuestTypeForDate(item);
-        if (habitType === "quantitative") {
-          const amount = prompt(`Combien de ${getQuestUnitForDate(item)} ?`);
-          if (amount === null) return;
-          const parsed = parseFloat(amount);
-          if (isNaN(parsed) || parsed <= 0) { showToast("Quantité invalide", true); return; }
-          await submitQuestLog(item.habit_id, "log", parsed);
-        } else {
-          await submitQuestLog(item.habit_id, "done");
-        }
-      });
-
-      const blockTitle = document.createElement("span");
-      blockTitle.className = "agenda-quest-block-title";
-      blockTitle.textContent = `${emojiPrefix}${item.name}${targetSuffix}`;
-      const editBtn = document.createElement("button");
-      editBtn.type = "button";
-      editBtn.className = "agenda-block-edit-btn";
-      editBtn.title = "Modifier la quête";
-      editBtn.setAttribute("aria-label", "Modifier la quête");
-      editBtn.textContent = "✏️";
-      const statsBtn = document.createElement("button");
-      statsBtn.type = "button";
-      statsBtn.className = "agenda-block-stats-btn";
-      statsBtn.title = "Statistiques de la quête";
-      statsBtn.setAttribute("aria-label", "Statistiques de la quête");
-      statsBtn.textContent = "📊";
-      const progressMode = getQuestProgressMode(item);
-      const progressBtn = document.createElement("button");
-      progressBtn.type = "button";
-      progressBtn.className = "agenda-block-progress-btn";
-      progressBtn.title = "Ouvrir le suivi quotidien";
-      progressBtn.setAttribute("aria-label", "Ouvrir le suivi quotidien");
-      progressBtn.textContent = questProgressButtonLabel(item);
-      const failBtn = document.createElement("button");
-      failBtn.type = "button";
-      failBtn.className = `agenda-block-fail-btn ${isFailed ? "undo" : ""}`;
-      failBtn.title = isFailed ? "Annuler l'échec" : "Déclarer la quête ratée";
-      failBtn.setAttribute("aria-label", failBtn.title);
-      failBtn.textContent = isFailed ? "↶" : "×";
-      block.append(blockCheck, blockTitle);
-      const tagBadges = questTagBadges(item.tags);
-      if (tagBadges) block.appendChild(tagBadges);
-      if (progressMode !== "standard") block.appendChild(progressBtn);
-      block.append(editBtn, statsBtn);
-      if (isToday && !isDone && !isSkipped) block.appendChild(failBtn);
-      block.addEventListener("dragstart", (event) => {
-        event.dataTransfer.setData("text/plain", String(item.habit_id));
-        event.dataTransfer.effectAllowed = "move";
-      });
-      editBtn.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        openEditQuestModal(questConfigForAgendaItem(item), item);
-      });
-      statsBtn.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const habitObj = allHabitsCache.find(h => String(h.id) === String(item.habit_id)) || questFromAgendaItem(item);
-        openHabitDetailModal(habitObj);
-      });
-      progressBtn.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        openQuestTrackingDrawer(item, progressBtn);
-      });
-      failBtn.addEventListener("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        await setHabitFailure(item.habit_id, isFailed);
-      });
-      bar.appendChild(block);
-
-      const bufferRange = visibleRange(start + duration, AGENDA_BUFFER_MINUTES);
-      if (bufferRange) {
-        const buffer = document.createElement("div");
-        buffer.className = "agenda-buffer-block";
-        buffer.style.top = `${bufferRange.top}%`;
-        buffer.style.height = `${bufferRange.height}%`;
-        buffer.title = `Buffer 15min après ${item.name}`;
-        bar.appendChild(buffer);
-      }
-    });
-
-    if (visiblePlacedCount === 0) {
-      const empty = document.createElement("div");
-      empty.className = "agenda-timeline-empty";
-      empty.textContent = "Glissez une quête entre 04:00 et 24:00.";
-      bar.appendChild(empty);
-    }
-  }
-
-  function updateAgendaSaveButtons(dayType) {
-    document.querySelectorAll(".agenda-save-btn").forEach(btn => {
-      btn.style.display = btn.dataset.template === dayType ? "inline-flex" : "none";
-    });
   }
 
   function renderQuestAgenda(data) {
@@ -2873,10 +2559,7 @@ document.addEventListener("DOMContentLoaded", () => {
       agendaDayTypeBadge.textContent = data.day_type || "regular";
       agendaDayTypeBadge.dataset.template = data.day_type || "regular";
     }
-    updateAgendaSaveButtons(data.day_type || "regular");
-    renderAgendaEffortSummary(data);
-    renderAgendaDropGrid();
-    renderAgendaTimeline(data);
+    updateQuestPanelShell();
     renderAgendaLists(data);
   }
 
@@ -2892,94 +2575,9 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error(error);
       if (showErrors) showToast(error.message, true);
       if (questsListContainer) {
-        questsListContainer.innerHTML = `<p class="agenda-empty error">Erreur de chargement de l'agenda.</p>`;
+        questsListContainer.innerHTML = `<p class="agenda-empty error">Erreur de chargement des quêtes du jour.</p>`;
       }
       return null;
-    }
-  }
-
-  async function placeAgendaQuest(habitId, startTime, durationMinutes = null) {
-    if (!habitId || !startTime) return;
-    const quest = agendaQuestById(habitId);
-    if (quest && quest.agenda_placeable === false) {
-      showToast("Cette quête est hors agenda.", true);
-      return;
-    }
-    try {
-      const date = getAgendaDate();
-      const body = { start_time: startTime };
-      if (durationMinutes) body.duration_minutes = parseInt(durationMinutes, 10);
-      const response = await fetch(`${API_BASE}/agenda/${date}/quests/${habitId}/placement`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      if (!response.ok) throw new Error((await response.json()).detail || "Placement refusé");
-      const data = await response.json();
-      renderQuestAgenda(data);
-      const placed = (data.placed_quests || []).find(item => String(item.habit_id) === String(habitId));
-      const finalTime = placed ? placed.start_time : startTime;
-      const shifted = finalTime !== startTime ? " (auto-décalée)" : "";
-      showToast(`Quête placée à ${finalTime}${shifted}.`);
-    } catch (error) {
-      console.error(error);
-      showToast(error.message, true);
-    }
-  }
-
-  async function unplaceAgendaQuest(habitId) {
-    if (!habitId) return;
-    try {
-      const date = getAgendaDate();
-      const response = await fetch(`${API_BASE}/agenda/${date}/quests/${habitId}/placement`, {
-        method: "DELETE"
-      });
-      if (!response.ok) throw new Error((await response.json()).detail || "Retrait refusé");
-      const data = await response.json();
-      renderQuestAgenda(data);
-      showToast("Quête retirée de l'agenda.");
-    } catch (error) {
-      console.error(error);
-      showToast(error.message, true);
-    }
-  }
-
-  async function saveAgendaAsTemplate(templateName) {
-    try {
-      const date = getAgendaDate();
-      const response = await fetch(`${API_BASE}/agenda/${date}/save-as-template`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template_name: templateName })
-      });
-      if (!response.ok) throw new Error((await response.json()).detail || "Sauvegarde refusée");
-      const data = await response.json();
-      showToast(`${data.default_placements_count} placement(s) sauvés pour ${templateName}.`);
-      await loadQuestAgenda(true);
-    } catch (error) {
-      console.error(error);
-      showToast(error.message, true);
-    }
-  }
-
-  async function exportAgendaQuestsForDay() {
-    const btn = document.getElementById("agenda-export-quests-btn");
-    try {
-      const date = getAgendaDate();
-      if (btn) btn.disabled = true;
-      const response = await fetch(`${API_BASE}/agenda/${date}/export-google-quests`, {
-        method: "POST"
-      });
-      if (!response.ok) {
-        const detail = (await response.json().catch(() => ({}))).detail;
-        throw new Error(detail || "Export refusé. Compte Google connecté ?");
-      }
-      showToast(`Quêtes du ${date} envoyées vers Google Calendar.`);
-    } catch (error) {
-      console.error(error);
-      showToast(error.message, true);
-    } finally {
-      if (btn) btn.disabled = false;
     }
   }
 
@@ -5524,10 +5122,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("edit-quest-effort-type").value = habit.effort_type || "";
     const editDuration = habit.agenda_duration_minutes || Math.max(15, Math.round((habit.effort_duration || 1.0) * 60));
     document.getElementById("edit-quest-duration").value = editDuration;
-    const editAgendaPlaceable = document.getElementById("edit-quest-agenda-placeable");
-    if (editAgendaPlaceable) {
-      editAgendaPlaceable.checked = habit.agenda_placeable !== false;
-    }
     updateFrequencyNote(editFreqSelect, editQuestFrequencyNote, habit.scheduled_days);
 
     if (editQuestSourceMeta) {
@@ -5629,7 +5223,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const effort_type = document.getElementById("edit-quest-effort-type").value || null;
     const agenda_duration_minutes = parseInt(document.getElementById("edit-quest-duration").value, 10) || 60;
     const effort_duration = agenda_duration_minutes / 60;
-    const agenda_placeable = document.getElementById("edit-quest-agenda-placeable")?.checked !== false;
+    const agenda_placeable = activeEditQuest?.agenda_placeable !== false;
     const day_types = selectedDayTypes(editDayTypesGroup);
     if (day_types.length === 0) {
       showToast("Choisissez au moins un type de journée.", true);
@@ -6045,14 +5639,6 @@ document.addEventListener("DOMContentLoaded", () => {
     agendaYesterdayBtn?.addEventListener("click", () => showAgendaDate(yesterdayDateString()));
     agendaTodayBtn?.addEventListener("click", () => showAgendaDate(todayDateString()));
     agendaRefreshBtn?.addEventListener("click", () => showAgendaDate(getAgendaDate()));
-    toggleAgendaEffortsBtn?.addEventListener("click", () => {
-      setAgendaEffortSummaryVisible(!agendaEffortSummaryVisible);
-    });
-    setAgendaEffortSummaryVisible(agendaEffortSummaryVisible);
-    document.getElementById("agenda-export-quests-btn")?.addEventListener("click", exportAgendaQuestsForDay);
-    document.querySelectorAll(".agenda-save-btn").forEach(btn => {
-      btn.addEventListener("click", () => saveAgendaAsTemplate(btn.dataset.template));
-    });
   }
 
   function initializeApp() {
@@ -6063,7 +5649,6 @@ document.addEventListener("DOMContentLoaded", () => {
     appInitialized = true;
     biologicalZonesCache = null;
     if (!appEventsBound) {
-      mountPerfectDayRenderingLayout();
       setupAgendaEvents();
       setupToggleEvents();
       setupBountiesEvents();
@@ -6153,7 +5738,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const effort_type = document.getElementById("new-quest-effort-type").value || null;
         const agenda_duration_minutes = parseInt(document.getElementById("new-quest-duration").value, 10) || 60;
         const effort_duration = agenda_duration_minutes / 60;
-        const agenda_placeable = document.getElementById("new-quest-agenda-placeable")?.checked !== false;
+        const agenda_placeable = true;
         const day_types = selectedDayTypes(newDayTypesGroup);
 
         if (!title) {
@@ -6198,8 +5783,6 @@ document.addEventListener("DOMContentLoaded", () => {
           document.getElementById("new-quest-desc").value = "";
           document.getElementById("new-quest-effort-type").value = "";
           document.getElementById("new-quest-duration").value = "60";
-          const newAgendaPlaceable = document.getElementById("new-quest-agenda-placeable");
-          if (newAgendaPlaceable) newAgendaPlaceable.checked = true;
           document.getElementById("new-quest-unit").value = "";
           document.getElementById("new-quest-target").value = "";
           document.getElementById("new-quest-type").value = "binary";
@@ -8498,18 +8081,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Initialize date inputs for Google Export
-  const exportStartInput = document.getElementById("google-export-start");
-  const exportEndInput = document.getElementById("google-export-end");
-  if (exportStartInput && exportEndInput) {
-    const today = new Date();
-    const future = new Date();
-    future.setDate(today.getDate() + 7);
-
-    exportStartInput.value = today.toISOString().split("T")[0];
-    exportEndInput.value = future.toISOString().split("T")[0];
-  }
-
   const disconnectBtn = document.getElementById("google-disconnect-btn");
   if (disconnectBtn) {
     disconnectBtn.addEventListener("click", async () => {
@@ -8529,54 +8100,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       } catch (err) {
         showToast("Erreur lors de la déconnexion.", true);
-      }
-    });
-  }
-
-  const exportBtn = document.getElementById("google-export-btn");
-  if (exportBtn) {
-    exportBtn.addEventListener("click", async () => {
-      const start = document.getElementById("google-export-start").value;
-      const end = document.getElementById("google-export-end").value;
-      const statusEl = document.getElementById("google-export-status");
-
-      if (!start || !end) {
-        showToast("Veuillez sélectionner les dates de début et de fin.", true);
-        return;
-      }
-
-      if (statusEl) {
-        statusEl.textContent = "⌛ Exportation en cours de planification...";
-        statusEl.style.display = "block";
-      }
-      exportBtn.disabled = true;
-
-      try {
-        const response = await fetch(`${API_BASE}/agenda/export-google`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-User-ID": localStorage.getItem("user_id") || "1"
-          },
-          body: JSON.stringify({ start_date: start, end_date: end })
-        });
-
-        if (response.ok) {
-          showToast("Tâche d'exportation lancée en arrière-plan ! 🚀");
-          if (statusEl) {
-            statusEl.textContent = "✅ Exportation planifiée avec succès en arrière-plan !";
-            setTimeout(() => { statusEl.style.display = "none"; }, 5000);
-          }
-        } else {
-          const data = await response.json();
-          showToast(data.detail || "Erreur lors de l'exportation.", true);
-          if (statusEl) statusEl.style.display = "none";
-        }
-      } catch (err) {
-        showToast("Erreur réseau.", true);
-        if (statusEl) statusEl.style.display = "none";
-      } finally {
-        exportBtn.disabled = false;
       }
     });
   }

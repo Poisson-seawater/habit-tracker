@@ -31,8 +31,8 @@ Tu logges des [habitudes](#/habitudes) et tu coches des [primes](#/primes-todo).
 | Type d'habitude | binaire / quantitative | binaire = `/done` ; quantitative = `/log` avec unité |
 | Fréquence d'habitude | jours de la semaine | l'habitude n'est due que les jours planifiés |
 | Plafond journalier (cap) | nombre max / jour | borne les logs d'une habitude quantitative |
-| Budget d'effort | heures par catégorie | plafonne l'effort prévu dans l'agenda |
-| Template de jour | rest / regular / hustle | fixe l'agenda type et les budgets du Perfect Day |
+| Budget d'effort | heures par catégorie | cadre la charge associée aux quêtes prévues |
+| Template de jour | rest / regular / hustle | fixe les quêtes prévues et les budgets du Perfect Day |
 | XP de prime | 1 à 40 | XP direct gagné en cochant la prime |
 | `is_private` (habitude) | oui / non | comptée pour toi, masquée du recap public |
 | `is_reportable` | oui / non | apparaît ou non dans le bilan du groupe |

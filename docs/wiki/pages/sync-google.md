@@ -15,8 +15,6 @@ Une [prime](#/primes-todo) porte deux dates optionnelles, `do_date` (jour où tu
 
 Concrètement, l'événement Calendar porte le titre `⚔️ <titre de la prime>` et une couleur graphite fixe (`colorId` 8) — toutes les primes ont la même couleur, qu'importe leur nature. La tâche Google porte le titre `🏆 <titre de la prime>`.
 
-> [!note] Les emojis et couleurs par type d'effort (💪 musculaire rouge, 🧠 cerveau bleu, ❤️ emotionnel_social orange, 🎨 creatif_divergent violet, 🌿 repos vert) ne s'appliquent **pas** aux primes : ils servent uniquement à l'export des quêtes de l'[agenda vertical](#/agenda-timeline), décrit plus bas.
-
 ## Cycle de vie de la synchro
 
 Chaque écriture sur une prime déclenche une synchro en tâche de fond (le site ou le bot n'attendent pas la réponse de Google) :
@@ -26,9 +24,9 @@ Chaque écriture sur une prime déclenche une synchro en tâche de fond (le site
 - **Complétion** : cocher la prime marque la tâche Google `completed`. L'événement Calendar, lui, reste en place — un jour de travail passé garde sa trace sur l'agenda.
 - **Suppression** : la prime supprimée entraîne la suppression de l'événement **et** de la tâche associés.
 
-## Export manuel des quêtes planifiées
+## Ancien export manuel des quêtes
 
-En plus de la synchro automatique des primes, un bouton export pousse tes [quêtes](#/habitudes) déjà placées dans l'[agenda vertical](#/agenda-timeline) vers Google Calendar — pratique pour voir sa journée type sur son téléphone.
+Le dashboard ne propose plus d'export manuel des quêtes, car il n'utilise plus de grille horaire. Les anciennes routes API restent disponibles pour les intégrations existantes :
 
 - `POST /api/v1/agenda/export-google` — exporte les quêtes placées sur une plage de dates (`start_date` à `end_date`).
 - `POST /api/v1/agenda/{date}/export-google-quests` — exporte les quêtes placées d'un seul jour.

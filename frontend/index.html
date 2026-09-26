@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=14">
+  <link rel="stylesheet" href="css/style.css?v=15">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -902,84 +902,33 @@
 
       <!-- Dashboard Grid -->
       <main class="dashboard-grid">
-        
-        <!-- Left Column: Recap & Stats -->
-        <div class="left-column-container" style="display: flex; flex-direction: column; gap: 2rem;">
-          
-          <div id="perfect-day-recap-slot">
-            <!-- Perfect Day Agenda / Typical Day Timeline -->
-            <section class="glass-card typical-day-card" id="typical-day-card">
-              <h2 class="section-header">📅 <span>Agenda des Quêtes</span></h2>
-
-              <div class="agenda-toolbar">
-                <div class="agenda-date-switch" role="group" aria-label="Jour affiché">
-                  <button type="button" id="agenda-yesterday-btn">Hier</button>
-                  <button type="button" id="agenda-today-btn">Aujourd'hui</button>
-                </div>
-                <div class="agenda-toolbar-group">
-                  <label for="agenda-date-input">Date</label>
-                  <input type="date" id="agenda-date-input">
-                </div>
-                <div class="agenda-toolbar-group">
-                  <span id="agenda-day-type-badge" class="agenda-day-type-badge">regular</span>
-                </div>
-                <button type="button" class="floating-add-btn" id="agenda-refresh-btn" title="Rafraîchir l'agenda">↻</button>
-                <button type="button" class="floating-add-btn" id="agenda-export-quests-btn" title="Exporter les quêtes de ce jour vers Google Calendar">📆</button>
-              </div>
-
-              <div class="agenda-save-row" id="agenda-save-row">
-                <button type="button" class="agenda-save-btn" data-template="rest" style="display: none;">Sauver rest</button>
-                <button type="button" class="agenda-save-btn" data-template="regular" style="display: none;">Sauver regular</button>
-                <button type="button" class="agenda-save-btn" data-template="hustle" style="display: none;">Sauver hustle</button>
-              </div>
-
-              <div class="agenda-effort-controls">
-                <span>Budget d'effort</span>
-                <button type="button" class="agenda-small-btn agenda-effort-toggle-btn" id="toggle-agenda-efforts-btn" aria-pressed="false">Masquer</button>
-              </div>
-              <div id="agenda-effort-panel" class="agenda-effort-panel">
-                <div id="agenda-warnings" class="agenda-warnings"></div>
-                <div id="agenda-effort-summary" class="agenda-effort-summary"></div>
-              </div>
-
-              <div class="agenda-workspace">
-                <div class="agenda-timeline-panel">
-                  <div class="timeline-container agenda-drop-container">
-                    <div class="agenda-time-rail" aria-hidden="true">
-                      <span>04:00</span>
-                      <span>08:00</span>
-                      <span>12:00</span>
-                      <span>16:00</span>
-                      <span>20:00</span>
-                      <span>24:00</span>
-                    </div>
-                    <div class="agenda-vertical-stage">
-                      <div class="timeline-bar agenda-timeline-bar" id="timeline-bar"></div>
-                      <div class="agenda-slot-grid" id="agenda-slot-grid"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-          
-
-        </div>
-
-        <!-- Right Column: Quests & Todos -->
+        <!-- Quests & Todos -->
         <div class="widgets-container">
           
           <!-- Quests Widget (Habits Check-ins) -->
           <section class="glass-card quests-panel">
             <h2 class="section-header">
-              <span id="quests-panel-title">🎯 Quêtes à placer</span>
+              <span id="quests-panel-title">🎯 Quêtes du jour</span>
               <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
-                <button class="quest-agenda-toggle-btn active" id="toggle-quest-agenda-btn" type="button">Agenda</button>
+                <button class="quest-agenda-toggle-btn active" id="toggle-quest-agenda-btn" type="button">Du jour</button>
                 <button class="quest-bank-toggle-btn" id="toggle-quest-bank-btn" type="button">Banque</button>
                 <button class="quest-archives-toggle-btn" id="toggle-quest-archives-btn" type="button">Archives</button>
                 <button class="floating-add-btn" id="open-quest-inline-btn">+ Quête</button>
               </div>
             </h2>
+            <div class="agenda-toolbar">
+              <div class="agenda-date-switch" role="group" aria-label="Jour affiché">
+                <button type="button" id="agenda-yesterday-btn">Hier</button>
+                <button type="button" id="agenda-today-btn">Aujourd'hui</button>
+              </div>
+              <div class="agenda-toolbar-group">
+                <label for="agenda-date-input">Date</label>
+                <input type="date" id="agenda-date-input">
+              </div>
+              <span id="agenda-day-type-badge" class="agenda-day-type-badge">regular</span>
+              <button type="button" class="floating-add-btn" id="agenda-refresh-btn" title="Rafraîchir les quêtes du jour" aria-label="Rafraîchir les quêtes du jour">↻</button>
+            </div>
+            <p class="quest-day-summary" id="quest-day-summary" aria-live="polite"></p>
 
             <!-- Quick Quest Form -->
             <div class="bounty-inline-add" id="quest-inline-form" style="display: none; padding: 1.2rem; gap: 0.8rem; flex-direction: column; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-glass); border-radius: 12px; margin-bottom: 1rem;">
@@ -1070,13 +1019,6 @@
               <div class="form-group">
                 <label>Cible/jour (optionnel)</label>
                 <input type="number" id="new-quest-target" min="1" placeholder="ex: 2 — affiche X/N, chaque validation = XP" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary);">
-              </div>
-
-              <div class="form-group agenda-placeable-toggle">
-                <label>
-                  <input type="checkbox" id="new-quest-agenda-placeable" checked>
-                  <span>À placer dans l'agenda</span>
-                </label>
               </div>
 
               <div class="quest-tags-editor">
@@ -1779,7 +1721,7 @@
         <section class="glass-card google-integration-panel" style="grid-column: 1 / -1; padding: 1.8rem; margin-top: 1rem;">
           <h2 class="section-header">📅 <span>Intégration Google Calendar & Tasks</span></h2>
           <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem; margin-top: -1rem;">
-            Synchronisez vos quêtes (due dates sur Google Calendar et do dates sur Google Tasks) et exportez manuellement les quêtes placées de votre agenda sur une période choisie.
+            Synchronisez vos primes datées avec Google Calendar et Google Tasks.
           </p>
 
           <div id="google-status-container" style="display: flex; flex-direction: column; gap: 1rem;">
@@ -1798,28 +1740,6 @@
               <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 4px;">
                 <div><strong>ID Agenda :</strong> <code id="google-cal-id" style="color: var(--accent-cyan); font-family: monospace;">...</code></div>
                 <div><strong>ID Liste des Tâches :</strong> <code id="google-tasks-id" style="color: var(--accent-cyan); font-family: monospace;">...</code></div>
-              </div>
-
-              <!-- Export placed quests over a date range -->
-              <div class="google-export-box" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass); border-radius: 12px; padding: 1.2rem;">
-                <h4 style="margin-top: 0; color: var(--accent-cyan); margin-bottom: 0.5rem; font-family: var(--font-display);">🚀 Export des quêtes sur une période</h4>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
-                  Envoie uniquement les quêtes placées (🎯) de votre agenda sur Google Calendar, pour chaque jour de la période. Aucune zone biologique ni segment n'est exporté. Les anciennes quêtes exportées sur cette période sont nettoyées au préalable.
-                </p>
-                <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
-                  <div class="form-group" style="margin: 0; min-width: 150px;">
-                    <label for="google-export-start" style="font-size: 0.75rem;">Date de début</label>
-                    <input type="date" id="google-export-start" style="padding: 6px; font-size: 0.85rem;">
-                  </div>
-                  <div class="form-group" style="margin: 0; min-width: 150px;">
-                    <label for="google-export-end" style="font-size: 0.75rem;">Date de fin</label>
-                    <input type="date" id="google-export-end" style="padding: 6px; font-size: 0.85rem;">
-                  </div>
-                  <button id="google-export-btn" class="quest-action-btn submit-btn" style="padding: 10px 15px; font-size: 0.85rem; width: auto; margin: 0;">
-                    📤 Lancer l'exportation
-                  </button>
-                </div>
-                <div id="google-export-status" style="margin-top: 1rem; font-size: 0.85rem; color: var(--accent-cyan); font-weight: bold; display: none;"></div>
               </div>
 
               <button id="google-disconnect-btn" class="quest-action-btn" style="margin-top: 1.5rem; width: auto; padding: 8px 16px; background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.5); color: #ef4444;">
@@ -2148,12 +2068,6 @@
         <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;cursor:pointer;"><input type="checkbox" value="hustle" checked> Hustle</label>
       </div>
     </div>
-    <div class="form-group agenda-placeable-toggle">
-      <label>
-        <input type="checkbox" id="edit-quest-agenda-placeable" checked>
-        <span>À placer dans l'agenda</span>
-      </label>
-    </div>
     <div class="quest-tags-editor">
       <details class="quest-tags-picker">
         <summary id="edit-quest-tags-summary">Choisir les tags</summary>
@@ -2387,6 +2301,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.19"></script>
+  <script src="js/app.js?v=1.0.20"></script>
 </body>
 </html>

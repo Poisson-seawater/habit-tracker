@@ -61,19 +61,12 @@ semaines sont `regular` du lundi au vendredi, `hustle` le samedi et `rest` le
 dimanche; la quatrième retire le Hustle Day. Le bouton **Feel off today** transforme
 exceptionnellement aujourd'hui en Rest Day et permet ensuite de revenir au planning.
 
-### Correction livrée — durée des quêtes dans l'agenda
-
-La durée d'une quête modifiée est maintenant synchronisée avec ses placements
-datés et ses placements par défaut dans les templates `rest`, `regular` et
-`hustle`. Le bloc visuel de l'agenda reflète donc bien une durée comme 120
-minutes, y compris pour les quêtes déjà placées dans un template.
-
-
 ## NEXT ACTIONS
-- **Prochaine session : valider le calendrier ajusté avant de commencer le
-  Jar of Life.** Le retour de Gabriel a été intégré : filtre par objectif et
-  dates directement dans les barres, sans axe des mois en haut. Faire tester
-  la lecture, le choix du mois et le reflet dans « Ma vie en semaines ».
+- **Valider le Home simplifié et le calendrier avant de commencer le Jar of
+  Life.** Le Home montre maintenant les quêtes prévues pour la date en liste,
+  sans grille horaire ni placement obligatoire. Vérifier les validations et la
+  correction d'hier, puis tester la lecture du calendrier, le choix d'un mois
+  et son reflet dans « Ma vie en semaines ».
 - Pour objectifs "Social" j'ai plusieurs reflexe a prendre - comme routine avant de sortir de la maison. Des objectifs: parler a plusieurs inconnues. Et des options: bibliotheques, bars, meet up etc ... . Trouver un systeme pour les ranger visuellement dans le tableau de bord
 - Rédiger une description claire de l'application, centrée sur le parcours utilisateur, l'expérience vécue et les grandes intentions de design (sans code ni détails techniques). Décrire notamment l'utilisateur et son besoin, le parcours quotidien de la planification à la validation, les moments clés du dashboard et du bot, ainsi que les principes UX recherchés : clarté, motivation, responsabilité et absence de surcharge.
 
@@ -167,7 +160,7 @@ place dans l'agenda.
 
 Idée produit : ajouter une vue 2x2 de type matrice d'Eisenhower :
 - urgent + important : à faire en priorité, potentiellement visible dans
-  l'agenda du jour ;
+  les quêtes du jour ;
 - important + non urgent : à planifier volontairement avant que ça devienne une
   urgence ;
 - urgent + non important : à déléguer, réduire ou transformer en tâche courte ;
@@ -181,8 +174,7 @@ Idée produit : ajouter une vue 2x2 de type matrice d'Eisenhower :
 - prévoir une interaction rapide depuis le dashboard pour déplacer un item entre
   les quadrants ;
 - relier la matrice au Perfect Day : les items importants non urgents doivent
-  pouvoir être planifiés dans les zones biologiques adaptées au lieu d'être
-  oubliés.
+  rester visibles sans exiger un placement horaire.
 
 
 
@@ -257,6 +249,15 @@ Le Gantt sert à situer les jalons et les projets dans le temps; les périodes
 possibles restent des hypothèses, et une période choisie est un choix de
 planification explicite.
 
+### Done — Home centré sur les quêtes du jour
+
+Le Home rassemble toutes les quêtes prévues pour la date affichée dans une
+liste, avec leurs statuts et leurs actions. Un ancien placement horaire ne
+masque plus une quête. La grille horaire, ses contrôles de placement et
+l'export manuel des quêtes ont été retirés de l'interface. Les routes API
+historiques restent disponibles pour les intégrations existantes; la synchro
+Google des primes datées continue séparément.
+
 ### Now — The Jar of Life, les gros cailloux d'abord
 
 Une vue hebdomadaire d'allocation de l'attention, inspirée de
@@ -271,11 +272,12 @@ semaine :
 - l'espace restant : repos, social, imprévu et marge — pas une ressource à
   remplir à 100 %.
 
-La vue s'appuie d'abord sur les créneaux réellement placés dans l'agenda et les
-To-dos avec un jour de travail, puis laisse l'utilisateur classer explicitement
-ses priorités. Elle ne déduit pas l'importance depuis les XP, les tags ou le
-nombre de validations. Son test de réussite est simple : les gros cailloux ont
-une place avant que le sable ne prenne toute la semaine.
+La vue devra partir des quêtes prévues et des To-dos avec un jour de travail,
+puis laisser l'utilisateur classer explicitement ses priorités. Les créneaux
+protégés, s'ils sont utiles, seront choisis sans revenir à une grille horaire
+pour chaque quête. Elle ne déduit pas l'importance depuis les XP, les tags ou
+le nombre de validations. Son test de réussite est simple : les gros cailloux
+ont une place avant que le sable ne prenne toute la semaine.
 
 Le compteur auxiliaire déjà disponible sur une quête reste l'outil pour les
 répétitions (« 25/100 appels », « 7/10 expositions »). Il ne faut pas le

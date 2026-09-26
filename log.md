@@ -3,6 +3,13 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-09-26 — fix(home): afficher les quêtes du jour sans agenda horaire
+
+- Le Home réunit les quêtes éligibles à la date, y compris celles avec un ancien placement. Les quêtes restantes précèdent les quêtes faites, passées ou ratées; un résumé distingue les validations des échecs.
+- La grille horaire, le glisser-déposer, les boutons de placement, la sauvegarde des créneaux et l'export manuel des quêtes ont été retirés de l'interface. La sélection Aujourd'hui/Hier, la banque, les archives, la validation et le suivi quotidien restent accessibles.
+- Aucun changement d'API, de schéma DB ou de commande Telegram. Les anciennes routes de placement et d'export restent disponibles pour compatibilité; la synchro Google des primes datées est conservée.
+- README et wiki synchronisés. Validation : syntaxe JavaScript, structure DOM et `git diff --check` réussis; Chrome headless avec données synthétiques confirme quêtes anciennement placées et non placées dans la même liste, ordre des statuts, absence d'heures sur les cartes et résumé distinct des échecs. L'API locale sert `/health`, le nouveau HTML et le nouvel asset JS avec des réponses 200. L'endpoint agenda local répond 401 sans session, donc pas de test authentifié avec les données locales.
+
 ## 2026-09-22 — docs(goals): expliquer les données des objectifs et perspectives
 
 - Copie de l'explication pédagogique dans la page wiki « Des objectifs aux perspectives », avec schéma, exemple et limites du placement automatique.

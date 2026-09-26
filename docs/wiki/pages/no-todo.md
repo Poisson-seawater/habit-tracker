@@ -11,4 +11,4 @@ Tu connais les bonnes résolutions du genre « aujourd'hui, pas de snooze ». Un
 
 Les No-Todos échoués apparaissent dans `/status`. Ils tracent les dérapages du jour, à côté du [Perfect Day](#/perfect-day).
 
-Sur le dashboard, utilise le bouton **Hier** de l'agenda : les No-Todos affichent alors leur état pour la veille et peuvent y être déclarés échoués. Le bouton **Aujourd'hui** revient au jour courant. Comme pour les corrections de quêtes, la fenêtre est limitée à aujourd'hui et hier ; une date plus ancienne est refusée.
+Sur le dashboard, utilise le bouton **Hier** de « Quêtes du jour » : les No-Todos affichent alors leur état pour la veille et peuvent y être déclarés échoués. Le bouton **Aujourd'hui** revient au jour courant. Comme pour les corrections de quêtes, la fenêtre est limitée à aujourd'hui et hier ; une date plus ancienne est refusée.
