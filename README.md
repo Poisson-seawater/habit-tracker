@@ -62,11 +62,9 @@ dimanche; la quatrième retire le Hustle Day. Le bouton **Feel off today** trans
 exceptionnellement aujourd'hui en Rest Day et permet ensuite de revenir au planning.
 
 ## NEXT ACTIONS
-- **Valider le Home simplifié et le calendrier avant de commencer le Jar of
-  Life.** Le Home montre maintenant les quêtes prévues pour la date en liste,
-  sans grille horaire ni placement obligatoire. Vérifier les validations et la
-  correction d'hier, puis tester la lecture du calendrier, le choix d'un mois
-  et son reflet dans « Ma vie en semaines ».
+- **Tester le Jar of Life sur une vraie semaine.** Choisir jusqu'à trois gros
+  cailloux, leur réserver des blocs disponibles, puis observer si cette vue aide
+  à reporter ou réduire le sable. Garder les blocs libres comme marge réelle.
 - Pour objectifs "Social" j'ai plusieurs reflexe a prendre - comme routine avant de sortir de la maison. Des objectifs: parler a plusieurs inconnues. Et des options: bibliotheques, bars, meet up etc ... . Trouver un systeme pour les ranger visuellement dans le tableau de bord
 - Rédiger une description claire de l'application, centrée sur le parcours utilisateur, l'expérience vécue et les grandes intentions de design (sans code ni détails techniques). Décrire notamment l'utilisateur et son besoin, le parcours quotidien de la planification à la validation, les moments clés du dashboard et du bot, ainsi que les principes UX recherchés : clarté, motivation, responsabilité et absence de surcharge.
 
@@ -258,12 +256,13 @@ l'export manuel des quêtes ont été retirés de l'interface. Les routes API
 historiques restent disponibles pour les intégrations existantes; la synchro
 Google des primes datées continue séparément.
 
-### Now — The Jar of Life, les gros cailloux d'abord
+### Done — The Jar of Life, les gros cailloux d'abord
 
 Une vue hebdomadaire d'allocation de l'attention, inspirée de
 [The Jar of Life: First Things First](https://balancedaction.me/2012/10/17/the-jar-of-life-first-things-first/).
-Elle rend visible ce qui entre dans la capacité volontairement disponible de la
-semaine :
+L'onglet **Bocal** rend visible ce qui entre dans la capacité volontairement
+disponible de la semaine. Celle-ci se lit en blocs **matin / après-midi / soir**,
+du lundi au dimanche. L'utilisateur coche lui-même les blocs qu'il peut piloter :
 
 - les **gros cailloux** : jusqu'à 3 priorités choisies (santé, relation,
   projet décisif) et leurs créneaux protégés ;
@@ -272,12 +271,14 @@ semaine :
 - l'espace restant : repos, social, imprévu et marge — pas une ressource à
   remplir à 100 %.
 
-La vue devra partir des quêtes prévues et des To-dos avec un jour de travail,
-puis laisser l'utilisateur classer explicitement ses priorités. Les créneaux
-protégés, s'ils sont utiles, seront choisis sans revenir à une grille horaire
-pour chaque quête. Elle ne déduit pas l'importance depuis les XP, les tags ou
-le nombre de validations. Son test de réussite est simple : les gros cailloux
-ont une place avant que le sable ne prenne toute la semaine.
+La vue propose les quêtes prévues et les To-dos avec un jour de travail, puis
+laisse l'utilisateur classer explicitement ses priorités. Une intention libre
+est aussi possible. Chaque bloc a un focus dominant et peut rester vide. Le
+plan est enregistré par utilisateur et par semaine, sans modifier les actions
+sources, le Home, Google Calendar ou le score. La vue ne déduit pas
+l'importance depuis les XP, les tags ou le nombre de validations. Son test de
+réussite reste concret : les gros cailloux ont une place avant que le sable ne
+prenne toute la semaine. Voir [le guide du Bocal](docs/wiki/pages/jar-of-life.md).
 
 Le compteur auxiliaire déjà disponible sur une quête reste l'outil pour les
 répétitions (« 25/100 appels », « 7/10 expositions »). Il ne faut pas le

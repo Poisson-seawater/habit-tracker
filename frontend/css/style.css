@@ -525,6 +525,54 @@ body {
   }
 }
 
+/* Jar of Life: weekly blocks and explicit priorities. */
+.jar-card { padding: clamp(1.25rem, 3vw, 2rem); }
+.jar-heading, .jar-week-controls, .jar-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 0.8rem; }
+.jar-heading { justify-content: space-between; margin-bottom: 1rem; }
+.jar-heading h2 { margin: 0.2rem 0; font-family: var(--font-display); font-size: 2rem; }
+.jar-heading p:not(.life-weeks-eyebrow), .jar-hint { color: var(--text-secondary); font-size: 0.84rem; }
+.jar-week-controls strong { min-width: 8rem; text-align: center; }
+.jar-week-controls button, .jar-add-form button, .jar-candidate button, .jar-item-delete {
+  padding: 0.55rem 0.7rem; border: 1px solid var(--border-glass-hover);
+  border-radius: 8px; background: rgba(255,255,255,0.05); color: var(--text-primary);
+  cursor: pointer;
+}
+.jar-week-controls button:hover, .jar-add-form button:hover, .jar-candidate button:hover { border-color: var(--accent-cyan); }
+.jar-summary { padding: 0.7rem 0; margin-bottom: 1rem; }
+.jar-summary span { padding: 0.55rem 0.75rem; border: 1px solid var(--border-glass); border-radius: 9px; color: var(--text-secondary); font-size: 0.82rem; }
+.jar-summary strong { color: var(--text-primary); }
+.jar-warning { flex-basis: 100%; margin: 0; color: var(--accent-gold); font-size: 0.84rem; }
+.jar-error { color: var(--accent-red); }
+.jar-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.2rem; }
+.jar-layout > div, .jar-sidebar { min-width: 0; }
+.jar-layout h3 { margin: 0 0 0.4rem; font-family: var(--font-display); }
+.jar-grid { display: grid; width: 100%; grid-template-columns: repeat(7, minmax(150px, 1fr)); gap: 0.5rem; overflow-x: auto; padding-bottom: 0.7rem; }
+.jar-day { min-width: 0; padding: 0.45rem; border: 1px solid var(--border-glass); border-radius: 10px; background: rgba(255,255,255,0.025); }
+.jar-day h4 { margin: 0 0 0.6rem; font-size: 0.78rem; text-transform: capitalize; }
+.jar-block { margin-bottom: 0.5rem; padding: 0.45rem; border: 1px solid transparent; border-radius: 8px; opacity: 0.62; }
+.jar-block-available { opacity: 1; border-color: var(--border-glass); }
+.jar-block-planned { border-color: var(--accent-cyan); background: rgba(6,182,212,0.08); }
+.jar-block label { display: flex; align-items: center; gap: 0.2rem; font-size: 0.75rem; }
+.jar-block select { width: 100%; min-width: 0; margin-top: 0.4rem; }
+.jar-card select, .jar-card input[type="text"] { padding: 0.48rem; border: 1px solid var(--border-glass-hover); border-radius: 7px; background: var(--bg-secondary); color: var(--text-primary); }
+.jar-card select:focus-visible, .jar-card input:focus-visible, .jar-card button:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 2px; }
+#jar-save { width: 100%; margin-top: 0.6rem; }
+#jar-save:disabled { opacity: 0.5; cursor: default; }
+.jar-sidebar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 1.2rem; }
+.jar-sidebar section { padding: 0.9rem; border: 1px solid var(--border-glass); border-radius: 10px; }
+.jar-add-form { display: grid; gap: 0.55rem; }
+.jar-add-form label { display: grid; gap: 0.25rem; font-size: 0.78rem; color: var(--text-secondary); }
+.jar-items, .jar-candidates { display: grid; gap: 0.55rem; max-height: 360px; overflow-y: auto; }
+.jar-item-group h4 { margin: 0.8rem 0 0.35rem; color: var(--accent-gold); font-size: 0.84rem; }
+.jar-item, .jar-candidate { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 0.35rem; padding: 0.5rem; border: 1px solid var(--border-glass); border-radius: 8px; }
+.jar-item strong, .jar-candidate strong { display: block; font-size: 0.8rem; overflow-wrap: anywhere; }
+.jar-item small, .jar-candidate small { display: block; margin-top: 0.2rem; color: var(--text-muted); font-size: 0.7rem; }
+.jar-item select, .jar-candidate select { max-width: 105px; font-size: 0.72rem; }
+.jar-item-delete { font-size: 1rem; line-height: 1; }
+.jar-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@media (max-width: 800px) { .jar-sidebar { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .jar-item, .jar-candidate { grid-template-columns: minmax(0, 1fr) auto; } .jar-item button, .jar-candidate button { grid-column: 2; } }
+
 /* Section Headers */
 .section-header {
   font-family: var(--font-display);

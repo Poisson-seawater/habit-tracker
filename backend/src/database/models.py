@@ -81,6 +81,9 @@ class User(Base):
     auth_sessions = relationship(
         "AuthSession", back_populates="user", cascade="all, delete-orphan"
     )
+    jar_weeks = relationship(
+        "JarWeek", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class AuthDevice(Base):
@@ -396,6 +399,25 @@ class Todo(Base):
     )  # Google Task (cochable), from due_date
 
     user = relationship("User", back_populates="todos")
+
+
+class JarWeek(Base):
+    __tablename__ = "jar_weeks"
+    __table_args__ = (
+        UniqueConstraint("user_id", "week_start", name="uix_jar_week_user_start"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    week_start = Column(Date, nullable=False)
+    available_blocks = Column(JSON, nullable=False, default=list)
+    items = Column(JSON, nullable=False, default=list)
+    placements = Column(JSON, nullable=False, default=dict)
+    updated_at = Column(DateTime, default=datetime.datetime.now, nullable=False)
+
+    user = relationship("User", back_populates="jar_weeks")
 
 
 class NoTodo(Base):

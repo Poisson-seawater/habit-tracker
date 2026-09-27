@@ -1616,6 +1616,34 @@ def _run_migrations():
                 db.commit()
                 inspector = inspect(engine)
 
+        # v36: Weekly Jar of Life plans, isolated by user and Monday date.
+        if "jar_weeks" not in inspect(engine).get_table_names():
+            print("Running migration v36: creating jar_weeks table...")
+            db.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS jar_weeks (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        week_start DATE NOT NULL,
+                        available_blocks JSON NOT NULL,
+                        items JSON NOT NULL,
+                        placements JSON NOT NULL,
+                        updated_at DATETIME NOT NULL,
+                        FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE,
+                        UNIQUE (user_id, week_start)
+                    )
+                    """
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_jar_weeks_user_id ON jar_weeks (user_id)"
+                )
+            )
+            db.commit()
+            inspector = inspect(engine)
+
         # v19: Destructively remove the legacy RPG stat/tag columns.
         v19_dropped = False
         for table, columns in {

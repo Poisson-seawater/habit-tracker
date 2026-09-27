@@ -36,6 +36,7 @@ Current source of truth for implemented behavior is the code plus `README.md`,
 | `009-perfect-day-agenda/` | `superseded` | Older agenda prototype and 4-template/stat-threshold assumptions. Superseded by specs 010/011 and the current agenda implementation. |
 | `010-perfect-day-redesign/` | `done` | Current effort-budget model: `rest`, `regular`, `hustle`, effort ceilings, rest target, agenda JSON. |
 | `011-perfect-day-rendering/` | `done` | Biological zones, Perfect Day rendering, daily recap, and budget gauge implemented; tasks checked. |
+| `012-jar-of-life/` | `done` | Weekly attention allocation in user-selected morning/afternoon/evening blocks, persisted per user and week with migration v36. |
 | `quest-agenda-fusion-plan.md` | `superseded` | The manual agenda and Google export remain implemented, but its focus-generated quest model was replaced by persistent quest tags in migration v32. Keep only as historical context. |
 | `next-steps-multi-agent-brief.md` | `done` | Day-type habits, explicit failure with XP reversal, yesterday corrections, biological-zone suggestions, and 90-day auth/device expiry implemented together on 2026-07-17. |
 

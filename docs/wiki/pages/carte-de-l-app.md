@@ -11,6 +11,12 @@ Tout ce que l'app sait faire, sur une seule page. Chaque fonction vient avec un 
 | Paliers de streak | 30 j de streak = +100 XP +50 Or ; 90 j = +300 XP +150 Or | Au passage du palier → célébration + les compteurs XP/Or montent des montants exacts | [Habitudes](#/habitudes) |
 | Recap 3-3-3 | 3 sous-étapes + 3 softskills épinglées + 3 allostasies, dès l'accueil | Épingle via le crayon → recharge la page → la sélection persiste ; clic sur un item → l'onglet cible s'ouvre, l'élément mis en valeur | [Recap 3-3-3](#/recap-3-3-3) |
 
+## 🫙 Bocal
+
+| Fonction | Ce qu'elle doit faire | Pour vérifier | Détail |
+|---|---|---|---|
+| Jar of Life | Réserver des blocs disponibles à trois priorités maximum, avec galets, sable et marge | Coche un bloc, ajoute un gros caillou, place-le, enregistre puis recharge : le bloc reste réservé | [Jar of Life](#/jar-of-life) |
+
 ## 🏆 Objectifs & Graphes
 
 | Fonction | Ce qu'elle doit faire | Pour vérifier | Détail |

@@ -82,6 +82,8 @@ document.addEventListener("DOMContentLoaded", () => {
         fetchRewards();
       } else if (targetTab === "perspectives-tab") {
         loadActivePerspective();
+      } else if (targetTab === "jar-tab") {
+        loadJarWeek();
       }
     });
   });
@@ -164,6 +166,276 @@ document.addEventListener("DOMContentLoaded", () => {
     const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
     return local.toISOString().slice(0, 10);
   }
+
+  // Jar of Life is an explicit weekly plan. It never edits quests or To-dos.
+  const jarGrid = document.getElementById("jar-grid");
+  const jarItems = document.getElementById("jar-items");
+  const jarCandidatesEl = document.getElementById("jar-candidates");
+  const jarStatus = document.getElementById("jar-status");
+  const jarSave = document.getElementById("jar-save");
+  const JAR_PARTS = [
+    ["morning", "Matin"], ["afternoon", "Après-midi"], ["evening", "Soir"]
+  ];
+  const JAR_CATEGORIES = { rock: "Gros caillou", pebble: "Galet", sand: "Sable" };
+  let jarWeekStart = jarMonday(todayDateString());
+  let jarPlan = null;
+  let jarCandidates = [];
+  let jarDirty = false;
+  let jarRevision = 0;
+  let jarLoadToken = 0;
+
+  function jarDate(value) {
+    return new Date(`${value}T12:00:00`);
+  }
+
+  function jarDateString(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  function jarMonday(value) {
+    const date = jarDate(value);
+    date.setDate(date.getDate() - (date.getDay() + 6) % 7);
+    return jarDateString(date);
+  }
+
+  function jarShiftWeek(value, days) {
+    const date = jarDate(value);
+    date.setDate(date.getDate() + days);
+    return jarDateString(date);
+  }
+
+  function setJarStatus(message, error = false) {
+    jarStatus.textContent = message;
+    jarStatus.classList.toggle("jar-error", error);
+  }
+
+  function markJarDirty() {
+    jarDirty = true;
+    jarRevision += 1;
+    jarSave.disabled = false;
+    setJarStatus("Modifications à enregistrer.");
+    renderJar();
+  }
+
+  function jarNewId() {
+    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+    return `jar-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  function jarRockCount() {
+    return jarPlan.items.filter(item => item.category === "rock").length;
+  }
+
+  function renderJar() {
+    if (!jarPlan) return;
+    const first = jarDate(jarWeekStart);
+    const last = jarDate(jarShiftWeek(jarWeekStart, 6));
+    const dateLabel = date => new Intl.DateTimeFormat("fr-CA", { day: "numeric", month: "short" }).format(date);
+    document.getElementById("jar-week-label").textContent = `${dateLabel(first)} – ${dateLabel(last)}`;
+    const available = new Set(jarPlan.available_blocks);
+    const used = Object.keys(jarPlan.placements).length;
+    const protectedRocks = new Set(Object.values(jarPlan.placements).filter(id =>
+      jarPlan.items.some(item => item.id === id && item.category === "rock")));
+    const unplacedRocks = jarPlan.items.filter(item => item.category === "rock" && !protectedRocks.has(item.id));
+    const summary = document.getElementById("jar-summary");
+    summary.innerHTML = `<span><strong>${available.size}</strong> bloc${available.size > 1 ? "s" : ""} disponible${available.size > 1 ? "s" : ""}</span>
+      <span><strong>${used}</strong> réservé${used > 1 ? "s" : ""}</span>
+      <span><strong>${available.size - used}</strong> libre${available.size - used > 1 ? "s" : ""} pour la marge</span>
+      <span>Gros cailloux protégés <strong>${protectedRocks.size}/${jarRockCount()}</strong></span>`;
+    if (unplacedRocks.length) {
+      summary.innerHTML += `<p class="jar-warning">${unplacedRocks.length} gros caillou${unplacedRocks.length > 1 ? "x" : ""} sans bloc.</p>`;
+    }
+
+    const itemOptions = jarPlan.items.map(item =>
+      `<option value="${escapeHtml(item.id)}">${JAR_CATEGORIES[item.category]} · ${escapeHtml(item.title)}</option>`
+    ).join("");
+    jarGrid.innerHTML = Array.from({ length: 7 }, (_, dayIndex) => {
+      const date = jarDate(jarShiftWeek(jarWeekStart, dayIndex));
+      const dayLabel = new Intl.DateTimeFormat("fr-CA", { weekday: "long", day: "numeric", month: "short" }).format(date);
+      const slots = JAR_PARTS.map(([part, partLabel]) => {
+        const block = `${dayIndex}-${part}`;
+        const enabled = available.has(block);
+        const selected = jarPlan.placements[block] || "";
+        return `<div class="jar-block ${enabled ? "jar-block-available" : ""} ${selected ? "jar-block-planned" : ""}">
+          <label><input type="checkbox" class="jar-available" data-block="${block}" ${enabled ? "checked" : ""}> ${partLabel}</label>
+          <select class="jar-placement" data-block="${block}" aria-label="Focus ${escapeHtml(dayLabel)} ${partLabel}" ${enabled ? "" : "disabled"}>
+            <option value="">${enabled ? "Garder libre" : "Indisponible"}</option>
+            ${itemOptions}
+          </select>
+        </div>`.replace(`<option value="${escapeHtml(selected)}">`, `<option value="${escapeHtml(selected)}" selected>`);
+      }).join("");
+      return `<section class="jar-day"><h4>${escapeHtml(dayLabel)}</h4>${slots}</section>`;
+    }).join("");
+
+    jarItems.innerHTML = ["rock", "pebble", "sand"].map(category => {
+      const rows = jarPlan.items.filter(item => item.category === category).map(item => {
+        const slots = Object.values(jarPlan.placements).filter(id => id === item.id).length;
+        return `<div class="jar-item" data-id="${escapeHtml(item.id)}">
+          <span><strong>${escapeHtml(item.title)}</strong>${item.source_type ? ` <small>(${item.source_type === "habit" ? "Quête" : "To-do"})</small>` : ""}<small>${slots} bloc${slots > 1 ? "s" : ""}</small></span>
+          <label class="jar-sr-only" for="jar-category-${escapeHtml(item.id)}">Classement de ${escapeHtml(item.title)}</label>
+          <select id="jar-category-${escapeHtml(item.id)}" class="jar-item-category" data-id="${escapeHtml(item.id)}">
+            ${Object.entries(JAR_CATEGORIES).map(([value, label]) => `<option value="${value}" ${value === category ? "selected" : ""}>${label}</option>`).join("")}
+          </select>
+          <button type="button" class="jar-item-delete" data-id="${escapeHtml(item.id)}" aria-label="Retirer ${escapeHtml(item.title)}">×</button>
+        </div>`;
+      }).join("");
+      return `<div class="jar-item-group"><h4>${JAR_CATEGORIES[category]}${category === "rock" ? ` (${jarRockCount()}/3)` : ""}</h4>${rows || `<p class="jar-hint">Aucun élément.</p>`}</div>`;
+    }).join("");
+
+    jarCandidatesEl.innerHTML = jarCandidates.length ? jarCandidates.map((candidate, index) => {
+      const imported = jarPlan.items.some(item => item.source_type === candidate.source_type && item.source_id === candidate.source_id);
+      const days = candidate.days.map(day => new Intl.DateTimeFormat("fr-CA", { weekday: "short" }).format(jarDate(day))).join(", ");
+      return `<div class="jar-candidate">
+        <span><strong>${escapeHtml(candidate.title)}</strong><small>${candidate.source_type === "habit" ? "Quête" : "To-do"} · ${escapeHtml(days)}</small></span>
+        <select class="jar-import-category" data-index="${index}" aria-label="Classement de ${escapeHtml(candidate.title)}">
+          <option value="rock">Gros caillou</option><option value="pebble" selected>Galet</option><option value="sand">Sable</option>
+        </select>
+        <button type="button" class="jar-import" data-index="${index}" ${imported ? "disabled" : ""}>${imported ? "Ajouté" : "Ajouter"}</button>
+      </div>`;
+    }).join("") : `<p class="jar-hint">Aucune quête ni To-do datée cette semaine.</p>`;
+  }
+
+  async function loadJarWeek() {
+    if (jarPlan && jarDirty) return;
+    const token = ++jarLoadToken;
+    setJarStatus("Chargement de la semaine…");
+    jarSave.disabled = true;
+    try {
+      const response = await fetch(`${API_BASE}/jar-of-life/${jarWeekStart}`);
+      if (!response.ok) throw new Error("La semaine n'a pas pu être chargée.");
+      const data = await response.json();
+      if (token !== jarLoadToken) return;
+      jarPlan = data.plan;
+      jarCandidates = data.candidates || [];
+      jarDirty = false;
+      renderJar();
+      setJarStatus("Choisis tes priorités et tes blocs, puis enregistre la semaine.");
+    } catch (error) {
+      if (token === jarLoadToken) setJarStatus(error.message, true);
+    }
+  }
+
+  async function saveJarWeek() {
+    if (!jarPlan || !jarDirty) return;
+    const savedWeek = jarWeekStart;
+    const savedRevision = jarRevision;
+    const body = JSON.stringify({
+      available_blocks: jarPlan.available_blocks,
+      items: jarPlan.items,
+      placements: jarPlan.placements
+    });
+    jarSave.disabled = true;
+    setJarStatus("Enregistrement…");
+    try {
+      const response = await fetch(`${API_BASE}/jar-of-life/${savedWeek}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body
+      });
+      if (!response.ok) throw new Error("L'enregistrement a échoué.");
+      if (savedWeek !== jarWeekStart) return;
+      const savedPlan = await response.json();
+      if (savedRevision !== jarRevision) {
+        jarSave.disabled = false;
+        setJarStatus("De nouvelles modifications restent à enregistrer.");
+        return;
+      }
+      jarPlan = savedPlan;
+      jarDirty = false;
+      renderJar();
+      setJarStatus("Semaine enregistrée.");
+    } catch (error) {
+      jarSave.disabled = false;
+      setJarStatus(error.message, true);
+    }
+  }
+
+  function navigateJarWeek(days, thisWeek = false) {
+    if (jarDirty && !window.confirm("Quitter cette semaine sans enregistrer les modifications ?")) return;
+    jarWeekStart = thisWeek ? jarMonday(todayDateString()) : jarShiftWeek(jarWeekStart, days);
+    jarPlan = null;
+    loadJarWeek();
+  }
+
+  document.getElementById("jar-prev")?.addEventListener("click", () => navigateJarWeek(-7));
+  document.getElementById("jar-next")?.addEventListener("click", () => navigateJarWeek(7));
+  document.getElementById("jar-today")?.addEventListener("click", () => navigateJarWeek(0, true));
+  jarSave?.addEventListener("click", saveJarWeek);
+
+  document.getElementById("jar-add-form")?.addEventListener("submit", event => {
+    event.preventDefault();
+    if (!jarPlan) return;
+    const titleInput = document.getElementById("jar-item-title");
+    const title = titleInput.value.trim();
+    const category = document.getElementById("jar-item-category").value;
+    if (!title) return;
+    if (category === "rock" && jarRockCount() >= 3) {
+      setJarStatus("Trois gros cailloux maximum par semaine.", true);
+      return;
+    }
+    jarPlan.items.push({ id: jarNewId(), title, category, source_type: null, source_id: null });
+    titleInput.value = "";
+    markJarDirty();
+  });
+
+  jarGrid?.addEventListener("change", event => {
+    if (!jarPlan) return;
+    const block = event.target.dataset.block;
+    if (!block) return;
+    if (event.target.classList.contains("jar-available")) {
+      if (event.target.checked) jarPlan.available_blocks.push(block);
+      else {
+        jarPlan.available_blocks = jarPlan.available_blocks.filter(value => value !== block);
+        delete jarPlan.placements[block];
+      }
+    } else if (event.target.classList.contains("jar-placement")) {
+      if (event.target.value) jarPlan.placements[block] = event.target.value;
+      else delete jarPlan.placements[block];
+    }
+    markJarDirty();
+  });
+
+  jarItems?.addEventListener("change", event => {
+    if (!jarPlan || !event.target.classList.contains("jar-item-category")) return;
+    const item = jarPlan.items.find(entry => entry.id === event.target.dataset.id);
+    if (!item) return;
+    if (event.target.value === "rock" && item.category !== "rock" && jarRockCount() >= 3) {
+      setJarStatus("Trois gros cailloux maximum par semaine.", true);
+      renderJar();
+      return;
+    }
+    item.category = event.target.value;
+    markJarDirty();
+  });
+
+  jarItems?.addEventListener("click", event => {
+    const button = event.target.closest(".jar-item-delete");
+    if (!jarPlan || !button) return;
+    const id = button.dataset.id;
+    jarPlan.items = jarPlan.items.filter(item => item.id !== id);
+    Object.keys(jarPlan.placements).forEach(block => {
+      if (jarPlan.placements[block] === id) delete jarPlan.placements[block];
+    });
+    markJarDirty();
+  });
+
+  jarCandidatesEl?.addEventListener("click", event => {
+    const button = event.target.closest(".jar-import");
+    if (!jarPlan || !button) return;
+    const index = Number(button.dataset.index);
+    const candidate = jarCandidates[index];
+    const category = jarCandidatesEl.querySelector(`.jar-import-category[data-index="${index}"]`)?.value;
+    if (!candidate || !JAR_CATEGORIES[category]) return;
+    if (category === "rock" && jarRockCount() >= 3) {
+      setJarStatus("Trois gros cailloux maximum par semaine.", true);
+      return;
+    }
+    jarPlan.items.push({
+      id: jarNewId(), title: candidate.title.slice(0, 120), category,
+      source_type: candidate.source_type, source_id: candidate.source_id
+    });
+    markJarDirty();
+  });
 
   // Perspective views share goal data; only explicit Gantt choices write to the API.
   const lifeWeeksForm = document.getElementById("life-weeks-form");

@@ -3,6 +3,14 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-09-27 — feat(jar): planifier les gros cailloux en blocs hebdomadaires
+
+- Nouvel onglet **Bocal** : semaine lundi-dimanche, blocs matin/après-midi/soir disponibles choisis explicitement, jusqu'à trois gros cailloux, galets, sable, réservations et marge visible. Les quêtes éligibles et To-dos avec `do_date` sont proposées sans classement ni placement automatique.
+- Table `jar_weeks` par utilisateur et lundi de semaine, migration idempotente v36, routes `GET`/`PUT /api/v1/jar-of-life/{week_start}`. Validation des blocs, de la limite de priorités et de la propriété des actions liées; aucun effet sur XP, score, Home, agenda ou Google.
+- README, spec et wiki synchronisés. Aucune commande Telegram modifiée; `COMMANDS-INDEX.md` n'est pas concerné.
+- Validation : quatre tests ciblés (dont migration v36 et isolation multi-utilisateur), suite backend hors bot réussie, Black, syntaxe JavaScript et `git diff --check` réussis. Le passage de la suite complète trouve un échec dans `test_bot_quest_panel.py` qui semble dépendre du jour courant; le service Telegram reste hors périmètre actuel.
+- Instance **Compose locale uniquement** : sauvegarde SQLite avec `integrity_check=ok`, service `api` seul reconstruit et recréé, `/health` 200, table `jar_weeks` présente, OpenAPI expose la route et logs de démarrage sains. Test navigateur Chrome avec base temporaire : réservation enregistrée puis retrouvée après rechargement; affichage vérifié sur large et petit écran. Aucun déploiement Pi/prod.
+
 ## 2026-09-26 — fix(home): afficher les quêtes du jour sans agenda horaire
 
 - Le Home réunit les quêtes éligibles à la date, y compris celles avec un ancien placement. Les quêtes restantes précèdent les quêtes faites, passées ou ratées; un résumé distingue les validations des échecs.

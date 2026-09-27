@@ -39,6 +39,7 @@ from src.database.models import (
     AuthDevice,
     AuthSession,
     HabitDailyProgress,
+    JarWeek,
 )
 from src.database.seed import seed_default_biological_zones
 from src.services.day_cycle_service import (
@@ -79,6 +80,7 @@ from src.services import (
     quest_progress_service,
     quest_tag_service,
     softskill_service,
+    jar_service,
 )
 from fastapi.responses import JSONResponse, RedirectResponse
 from src.database.session import SessionLocal
@@ -296,6 +298,53 @@ class TodoUpdate(BaseModel):
     xp_reward: Optional[int] = Field(None, ge=0, le=40)
     do_date: Optional[datetime.date] = None
     due_date: Optional[datetime.date] = None
+
+
+class JarItem(BaseModel):
+    id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,40}$")
+    title: str = Field(min_length=1, max_length=120)
+    category: Literal["rock", "pebble", "sand"]
+    source_type: Optional[Literal["habit", "todo"]] = None
+    source_id: Optional[int] = Field(None, gt=0)
+
+    @field_validator("title")
+    @classmethod
+    def clean_title(cls, value: str) -> str:
+        title = value.strip()
+        if not title:
+            raise ValueError("Title cannot be empty")
+        return title
+
+    @model_validator(mode="after")
+    def valid_source(self):
+        if (self.source_type is None) != (self.source_id is None):
+            raise ValueError("source_type and source_id must be provided together")
+        return self
+
+
+class JarWeekUpdate(BaseModel):
+    available_blocks: List[str] = Field(default_factory=list, max_length=21)
+    items: List[JarItem] = Field(default_factory=list, max_length=100)
+    placements: Dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def valid_plan(self):
+        available = self.available_blocks
+        if len(set(available)) != len(available) or any(
+            block not in jar_service.BLOCK_KEYS for block in available
+        ):
+            raise ValueError("available_blocks contains duplicates or unknown blocks")
+        item_ids = [item.id for item in self.items]
+        if len(set(item_ids)) != len(item_ids):
+            raise ValueError("items contains duplicate IDs")
+        if sum(item.category == "rock" for item in self.items) > 3:
+            raise ValueError("No more than three big rocks are allowed")
+        if any(
+            block not in available or item_id not in item_ids
+            for block, item_id in self.placements.items()
+        ):
+            raise ValueError("placements must use an available block and known item")
+        return self
 
 
 class NoTodoCreate(BaseModel):
@@ -2787,6 +2836,48 @@ def save_template(
 
     db.commit()
     return {"status": "success", "template_name": payload.template_name}
+
+
+# --- Jar of Life: weekly attention blocks ---
+
+
+@router.get("/jar-of-life/{week_start}")
+def get_jar_week(
+    week_start: datetime.date,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    jar_service.require_monday(week_start)
+    row = db.query(JarWeek).filter_by(user_id=user_id, week_start=week_start).first()
+    return {
+        "plan": jar_service.plan_payload(row, week_start),
+        "candidates": jar_service.week_candidates(db, user_id, week_start),
+    }
+
+
+@router.put("/jar-of-life/{week_start}")
+def put_jar_week(
+    week_start: datetime.date,
+    payload: JarWeekUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    jar_service.require_monday(week_start)
+    if db.query(User.id).filter_by(id=user_id).first() is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    row = db.query(JarWeek).filter_by(user_id=user_id, week_start=week_start).first()
+    items = [item.model_dump() for item in payload.items]
+    jar_service.validate_sources(db, user_id, items, row.items if row else [])
+    if row is None:
+        row = JarWeek(user_id=user_id, week_start=week_start)
+        db.add(row)
+    row.available_blocks = payload.available_blocks
+    row.items = items
+    row.placements = payload.placements
+    row.updated_at = datetime.datetime.now()
+    db.commit()
+    db.refresh(row)
+    return jar_service.plan_payload(row, week_start)
 
 
 # --- Manual Quest Agenda ---

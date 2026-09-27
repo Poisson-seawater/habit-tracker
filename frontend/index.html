@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=15">
+  <link rel="stylesheet" href="css/style.css?v=18">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -793,6 +793,7 @@
       <div class="logo">⚔️ RPG Habit Tracker</div>
       <div class="nav-links">
         <button class="nav-tab active" data-tab="dashboard-tab">⚔️ Dashboard</button>
+        <button class="nav-tab" data-tab="jar-tab">🫙 Bocal</button>
         <button class="nav-tab" data-tab="goals-tab">🏆 Objectifs & Graphes</button>
         <button class="nav-tab" data-tab="perspectives-tab">▦ Perspectives</button>
         <button class="nav-tab" data-tab="softskills-tab">🌳 Softskills</button>
@@ -1360,6 +1361,59 @@
         </section>
       </div> <!-- Close #creators-drawer -->
     </div> <!-- Close #goals-tab -->
+
+    <section id="jar-tab" class="tab-content" aria-labelledby="jar-title">
+      <div class="glass-card jar-card">
+        <div class="jar-heading">
+          <div>
+            <p class="life-weeks-eyebrow">Les gros cailloux d'abord</p>
+            <h2 id="jar-title">Jar of Life</h2>
+            <p>Choisis les blocs que tu peux piloter. Protège ce qui compte, et garde de la marge.</p>
+          </div>
+          <div class="jar-week-controls">
+            <button type="button" id="jar-prev">← Semaine précédente</button>
+            <strong id="jar-week-label"></strong>
+            <button type="button" id="jar-today">Cette semaine</button>
+            <button type="button" id="jar-next">Semaine suivante →</button>
+          </div>
+        </div>
+        <p id="jar-status" role="status" aria-live="polite"></p>
+        <div id="jar-summary" class="jar-summary" aria-live="polite"></div>
+        <div class="jar-layout">
+          <div>
+            <h3>Ta semaine</h3>
+            <p class="jar-hint">Un bloc = un focus dominant, pas une durée exacte. Coche un bloc disponible, puis choisis ce qui y aura sa place.</p>
+            <div id="jar-grid" class="jar-grid"></div>
+            <button type="button" id="jar-save" class="quest-action-btn">Enregistrer la semaine</button>
+          </div>
+          <aside class="jar-sidebar">
+            <section>
+              <h3>Ce qui entre dans le bocal</h3>
+              <form id="jar-add-form" class="jar-add-form">
+                <label for="jar-item-title">Nouvelle intention
+                  <input id="jar-item-title" type="text" maxlength="120" placeholder="Ex. Voir un ami" required>
+                </label>
+                <label for="jar-item-category">Taille
+                  <select id="jar-item-category">
+                    <option value="rock">Gros caillou</option>
+                    <option value="pebble">Galet</option>
+                    <option value="sand">Sable</option>
+                  </select>
+                </label>
+                <button type="submit">Ajouter</button>
+              </form>
+              <p class="jar-hint">Jusqu'à trois gros cailloux. Ils peuvent occuper plusieurs blocs.</p>
+              <div id="jar-items" class="jar-items"></div>
+            </section>
+            <section>
+              <h3>Actions déjà prévues</h3>
+              <p class="jar-hint">Quêtes de la semaine et To-dos avec un jour de travail. Ajouter une action ici ne change ni sa date ni sa validation.</p>
+              <div id="jar-candidates" class="jar-candidates"></div>
+            </section>
+          </aside>
+        </div>
+      </div>
+    </section>
 
     <section id="perspectives-tab" class="tab-content" aria-label="Perspectives">
       <div class="perspective-switch glass-card" role="group" aria-label="Choisir une vue">
@@ -2301,6 +2355,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.20"></script>
+  <script src="js/app.js?v=1.0.22"></script>
 </body>
 </html>
