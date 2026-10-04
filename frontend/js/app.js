@@ -1598,8 +1598,45 @@ document.addEventListener("DOMContentLoaded", () => {
   function closeQuestInlineForm() {
     const questForm = document.getElementById("quest-inline-form");
     const openQuestBtn = document.getElementById("open-quest-inline-btn");
-    if (questForm) questForm.style.display = "none";
+    if (questForm) {
+      questForm.style.display = "none";
+      questForm.classList.remove("recap-quest-form");
+      questForm.removeAttribute("role");
+      questForm.removeAttribute("aria-modal");
+      questForm.removeAttribute("aria-label");
+    }
+    document.getElementById("recap-quest-form-overlay")?.classList.remove("open");
+    const questList = document.getElementById("quests-list-container");
+    const overlay = document.getElementById("recap-quest-form-overlay");
+    if (questList && questForm && overlay && questForm.parentElement === document.body) {
+      questList.before(questForm, overlay);
+    }
     if (openQuestBtn) openQuestBtn.textContent = "+ Quête";
+  }
+
+  async function openFocusQuestForm(role, targetId, title) {
+    const questForm = document.getElementById("quest-inline-form");
+    if (!questForm) return;
+    document.getElementById("new-quest-focus-role").value = role;
+    try {
+      await Promise.all([
+        renderQuestTagEditor("new", [], true),
+        populateFocusTargets("new", targetId)
+      ]);
+    } catch (error) {
+      showToast(error.message || "Impossible d'ouvrir le réglage de la quête.", true);
+      return;
+    }
+    document.getElementById("new-quest-name").value = `Pratiquer : ${title}`;
+    const overlay = document.getElementById("recap-quest-form-overlay");
+    document.body.append(overlay, questForm);
+    questForm.classList.add("recap-quest-form");
+    questForm.setAttribute("role", "dialog");
+    questForm.setAttribute("aria-modal", "true");
+    questForm.setAttribute("aria-label", `Créer la quête liée à ${title}`);
+    questForm.style.display = "flex";
+    overlay.classList.add("open");
+    document.getElementById("new-quest-name").focus();
   }
 
   function updateQuestPanelShell() {
@@ -6078,6 +6115,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     setupQuestProgressEditor("new");
     setupQuestProgressEditor("edit");
+    document.getElementById("close-recap-quest-form-btn")?.addEventListener("click", closeQuestInlineForm);
+    document.getElementById("recap-quest-form-overlay")?.addEventListener("click", closeQuestInlineForm);
 
     if (openQuestBtn && questForm) {
       openQuestBtn.addEventListener("click", async () => {
@@ -6087,8 +6126,7 @@ document.addEventListener("DOMContentLoaded", () => {
           questForm.style.display = "flex";
           openQuestBtn.textContent = "Fermer Formulaire";
         } else {
-          questForm.style.display = "none";
-          openQuestBtn.textContent = "+ Quête";
+          closeQuestInlineForm();
         }
       });
     }
@@ -6201,8 +6239,7 @@ document.addEventListener("DOMContentLoaded", () => {
           updateFrequencyNote(freqSelect, newQuestFrequencyNote);
           await renderQuestTagEditor("new", []);
 
-          questForm.style.display = "none";
-          openQuestBtn.textContent = "+ Quête";
+          closeQuestInlineForm();
           refreshAll();
         } catch (error) {
           console.error(error);
@@ -8131,19 +8168,25 @@ document.addEventListener("DOMContentLoaded", () => {
     name.title = habit ? `Modifier la quête : ${habit.name}` : "Créer une quête liée";
     name.addEventListener("click", async () => {
       if (habit) openEditQuestModal(habit);
-      else {
-        if (document.getElementById("quest-inline-form")?.style.display !== "flex") document.getElementById("open-quest-inline-btn")?.click();
-        document.getElementById("new-quest-focus-role").value = role;
-        await populateFocusTargets("new", targetId);
-      }
+      else await openFocusQuestForm(role, targetId, title);
+    });
+    const settings = document.createElement("button");
+    settings.type = "button";
+    settings.className = "recap-quest-settings-btn";
+    settings.textContent = "+";
+    settings.title = habit ? `Régler la quête de ${title}` : `Créer la quête de ${title}`;
+    settings.setAttribute("aria-label", settings.title);
+    settings.addEventListener("click", () => {
+      if (habit) openEditQuestModal(habit);
+      else openFocusQuestForm(role, targetId, title);
     });
     const action = document.createElement("button");
     action.type = "button";
     action.className = "recap-claim-btn";
-    action.textContent = habit ? (habit.today_count >= (habit.daily_target || 1) ? "✓ Fait" : habit.focus_due_today ? "Valider" : "Hors planning") : "+ Quête";
-    action.disabled = Boolean(habit && (!habit.focus_due_today || habit.today_count >= (habit.daily_target || 1)));
+    action.textContent = habit ? (habit.today_count >= (habit.daily_target || 1) ? "✓ Fait" : habit.focus_due_today ? "Valider" : "Hors planning") : "Valider";
+    action.disabled = !habit || !habit.focus_due_today || habit.today_count >= (habit.daily_target || 1);
+    if (!habit) action.title = "Créez d'abord une quête avec le bouton +";
     action.addEventListener("click", async () => {
-      if (!habit) { name.click(); return; }
       if (habit.type === "quantitative") {
         const amount = Number(prompt(`Combien de ${habit.unit || "unités"} ?`));
         if (!Number.isFinite(amount) || amount <= 0) return;
@@ -8152,7 +8195,10 @@ document.addEventListener("DOMContentLoaded", () => {
         await submitQuestLog(habit.id, "done", null, todayDateString());
       }
     });
-    li.append(name, action);
+    const actions = document.createElement("span");
+    actions.className = "recap-item-actions";
+    actions.append(settings, action);
+    li.append(name, actions);
     list.appendChild(li);
   }
 

@@ -3,6 +3,12 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-04 — fix(recap): séparer validation et réglage des quêtes liées
+
+- Les titres des objectifs et compétences du Recap n'ont plus le fond clair natif des boutons : leur texte reste lisible sur le fond sombre.
+- Chaque ligne affiche un « + » qui ouvre le réglage de la quête existante ou le formulaire de création en popup, prérempli et lié à l'objectif ou à la compétence. « Valider » reste dédié à la pratique du jour et désactivé tant qu'aucune quête n'existe.
+- Wiki et versions des assets mis à jour. Aucun changement backend, DB ou Telegram. Vérification : syntaxe JavaScript, `git diff --check`, Chrome headless avec API simulée pour les cas sans quête et avec quête existante (titre, état de Valider, popup et lien Ukulele).
+
 ## 2026-10-04 — feat(dashboard): distinguer les Must du travail sur objectifs et compétences
 
 - Les quêtes ont un rôle explicite Must, Objectif ou Compétence. Seuls les Must planifiés comptent pour le Perfect Day; une journée sans Must est neutre et suspend le streak Perfect. Les autres quêtes gardent leur validation et leurs jalons de streak, sans échec explicite à -5 XP. Migration idempotente v37; anciennes quêtes classées Must.
