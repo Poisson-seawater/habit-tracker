@@ -17,6 +17,7 @@ from src.database.models import (
 )
 from src.database.session import Base, get_db
 from src.main import app
+from src.services import focus_service, softskill_service
 
 
 @pytest.fixture
@@ -51,18 +52,13 @@ def test_goal_quest_stays_out_of_perfect_day_and_must_agenda(focus_client):
     client.put(
         "/api/v1/profile/pins", json={"pinned_goals": [goal["id"]]}, headers=headers
     )
-    created = client.post(
-        "/api/v1/habits",
-        json={
-            "name": "Contrat quotidien",
-            "type": "binary",
-            "focus_role": "goal",
-            "focus_goal_id": goal["id"],
-        },
-        headers=headers,
+    quest = next(
+        habit
+        for habit in client.get("/api/v1/habits", headers=headers).json()
+        if habit["focus_goal_id"] == goal["id"]
     )
-    assert created.status_code == 201
-    habit_id = created.json()["id"]
+    habit_id = quest["id"]
+    assert quest["focus_due_today"] is True
     agenda = client.get("/api/v1/agenda", headers=headers).json()
     assert habit_id not in {
         item["habit_id"] for item in agenda["placed_quests"] + agenda["unplaced_quests"]
@@ -202,18 +198,11 @@ def test_unpin_pauses_goal_quest_and_repin_resumes_it(focus_client):
         ).status_code
         == 200
     )
-    created = client.post(
-        "/api/v1/habits",
-        json={
-            "name": "Pratiquer Danse",
-            "type": "binary",
-            "focus_role": "goal",
-            "focus_goal_id": goal_id,
-        },
-        headers=headers,
+    habit_id = next(
+        habit["id"]
+        for habit in client.get("/api/v1/habits", headers=headers).json()
+        if habit["focus_goal_id"] == goal_id
     )
-    assert created.status_code == 201
-    habit_id = created.json()["id"]
     assert (
         client.put(
             "/api/v1/profile/pins", json={"pinned_goals": []}, headers=headers
@@ -242,3 +231,83 @@ def test_unpin_pauses_goal_quest_and_repin_resumes_it(focus_client):
         ).status_code
         == 200
     )
+
+
+def test_pinned_skill_gets_daily_quest_without_prompt(focus_client, monkeypatch):
+    client, factory = focus_client
+    headers = {"X-User-ID": "1"}
+    monkeypatch.setattr(
+        softskill_service,
+        "load_tree_config",
+        lambda: {"skills": [{"id": "ukulele", "name": "Ukulele"}]},
+    )
+    pinned = client.put(
+        "/api/v1/profile/pins",
+        json={"pinned_softskills": ["ukulele"]},
+        headers=headers,
+    )
+    assert pinned.status_code == 200
+    quests = [
+        habit
+        for habit in client.get("/api/v1/habits", headers=headers).json()
+        if habit["focus_softskill_id"] == "ukulele"
+    ]
+    assert len(quests) == 1
+    assert quests[0]["focus_due_today"] is True
+    with factory() as db:
+        quest = db.get(Habit, quests[0]["id"])
+        assert quest.frequency == "daily"
+        assert quest.scheduled_days == "0,1,2,3,4,5,6"
+
+    assert (
+        client.put(
+            "/api/v1/profile/pins", json={"pinned_softskills": []}, headers=headers
+        ).status_code
+        == 200
+    )
+    assert (
+        client.put(
+            "/api/v1/profile/pins",
+            json={"pinned_softskills": ["ukulele"]},
+            headers=headers,
+        ).status_code
+        == 200
+    )
+    quests_again = [
+        habit
+        for habit in client.get("/api/v1/habits", headers=headers).json()
+        if habit["focus_softskill_id"] == "ukulele"
+    ]
+    assert [habit["id"] for habit in quests_again] == [quests[0]["id"]]
+    assert quests_again[0]["focus_due_today"] is True
+
+
+def test_existing_pin_is_backfilled_once(focus_client, monkeypatch):
+    _, factory = focus_client
+    monkeypatch.setattr(
+        softskill_service,
+        "load_tree_config",
+        lambda: {"skills": [{"id": "ukulele", "name": "Ukulele"}]},
+    )
+    with factory() as db:
+        user = db.get(User, 1)
+        user.pinned_softskills = ["ukulele"]
+        db.add(
+            Habit(
+                user_id=1,
+                name="Competence: Ukulele",
+                type="binary",
+                frequency="daily",
+                is_active=False,
+                archived_at=datetime.datetime.now(),
+            )
+        )
+        db.commit()
+    with factory() as db:
+        user = db.get(User, 1)
+        focus_service.ensure_pinned_quests(db, user)
+        focus_service.ensure_pinned_quests(db, user)
+        db.commit()
+        linked = db.query(Habit).filter_by(focus_softskill_id="ukulele").all()
+        assert len(linked) == 1
+        assert linked[0].is_active is True

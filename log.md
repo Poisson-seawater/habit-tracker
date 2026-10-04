@@ -3,6 +3,12 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-04 — fix(recap): créer les quêtes quotidiennes dès l'épinglage
+
+- Épingler un objectif actif ou une compétence non complétée crée automatiquement une quête liée, planifiée chaque jour. Le serveur répare aussi les épingles existantes au démarrage, sans réactiver les anciennes quêtes archivées ni créer de doublon.
+- Le choix des épingles ne demande plus de nom de quête : le « + » sert à régler la quête créée. Retirer une épingle met toujours la quête en pause ; la remettre la reprend. Version de l'asset JavaScript incrémentée pour forcer le navigateur à charger ce changement.
+- Wiki Recap mis à jour. Vérification : 240 tests backend hors Telegram réussis, syntaxe JavaScript et `git diff --check` valides. Service `api` de l'instance Compose locale reconstruit seul après sauvegarde SQLite : `/health` 200, démarrage sain, intégrité DB OK et quête quotidienne liée à « Ukulele » créée pour l'épingle existante.
+
 ## 2026-10-04 — fix(recap): séparer validation et réglage des quêtes liées
 
 - Les titres des objectifs et compétences du Recap n'ont plus le fond clair natif des boutons : leur texte reste lisible sur le fond sombre.

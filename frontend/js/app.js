@@ -8094,19 +8094,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (!resp.ok) throw new Error("Erreur de sauvegarde de l'API");
       pinnedGoals = checkedGoals;
-      const habitsResponse = await fetch(`${API_BASE}/habits`);
-      const habits = await habitsResponse.json();
-      const skillsResponse = await fetch(`${API_BASE}/softskills`);
-      const skillsData = await skillsResponse.json();
-      for (const skillId of checkedSkills) {
-        if (habits.some(habit => habit.focus_role === "skill" && habit.focus_softskill_id === skillId && habit.is_active)) continue;
-        const skill = (skillsData.skills || []).find(item => item.id === skillId);
-        if (!skill) continue;
-        const name = prompt(`Quête quotidienne pour « ${skill.name} » (laisser vide pour créer plus tard)`, `Pratiquer : ${skill.name}`)?.trim();
-        if (!name) continue;
-        const created = await fetch(`${API_BASE}/habits`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, type: "binary", focus_role: "skill", focus_softskill_id: skillId }) });
-        if (!created.ok) showToast((await created.json()).detail || "Quête non créée", true);
-      }
       showToast("Épingles 3-3-3 sauvegardées ! 📌");
       closeRecapPinDrawer();
       fetchProfile(); // Reload dashboard profile and recap panel

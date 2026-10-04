@@ -131,6 +131,7 @@ def enabled_for_pins(db: Session, user: User, role: str, goal_id, skill_id) -> b
 
 
 def sync_pin_states(db: Session, user: User) -> None:
+    ensure_pinned_quests(db, user)
     habits = db.query(Habit).filter_by(user_id=user.id, is_active=True).all()
     for habit in habits:
         role = habit.focus_role or "must"
@@ -172,6 +173,74 @@ def create_goal_quest(db: Session, user_id: int, goal: Goal) -> Habit:
     db.flush()
     quest.relationship_root_id = quest.id
     return quest
+
+
+def create_skill_quest(db: Session, user_id: int, skill: dict) -> Habit:
+    quest = Habit(
+        user_id=user_id,
+        name=unique_quest_name(db, user_id, f"Pratiquer : {skill['name']}"),
+        type="binary",
+        frequency="daily",
+        scheduled_days="0,1,2,3,4,5,6",
+        day_types=["rest", "regular", "hustle"],
+        is_active=True,
+        focus_role="skill",
+        focus_softskill_id=skill["id"],
+        focus_history=[
+            {
+                "date": datetime.date.today().isoformat(),
+                "role": "skill",
+                "enabled": True,
+            }
+        ],
+    )
+    db.add(quest)
+    db.flush()
+    quest.relationship_root_id = quest.id
+    return quest
+
+
+def ensure_pinned_quests(db: Session, user: User) -> None:
+    """Give every active Recap goal and skill one scheduled quest."""
+    goal_ids = set(user.pinned_goals or [])
+    if goal_ids:
+        goals = (
+            db.query(Goal)
+            .filter(
+                Goal.user_id == user.id, Goal.id.in_(goal_ids), Goal.completed == False
+            )
+            .all()
+        )
+        existing_goals = {
+            goal_id
+            for (goal_id,) in db.query(Habit.focus_goal_id)
+            .filter_by(
+                user_id=user.id, focus_role="goal", is_active=True, archived_at=None
+            )
+            .all()
+        }
+        for goal in goals:
+            if goal.id not in existing_goals:
+                create_goal_quest(db, user.id, goal)
+
+    skill_ids = set(user.pinned_softskills or [])
+    if skill_ids:
+        skills = {
+            skill["id"]: skill
+            for skill in softskill_service.load_tree_config().get("skills", [])
+        }
+        existing_skills = {
+            skill_id
+            for (skill_id,) in db.query(Habit.focus_softskill_id)
+            .filter_by(
+                user_id=user.id, focus_role="skill", is_active=True, archived_at=None
+            )
+            .all()
+        }
+        for skill_id in skill_ids - existing_skills:
+            skill = skills.get(skill_id)
+            if skill and enabled_for_pins(db, user, "skill", None, skill_id):
+                create_skill_quest(db, user.id, skill)
 
 
 def create_linked_goal(
