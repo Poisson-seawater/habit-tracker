@@ -58,6 +58,7 @@ def test_goal_quest_stays_out_of_perfect_day_and_must_agenda(focus_client):
         if habit["focus_goal_id"] == goal["id"]
     )
     habit_id = quest["id"]
+    assert quest["name"] == "Contrat"
     assert quest["focus_due_today"] is True
     agenda = client.get("/api/v1/agenda", headers=headers).json()
     assert habit_id not in {
@@ -311,3 +312,40 @@ def test_existing_pin_is_backfilled_once(focus_client, monkeypatch):
         linked = db.query(Habit).filter_by(focus_softskill_id="ukulele").all()
         assert len(linked) == 1
         assert linked[0].is_active is True
+
+
+def test_only_old_automatic_goal_names_are_normalized(focus_client):
+    _, factory = focus_client
+    with factory() as db:
+        goal = Goal(user_id=1, title="Devenir Millionnaire")
+        custom_goal = Goal(user_id=1, title="Musique")
+        db.add_all([goal, custom_goal])
+        db.flush()
+        old_quest = Habit(
+            user_id=1,
+            name="Travailler sur : Devenir Millionnaire",
+            type="binary",
+            frequency="daily",
+            is_active=True,
+            focus_role="goal",
+            focus_goal_id=goal.id,
+        )
+        custom_quest = Habit(
+            user_id=1,
+            name="Répéter trente minutes",
+            type="binary",
+            frequency="daily",
+            is_active=True,
+            focus_role="goal",
+            focus_goal_id=custom_goal.id,
+        )
+        db.add_all([old_quest, custom_quest])
+        db.commit()
+        old_id, custom_id = old_quest.id, custom_quest.id
+
+    with factory() as db:
+        focus_service.normalize_generated_goal_quest_names(db, db.get(User, 1))
+        focus_service.normalize_generated_goal_quest_names(db, db.get(User, 1))
+        db.commit()
+        assert db.get(Habit, old_id).name == "Devenir Millionnaire"
+        assert db.get(Habit, custom_id).name == "Répéter trente minutes"

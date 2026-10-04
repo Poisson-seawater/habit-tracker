@@ -3,6 +3,11 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-04 — fix(recap): nommer les quêtes Objectif comme leur objectif
+
+- Les quêtes Objectif créées automatiquement reprennent maintenant le titre de l'objectif, avec suffixe seulement en cas de collision de noms.
+- Au démarrage, les quêtes liées encore nommées exactement `Travailler sur : <titre de l'objectif>` perdent ce préfixe. Les noms personnalisés différents sont conservés. Vérification : 11 tests ciblés réussis. Instance Compose locale : sauvegarde SQLite, service `api` seul reconstruit, `/health` 200, intégrité DB OK et noms des quêtes Objectif alignés sur les titres des objectifs.
+
 ## 2026-10-04 — fix(recap): créer les quêtes quotidiennes dès l'épinglage
 
 - Épingler un objectif actif ou une compétence non complétée crée automatiquement une quête liée, planifiée chaque jour. Le serveur répare aussi les épingles existantes au démarrage, sans réactiver les anciennes quêtes archivées ni créer de doublon.

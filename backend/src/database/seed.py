@@ -651,6 +651,7 @@ def init_db():
     db = SessionLocal()
     try:
         for user in db.query(User).all():
+            focus_service.normalize_generated_goal_quest_names(db, user)
             focus_service.ensure_pinned_quests(db, user)
         db.commit()
     except Exception:

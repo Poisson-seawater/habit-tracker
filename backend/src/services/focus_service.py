@@ -157,7 +157,7 @@ def unique_quest_name(db: Session, user_id: int, base: str) -> str:
 def create_goal_quest(db: Session, user_id: int, goal: Goal) -> Habit:
     quest = Habit(
         user_id=user_id,
-        name=unique_quest_name(db, user_id, f"Travailler sur : {goal.title}"),
+        name=unique_quest_name(db, user_id, goal.title),
         type="binary",
         frequency="daily",
         scheduled_days="0,1,2,3,4,5,6",
@@ -173,6 +173,26 @@ def create_goal_quest(db: Session, user_id: int, goal: Goal) -> Habit:
     db.flush()
     quest.relationship_root_id = quest.id
     return quest
+
+
+def normalize_generated_goal_quest_names(db: Session, user: User) -> None:
+    """Remove the old automatic prefix while preserving manually chosen names."""
+    linked_quests = (
+        db.query(Habit, Goal)
+        .join(Goal, Habit.focus_goal_id == Goal.id)
+        .filter(
+            Habit.user_id == user.id,
+            Goal.user_id == user.id,
+            Habit.focus_role == "goal",
+            Habit.is_active == True,
+            Habit.archived_at == None,
+        )
+        .all()
+    )
+    for quest, goal in linked_quests:
+        if quest.name == f"Travailler sur : {goal.title}":
+            quest.name = unique_quest_name(db, user.id, goal.title)
+            db.flush()
 
 
 def create_skill_quest(db: Session, user_id: int, skill: dict) -> Habit:
