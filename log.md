@@ -3,6 +3,12 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-04 — fix(recap): verrouiller les actions des quêtes liées
+
+- Les quêtes Objectif et Compétence n'exposent plus la checklist, le changement de rôle/lien, l'archive ni la suppression. L'API refuse également ces opérations et convertit au démarrage les anciennes checklists liées en validation simple, en retirant leurs cases et leurs états datés tout en conservant les validations de quête.
+- « Retirer » enlève l'épingle et met la quête en pause sans effacer son historique. Les objectifs issus d'une to-do restent verrouillés dans la fiche, le crayon du Top 3, l'étoile et le remplacement par une nouvelle to-do ; seul le cycle de vie de la to-do libère leur place.
+- Docs Recap/habitudes et état des specs mis à jour ; versions des assets front incrémentées. Vérification : 44 tests ciblés et suite backend hors Telegram réussis, syntaxe JavaScript et diff valides. Instance Compose locale sauvegardée puis service `api` seul reconstruit : `/health` 200, démarrage sain, intégrité SQLite OK et anciennes checklists liées retirées.
+
 ## 2026-10-04 — fix(recap): nommer les quêtes Objectif comme leur objectif
 
 - Les quêtes Objectif créées automatiquement reprennent maintenant le titre de l'objectif, avec suffixe seulement en cas de collision de noms.

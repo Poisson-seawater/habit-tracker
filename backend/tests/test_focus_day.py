@@ -11,6 +11,7 @@ from src.database.models import (
     Goal,
     GoalSubStepLink,
     Habit,
+    HabitDailyProgress,
     SubStep,
     Todo,
     User,
@@ -127,6 +128,10 @@ def test_todo_controls_linked_goal_lifecycle(focus_client):
     assert goal["id"] not in {
         item["id"] for item in client.get("/api/v1/goals", headers=headers).json()
     }
+    assert (
+        goal["id"]
+        not in client.get("/api/v1/profile", headers=headers).json()["pinned_goals"]
+    )
     with factory() as db:
         assert db.query(Goal).filter_by(id=goal["id"]).one().completed is True
         assert (
@@ -349,3 +354,162 @@ def test_only_old_automatic_goal_names_are_normalized(focus_client):
         db.commit()
         assert db.get(Habit, old_id).name == "Devenir Millionnaire"
         assert db.get(Habit, custom_id).name == "Répéter trente minutes"
+
+
+def test_linked_quest_rejects_checklist_role_change_archive_and_delete(focus_client):
+    client, _ = focus_client
+    headers = {"X-User-ID": "1"}
+    goal_id = client.post(
+        "/api/v1/goals", json={"title": "Apprendre"}, headers=headers
+    ).json()["goal"]["id"]
+    client.put(
+        "/api/v1/profile/pins", json={"pinned_goals": [goal_id]}, headers=headers
+    )
+    quest = next(
+        habit
+        for habit in client.get("/api/v1/habits", headers=headers).json()
+        if habit["focus_goal_id"] == goal_id
+    )
+    quest_id = quest["id"]
+
+    assert (
+        client.put(
+            f"/api/v1/habits/{quest_id}",
+            json={
+                "progress_mode": "checklist",
+                "checklist_items": [{"label": "Étape"}],
+            },
+            headers=headers,
+        ).status_code
+        == 422
+    )
+    assert (
+        client.put(
+            f"/api/v1/habits/{quest_id}", json={"focus_role": "must"}, headers=headers
+        ).status_code
+        == 409
+    )
+    assert (
+        client.put(
+            f"/api/v1/habits/{quest_id}", json={"is_active": False}, headers=headers
+        ).status_code
+        == 409
+    )
+    assert (
+        client.post(f"/api/v1/habits/{quest_id}/archive", headers=headers).status_code
+        == 409
+    )
+    assert (
+        client.delete(f"/api/v1/habits/{quest_id}", headers=headers).status_code == 409
+    )
+    assert (
+        client.post(
+            "/api/v1/habits",
+            json={
+                "name": "Autre quête liée",
+                "type": "binary",
+                "focus_role": "goal",
+                "focus_goal_id": goal_id,
+                "progress_mode": "checklist",
+                "checklist_items": [{"label": "Étape"}],
+            },
+            headers=headers,
+        ).status_code
+        == 422
+    )
+
+
+def test_todo_goal_cannot_be_removed_or_replaced(focus_client):
+    client, _ = focus_client
+    headers = {"X-User-ID": "1"}
+    created = client.post(
+        "/api/v1/todos",
+        json={"title": "Livrer", "create_linked_goal": True},
+        headers=headers,
+    )
+    assert created.status_code == 201
+    goal_id = next(
+        goal["id"]
+        for goal in client.get("/api/v1/goals", headers=headers).json()
+        if goal["source_todo_id"] == created.json()["todo"]["id"]
+    )
+    assert (
+        client.put(
+            "/api/v1/profile/pins", json={"pinned_goals": []}, headers=headers
+        ).status_code
+        == 409
+    )
+    for title in ("Deuxième", "Troisième"):
+        new_goal_id = client.post(
+            "/api/v1/goals", json={"title": title}, headers=headers
+        ).json()["goal"]["id"]
+        pins = client.get("/api/v1/profile", headers=headers).json()["pinned_goals"]
+        assert (
+            client.put(
+                "/api/v1/profile/pins",
+                json={"pinned_goals": pins + [new_goal_id]},
+                headers=headers,
+            ).status_code
+            == 200
+        )
+    blocked = client.post(
+        "/api/v1/todos",
+        json={
+            "title": "Nouveau",
+            "create_linked_goal": True,
+            "replace_pinned_goal_id": goal_id,
+        },
+        headers=headers,
+    )
+    assert blocked.status_code == 409
+
+
+def test_existing_linked_checklist_becomes_simple_without_losing_logs(focus_client):
+    client, factory = focus_client
+    headers = {"X-User-ID": "1"}
+    goal_id = client.post(
+        "/api/v1/goals", json={"title": "Automatisation"}, headers=headers
+    ).json()["goal"]["id"]
+    client.put(
+        "/api/v1/profile/pins", json={"pinned_goals": [goal_id]}, headers=headers
+    )
+    with factory() as db:
+        quest = db.query(Habit).filter_by(focus_goal_id=goal_id).one()
+        quest.progress_mode = "checklist"
+        quest.checklist_items = [{"id": "step-1", "label": "Ancienne étape"}]
+        quest.progress_config_history = [
+            {
+                "effective_from": datetime.date.today().isoformat(),
+                "mode": "checklist",
+                "type": "binary",
+                "unit": None,
+                "daily_target": 1,
+                "checklist_items": [{"id": "step-1", "label": "Ancienne étape"}],
+            }
+        ]
+        db.flush()
+        quest_id = quest.id
+        db.add(
+            HabitDailyProgress(
+                user_id=1,
+                habit_id=quest_id,
+                date=datetime.date.today(),
+                mode_snapshot="checklist",
+                checklist_state=[{"id": "step-1", "checked": True}],
+            )
+        )
+        db.commit()
+    with factory() as db:
+        focus_service.remove_focus_checklists(db, db.get(User, 1))
+        db.commit()
+        quest = db.get(Habit, quest_id)
+        assert quest.progress_mode == "standard"
+        assert quest.checklist_items == []
+        assert all(
+            entry["mode"] != "checklist" for entry in quest.progress_config_history
+        )
+        assert db.query(HabitDailyProgress).filter_by(habit_id=quest_id).first() is None
+    logged = client.post(
+        "/api/v1/logs", json={"habit_id": quest_id, "log_type": "done"}, headers=headers
+    )
+    assert logged.status_code == 200

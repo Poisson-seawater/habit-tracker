@@ -1,6 +1,6 @@
 # Habitudes (Quêtes)
 
-Une quête est une action répétée selon un planning. Son rôle est choisi dans le formulaire : **Must** pour le socle du [Perfect Day](#/perfect-day), **Objectif** pour une priorité du moment, ou **Compétence** pour une pratique dédiée. Les quêtes Objectif et Compétence gardent leurs validations et streaks propres, sans entrer dans le score Perfect Day.
+Une quête est une action répétée selon un planning. Son rôle peut être **Must** pour le socle du [Perfect Day](#/perfect-day), **Objectif** pour une priorité du moment, ou **Compétence** pour une pratique dédiée. Épingler un objectif ou une compétence crée automatiquement sa quête liée ; son rôle et son lien restent ensuite fixes. Ces quêtes gardent leurs validations et streaks propres, sans entrer dans le score Perfect Day.
 
 ## Deux types
 
@@ -16,7 +16,7 @@ Une quête binaire peut afficher dans le dashboard un seul outil de suivi auxili
 - un **compteur libre**, pour saisir directement une valeur absolue avec son unité (par exemple `12 pages`) ;
 - une **checklist**, pour cocher les éléments préparés sur la quête.
 
-Ces deux modes sont mutuellement exclusifs sur une même quête. Le compteur libre et la checklist sont disponibles uniquement dans le dashboard : les commandes Telegram continuent d'utiliser la validation habituelle.
+Ces deux modes sont mutuellement exclusifs sur une même quête. La checklist est réservée aux quêtes Must ; les quêtes Objectif et Compétence n'en ont pas. Le compteur libre et la checklist sont disponibles uniquement dans le dashboard : les commandes Telegram continuent d'utiliser la validation habituelle.
 
 Le suivi est séparé pour **aujourd'hui** et **hier**, puis repart sur un nouvel état chaque jour. Modifier le compteur ou cocher un élément ne valide pas la quête, ne donne ni XP ni Or, et ne modifie ni le score du jour ni le streak. Pour déclarer la quête accomplie et faire progresser le jeu, utilise toujours explicitement **Valider / Fait** dans le dashboard ou `/done <habitude>` sur Telegram.
 

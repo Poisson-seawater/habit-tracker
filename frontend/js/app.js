@@ -1618,6 +1618,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const questForm = document.getElementById("quest-inline-form");
     if (!questForm) return;
     document.getElementById("new-quest-focus-role").value = role;
+    updateQuestChecklistAvailability("new");
     try {
       await Promise.all([
         renderQuestTagEditor("new", [], true),
@@ -3679,11 +3680,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (pins.length < 3) return { replace_pinned_goal_id: null };
     const goalsResponse = await fetch(`${API_BASE}/goals`);
     const goals = await goalsResponse.json();
-    const choices = pins.map(id => goals.find(goal => goal.id === id)).filter(Boolean);
+    const choices = pins.map(id => goals.find(goal => goal.id === id)).filter(goal => goal && !goal.source_todo_id);
+    if (!choices.length) {
+      showToast("Le Top 3 est occupé par des objectifs liés à des to-dos.", true);
+      return null;
+    }
     const selected = prompt(`Top 3 complet. ID de l'objectif à remplacer :\n${choices.map(goal => `${goal.id} — ${goal.title}`).join("\n")}`);
     if (selected === null) return null;
     const replacement = Number(selected);
-    if (!pins.includes(replacement)) { showToast("Choisissez un ID du Top 3.", true); return null; }
+    if (!choices.some(goal => goal.id === replacement)) { showToast("Choisissez un objectif remplaçable du Top 3.", true); return null; }
     return { replace_pinned_goal_id: replacement };
   }
   document.getElementById("edit-bounty-link-goal-btn")?.addEventListener("click", async () => {
@@ -4222,7 +4227,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const starTitle = locked
           ? 'Le Top 3 est verrouillé (Déverrouillez en bas de la page)'
           : (isPinned ? 'Retirer du Top 3' : 'Définir comme Top 3');
-        const starHTML = `<span class="goal-pin-star ${isPinned ? 'pinned' : ''}" title="${starTitle}" style="cursor: ${starCursor}; margin-left: 0.5rem; font-size: 1.15rem; color: ${isPinned ? 'var(--accent-yellow, #ffb300)' : 'var(--text-muted, #8e9297)'}; transition: color 0.2s;">${isPinned ? '★' : '☆'}</span>`;
+        const starHTML = goal.source_todo_id
+          ? `<span title="Objectif lié à une to-do : sa place est libérée depuis la to-do" style="margin-left: 0.5rem; font-size: 0.85rem;">🔒</span>`
+          : `<span class="goal-pin-star ${isPinned ? 'pinned' : ''}" title="${starTitle}" style="cursor: ${starCursor}; margin-left: 0.5rem; font-size: 1.15rem; color: ${isPinned ? 'var(--accent-yellow, #ffb300)' : 'var(--text-muted, #8e9297)'}; transition: color 0.2s;">${isPinned ? '★' : '☆'}</span>`;
 
         let dateInfoList = [];
         if (goal.do_date) {
@@ -5209,6 +5216,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return "standard";
   }
 
+  function updateQuestChecklistAvailability(prefix) {
+    const role = document.getElementById(`${prefix}-quest-focus-role`)?.value || "must";
+    const shell = document.getElementById(`${prefix}-quest-checklist-shell`);
+    if (shell) shell.style.display = role === "must" ? "" : "none";
+    if (role !== "must" && currentQuestProgressEditorMode(prefix) === "checklist") {
+      setQuestProgressEditorMode(prefix, "standard", { clearChecklist: true });
+    }
+  }
+
   function setQuestProgressEditorMode(prefix, mode, { clearChecklist = false } = {}) {
     const elements = questProgressEditorElements(prefix);
     if (!elements.type || !elements.unit || !elements.target || !elements.counter || !elements.checklist) return;
@@ -5476,8 +5492,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function openEditQuestModal(habit, agendaItem = null) {
     activeEditQuest = habit;
-    document.getElementById("edit-quest-focus-role").value = habit.focus_role || "must";
+    const role = habit.focus_role || "must";
+    const isFocus = role === "goal" || role === "skill";
+    document.getElementById("edit-quest-focus-role").value = role;
     await populateFocusTargets("edit", habit.focus_goal_id || habit.focus_softskill_id);
+    document.getElementById("edit-quest-focus-role-wrap").hidden = isFocus;
+    if (isFocus) document.getElementById("edit-quest-focus-target-wrap").hidden = true;
     await renderQuestTagEditor("edit", habit.tags || [], true);
     document.getElementById("edit-quest-id").value        = habit.id;
     document.getElementById("edit-quest-name").value      = habit.name;
@@ -5486,7 +5506,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("edit-quest-target").value    = habit.daily_target || "";
     renderQuestChecklistEditor("edit", habit.checklist_items || []);
     setQuestProgressEditorMode("edit", habit.progress_mode || "standard");
+    updateQuestChecklistAvailability("edit");
     renderEditQuestDailyProgress(habit, agendaItem);
+    document.getElementById("edit-quest-daily-progress-shell").style.display = isFocus ? "none" : "";
     editFreqSelect.value = habit.frequency || "daily";
     renderEditQuestDescriptionFields(habit);
 
@@ -5507,10 +5529,26 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     if (archiveQuestBtn) {
+      archiveQuestBtn.style.display = isFocus ? "none" : "";
       archiveQuestBtn.textContent = habit.archived_at ? "Désarchiver" : "Archiver";
       archiveQuestBtn.dataset.archived = habit.archived_at ? "true" : "false";
       archiveQuestBtn.dataset.sourceType = habit.source_type || "manual";
     }
+    document.getElementById("delete-quest-btn").style.display = isFocus ? "none" : "";
+    const removeBtn = document.getElementById("remove-focus-quest-btn");
+    let canRemove = isFocus;
+    if (role === "goal") {
+      try {
+        const response = await fetch(`${API_BASE}/goals`);
+        if (!response.ok) throw new Error("Objectifs indisponibles");
+        const goals = await response.json();
+        const linkedGoal = goals.find(goal => goal.id === habit.focus_goal_id);
+        canRemove = Boolean(linkedGoal && !linkedGoal.source_todo_id);
+      } catch (error) {
+        canRemove = false;
+      }
+    }
+    if (removeBtn) removeBtn.style.display = canRemove ? "" : "none";
 
     // Show/hide day checkboxes
     const isSpecific = habit.frequency === "specific_days";
@@ -5571,6 +5609,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("edit-quest-target").value = refreshedHabit.daily_target || "";
         renderQuestChecklistEditor("edit", refreshedHabit.checklist_items || []);
         setQuestProgressEditorMode("edit", refreshedHabit.progress_mode || "standard");
+        updateQuestChecklistAvailability("edit");
         renderEditQuestDailyProgress(refreshedHabit);
         editFreqSelect.value = refreshedHabit.frequency || "daily";
         updateFrequencyNote(editFreqSelect, editQuestFrequencyNote, refreshedHabit.scheduled_days);
@@ -5656,6 +5695,34 @@ document.addEventListener("DOMContentLoaded", () => {
       refreshAll();
     } catch (e) {
       showToast(e.message, true);
+    }
+  });
+
+  document.getElementById("remove-focus-quest-btn")?.addEventListener("click", async (event) => {
+    const habit = activeEditQuest;
+    if (!habit || !["goal", "skill"].includes(habit.focus_role)) return;
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const profileResponse = await fetch(`${API_BASE}/profile`);
+      if (!profileResponse.ok) throw new Error("Profil indisponible.");
+      const profile = await profileResponse.json();
+      const key = habit.focus_role === "goal" ? "pinned_goals" : "pinned_softskills";
+      const targetId = habit.focus_role === "goal" ? habit.focus_goal_id : habit.focus_softskill_id;
+      const pins = profile[key] || [];
+      const response = await fetch(`${API_BASE}/profile/pins`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: pins.filter(id => id !== targetId) })
+      });
+      if (!response.ok) throw new Error((await response.json()).detail || "Retrait impossible.");
+      showToast("Retiré du Recap. La quête et son historique sont conservés.");
+      closeEditQuestModal();
+      refreshAll();
+    } catch (error) {
+      showToast(error.message, true);
+    } finally {
+      button.disabled = false;
     }
   });
 
@@ -6111,7 +6178,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const submitQuestBtn = document.getElementById("submit-quest-btn");
     const newDayTypesGroup = document.getElementById("new-quest-day-types");
     const newFocusRole = document.getElementById("new-quest-focus-role");
-    newFocusRole?.addEventListener("change", () => populateFocusTargets("new"));
+    newFocusRole?.addEventListener("change", () => {
+      updateQuestChecklistAvailability("new");
+      populateFocusTargets("new");
+    });
 
     setupQuestProgressEditor("new");
     setupQuestProgressEditor("edit");
@@ -6123,6 +6193,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (questForm.style.display === "none") {
           await renderQuestTagEditor("new", [], true);
           await populateFocusTargets("new");
+          updateQuestChecklistAvailability("new");
           questForm.style.display = "flex";
           openQuestBtn.textContent = "Fermer Formulaire";
         } else {
@@ -8012,8 +8083,13 @@ document.addEventListener("DOMContentLoaded", () => {
         input.name = "pin-goal-checkbox";
         input.value = goal.id;
         input.checked = pinnedGoals.includes(goal.id);
+        if (goal.source_todo_id && input.checked) {
+          input.dataset.locked = "true";
+          input.disabled = true;
+          label.title = "Cet objectif vient d'une to-do : terminez ou supprimez la to-do pour libérer cette place.";
+        }
         const title = document.createElement("span");
-        title.textContent = goal.title;
+        title.textContent = goal.source_todo_id && input.checked ? `🔒 ${goal.title}` : goal.title;
         label.append(input, title);
         goalsListContainer.appendChild(label);
       });
@@ -8061,6 +8137,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const updateStates = () => {
       const checkedCount = document.querySelectorAll(`input[name="${checkboxName}"]:checked`).length;
       checkboxes.forEach(cb => {
+        if (cb.dataset.locked === "true") return;
         if (!cb.checked) {
           cb.disabled = checkedCount >= 3;
         } else {

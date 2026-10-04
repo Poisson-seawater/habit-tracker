@@ -653,6 +653,7 @@ def init_db():
         for user in db.query(User).all():
             focus_service.normalize_generated_goal_quest_names(db, user)
             focus_service.ensure_pinned_quests(db, user)
+            focus_service.remove_focus_checklists(db, user)
         db.commit()
     except Exception:
         db.rollback()

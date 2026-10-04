@@ -1181,6 +1181,11 @@ def _latest_visible_habit_versions(habits: List[Habit]) -> List[Habit]:
 
 
 def validate_habit_payload(payload: "HabitCreate"):
+    if payload.focus_role in {"goal", "skill"} and payload.progress_mode == "checklist":
+        raise HTTPException(
+            status_code=422,
+            detail="Les quêtes Objectif et Compétence n'ont pas de checklist.",
+        )
     if payload.progress_mode in {"free_counter", "checklist"}:
         payload.type = "binary"
         payload.daily_target = None
@@ -1844,6 +1849,21 @@ def update_profile_pins(
                 status_code=400,
                 detail="Vous pouvez sélectionner au maximum 3 objectifs prioritaires (Top 3).",
             )
+        removed_goal_ids = set(user.pinned_goals or []) - set(payload.pinned_goals)
+        if (
+            removed_goal_ids
+            and db.query(Goal.id)
+            .filter(
+                Goal.user_id == user_id,
+                Goal.id.in_(removed_goal_ids),
+                Goal.source_todo_id.isnot(None),
+            )
+            .first()
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Un objectif lié à une to-do ne peut pas être retiré du Top 3.",
+            )
         user.pinned_goals = payload.pinned_goals
 
         # If pinned_goals is modified but pinned_substeps is not explicitly provided,
@@ -1886,7 +1906,9 @@ def update_profile_pins(
 
     focus_service.sync_pin_states(db, user)
     db.commit()
-    recalculate_day(db, user_id=user_id, date_value=datetime.date.today(), force_rebuild=True)
+    recalculate_day(
+        db, user_id=user_id, date_value=datetime.date.today(), force_rebuild=True
+    )
     return {"status": "success", "message": "Pins updated successfully"}
 
 
@@ -2036,7 +2058,8 @@ def get_goals(
     Each substep also includes linked_goals: list of other goals it belongs to.
     """
     goals = [
-        goal for goal in db.query(Goal).filter_by(user_id=user_id).all()
+        goal
+        for goal in db.query(Goal).filter_by(user_id=user_id).all()
         if not (goal.source_todo_id and goal.completed)
     ]
     result = []
@@ -2224,7 +2247,10 @@ def delete_goal(
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
     if goal.source_todo_id:
-        raise HTTPException(status_code=409, detail="Validez ou supprimez cet objectif depuis son to-do.")
+        raise HTTPException(
+            status_code=409,
+            detail="Validez ou supprimez cet objectif depuis son to-do.",
+        )
 
     quest_tag_service.remove_goal_tags(db, goal.id)
     user = db.query(User).filter_by(id=user_id).first()
@@ -2248,7 +2274,9 @@ def update_goal(
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
     if goal.source_todo_id:
-        raise HTTPException(status_code=409, detail="Modifiez cet objectif depuis son to-do.")
+        raise HTTPException(
+            status_code=409, detail="Modifiez cet objectif depuis son to-do."
+        )
 
     goal.title = payload.title
     goal.description = payload.description
@@ -3191,7 +3219,10 @@ def fail_habit(
 
     today = datetime.date.today()
     if focus_service.state_on_date(habit, today)["role"] != "must":
-        raise HTTPException(status_code=409, detail="Seules les quêtes Must peuvent échouer explicitement.")
+        raise HTTPException(
+            status_code=409,
+            detail="Seules les quêtes Must peuvent échouer explicitement.",
+        )
     try:
         log, created = mark_habit_failed(
             db, user_id=user_id, habit=habit, date_value=today
@@ -3270,7 +3301,15 @@ def get_todos(
             "completed_at": t.completed_at.isoformat() if t.completed_at else None,
             "do_date": t.do_date.isoformat() if t.do_date else None,
             "due_date": t.due_date.isoformat() if t.due_date else None,
-            "linked_goal_id": next((g.id for g in db.query(Goal).filter_by(user_id=user_id, source_todo_id=t.id).all()), None),
+            "linked_goal_id": next(
+                (
+                    g.id
+                    for g in db.query(Goal)
+                    .filter_by(user_id=user_id, source_todo_id=t.id)
+                    .all()
+                ),
+                None,
+            ),
         }
         for t in todos
     ]
@@ -3299,7 +3338,9 @@ def create_todo(
     if payload.create_linked_goal:
         user = db.query(User).filter_by(id=user_id).first()
         try:
-            focus_service.create_linked_goal(db, user, todo, replace_goal_id=payload.replace_pinned_goal_id)
+            focus_service.create_linked_goal(
+                db, user, todo, replace_goal_id=payload.replace_pinned_goal_id
+            )
         except ValueError as exc:
             db.rollback()
             raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -3329,12 +3370,18 @@ def create_todo_linked_goal(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ):
-    todo = db.query(Todo).filter_by(id=todo_id, user_id=user_id, is_completed=False).first()
+    todo = (
+        db.query(Todo)
+        .filter_by(id=todo_id, user_id=user_id, is_completed=False)
+        .first()
+    )
     if not todo:
         raise HTTPException(status_code=404, detail="To-do introuvable.")
     user = db.query(User).filter_by(id=user_id).first()
     try:
-        goal = focus_service.create_linked_goal(db, user, todo, replace_goal_id=payload.replace_pinned_goal_id)
+        goal = focus_service.create_linked_goal(
+            db, user, todo, replace_goal_id=payload.replace_pinned_goal_id
+        )
     except ValueError as exc:
         db.rollback()
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -3374,7 +3421,9 @@ def update_todo(
         todo.do_date = payload.do_date
     if "due_date" in fields_set:
         todo.due_date = payload.due_date
-    linked_goal = db.query(Goal).filter_by(user_id=user_id, source_todo_id=todo.id).first()
+    linked_goal = (
+        db.query(Goal).filter_by(user_id=user_id, source_todo_id=todo.id).first()
+    )
     if linked_goal:
         linked_goal.title = todo.title
         linked_goal.do_date = todo.do_date
@@ -3429,7 +3478,9 @@ def complete_todo(
 
     todo.is_completed = True
     todo.completed_at = datetime.datetime.now()
-    linked_goal = db.query(Goal).filter_by(user_id=user_id, source_todo_id=todo.id).first()
+    linked_goal = (
+        db.query(Goal).filter_by(user_id=user_id, source_todo_id=todo.id).first()
+    )
     if linked_goal:
         linked_goal.completed = True
         linked_goal.completed_at = todo.completed_at
@@ -3869,6 +3920,11 @@ def put_habit_checklist_progress(
     )
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found.")
+    if (habit.focus_role or "must") in {"goal", "skill"}:
+        raise HTTPException(
+            status_code=409,
+            detail="Les quêtes Objectif et Compétence n'ont pas de checklist.",
+        )
     try:
         target_date = resolve_target_date(date)
         with quest_progress_service.progress_write_lock(user_id, habit.id, target_date):
@@ -3985,7 +4041,24 @@ def update_habit(
     tag_payload = payload_dict.pop("tags", None)
     requested_role = payload_dict.pop("focus_role", habit.focus_role or "must")
     requested_goal_id = payload_dict.pop("focus_goal_id", habit.focus_goal_id)
-    requested_softskill_id = payload_dict.pop("focus_softskill_id", habit.focus_softskill_id)
+    requested_softskill_id = payload_dict.pop(
+        "focus_softskill_id", habit.focus_softskill_id
+    )
+    if (habit.focus_role or "must") in {"goal", "skill"} and (
+        requested_role,
+        requested_goal_id,
+        requested_softskill_id,
+    ) != (habit.focus_role, habit.focus_goal_id, habit.focus_softskill_id):
+        raise HTTPException(
+            status_code=409,
+            detail="Le rôle et le lien d'une quête Objectif ou Compétence sont fixes.",
+        )
+    if (habit.focus_role or "must") in {"goal", "skill"} and payload_dict.get(
+        "is_active"
+    ) is False:
+        raise HTTPException(
+            status_code=409, detail="Utilisez Retirer pour mettre cette quête en pause."
+        )
     if requested_role == "must":
         requested_goal_id = None
         requested_softskill_id = None
@@ -3994,13 +4067,25 @@ def update_habit(
     else:
         requested_goal_id = None
     try:
-        focus_service.validate_link(db, user_id, requested_role, requested_goal_id, requested_softskill_id, excluding_id=habit.id)
+        focus_service.validate_link(
+            db,
+            user_id,
+            requested_role,
+            requested_goal_id,
+            requested_softskill_id,
+            excluding_id=habit.id,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     current_progress_mode = habit.progress_mode or "standard"
     effective_mode = payload_dict.get(
         "progress_mode", habit.progress_mode or "standard"
     )
+    if requested_role in {"goal", "skill"} and effective_mode == "checklist":
+        raise HTTPException(
+            status_code=422,
+            detail="Les quêtes Objectif et Compétence n'ont pas de checklist.",
+        )
     if effective_mode in {"free_counter", "checklist"}:
         payload_dict["type"] = "binary"
         payload_dict["daily_target"] = None
@@ -4082,12 +4167,22 @@ def update_habit(
 
     for field, value in payload_dict.items():
         setattr(habit, field, value)
-    focus_changed = (requested_role, requested_goal_id, requested_softskill_id) != (habit.focus_role or "must", habit.focus_goal_id, habit.focus_softskill_id)
+    focus_changed = (requested_role, requested_goal_id, requested_softskill_id) != (
+        habit.focus_role or "must",
+        habit.focus_goal_id,
+        habit.focus_softskill_id,
+    )
     if focus_changed:
         habit.focus_goal_id = requested_goal_id
         habit.focus_softskill_id = requested_softskill_id
         user = db.query(User).filter_by(id=user_id).first()
-        focus_service.set_state(habit, role=requested_role, enabled=focus_service.enabled_for_pins(db, user, requested_role, requested_goal_id, requested_softskill_id))
+        focus_service.set_state(
+            habit,
+            role=requested_role,
+            enabled=focus_service.enabled_for_pins(
+                db, user, requested_role, requested_goal_id, requested_softskill_id
+            ),
+        )
     if tag_payload is not None:
         try:
             quest_tag_service.replace_tags(db, user_id, habit, tag_payload)
@@ -4104,7 +4199,9 @@ def update_habit(
     quest_progress_service.reconcile_today_snapshot(db, user_id=user_id, habit=habit)
     db.commit()
     if focus_changed:
-        recalculate_day(db, user_id=user_id, date_value=datetime.date.today(), force_rebuild=True)
+        recalculate_day(
+            db, user_id=user_id, date_value=datetime.date.today(), force_rebuild=True
+        )
     return {"status": "updated"}
 
 
@@ -4117,6 +4214,10 @@ def archive_habit(
     habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found.")
+    if (habit.focus_role or "must") in {"goal", "skill"}:
+        raise HTTPException(
+            status_code=409, detail="Utilisez Retirer pour mettre cette quête en pause."
+        )
     if habit.archived_at is None:
         habit.archived_at = datetime.datetime.now()
     agenda_service.remove_habit_agenda_references(db, user_id, habit.id)
@@ -4133,6 +4234,11 @@ def unarchive_habit(
     habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found.")
+    if (habit.focus_role or "must") in {"goal", "skill"}:
+        raise HTTPException(
+            status_code=409,
+            detail="Cette quête liée ne peut pas être désarchivée directement.",
+        )
     detached = agenda_service.detach_habit_from_source(db, user_id, habit)
     habit.archived_at = None
     db.commit()
@@ -4148,6 +4254,10 @@ def delete_habit(
     habit = db.query(Habit).filter_by(id=habit_id, user_id=user_id).first()
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found.")
+    if (habit.focus_role or "must") in {"goal", "skill"}:
+        raise HTTPException(
+            status_code=409, detail="Utilisez Retirer pour mettre cette quête en pause."
+        )
     habit.is_active = False
     habit.deactivated_at = datetime.datetime.now()
     db.commit()
@@ -4289,11 +4399,19 @@ def create_habit(
             status_code=400, detail=f"Habit with name '{payload.name}' already exists."
         )
     try:
-        focus_service.validate_link(db, user_id, payload.focus_role, payload.focus_goal_id, payload.focus_softskill_id)
+        focus_service.validate_link(
+            db,
+            user_id,
+            payload.focus_role,
+            payload.focus_goal_id,
+            payload.focus_softskill_id,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     user = db.query(User).filter_by(id=user_id).first()
-    focus_enabled = focus_service.enabled_for_pins(db, user, payload.focus_role, payload.focus_goal_id, payload.focus_softskill_id)
+    focus_enabled = focus_service.enabled_for_pins(
+        db, user, payload.focus_role, payload.focus_goal_id, payload.focus_softskill_id
+    )
 
     habit = Habit(
         user_id=user_id,
@@ -4339,7 +4457,13 @@ def create_habit(
         focus_role=payload.focus_role,
         focus_goal_id=payload.focus_goal_id,
         focus_softskill_id=payload.focus_softskill_id,
-        focus_history=[{"date": datetime.date.today().isoformat(), "role": payload.focus_role, "enabled": focus_enabled}],
+        focus_history=[
+            {
+                "date": datetime.date.today().isoformat(),
+                "role": payload.focus_role,
+                "enabled": focus_enabled,
+            }
+        ],
     )
     db.add(habit)
     try:

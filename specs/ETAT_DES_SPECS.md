@@ -61,7 +61,9 @@ Current source of truth for implemented behavior is the code plus `README.md`,
   `services/quest_progress_service.py`, tests in
   `tests/test_quest_daily_progress.py`, and user behavior in
   `docs/wiki/pages/habitudes.md`. Telegram commands were intentionally left
-  unchanged. Do not plan these two features again unless extending them.
+  unchanged. Since October 2026, checklist mode is limited to Must quests;
+  linked Objectif/Compétence quests cannot use it. Do not plan these two features
+  again unless extending them.
 - Quest tags were implemented on 2026-08-09 without a separate Spec Kit folder.
   Objectives and softskills no longer generate executable quests; objective and
   softskill-branch tags are organizational metadata shared by every V1/V2

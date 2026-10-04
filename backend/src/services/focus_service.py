@@ -8,6 +8,7 @@ from src.database.models import (
     Goal,
     GoalSubStepLink,
     Habit,
+    HabitDailyProgress,
     JarWeek,
     Streak,
     SubStep,
@@ -15,7 +16,7 @@ from src.database.models import (
     User,
     UserSoftskillProgress,
 )
-from src.services import quest_tag_service, softskill_service
+from src.services import quest_progress_service, quest_tag_service, softskill_service
 
 FOCUS_ROLES = {"must", "goal", "skill"}
 
@@ -263,6 +264,63 @@ def ensure_pinned_quests(db: Session, user: User) -> None:
                 create_skill_quest(db, user.id, skill)
 
 
+def remove_focus_checklists(db: Session, user: User) -> None:
+    """Remove checklist configuration and checks, keeping quest validation logs."""
+    today = datetime.date.today()
+    quests = (
+        db.query(Habit)
+        .filter(
+            Habit.user_id == user.id,
+            Habit.focus_role.in_(("goal", "skill")),
+        )
+        .all()
+    )
+    for quest in quests:
+        history = [
+            dict(entry)
+            for entry in (quest.progress_config_history or [])
+            if isinstance(entry, dict)
+        ]
+        had_checklist = quest.progress_mode == "checklist" or any(
+            entry.get("mode") == "checklist" for entry in history
+        )
+        if not had_checklist:
+            continue
+        config = {
+            "progress_mode": "standard",
+            "type": "binary",
+            "unit": None,
+            "daily_target": None,
+            "checklist_items": [],
+        }
+        for entry in history:
+            if entry.get("mode") == "checklist":
+                entry.update(
+                    mode="standard",
+                    type="binary",
+                    unit=None,
+                    daily_target=1,
+                    checklist_items=[],
+                )
+        quest.progress_config_history = history
+        quest.progress_mode = "standard"
+        quest.checklist_items = []
+        quest.type = "binary"
+        quest.unit = None
+        quest.daily_target = None
+        quest.progress_config_history = (
+            quest_progress_service.progress_config_history_after_update(
+                quest, config=config, effective_from=today
+            )
+        )
+        db.query(HabitDailyProgress).filter_by(
+            user_id=user.id, habit_id=quest.id, mode_snapshot="checklist"
+        ).delete(synchronize_session=False)
+        quest_progress_service.reconcile_today_snapshot(
+            db, user_id=user.id, habit=quest, today=today
+        )
+
+
 def create_linked_goal(
     db: Session, user: User, todo: Todo, *, replace_goal_id: int | None = None
 ) -> Goal:
@@ -274,6 +332,13 @@ def create_linked_goal(
     if len(pins) >= 3:
         if replace_goal_id not in pins:
             raise ValueError("Choisissez un objectif du Top 3 à remplacer.")
+        replaced_goal = (
+            db.query(Goal).filter_by(id=replace_goal_id, user_id=user.id).first()
+        )
+        if replaced_goal and replaced_goal.source_todo_id is not None:
+            raise ValueError(
+                "Un objectif lié à une to-do ne peut pas être retiré du Top 3."
+            )
         pins.remove(replace_goal_id)
     goal = Goal(
         user_id=user.id,
