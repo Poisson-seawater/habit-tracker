@@ -282,8 +282,8 @@ def test_feel_off_recalculates_perfect_xp_and_restores_plan(client_and_db):
     assert feel_off.json()["active_template"] == "rest", feel_off.json()
     assert feel_off.json()["feel_off_active"] is True
     profile = client.get("/api/v1/profile", headers={"X-User-ID": "1"}).json()
-    assert profile["scores"]["status"] == "Perfect"
-    assert profile["xp"] == starting_xp + 5
+    assert profile["scores"]["status"] == "NoMust"
+    assert profile["xp"] == starting_xp
 
     restored = client.delete("/api/v1/profile/feel-off", headers={"X-User-ID": "1"})
     assert restored.status_code == 200

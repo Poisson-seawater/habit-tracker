@@ -16,7 +16,7 @@ Valider manuellement une sous-étape résolue te donne de l'**Or (Gold)**, perso
 
 ## Épinglage dans le Recap 3-3-3
 
-Tu peux épingler jusqu'à 3 sous-étapes en cours dans le panneau [Recap 3-3-3](#/recap-3-3-3). Elles restent visibles directement sur la page d'accueil du dashboard — un clic dessus t'amène à cet onglet, l'objectif parent sélectionné et la sous-étape mise en valeur. Le crayon du panneau ouvre un modal pour changer la sélection.
+Tu peux épingler jusqu'à 3 objectifs en cours dans le panneau [Recap 3-3-3](#/recap-3-3-3). Leurs sous-étapes restent dans le graphe ; le Recap affiche directement l'objectif et sa quête de pratique, si elle existe. Son titre ouvre la fiche « Modifier la quête » et le bouton voisin la valide pour aujourd'hui.
 
 Épingler ou désépingler une sous-étape ne crée, n'archive et ne duplique aucune quête. Les épingles servent uniquement à choisir ce qui apparaît dans le Recap.
 

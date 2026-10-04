@@ -1579,9 +1579,9 @@ document.addEventListener("DOMContentLoaded", () => {
       renderDayTypeState(data);
 
       // Update Daily Status Badge
-      badgeStatus.textContent = data.scores.perfect_day_validated ? "🏆 Perfect Day !" : "🟥 Journée Incomplète";
+      badgeStatus.textContent = data.scores.status === "NoMust" ? "○ Aucun Must aujourd'hui" : data.scores.perfect_day_validated ? "🏆 Perfect Day !" : "🟥 Journée Incomplète";
       badgeStatus.className = "badge badge-status";
-      if (!data.scores.perfect_day_validated) {
+      if (data.scores.status === "Failed") {
         badgeStatus.classList.add("failed");
       }
 
@@ -1609,12 +1609,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (questsPanelTitle) {
       questsPanelTitle.textContent = isBank
-        ? "🎯 Banque des quêtes"
+        ? "✅ Banque des Must"
         : isArchives
-          ? "🎯 Archives"
+          ? "✅ Archives Must"
           : getAgendaDate() === todayDateString()
-            ? "🎯 Quêtes du jour"
-            : `🎯 Quêtes du ${getAgendaDate()}`;
+            ? "✅ Must du jour"
+            : `✅ Must du ${getAgendaDate()}`;
     }
 
     if (questsListContainer) questsListContainer.hidden = !isAgenda;
@@ -2150,8 +2150,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function submitQuestLog(habitId, logType, amount = null) {
-    const targetDate = getAgendaDate();
+  async function submitQuestLog(habitId, logType, amount = null, targetDate = getAgendaDate()) {
     if (!isCorrectableAgendaDate(targetDate)) {
       showToast("Les corrections sont limitées à aujourd'hui et hier.", true);
       return;
@@ -2825,6 +2824,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderQuestAgenda(data) {
     questAgendaState = data;
+    const modelDay = document.getElementById("model-day-segments");
+    if (modelDay) {
+      modelDay.replaceChildren();
+      const segments = [...(data.segments || [])].sort((a, b) => a.start.localeCompare(b.start));
+      let previousEnd = "00:00";
+      const addRow = (label, start, end, free = false) => {
+        const row = document.createElement("div");
+        row.className = free ? "model-day-free" : "model-day-segment";
+        const time = document.createElement("span");
+        time.textContent = `${start}–${end}`;
+        const title = document.createElement("span");
+        title.textContent = label;
+        row.append(time, title);
+        modelDay.appendChild(row);
+      };
+      segments.forEach(segment => {
+        if (segment.start > previousEnd) addRow("Temps libre", previousEnd, segment.start, true);
+        addRow(segment.title, segment.start, segment.end);
+        if (segment.end > previousEnd) previousEnd = segment.end;
+      });
+      if (segments.length && previousEnd < "23:59") addRow("Temps libre", previousEnd, "23:59", true);
+      if (!segments.length) modelDay.textContent = "Aucun horaire défini pour cette journée type.";
+    }
     if (agendaDateInput) agendaDateInput.value = data.date || getAgendaDate();
     updateAgendaDateSwitch();
     if (agendaDayTypeBadge) {
@@ -3336,6 +3358,12 @@ document.addEventListener("DOMContentLoaded", () => {
         xp.className = "bounty-xp-tag";
         xp.textContent = `🏆 +${b.xp_reward} XP`;
         info.append(title, xp);
+        if (b.linked_goal_id) {
+          const linked = document.createElement("span");
+          linked.className = "bounty-xp-tag";
+          linked.textContent = "🎯 Objectif lié";
+          info.appendChild(linked);
+        }
         if (dateInfo.length > 0) {
           const dateEl = document.createElement("span");
           dateEl.style.cssText = "font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; display: inline-flex; gap: 8px;";
@@ -3525,6 +3553,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function openEditBountyModal(bounty) {
     activeEditBounty = bounty;
+    document.getElementById("edit-bounty-link-goal-btn").hidden = Boolean(bounty.linked_goal_id);
     document.getElementById("edit-bounty-id").value = bounty.id;
     document.getElementById("edit-bounty-title").value = bounty.title || "";
     document.getElementById("edit-bounty-xp").value = bounty.xp_reward || 10;
@@ -3605,6 +3634,33 @@ document.addEventListener("DOMContentLoaded", () => {
       deleteBounty(activeEditBounty.id);
     }
   });
+  async function chooseGoalReplacement() {
+    const profileResponse = await fetch(`${API_BASE}/profile`);
+    if (!profileResponse.ok) throw new Error("Profil indisponible.");
+    const profile = await profileResponse.json();
+    const pins = profile.pinned_goals || [];
+    if (pins.length < 3) return { replace_pinned_goal_id: null };
+    const goalsResponse = await fetch(`${API_BASE}/goals`);
+    const goals = await goalsResponse.json();
+    const choices = pins.map(id => goals.find(goal => goal.id === id)).filter(Boolean);
+    const selected = prompt(`Top 3 complet. ID de l'objectif à remplacer :\n${choices.map(goal => `${goal.id} — ${goal.title}`).join("\n")}`);
+    if (selected === null) return null;
+    const replacement = Number(selected);
+    if (!pins.includes(replacement)) { showToast("Choisissez un ID du Top 3.", true); return null; }
+    return { replace_pinned_goal_id: replacement };
+  }
+  document.getElementById("edit-bounty-link-goal-btn")?.addEventListener("click", async () => {
+    if (!activeEditBounty || activeEditBounty.linked_goal_id) return;
+    try {
+      const replacement = await chooseGoalReplacement();
+      if (!replacement) return;
+      const response = await fetch(`${API_BASE}/todos/${activeEditBounty.id}/linked-goal`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(replacement) });
+      if (!response.ok) throw new Error((await response.json()).detail || "Création impossible");
+      showToast("Objectif lié créé.");
+      closeEditBountyModal();
+      refreshAll();
+    } catch (error) { showToast(error.message, true); }
+  });
 
   function setupBountiesEvents() {
     const openBountyBtn = document.getElementById("open-bounty-inline-btn");
@@ -3633,6 +3689,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const doDate = document.getElementById("new-bounty-do-date").value || null;
         const dueDate = document.getElementById("new-bounty-due-date").value || null;
+        const createLinkedGoal = document.getElementById("new-bounty-linked-goal").checked;
 
         if (!title) {
           showToast("Veuillez donner un titre à la prime !", true);
@@ -3640,6 +3697,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
+          const replacement = createLinkedGoal ? await chooseGoalReplacement() : { replace_pinned_goal_id: null };
+          if (!replacement) return;
           const response = await fetch(`${API_BASE}/todos`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -3647,16 +3706,19 @@ document.addEventListener("DOMContentLoaded", () => {
               title: title,
               xp_reward: xp,
               do_date: doDate,
-              due_date: dueDate
+              due_date: dueDate,
+              create_linked_goal: createLinkedGoal,
+              ...replacement
             })
           });
 
-          if (!response.ok) throw new Error("Erreur de publication");
+          if (!response.ok) throw new Error((await response.json()).detail || "Erreur de publication");
           showToast("Nouvelle prime publiée au tableau ! ⚔️");
           titleInput.value = "";
           xpInput.value = 20;
           document.getElementById("new-bounty-do-date").value = "";
           document.getElementById("new-bounty-due-date").value = "";
+          document.getElementById("new-bounty-linked-goal").checked = false;
           bountyForm.style.display = "none";
           openBountyBtn.textContent = "+ Prime";
           refreshAll();
@@ -4142,9 +4204,9 @@ document.addEventListener("DOMContentLoaded", () => {
               <span>${goal.title} ${goal.completed ? "🎉" : ""}</span>
               ${starHTML}
             </span>
-            <span style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">${percent}%</span>
+            <span style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">${goal.source_todo_id ? "To-do lié" : `${percent}%`}</span>
           </div>
-          <span class="goal-selector-meta">${totalSteps} sous-étape${totalSteps > 1 ? 's' : ''}${sidebarDateInfo}</span>
+          <span class="goal-selector-meta">${goal.source_todo_id ? "Validation depuis To-do" : `${totalSteps} sous-étape${totalSteps > 1 ? 's' : ''}`}${sidebarDateInfo}</span>
           <div class="goal-selector-progress-track">
             <div class="goal-selector-progress-fill" style="width: ${percent}%;"></div>
           </div>
@@ -4254,13 +4316,12 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="skill-tree-header">
         <div>
           <span class="skill-tree-title">${goal.title} ${goal.completed ? "🎉" : ""}</span>
-          <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.2rem;">${goal.description || 'Arbre de quêtes long terme.'} • ${percent}% complété${dateText}</p>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.2rem;">${goal.source_todo_id ? "Objectif lié à un to-do : validation et titre gérés depuis To-do." : `${goal.description || 'Arbre de quêtes long terme.'} • ${percent}% complété`}${dateText}</p>
         </div>
         <div class="skill-tree-actions">
           <button class="tree-icon-btn add-step" id="btn-add-substep" title="Nouvelle Sous-étape" style="font-size: 1.1rem; color: var(--accent-cyan);">➕</button>
           <button class="tree-icon-btn link" id="btn-link-substep" title="Liaisons & Verrous avancés" style="font-size: 1.1rem; color: var(--accent-purple);">🔗</button>
-          <button class="tree-icon-btn edit" id="btn-edit-active-goal" title="Modifier l'objectif">✏️</button>
-          <button class="tree-icon-btn delete" id="btn-delete-active-goal" title="Supprimer l'objectif">🗑️</button>
+          ${goal.source_todo_id ? "" : `<button class="tree-icon-btn edit" id="btn-edit-active-goal" title="Modifier l'objectif">✏️</button><button class="tree-icon-btn delete" id="btn-delete-active-goal" title="Supprimer l'objectif">🗑️</button>`}
         </div>
       </div>
     `;
@@ -4380,8 +4441,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // Bind edit/delete/add handlers
     document.getElementById("btn-add-substep").addEventListener("click", () => openDrawer("add-substep"));
     document.getElementById("btn-link-substep").addEventListener("click", () => openDrawer("links"));
-    document.getElementById("btn-edit-active-goal").addEventListener("click", () => openDrawer("edit", goal));
-    document.getElementById("btn-delete-active-goal").addEventListener("click", () => deleteGoal(goal.id));
+    document.getElementById("btn-edit-active-goal")?.addEventListener("click", () => openDrawer("edit", goal));
+    document.getElementById("btn-delete-active-goal")?.addEventListener("click", () => deleteGoal(goal.id));
 
     // Bind edit substep handlers inside the tree
     viewer.querySelectorAll(".action-edit-substep-icon").forEach(btn => {
@@ -5378,6 +5439,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function openEditQuestModal(habit, agendaItem = null) {
     activeEditQuest = habit;
+    document.getElementById("edit-quest-focus-role").value = habit.focus_role || "must";
+    await populateFocusTargets("edit", habit.focus_goal_id || habit.focus_softskill_id);
     await renderQuestTagEditor("edit", habit.tags || [], true);
     document.getElementById("edit-quest-id").value        = habit.id;
     document.getElementById("edit-quest-name").value      = habit.name;
@@ -5440,6 +5503,7 @@ document.addEventListener("DOMContentLoaded", () => {
       updateFrequencyNote(editFreqSelect, editQuestFrequencyNote, activeEditQuest ? activeEditQuest.scheduled_days : null);
     });
   }
+  document.getElementById("edit-quest-focus-role")?.addEventListener("change", () => populateFocusTargets("edit"));
 
   document.getElementById("close-edit-quest-btn")?.addEventListener("click", closeEditQuestModal);
   editQuestOverlay?.addEventListener("click", closeEditQuestModal);
@@ -5520,6 +5584,10 @@ document.addEventListener("DOMContentLoaded", () => {
         ? (document.getElementById("edit-quest-unit").value.trim() || null)
         : null;
 
+    let focus;
+    try { focus = await selectedQuestFocus("edit"); }
+    catch (error) { showToast(error.message, true); return; }
+    if (!focus) return;
     const body = {
       name:           document.getElementById("edit-quest-name").value.trim(),
       description:    activeDescription ? activeDescription.description : editQuestDescInput.value.trim(),
@@ -5536,6 +5604,7 @@ document.addEventListener("DOMContentLoaded", () => {
       agenda_duration_minutes,
       agenda_placeable,
       tags: collectQuestTags("edit"),
+      ...focus,
     };
     try {
       const r = await fetch(`${API_BASE}/habits/${id}`, {
@@ -5941,11 +6010,71 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==============================================
   // QUESTS (HABITS) & NO-TODOS FORMS
   // ==============================================
+  async function populateFocusTargets(prefix, selectedId = null) {
+    const role = document.getElementById(`${prefix}-quest-focus-role`)?.value || "must";
+    const wrap = document.getElementById(`${prefix}-quest-focus-target-wrap`);
+    const select = document.getElementById(`${prefix}-quest-focus-target`);
+    if (!wrap || !select) return;
+    wrap.hidden = role === "must";
+    select.replaceChildren();
+    if (role === "must") return;
+    const response = await fetch(`${API_BASE}/${role === "goal" ? "goals" : "softskills"}`);
+    if (!response.ok) throw new Error("Impossible de charger les liens de focus.");
+    const data = await response.json();
+    const items = role === "goal" ? data.filter(goal => !goal.completed) : (data.skills || []).filter(skill => !skill.progress?.completed);
+    for (const item of items) {
+      const option = document.createElement("option");
+      option.value = item.id;
+      option.textContent = item.title || item.name;
+      select.appendChild(option);
+    }
+    const createOption = document.createElement("option");
+    createOption.value = "__create__";
+    createOption.textContent = role === "goal" ? "+ Créer un objectif" : "+ Créer une compétence";
+    select.appendChild(createOption);
+    if (selectedId != null) select.value = String(selectedId);
+  }
+
+  async function selectedQuestFocus(prefix) {
+    const role = document.getElementById(`${prefix}-quest-focus-role`)?.value || "must";
+    if (role === "must") return { focus_role: "must", focus_goal_id: null, focus_softskill_id: null };
+    let id = document.getElementById(`${prefix}-quest-focus-target`)?.value;
+    if (id === "__create__") {
+      const title = prompt(role === "goal" ? "Nom du nouvel objectif" : "Nom de la nouvelle compétence")?.trim();
+      if (!title) return null;
+      if (role === "goal") {
+        const response = await fetch(`${API_BASE}/goals`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) });
+        if (!response.ok) throw new Error((await response.json()).detail || "Création impossible");
+        id = String((await response.json()).goal.id);
+      } else {
+        const skillsResponse = await fetch(`${API_BASE}/softskills`);
+        const skillsData = await skillsResponse.json();
+        const branches = Object.keys(skillsData.branches || {});
+        const branch = prompt(branches.length ? `Branche de la compétence (${branches.join(", ")}). Une nouvelle valeur crée une branche.` : "Nom de la branche à créer")?.trim();
+        if (!branch) return null;
+        if (!branches.includes(branch)) {
+          if (!confirm(`Créer la branche « ${branch} » pour la compétence « ${title} » ?`)) return null;
+          const createdBranch = await fetch(`${API_BASE}/softskills/branches`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: branch, color: "#8b5cf6", pale_color: "#ddd6fe" }) });
+          if (!createdBranch.ok) throw new Error((await createdBranch.json()).detail || "Branche impossible à créer");
+        }
+        const skillId = `skill_${Date.now()}`;
+        const response = await fetch(`${API_BASE}/softskills/skills`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: skillId, name: title, description: "", branch, prerequisites: [], related: [], execution_order: 1 }) });
+        if (!response.ok) throw new Error((await response.json()).detail || "Création impossible");
+        id = skillId;
+      }
+      await populateFocusTargets(prefix, id);
+    }
+    if (!id) { showToast("Choisissez un objectif ou une compétence.", true); return null; }
+    return role === "goal" ? { focus_role: role, focus_goal_id: Number(id), focus_softskill_id: null } : { focus_role: role, focus_goal_id: null, focus_softskill_id: id };
+  }
+
   function setupQuestsEvents() {
     const openQuestBtn = document.getElementById("open-quest-inline-btn");
     const questForm = document.getElementById("quest-inline-form");
     const submitQuestBtn = document.getElementById("submit-quest-btn");
     const newDayTypesGroup = document.getElementById("new-quest-day-types");
+    const newFocusRole = document.getElementById("new-quest-focus-role");
+    newFocusRole?.addEventListener("change", () => populateFocusTargets("new"));
 
     setupQuestProgressEditor("new");
     setupQuestProgressEditor("edit");
@@ -5954,6 +6083,7 @@ document.addEventListener("DOMContentLoaded", () => {
       openQuestBtn.addEventListener("click", async () => {
         if (questForm.style.display === "none") {
           await renderQuestTagEditor("new", [], true);
+          await populateFocusTargets("new");
           questForm.style.display = "flex";
           openQuestBtn.textContent = "Fermer Formulaire";
         } else {
@@ -6012,6 +6142,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const effort_duration = agenda_duration_minutes / 60;
         const agenda_placeable = true;
         const day_types = selectedDayTypes(newDayTypesGroup);
+        let focus;
+        try { focus = await selectedQuestFocus("new"); }
+        catch (error) { showToast(error.message, true); return; }
+        if (!focus) return;
 
         if (!title) {
           showToast("Veuillez donner un titre à la quête !", true);
@@ -6042,6 +6176,7 @@ document.addEventListener("DOMContentLoaded", () => {
               agenda_duration_minutes: agenda_duration_minutes,
               agenda_placeable: agenda_placeable,
               tags: collectQuestTags("new") || undefined,
+              ...focus,
             })
           });
 
@@ -7831,30 +7966,21 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!goalsResp.ok) throw new Error("Failed to load goals");
       const goals = await goalsResp.json();
 
-      // Find all uncompleted substeps linked to at least one Top 3 goal.
-      // This includes shared substeps whose original parent goal is not in the Top 3.
-      const eligibleRecapSubsteps = getEligibleRecapSubsteps(goals);
-      let substepsHtml = "";
-
-      if (pinnedGoals.length === 0) {
-        substepsHtml = `<p style="font-size: 0.82rem; color: var(--accent-yellow); margin: 0; padding: 0.5rem; line-height: 1.4; background: rgba(245, 158, 11, 0.1); border: 1px dashed rgba(245, 158, 11, 0.3); border-radius: 6px;">⚠️ Aucun objectif prioritaire (Top 3) sélectionné.<br>Sélectionnez d'abord vos objectifs prioritaires via l'étoile ★ dans l'onglet <strong>Objectifs</strong>.</p>`;
-      } else {
-        eligibleRecapSubsteps.forEach(({ sub, goalRefs }) => {
-          const isChecked = pinnedSubsteps.includes(sub.id) ? "checked" : "";
-          const linkedGoalTitles = Array.from(goalRefs.values()).join(" / ");
-          const level = getRecapLevel(sub.execution_order);
-          substepsHtml += `
-            <label class="recap-checkbox-container">
-              <input type="checkbox" name="pin-substep-checkbox" value="${sub.id}" ${isChecked}>
-              <span style="font-size: 0.8rem;"><strong>${linkedGoalTitles}</strong>: <span style="color: var(--text-muted);">Niv. ${level}</span> · ${sub.title}</span>
-            </label>
-          `;
-        });
-        if (eligibleRecapSubsteps.length === 0) {
-          substepsHtml = `<p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Aucune sous-étape active pour vos objectifs prioritaires.</p>`;
-        }
-      }
-      goalsListContainer.innerHTML = substepsHtml;
+      goalsListContainer.replaceChildren();
+      goals.filter(goal => !goal.completed).forEach(goal => {
+        const label = document.createElement("label");
+        label.className = "recap-checkbox-container";
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.name = "pin-goal-checkbox";
+        input.value = goal.id;
+        input.checked = pinnedGoals.includes(goal.id);
+        const title = document.createElement("span");
+        title.textContent = goal.title;
+        label.append(input, title);
+        goalsListContainer.appendChild(label);
+      });
+      if (!goalsListContainer.children.length) goalsListContainer.textContent = "Aucun objectif actif.";
 
       // 2. Fetch Softskills
       const skillsResp = await fetch(`${API_BASE}/softskills`);
@@ -7882,7 +8008,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Add selection limits (max 3)
-      setupCheckboxLimit("pin-substep-checkbox");
+      setupCheckboxLimit("pin-goal-checkbox");
       setupCheckboxLimit("pin-skill-checkbox");
 
     } catch (err) {
@@ -7915,7 +8041,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Save pinned items to database
   async function savePinnedItems() {
-    const checkedSubsteps = Array.from(document.querySelectorAll('input[name="pin-substep-checkbox"]:checked')).map(cb => parseInt(cb.value));
+    const checkedGoals = Array.from(document.querySelectorAll('input[name="pin-goal-checkbox"]:checked')).map(cb => parseInt(cb.value));
     const checkedSkills = Array.from(document.querySelectorAll('input[name="pin-skill-checkbox"]:checked')).map(cb => cb.value);
 
     try {
@@ -7923,13 +8049,27 @@ document.addEventListener("DOMContentLoaded", () => {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          pinned_goals: pinnedGoals,
-          pinned_substeps: checkedSubsteps,
+          pinned_goals: checkedGoals,
+          pinned_substeps: [],
           pinned_softskills: checkedSkills
         })
       });
 
       if (!resp.ok) throw new Error("Erreur de sauvegarde de l'API");
+      pinnedGoals = checkedGoals;
+      const habitsResponse = await fetch(`${API_BASE}/habits`);
+      const habits = await habitsResponse.json();
+      const skillsResponse = await fetch(`${API_BASE}/softskills`);
+      const skillsData = await skillsResponse.json();
+      for (const skillId of checkedSkills) {
+        if (habits.some(habit => habit.focus_role === "skill" && habit.focus_softskill_id === skillId && habit.is_active)) continue;
+        const skill = (skillsData.skills || []).find(item => item.id === skillId);
+        if (!skill) continue;
+        const name = prompt(`Quête quotidienne pour « ${skill.name} » (laisser vide pour créer plus tard)`, `Pratiquer : ${skill.name}`)?.trim();
+        if (!name) continue;
+        const created = await fetch(`${API_BASE}/habits`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, type: "binary", focus_role: "skill", focus_softskill_id: skillId }) });
+        if (!created.ok) showToast((await created.json()).detail || "Quête non créée", true);
+      }
       showToast("Épingles 3-3-3 sauvegardées ! 📌");
       closeRecapPinDrawer();
       fetchProfile(); // Reload dashboard profile and recap panel
@@ -7981,6 +8121,41 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Render the recap panel content
+  function renderFocusRecapRow(list, title, habit, role, targetId) {
+    const li = document.createElement("li");
+    li.className = `recap-item ${habit && habit.today_count >= (habit.daily_target || 1) ? "completed" : ""}`;
+    const name = document.createElement("button");
+    name.type = "button";
+    name.className = "recap-item-text";
+    name.textContent = title;
+    name.title = habit ? `Modifier la quête : ${habit.name}` : "Créer une quête liée";
+    name.addEventListener("click", async () => {
+      if (habit) openEditQuestModal(habit);
+      else {
+        if (document.getElementById("quest-inline-form")?.style.display !== "flex") document.getElementById("open-quest-inline-btn")?.click();
+        document.getElementById("new-quest-focus-role").value = role;
+        await populateFocusTargets("new", targetId);
+      }
+    });
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "recap-claim-btn";
+    action.textContent = habit ? (habit.today_count >= (habit.daily_target || 1) ? "✓ Fait" : habit.focus_due_today ? "Valider" : "Hors planning") : "+ Quête";
+    action.disabled = Boolean(habit && (!habit.focus_due_today || habit.today_count >= (habit.daily_target || 1)));
+    action.addEventListener("click", async () => {
+      if (!habit) { name.click(); return; }
+      if (habit.type === "quantitative") {
+        const amount = Number(prompt(`Combien de ${habit.unit || "unités"} ?`));
+        if (!Number.isFinite(amount) || amount <= 0) return;
+        await submitQuestLog(habit.id, "log", amount, todayDateString());
+      } else {
+        await submitQuestLog(habit.id, "done", null, todayDateString());
+      }
+    });
+    li.append(name, action);
+    list.appendChild(li);
+  }
+
   async function renderRecapPanel(profileData) {
     const goalsList = document.getElementById("recap-goals-list");
     const skillsList = document.getElementById("recap-skills-list");
@@ -8000,43 +8175,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const goals = await goalsResp.json();
       goalsList.innerHTML = "";
 
-      let goalsRendered = 0;
-      pinnedSubsteps.forEach(subId => {
-        const context = getVisibleSubstepRecapContext(goals, subId);
-        const foundSub = context ? context.sub : null;
-        const foundGoal = context ? context.goal : null;
-
-        if (foundSub) {
-          goalsRendered++;
-          const li = document.createElement("li");
-          li.className = `recap-item ${foundSub.completed ? 'completed' : ''}`;
-
-          const icon = foundSub.completed ? "✓" : "☖";
-          li.innerHTML = `
-            <span class="recap-item-text" title="${foundGoal.title}: ${foundSub.title}">${foundSub.title}</span>
-            <span class="recap-item-status-icon">${icon}</span>
-          `;
-          li.addEventListener("click", () => {
-            activeGoalId = foundGoal.id;
-            const tabBtn = document.querySelector('.nav-tab[data-tab="goals-tab"]');
-            if (tabBtn) {
-              tabBtn.click();
-              setTimeout(() => {
-                const node = document.querySelector(`.tree-node[data-substep-id="${subId}"]`);
-                if (node) {
-                  node.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  node.style.animation = "pulse-highlight 1.5s ease-in-out 3";
-                }
-              }, 400);
-            }
-          });
-          goalsList.appendChild(li);
-        }
+      const habitsResponse = await fetch(`${API_BASE}/habits`);
+      const habits = await habitsResponse.json();
+      pinnedGoals.slice(0, 3).forEach(goalId => {
+        const goal = goals.find(item => item.id === goalId && !item.completed);
+        if (goal) renderFocusRecapRow(goalsList, goal.title, habits.find(habit => habit.focus_role === "goal" && habit.focus_goal_id === goalId && habit.is_active), "goal", goalId);
       });
-
-      if (goalsRendered === 0) {
-        goalsList.innerHTML = `<li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--text-muted);">Aucune étape épinglée. ✏️</li>`;
-      }
+      if (!goalsList.children.length) goalsList.innerHTML = `<li class="recap-list-placeholder">Aucun objectif épinglé.</li>`;
     } catch (err) {
       goalsList.innerHTML = `<li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--accent-red);">Erreur objectifs.</li>`;
     }
@@ -8049,35 +8194,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const unlockedSkillLevelsByBranch = getUnlockedSkillLevelsByBranch(skills);
       skillsList.innerHTML = "";
 
+      const habitsResponse = await fetch(`${API_BASE}/habits`);
+      const habits = await habitsResponse.json();
       let skillsRendered = 0;
       pinnedSoftskills.forEach(skillId => {
         const skill = skills.find(s => s.id === skillId);
         if (skill && isSkillLevelUnlocked(skill, unlockedSkillLevelsByBranch)) {
-          skillsRendered++;
-          const isCompleted = skill.progress && skill.progress.completed;
-          const li = document.createElement("li");
-          li.className = `recap-item ${isCompleted ? 'completed' : ''}`;
-
-          const icon = isCompleted ? "✓" : "☖";
-          li.innerHTML = `
-            <span class="recap-item-text" title="${skill.branch}: ${skill.name}">${skill.name}</span>
-            <span class="recap-item-status-icon">${icon}</span>
-          `;
-          li.addEventListener("click", () => {
-            activeBranchKey = "global";
-            const tabBtn = document.querySelector('.nav-tab[data-tab="softskills-tab"]');
-            if (tabBtn) {
-              tabBtn.click();
-              setTimeout(() => {
-                const node = document.querySelector(`.hex-wrapper[data-id="${skillId}"]`);
-                if (node) {
-                  node.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  node.style.animation = "pulse-highlight 1.5s ease-in-out 3";
-                }
-              }, 400);
-            }
-          });
-          skillsList.appendChild(li);
+          if (!skill.progress?.completed) {
+            skillsRendered++;
+            renderFocusRecapRow(skillsList, skill.name, habits.find(habit => habit.focus_role === "skill" && habit.focus_softskill_id === skillId && habit.is_active), "skill", skillId);
+          }
         }
       });
 

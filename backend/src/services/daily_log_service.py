@@ -256,6 +256,8 @@ def rebuild_streak_projections(
             perfect_current += 1
             perfect_max = max(perfect_max, perfect_current)
             perfect_last = cursor
+        elif score and score.status == "NoMust":
+            pass
         elif finalizing or cursor < through_date:
             perfect_current = 0
         cursor += datetime.timedelta(days=1)

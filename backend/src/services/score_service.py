@@ -17,6 +17,7 @@ from src.services.agenda_service import (
     normalize_habit_day_types,
     resolve_day_type,
 )
+from src.services.focus_service import state_on_date, remove_linked_goal
 from src.services.quest_progress_service import completion_count, completion_target
 
 
@@ -59,7 +60,9 @@ def calculate_daily_score(db: Session, user_id: int, date: datetime.date) -> Dai
 
     # 4. Check if all scheduled habits are completed/skipped today
     scheduled_habits = [
-        h for h in habits if is_habit_eligible_on_date(h, date, user, template_name)
+        h for h in habits
+        if state_on_date(h, date)["role"] == "must"
+        and is_habit_eligible_on_date(h, date, user, template_name)
     ]
 
     # Group logs by habit
@@ -67,7 +70,7 @@ def calculate_daily_score(db: Session, user_id: int, date: datetime.date) -> Dai
     for log in logs:
         logs_by_habit.setdefault(log.habit_id, []).append(log)
 
-    perfect_valid = len(habits) > 0
+    perfect_valid = bool(scheduled_habits)
     for h in scheduled_habits:
         h_logs = logs_by_habit.get(h.id, [])
         is_failed = any(
@@ -87,9 +90,7 @@ def calculate_daily_score(db: Session, user_id: int, date: datetime.date) -> Dai
             perfect_valid = False
             break
 
-    # If there are no scheduled habits, perfect_valid remains True
-
-    status = "Perfect" if perfect_valid else "Failed"
+    status = "NoMust" if not scheduled_habits else ("Perfect" if perfect_valid else "Failed")
 
     # 5. Save or update DailyScore
     score = db.query(DailyScore).filter_by(user_id=user_id, date=date).first()
@@ -138,9 +139,37 @@ def update_streaks(db: Session, user_id: int, date: datetime.date) -> list[dict]
         )
         db.add(perf_streak)
 
-    if perf_streak.last_incremented != date:
+    if score.status == "NoMust":
+        if perf_streak.last_incremented == date:
+            perf_streak.current_streak = max(0, perf_streak.current_streak - 1)
+            previous = (
+                db.query(DailyScore)
+                .filter(
+                    DailyScore.user_id == user_id,
+                    DailyScore.date < date,
+                    DailyScore.status == "Perfect",
+                )
+                .order_by(DailyScore.date.desc())
+                .first()
+            )
+            perf_streak.last_incremented = previous.date if previous else None
+    elif perf_streak.last_incremented != date:
         if score.status == "Perfect":
-            if perf_streak.last_incremented == yesterday:
+            last_counting_day = (
+                db.query(DailyScore)
+                .filter(
+                    DailyScore.user_id == user_id,
+                    DailyScore.date < date,
+                    DailyScore.status != "NoMust",
+                )
+                .order_by(DailyScore.date.desc())
+                .first()
+            )
+            if perf_streak.last_incremented == yesterday or (
+                last_counting_day
+                and last_counting_day.status == "Perfect"
+                and perf_streak.last_incremented == last_counting_day.date
+            ):
                 perf_streak.current_streak += 1
             else:
                 perf_streak.current_streak = 1
@@ -327,11 +356,16 @@ def cleanup_completed_todos(db: Session, user_id: int):
     but deletes them once the day is over.
     """
     today_start = datetime.datetime.combine(datetime.date.today(), datetime.time.min)
-    db.query(Todo).filter(
+    old_todos = db.query(Todo).filter(
         Todo.user_id == user_id,
         Todo.is_completed == True,
         Todo.completed_at < today_start,
-    ).delete(synchronize_session=False)
+    ).all()
+    user = db.query(User).filter_by(id=user_id).first()
+    for todo in old_todos:
+        if user:
+            remove_linked_goal(db, user, todo)
+        db.delete(todo)
     db.commit()
 
 
@@ -445,6 +479,14 @@ def perform_habit_levelup(
             agenda_duration_minutes=source.agenda_duration_minutes,
             relationship_root_id=relationship_root_id,
             is_active=True,
+            focus_role=source.focus_role or "must",
+            focus_goal_id=source.focus_goal_id,
+            focus_softskill_id=source.focus_softskill_id,
+            focus_history=[{
+                "date": datetime.date.today().isoformat(),
+                "role": source.focus_role or "must",
+                "enabled": state_on_date(source, datetime.date.today())["enabled"],
+            }],
         )
         db.add(habit)
         db.flush()

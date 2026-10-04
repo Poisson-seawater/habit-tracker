@@ -17,7 +17,7 @@ from src.database.models import (
     User,
     Streak,
 )
-from src.services import day_cycle_service, quest_tag_service, softskill_service
+from src.services import day_cycle_service, focus_service, quest_tag_service, softskill_service
 from src.services.quest_progress_service import (
     completion_count,
     completion_target,
@@ -430,6 +430,8 @@ def is_habit_eligible_on_date(
 ) -> bool:
     if not habit.is_active or habit.archived_at is not None:
         return False
+    if not focus_service.state_on_date(habit, date_value)["enabled"]:
+        return False
 
     if normalize_day_type(day_type) not in normalize_habit_day_types(habit.day_types):
         return False
@@ -625,6 +627,8 @@ def build_quest_bank_response(
 
     for habit in habits:
         if not habit.is_active:
+            continue
+        if focus_service.state_on_date(habit, date_value)["role"] != "must":
             continue
 
         item = habit_to_agenda_item(
@@ -969,6 +973,7 @@ def build_agenda_response(
     eligible_habits = [
         habit
         for habit in habits
+        if focus_service.state_on_date(habit, date_value)["role"] == "must"
         if is_habit_eligible_on_date(habit, date_value, user, day_type)
     ]
     eligible_by_id = {habit.id: habit for habit in eligible_habits}

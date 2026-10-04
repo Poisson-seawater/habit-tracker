@@ -181,7 +181,8 @@ Idée produit : ajouter une vue 2x2 de type matrice d'Eisenhower :
 
 ### Direction retenue : une seule action exécutable, plusieurs couches de sens
 
-Les objets ne doivent pas se remplacer ou se valider entre eux :
+Chaque objet garde sa fonction. Un objectif créé depuis une prime se termine
+uniquement quand cette prime est validée :
 
 | Couche | Rôle | Exemple « Corps / heal » |
 | --- | --- | --- |
@@ -190,11 +191,14 @@ Les objets ne doivent pas se remplacer ou se valider entre eux :
 | Quête | action récurrente, planifiable et validable au quotidien | tendon, natation, vélo, marche/course adaptée |
 | To-do / prime | action ponctuelle avec date ou échéance | prendre le rendez-vous physio, acheter une bande élastique |
 
-Une quête reste donc l'unité d'exécution récurrente. Les objectifs et les
-branches de compétences restent des **tags de contexte** : ils expliquent
-pourquoi l'action compte, sans créer une seconde quête, ni déclencher une
-validation, XP, Or ou streak supplémentaire. Les épingles 3-3-3 restent une
-couche de focus indépendante, et ne deviennent pas des tags automatiques.
+Une quête reste l'unité d'exécution récurrente. Elle a maintenant un rôle
+explicite : **Must** (socle du Perfect Day), **Objectif** (travail du moment)
+ou **Compétence** (pratique dédiée). Les deux derniers rôles ont leurs propres
+validations et streaks, sans peser sur le Perfect Day. Une quête peut être liée
+à un objectif ou à une compétence ; les tags demeurent des repères de contexte
+sans effet sur le score. Le Recap épingle directement trois objectifs et trois
+compétences, chacun avec au plus une quête liée. Une prime peut créer un
+objectif lié et demeure sa seule validation finale.
 
 À étudier ensuite : faire adopter aux To-dos le même catalogue de tags que les
 quêtes (objectif + branche de compétence), pour qu'une vue comme Eisenhower ou

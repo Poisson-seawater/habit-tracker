@@ -1,6 +1,6 @@
 # Habitudes (Quêtes)
 
-Une habitude, c'est une action que tu répètes régulièrement, selon un planning. Chaque fois que tu la valides, elle traite une partie de ton [Perfect Day](#/perfect-day). Et sur la durée, c'est elle qui te fait avancer vers tes [objectifs](#/objectifs).
+Une quête est une action répétée selon un planning. Son rôle est choisi dans le formulaire : **Must** pour le socle du [Perfect Day](#/perfect-day), **Objectif** pour une priorité du moment, ou **Compétence** pour une pratique dédiée. Les quêtes Objectif et Compétence gardent leurs validations et streaks propres, sans entrer dans le score Perfect Day.
 
 ## Deux types
 
@@ -32,7 +32,7 @@ Chaque panneau appartient à la personne qui l'a ouvert : un autre membre du gro
 
 Une habitude n'est due que certains jours (tous les jours, ou par ex. lundi + mercredi). Elle peut aussi être associée à un ou plusieurs types de journée : `rest`, `regular` et `hustle`. Les trois sont sélectionnés par défaut, y compris pour les anciennes habitudes.
 
-Le jour venu, « Quêtes du jour », le Perfect Day, `/status` et `/liste habit` ne retiennent que les habitudes compatibles à la fois avec le planning et le type de journée actif. Une habitude `hustle` n'apparaît donc pas dans la liste d'un jour `rest` et ne bloque pas son Perfect Day.
+Le jour venu, le panneau « Must du jour » et le Perfect Day ne retiennent que les quêtes Must compatibles avec le planning et le type de journée actif. Une quête `hustle` n'apparaît donc pas dans la liste d'un jour `rest` et ne bloque pas son Perfect Day.
 
 Tu peux quand même valider manuellement une habitude hors type de journée avec `/done`, `/log`, l'API ou les contrôles du dashboard. Le log reste visible et la progression normale du streak s'applique, mais cette habitude ne devient pas une exigence du Perfect Day de ce jour.
 
@@ -46,13 +46,13 @@ Les tags sont communs à toutes les étapes V1/V2 d'une même quête : changer d
 
 ## Banque des quêtes
 
-Sur le Home, **Quêtes du jour** réunit toutes les quêtes prévues pour la date affichée, qu'elles aient ou non un ancien placement horaire. Les quêtes restantes apparaissent avant celles déjà traitées. Le bouton **Banque** liste les quêtes actives qui ne sont pas prévues pour cette date, avec la raison : mauvais jour de semaine, mauvais type de journée ou quête mensuelle pas encore due.
+Sur le Home, **Must du jour** réunit les quêtes Must prévues pour la date affichée, qu'elles aient ou non un ancien placement horaire. Les quêtes restantes apparaissent avant celles déjà traitées. Le bouton **Banque** liste les Must actifs qui ne sont pas prévus pour cette date, avec la raison : mauvais jour de semaine, mauvais type de journée ou quête mensuelle pas encore due. L'horaire « Journée type » à droite montre les blocs et le temps libre en lecture seule.
 
 La banque est séparée des archives : une quête « pas ce jour » reste active et peut revenir automatiquement à sa prochaine date prévue. Une quête archivée, elle, a été retirée explicitement du quotidien.
 
 ## Effort et Perfect Day
 
-Les habitudes alimentent le [Perfect Day](#/perfect-day) par leur statut : validée, loggée, skippée, ratée ou restante. Une habitude quantitative peut avoir un **plafond de log par jour** (daily cap) et une unité. Certaines habitudes portent aussi un type et une durée d'effort (`musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`) pour les budgets de journée. Elles ne donnent **pas** d'XP direct — contrairement aux [primes](#/primes-todo).
+Les quêtes Must alimentent le [Perfect Day](#/perfect-day) par leur statut : validée, loggée, skippée, ratée ou restante. Une quête quantitative peut avoir un **plafond de log par jour** (daily cap) et une unité. Certaines portent aussi un type et une durée d'effort (`musculaire`, `cerveau`, `emotionnel_social`, `creatif_divergent`) pour les budgets de journée. Aucune quête ne donne d'XP immédiat à chaque validation — contrairement aux [primes](#/primes-todo).
 
 ## Archiver une quête
 
@@ -62,7 +62,7 @@ La liste Archives affiche la date d'archive, la fréquence, la source et les gro
 
 Le bouton **Désarchiver** remet la quête parmi les quêtes actives. Si elle est éligible à la date affichée, elle revient dans « Quêtes du jour ». Ses anciens créneaux ne sont pas restaurés.
 
-Le Recap 3-3-3 ne crée plus de quêtes. Lors de la migration vers les tags, les anciennes quêtes auto-générées ont été archivées et retirées de leurs placements, tout en conservant leurs logs, streaks, versions et suivis quotidiens. Elles restent consultables dans Archives. Les épingles du Recap ne sont pas modifiées par l'archivage d'une quête.
+Le Recap 3-3-3 peut afficher une quête explicitement liée à un objectif ou à une compétence. Une compétence épinglée sans quête propose d'en créer une. Les anciennes quêtes auto-générées par les tags restent des archives historiques distinctes.
 
 ## Déclarer une habitude ratée
 

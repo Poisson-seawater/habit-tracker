@@ -1329,6 +1329,14 @@ body {
   flex-direction: column;
   gap: 2rem;
 }
+.must-day-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 1rem; align-items: start; }
+.must-day-grid > * { min-width: 0; }
+.model-day-hint { color: var(--text-muted); font-size: .82rem; }
+.model-day-segment, .model-day-free { display: flex; justify-content: space-between; gap: .7rem; padding: .65rem; margin: .4rem 0; border: 1px solid var(--border-glass); border-radius: 8px; font-size: .82rem; }
+.model-day-free { color: var(--accent-green); border-style: dashed; }
+.recap-item .recap-item-text { cursor: pointer; }
+#new-quest-focus-target-wrap[hidden], #edit-quest-focus-target-wrap[hidden] { display: none !important; }
+@media (max-width: 900px) { .must-day-grid { grid-template-columns: 1fr; } }
 
 
 /* Animations */

@@ -2,6 +2,10 @@
 
 Une prime, c'est une tâche pour aujourd'hui seulement. Quand tu la coches, elle te rapporte de l'XP direct.
 
+Depuis le dashboard, « Créer un objectif lié » ajoute cette prime aux objectifs du moment et crée une quête quotidienne « Travailler sur : … ». Si le Top 3 est plein, choisis l'objectif à remplacer. Le titre et les dates de l'objectif suivent ceux de la prime. Tu peux renommer la quête de pratique sans modifier la prime.
+
+La prime reste la seule validation finale : la cocher termine l'objectif et retire sa quête du Recap. Supprimer la prime supprime aussi son objectif et sa quête liés. Une prime terminée reste enregistrée jusqu'au nettoyage du lendemain, qui supprime également l'objectif lié ; les XP déjà gagnés restent acquis.
+
 ## Différence avec les habitudes
 
 Une [habitude](#/habitudes) est récurrente et compte pour le [Perfect Day](#/perfect-day). Une prime est **ponctuelle** (aujourd'hui seulement) et rapporte :

@@ -1644,6 +1644,29 @@ def _run_migrations():
             db.commit()
             inspector = inspect(engine)
 
+        # v37: Explicit daily-quest roles and optional todo-backed goals.
+        if "habits" in inspect(engine).get_table_names():
+            habit_columns = {c["name"] for c in inspect(engine).get_columns("habits")}
+            for column_name, sql_type in (
+                ("focus_role", "VARCHAR(16) NOT NULL DEFAULT 'must'"),
+                ("focus_goal_id", "INTEGER"),
+                ("focus_softskill_id", "VARCHAR(100)"),
+                ("focus_history", "JSON"),
+            ):
+                if column_name not in habit_columns:
+                    db.execute(text(f"ALTER TABLE habits ADD COLUMN {column_name} {sql_type}"))
+            db.execute(text("UPDATE habits SET focus_role = 'must' WHERE focus_role IS NULL"))
+            db.execute(text("CREATE INDEX IF NOT EXISTS ix_habits_focus_goal_id ON habits (focus_goal_id)"))
+            db.execute(text("CREATE INDEX IF NOT EXISTS ix_habits_focus_softskill_id ON habits (focus_softskill_id)"))
+            db.commit()
+        if "goals" in inspect(engine).get_table_names():
+            goal_columns = {c["name"] for c in inspect(engine).get_columns("goals")}
+            if "source_todo_id" not in goal_columns:
+                db.execute(text("ALTER TABLE goals ADD COLUMN source_todo_id INTEGER"))
+            db.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_goals_source_todo_id ON goals (source_todo_id)"))
+            db.commit()
+            inspector = inspect(engine)
+
         # v19: Destructively remove the legacy RPG stat/tag columns.
         v19_dropped = False
         for table, columns in {

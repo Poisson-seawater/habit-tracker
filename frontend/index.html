@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=18">
+  <link rel="stylesheet" href="css/style.css?v=19">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -907,9 +907,9 @@
         <div class="widgets-container">
           
           <!-- Quests Widget (Habits Check-ins) -->
-          <section class="glass-card quests-panel">
+          <div class="must-day-grid"><section class="glass-card quests-panel">
             <h2 class="section-header">
-              <span id="quests-panel-title">🎯 Quêtes du jour</span>
+              <span id="quests-panel-title">✅ Must du jour</span>
               <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
                 <button class="quest-agenda-toggle-btn active" id="toggle-quest-agenda-btn" type="button">Du jour</button>
                 <button class="quest-bank-toggle-btn" id="toggle-quest-bank-btn" type="button">Banque</button>
@@ -934,6 +934,9 @@
             <!-- Quick Quest Form -->
             <div class="bounty-inline-add" id="quest-inline-form" style="display: none; padding: 1.2rem; gap: 0.8rem; flex-direction: column; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-glass); border-radius: 12px; margin-bottom: 1rem;">
               <input type="text" id="new-quest-name" placeholder="ex: Méditation 10 min" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); outline: none; font-size: 0.85rem;" required>
+              <label>Rôle <select id="new-quest-focus-role"><option value="must">Must quotidien</option><option value="goal">Objectif du moment</option><option value="skill">Compétence à pratiquer</option></select></label>
+              <label id="new-quest-focus-target-wrap" hidden>Lié à <select id="new-quest-focus-target"></select></label>
+              <small style="color:var(--text-muted);">Une quête Objectif ou Compétence est active quand son item est épinglé dans le Recap.</small>
               <textarea id="new-quest-desc" class="quest-description-input" rows="5" placeholder="Description (optionnelle)" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; color: var(--text-primary); outline: none; font-size: 0.85rem;"></textarea>
               
               <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
@@ -1056,6 +1059,8 @@
             </div>
           </section>
 
+          <section class="glass-card model-day-panel" aria-label="Journée type"><h2 class="section-header">🕒 Journée type</h2><p class="model-day-hint">Une idée du Perfect Day. Ce planning est en lecture seule.</p><div id="model-day-segments"></div></section></div>
+
           <!-- Bounties Widget (Primes / Todos) -->
           <section class="glass-card bounties-panel-widget">
             <h2 class="section-header">
@@ -1087,6 +1092,7 @@
                 </div>
               </div>
 
+              <label><input type="checkbox" id="new-bounty-linked-goal"> Créer un objectif lié à cette prime</label>
               <button class="quest-action-btn" id="submit-bounty-btn" type="button" style="padding: 10px;">Publier la Prime</button>
             </div>
 
@@ -1150,7 +1156,7 @@
         <div style="display: flex; align-items: center; gap: 0.8rem; flex: 1; min-width: 300px;">
           <span style="font-size: 1.5rem; color: var(--accent-yellow);">⚠️</span>
           <div style="font-size: 0.78rem; line-height: 1.4; color: var(--text-secondary);">
-            <strong style="color: var(--accent-yellow);">Règles de Focus 3-3-3</strong> : Vous pouvez avoir jusqu'à <strong>20 objectifs</strong> actifs au total. Pour rester concentré, vous devez choisir vos <strong>3 objectifs prioritaires (Top 3)</strong> en cliquant sur l'étoile (<span style="color: var(--accent-yellow);">★</span>) à côté de leur titre dans la liste. Seuls les sous-étapes de ces 3 objectifs prioritaires peuvent être épinglées dans le panel <strong>Recap 3-3-3</strong> et être validées. Les autres objectifs restent gelés.
+            <strong style="color: var(--accent-yellow);">Règles de Focus 3-3-3</strong> : Vous pouvez avoir jusqu'à <strong>20 objectifs</strong> actifs au total. Choisissez jusqu'à <strong>3 objectifs prioritaires (Top 3)</strong> avec l'étoile (<span style="color: var(--accent-yellow);">★</span>) ou le crayon du Recap. Le Recap montre directement ces objectifs et leurs quêtes liées. Les sous-étapes restent validables dans le graphe pour les objectifs du Top 3.
           </div>
         </div>
         <div id="top3-lock-btn-container" style="display: flex; align-items: center; justify-content: flex-end; min-width: 180px;">
@@ -2083,6 +2089,9 @@
     <div class="form-group">
       <label>Cible/jour (optionnel — affiche X/N)</label>
       <input type="number" id="edit-quest-target" min="1" placeholder="ex: 2" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
+      <label>Rôle <select id="edit-quest-focus-role"><option value="must">Must quotidien</option><option value="goal">Objectif du moment</option><option value="skill">Compétence à pratiquer</option></select></label>
+      <label id="edit-quest-focus-target-wrap" hidden>Lié à <select id="edit-quest-focus-target"></select></label>
+      <small style="color:var(--text-muted);">Les quêtes liées se mettent en pause quand leur item n'est plus épinglé.</small>
     </div>
     <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:1rem;">
       <div class="form-group">
@@ -2148,6 +2157,7 @@
       <button id="close-edit-bounty-btn" class="drawer-close-btn">&times;</button>
     </div>
     <input type="hidden" id="edit-bounty-id">
+    <button id="edit-bounty-link-goal-btn" class="quest-action-btn" type="button">Créer un objectif lié</button>
     <div class="form-group">
       <label for="edit-bounty-title">Titre</label>
       <input type="text" id="edit-bounty-title" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);border-radius:8px;padding:8px;color:var(--text-primary);width:100%;box-sizing:border-box;">
@@ -2315,10 +2325,10 @@
     <div style="display: flex; flex-direction: column; gap: 1.5rem; padding: 1.2rem; padding-bottom: 1.5rem;">
       <!-- Goals section -->
       <div id="recap-pin-goals-group">
-        <h4 style="margin-top: 0; margin-bottom: 0.8rem; color: var(--accent-cyan); font-size: 1rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">🏆 Objectifs (Sous-étapes disponibles, max 3)</h4>
+        <h4 style="margin-top: 0; margin-bottom: 0.8rem; color: var(--accent-cyan); font-size: 1rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">🏆 Objectifs du moment (max 3)</h4>
         <div id="recap-pin-goals-list" style="display: flex; flex-direction: column; gap: 0.6rem; max-height: 200px; overflow-y: auto; padding-right: 0.5rem;">
           <!-- Dynamically populated checkboxes -->
-          <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Aucune sous-étape disponible.</p>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Aucun objectif disponible.</p>
         </div>
       </div>
 
@@ -2333,7 +2343,7 @@
 
       <!-- Footnote reminder -->
       <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.4; padding: 0.5rem; background: rgba(255,255,255,0.01); border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
-        💡 <em>Rappel : seules les étapes des niveaux débloqués de vos 3 objectifs prioritaires sont proposées. Compléter une étape d'un niveau révèle le niveau suivant.</em>
+        💡 <em>Une quête Objectif ou Compétence reste dans sa colonne. Retirer une épingle met sa validation quotidienne en pause.</em>
       </div>
 
       <div style="display: flex; gap: 0.8rem; margin-top: 1rem;">
@@ -2355,6 +2365,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.22"></script>
+  <script src="js/app.js?v=1.0.23"></script>
 </body>
 </html>

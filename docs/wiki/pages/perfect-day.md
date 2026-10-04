@@ -1,10 +1,12 @@
 # Perfect Day
 
-Tu sais ce que c'est, une journée où tu as traité ce qui était prévu. Ici, ça porte un nom : le Perfect Day. C'est le jour où toutes tes habitudes planifiées sont validées, loggées ou skippées avec une raison, et il rapporte 5 XP.
+Le Perfect Day représente les **Must** de la journée : les actions de base à traiter chaque jour tout en gardant du temps libre. Chaque Must prévu doit être validé, loggé ou skippé avec une raison. Les quêtes liées aux objectifs et compétences sont suivies à part.
+
+Une journée sans Must est neutre : elle ne donne pas les 5 XP, ne compte pas comme un échec et met le streak Perfect Day en pause. L'horaire « Journée type » à droite des Must est une référence en lecture seule ; ses blocs ne se cochent pas.
 
 ## Comment il se calcule
 
-1. Le système regarde les [habitudes](#/habitudes) actives prévues pour la date et compatibles avec le type de journée actif.
+1. Le système regarde uniquement les quêtes **Must** actives prévues pour la date et compatibles avec le type de journée actif.
 2. Chaque habitude prévue doit être validée (`/done`), loggée (`/log`) ou skippée (`/skip ... raison:`).
 3. Le [template](#/templates-de-jour) actif (`rest`, `regular`, `hustle`) donne le contexte de la journée et les budgets d'effort.
 4. Si **toutes** les habitudes prévues sont traitées, c'est un Perfect Day.

@@ -1,37 +1,13 @@
 # Recap 3-3-3
 
-Quand on a beaucoup d'objectifs, de skills et de tâches, on se perd dans les détails et on oublie ce qui compte vraiment pour la journée. Le panneau Recap 3-3-3 règle ce problème : il condense tes 3 grandes priorités du moment en un seul coup d'œil sur la page d'accueil du dashboard.
+Le Recap garde trois types d'actions visibles sans remplir artificiellement le Perfect Day.
 
-## Ce que le panneau affiche
+- **Objectifs** : jusqu'à trois objectifs du moment, épinglés dans le Top 3. Un objectif peut avoir une quête quotidienne liée. Cliquer son nom ouvre « Modifier la quête » ; « Valider » enregistre la pratique du jour.
+- **Compétences** : jusqu'à trois capacités à débloquer par une pratique dédiée. Chaque compétence peut avoir une quête quotidienne liée, créée au moment de l'épinglage ou plus tard. Le nom ouvre la même fiche de quête et le bouton voisin la valide.
+- **Allostasie** : activités de récupération quotidiennes ou hebdomadaires issues de la boutique. Le bouton « Valider » réclame l'activité ; le titre n'ouvre pas de quête.
 
-Le panneau contient trois sections fixes, chacune limitée à 3 items :
+Le crayon permet de choisir les objectifs et compétences affichés. Épingler ne valide rien. Retirer une épingle met la quête liée en pause ; la remettre reprend la quête. Débloquer une compétence arrête sa validation quotidienne ; annuler le déblocage la reprend si elle est encore épinglée.
 
-**3 objectifs majeurs** — 3 sous-étapes d'[objectifs](#/objectifs) que tu as épinglées. Ce sont les jalons concrets que tu veux garder sous les yeux, pas l'objectif global en entier.
+Une quête Objectif ou Compétence garde son propre streak et ses récompenses de jalon. Elle ne compte pas dans le Perfect Day. Une seule quête active peut être liée à un objectif ou à une compétence. Les tags restent de simples repères d'organisation.
 
-**3 compétences clés** — 3 [softskills](#/softskills) que tu travailles en ce moment, choisies parmi celles non encore complétées dans l'arbre.
-
-**3 activités d'allostasie** — tes activités de récupération du jour, tirées directement de la [Boutique de Récompenses](#/boutique-recompenses). Une flèche bascule entre la vue quotidienne (allostasie daily) et la vue hebdomadaire (allostasie weekly).
-
-## Comment interagir
-
-**Cliquer sur une sous-étape ou une compétence** bascule directement sur l'onglet correspondant (Objectifs ou Softskills), avec l'élément ciblé sélectionné et mis en valeur. Pas besoin de naviguer manuellement.
-
-**Le crayon** (icône d'édition) à côté de chaque section ouvre un modal qui liste les items disponibles. Tu coches ceux que tu veux épingler (3 maximum), tu enregistres — le panneau se met à jour.
-
-**Valider une allostasie** directement depuis le panneau a le même effet que la valider depuis la boutique : l'état passe en « Validé », sans frais d'Or.
-
-**La flèche de basculement** de la section allostasie switche entre les activités daily et weekly sans recharger la page.
-
-## Mécanique de persistance
-
-Les sélections épinglées (sous-étapes et softskills) sont sauvegardées en base de données. Elles persistent d'une session à l'autre. L'endpoint utilisé est `PUT /api/v1/profile/pins` ; le profil retourné par `GET /api/v1/profile` inclut les listes `pinned_substeps` (IDs de sous-étapes) et `pinned_softskills` (clés de softskills).
-
-Les épingles sont indépendantes du planning : les modifier ne crée, ne duplique et n'archive aucune quête. Les tags d'objectifs et de branches softskills se configurent directement sur chaque [quête](#/habitudes).
-
-> [!note] Si un item épinglé est complété ou supprimé ailleurs, il apparaît automatiquement comme complété dans le recap (ou est ignoré) lors du prochain chargement.
-
-## Cas limites
-
-- Moins de 3 items configurés : le panneau affiche uniquement les items disponibles et propose un emplacement vide ou un raccourci de configuration.
-- Allostasie : si l'utilisateur n'a créé que 1 ou 2 activités dans la boutique, seules celles-là s'affichent — pas d'erreur, pas de plantage.
-- Changement de [template de jour](#/templates-de-jour) : la section allostasie reflète toujours l'état de validation de la journée en cours.
+Le Recap n'affiche plus de sous-étapes à valider. Elles restent dans le graphe des objectifs.

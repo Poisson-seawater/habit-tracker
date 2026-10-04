@@ -1,6 +1,6 @@
-# Quêtes du jour
+# Must du jour
 
-Le Home montre les quêtes prévues pour la date affichée, sans grille horaire. Une quête apparaît selon sa fréquence et le type de journée actif (`rest`, `regular` ou `hustle`). Les quêtes qui avaient un ancien placement à une heure précise restent visibles : ce placement ne décide pas si la quête doit être faite.
+Le Home montre les quêtes **Must** prévues pour la date affichée, sans grille de validation horaire. Une quête apparaît selon sa fréquence et le type de journée actif (`rest`, `regular` ou `hustle`). Les quêtes liées aux objectifs et compétences restent dans leurs colonnes du Recap. À droite, l'horaire « Journée type » montre les blocs du template et le temps libre : il ne se coche pas.
 
 Les quêtes restantes sont affichées avant les quêtes déjà traitées. Chaque carte permet de valider ou de mesurer la quête, d'ouvrir son compteur ou sa checklist quotidienne, de déclarer un échec aujourd'hui, de modifier la quête et de voir ses statistiques. Les tags donnent du contexte, sans changer la validation ni le score.
 

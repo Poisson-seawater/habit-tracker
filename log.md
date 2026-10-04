@@ -3,6 +3,13 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-04 — feat(dashboard): distinguer les Must du travail sur objectifs et compétences
+
+- Les quêtes ont un rôle explicite Must, Objectif ou Compétence. Seuls les Must planifiés comptent pour le Perfect Day; une journée sans Must est neutre et suspend le streak Perfect. Les autres quêtes gardent leur validation et leurs jalons de streak, sans échec explicite à -5 XP. Migration idempotente v37; anciennes quêtes classées Must.
+- Le Recap affiche les objectifs et compétences épinglés dans leurs colonnes, avec accès à la fiche de quête et bouton Valider. Une seule quête active est autorisée par objectif ou compétence; retrait d'épingle et déblocage d'une compétence mettent la quête en pause. Le Home affiche les Must et, à droite, les segments en lecture seule de la journée type avec les plages libres.
+- Une prime peut créer un objectif lié avec une quête quotidienne. Si le Top 3 est plein, un remplacement explicite est requis. Le titre et les dates suivent la prime; sa validation termine l'objectif et arrête la quête. La suppression de la prime ou son nettoyage différé supprime l'objectif, la quête et les sous-étapes exclusives, en conservant les sous-étapes partagées.
+- README, guide projet et wiki synchronisés. Aucune commande Telegram modifiée. Tests : suite backend hors fichiers dédiés au bot réussie, quatre nouveaux tests de rôles et cycle de vie, syntaxe JS et diff vérifiés. Instance Compose locale : service `api` seul reconstruit; `/health` 200, migration présente, intégrité SQLite OK. Navigateur headless avec base temporaire : Recap, édition et validation de quête, création d'une prime liée avec remplacement du Top 3, horaire et affichage mobile vérifiés.
+
 ## 2026-09-27 — feat(jar): planifier les gros cailloux en blocs hebdomadaires
 
 - Nouvel onglet **Bocal** : semaine lundi-dimanche, blocs matin/après-midi/soir disponibles choisis explicitement, jusqu'à trois gros cailloux, galets, sable, réservations et marge visible. Les quêtes éligibles et To-dos avec `do_date` sont proposées sans classement ni placement automatique.

@@ -128,8 +128,9 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
   `agenda_service.remove_habit_agenda_references()` pour conserver ce comportement.
   Désarchiver ne restaure jamais d'anciens placements : la quête revient non placée si
   elle est éligible.
-- **Tags des quêtes** : objectifs, sous-étapes et softskills ne génèrent plus de
-  quêtes. Les épingles du Recap sont indépendantes. Les tags (`goal`,
+- **Tags des quêtes** : les tags d'objectifs, sous-étapes et softskills ne génèrent
+  pas de quêtes. Le rôle explicite `must` / `goal` / `skill` et les liens du Recap
+  sont distincts des tags. Les tags (`goal`,
   `softskill_branch`) sont portés par le `relationship_root_id` commun à toutes les
   versions V1/V2 d'une quête. Ils servent uniquement à l'organisation : ne jamais les brancher sur XP, score, streak,
   complétion, validation ou checklist. Les anciennes quêtes générées sont des archives

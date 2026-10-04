@@ -151,6 +151,10 @@ class Habit(Base):
     is_private = Column(Boolean, default=False)
     is_reportable = Column(Boolean, default=True)
     is_mandatory = Column(Boolean, default=False)
+    focus_role = Column(String(16), nullable=False, default="must")
+    focus_goal_id = Column(Integer, ForeignKey("goals.id", ondelete="SET NULL"), nullable=True)
+    focus_softskill_id = Column(String(100), nullable=True)
+    focus_history = Column(JSON, nullable=True)
     daily_cap = Column(Integer, nullable=True)  # Cap on points for quantitative habits
     daily_target = Column(
         Integer, nullable=True
@@ -545,6 +549,7 @@ class Goal(Base):
     created_at = Column(DateTime, default=datetime.datetime.now)
     do_date = Column(Date, nullable=True)
     due_date = Column(Date, nullable=True)
+    source_todo_id = Column(Integer, ForeignKey("todos.id", ondelete="SET NULL"), nullable=True, unique=True)
 
     user = relationship("User", back_populates="goals")
     substep_links = relationship(
