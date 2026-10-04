@@ -3,6 +3,15 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-04 — feat(quests): imposer les tags liés et ajouter Rules
+
+- Sections 1, 2, 3 et 5 du cahier des charges livrées. Les quêtes Objectif/Compétence reçoivent le tag imposé de leur source, avec un nouveau type `softskill` pour la compétence précise et un indicateur `locked` dans les réponses. Le serveur protège ce tag lors des éditions, partage les tags entre versions et complète les anciennes quêtes sans perdre leurs tags manuels. Les noms suivent les sources ; supprimer une compétence ou sa branche nettoie aussi ses tags.
+- Les quêtes liées sont normalisées sur Repos/Régulière/Hustle, sans modifier fréquence, épingles ou validations. Leur formulaire masque « Types de journée ». L'édition d'une ancienne version reconnaît les versions actives du même groupe comme une seule quête. Les badges apparaissent aussi dans le Recap ; les cartes Must affichent la durée déjà calculée près de leur description, même vide.
+- Nouvelle entrée **Rules** et note personnelle de 500 caractères par compte, sauvegardée explicitement sur le serveur. Migration idempotente v38 (`users.rules_text`) et routes `GET`/`PUT /api/v1/profile/rules`. Saisie conservée en cas d'erreur, limite Unicode cohérente et brouillon réinitialisé au changement de compte.
+- Toute la section 4 « Journée type » reste reportée : aucun changement de ses horaires, placements, templates ou exports. Aucune commande Telegram modifiée. README, wiki, cahier des charges et état des specs synchronisés ; assets frontend versionnés.
+- Validation : **252 tests backend hors Telegram réussis**, Black sur les fichiers Python touchés, syntaxe JavaScript et `git diff --check` valides. Chrome headless sur une base temporaire vérifie les badges, les tags verrouillés/modifiables, les changements de rôle à la création, la conservation des tags si le catalogue échoue, les durées, Rules après rechargement, 500/501 caractères Unicode, une sauvegarde refusée, le brouillon, l'isolation des comptes et le rendu mobile, sans erreur JavaScript.
+- Instance **Compose locale uniquement** : sauvegarde SQLite puis reconstruction/recréation du service `api` seul ; `/health` 200 et migration v38 confirmée. Intégrité SQLite OK, aucun tag imposé manquant ni doublon. Empreintes avant/après identiques pour les logs, scores, streaks, XP/Or, templates et placements. Aucun déploiement Pi/prod.
+
 ## 2026-10-04 — fix(recap): verrouiller les actions des quêtes liées
 
 - Les quêtes Objectif et Compétence n'exposent plus la checklist, le changement de rôle/lien, l'archive ni la suppression. L'API refuse également ces opérations et convertit au démarrage les anciennes checklists liées en validation simple, en retirant leurs cases et leurs états datés tout en conservant les validations de quête.

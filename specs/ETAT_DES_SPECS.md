@@ -39,6 +39,7 @@ Current source of truth for implemented behavior is the code plus `README.md`,
 | `012-jar-of-life/` | `done` | Weekly attention allocation in user-selected morning/afternoon/evening blocks, persisted per user and week with migration v36. |
 | `quest-agenda-fusion-plan.md` | `superseded` | The manual agenda and Google export remain implemented, but its focus-generated quest model was replaced by persistent quest tags in migration v32. Keep only as historical context. |
 | `next-steps-multi-agent-brief.md` | `done` | Day-type habits, explicit failure with XP reversal, yesterday corrections, biological-zone suggestions, and 90-day auth/device expiry implemented together on 2026-07-17. |
+| `quest-tags-day-types-must-duration.md` | `active` | Sections 1, 2, 3 et 5 implémentées le 2026-10-04 : tags imposés des quêtes liées, compétence précise, disponibilité sur les trois types, durée des cartes Must et note Rules par compte (migration v38). Section 4 « Journée type » explicitement reportée : total Must, aperçus, job, confirmation hebdomadaire, lieux, transport, coucher et chevauchements restent des besoins futurs, pas un chantier actif. |
 
 ## Current Planning Notes
 

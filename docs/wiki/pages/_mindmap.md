@@ -40,6 +40,8 @@ markmap:
 - tâches du jour : XP direct
 ### [No-Todo](index.html#/no-todo)
 - règles à ne pas enfreindre (/fail)
+### [Rules](index.html#/rules)
+- note personnelle de 500 caractères, commune à toutes les journées
 ### [Templates de jour](index.html#/templates-de-jour)
 - rest / regular / hustle → quêtes du jour + budgets d'effort
 ### [Stats, XP, niveau & or](index.html#/stats-xp-niveau-or)

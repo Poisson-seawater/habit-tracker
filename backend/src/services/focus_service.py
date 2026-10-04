@@ -3,6 +3,7 @@
 import datetime
 
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from src.database.models import (
     Goal,
@@ -108,6 +109,14 @@ def validate_link(
         )
     if excluding_id is not None:
         existing = existing.filter(Habit.id != excluding_id)
+        version = db.get(Habit, excluding_id)
+        if version and version.relationship_root_id is not None:
+            existing = existing.filter(
+                or_(
+                    Habit.relationship_root_id.is_(None),
+                    Habit.relationship_root_id != version.relationship_root_id,
+                )
+            )
     if existing.first():
         raise ValueError("Cet item possède déjà une quête active.")
 
@@ -173,6 +182,7 @@ def create_goal_quest(db: Session, user_id: int, goal: Goal) -> Habit:
     db.add(quest)
     db.flush()
     quest.relationship_root_id = quest.id
+    quest_tag_service.ensure_required_tags(db, user_id, quest)
     return quest
 
 
@@ -218,6 +228,7 @@ def create_skill_quest(db: Session, user_id: int, skill: dict) -> Habit:
     db.add(quest)
     db.flush()
     quest.relationship_root_id = quest.id
+    quest_tag_service.ensure_required_tags(db, user_id, quest)
     return quest
 
 
@@ -385,7 +396,7 @@ def remove_linked_goal(db: Session, user: User, todo: Todo) -> None:
     for quest in quests:
         agenda_service.remove_habit_agenda_references(db, user.id, quest.id)
         if quest.relationship_root_id == quest.id:
-            quest_tag_service.replace_tags(db, user.id, quest, [])
+            quest_tag_service.clear_tags(db, quest.id)
         db.query(Streak).filter_by(
             user_id=user.id, streak_type=f"habit:{quest.id}"
         ).delete(synchronize_session=False)

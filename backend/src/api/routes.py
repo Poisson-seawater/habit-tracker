@@ -220,7 +220,7 @@ class ChecklistItemConfig(BaseModel):
 
 
 class QuestTagRef(BaseModel):
-    kind: Literal["goal", "softskill_branch"]
+    kind: Literal["goal", "softskill_branch", "softskill"]
     ref: str = Field(min_length=1, max_length=100)
 
 
@@ -255,6 +255,10 @@ class HabitCreate(BaseModel):
 class HabitVersionCreate(BaseModel):
     description: Optional[str] = None
     source_description: Optional[str] = None
+
+
+class RulesUpdate(BaseModel):
+    text: str = Field(max_length=500)
 
 
 class CounterProgressUpdate(BaseModel):
@@ -1654,6 +1658,30 @@ def get_profile(
             for s in life_lore_today
         ],
     }
+
+
+@router.get("/profile/rules")
+def get_profile_rules(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+):
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"text": user.rules_text or ""}
+
+
+@router.put("/profile/rules")
+def update_profile_rules(
+    payload: RulesUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.rules_text = payload.text
+    db.commit()
+    return {"text": user.rules_text}
 
 
 @router.get("/profile/life-lore")
@@ -4160,7 +4188,9 @@ def update_habit(
             target_frequency,
             payload_dict.get("scheduled_days", habit.scheduled_days),
         )
-    if "day_types" in payload_dict:
+    if requested_role in {"goal", "skill"}:
+        payload_dict["day_types"] = ["rest", "regular", "hustle"]
+    elif "day_types" in payload_dict:
         payload_dict["day_types"] = agenda_service.normalize_habit_day_types(
             payload_dict["day_types"]
         )
@@ -4189,6 +4219,8 @@ def update_habit(
         except quest_tag_service.QuestTagError as exc:
             db.rollback()
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+    else:
+        quest_tag_service.ensure_required_tags(db, user_id, habit)
     if payload.agenda_duration_minutes is not None:
         agenda_service.sync_habit_agenda_duration(
             db,
@@ -4422,7 +4454,11 @@ def create_habit(
         scheduled_days=normalize_habit_schedule(
             payload.frequency, payload.scheduled_days
         ),
-        day_types=agenda_service.normalize_habit_day_types(payload.day_types),
+        day_types=(
+            ["rest", "regular", "hustle"]
+            if payload.focus_role in {"goal", "skill"}
+            else agenda_service.normalize_habit_day_types(payload.day_types)
+        ),
         reminder_time=payload.reminder_time,
         is_private=payload.is_private,
         is_reportable=payload.is_reportable,
@@ -4689,6 +4725,7 @@ def api_delete_branch(branch_key: str, db: Session = Depends(get_db)):
     try:
         result = softskill_service.delete_branch(db, branch_key)
         quest_tag_service.remove_branch_tags(db, branch_key)
+        quest_tag_service.remove_skill_tags(db, result["deleted_skills"])
         db.commit()
         return result
     except ValueError as e:
@@ -4715,7 +4752,10 @@ def api_update_skill(skill_id: str, payload: SkillUpdate):
 @router.delete("/softskills/skills/{skill_id}")
 def api_delete_skill(skill_id: str, db: Session = Depends(get_db)):
     try:
-        return softskill_service.delete_skill(db, skill_id)
+        result = softskill_service.delete_skill(db, skill_id)
+        quest_tag_service.remove_skill_tags(db, [skill_id])
+        db.commit()
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

@@ -32,21 +32,27 @@ Chaque panneau appartient à la personne qui l'a ouvert : un autre membre du gro
 
 Une habitude n'est due que certains jours (tous les jours, ou par ex. lundi + mercredi). Elle peut aussi être associée à un ou plusieurs types de journée : `rest`, `regular` et `hustle`. Les trois sont sélectionnés par défaut, y compris pour les anciennes habitudes.
 
+Le réglage **Types de journée** est réservé aux Must. Les quêtes Objectif et Compétence sont disponibles dans les trois types de journée, y compris les anciennes quêtes restreintes. Leur fréquence et leur épingle Recap continuent de déterminer quand elles sont dues.
+
 Le jour venu, le panneau « Must du jour » et le Perfect Day ne retiennent que les quêtes Must compatibles avec le planning et le type de journée actif. Une quête `hustle` n'apparaît donc pas dans la liste d'un jour `rest` et ne bloque pas son Perfect Day.
 
 Tu peux quand même valider manuellement une habitude hors type de journée avec `/done`, `/log`, l'API ou les contrôles du dashboard. Le log reste visible et la progression normale du streak s'applique, mais cette habitude ne devient pas une exigence du Perfect Day de ce jour.
 
 ## Tags
 
-Une quête peut rester sans tag ou recevoir plusieurs tags. Les [objectifs](#/objectifs) et les branches de [softskills](#/softskills) existants forment le catalogue : aucun tag personnalisé séparé n'est nécessaire.
+Une Must peut rester sans tag ou recevoir plusieurs tags. Les [objectifs](#/objectifs), les branches de [softskills](#/softskills) et les compétences précises existantes forment le catalogue : aucun tag personnalisé séparé n'est nécessaire.
 
 Le petit menu **Choisir les tags** du formulaire permet de les sélectionner. Sur la quête, ils apparaissent ensuite comme des badges en lecture seule : il faut rouvrir ce menu pour les modifier. `Routine_matin` peut donc rester sans tag, tandis que `Hustle` peut recevoir plusieurs tags d'objectifs ou de branches.
 
 Les tags sont communs à toutes les étapes V1/V2 d'une même quête : changer d'étape ne les retire pas. Ils n'ajoutent ni validation, ni XP, ni score, ni streak; seule la validation normale de la quête produit ses effets habituels.
 
+Une quête Objectif reçoit automatiquement le tag de son objectif ; une quête Compétence reçoit celui de la compétence précise, pas seulement de sa branche. Ce tag reste coché et porte la mention **Imposé par le lien** dans le formulaire. Les autres tags restent modifiables. Les noms des badges suivent les renommages des sources. Les quêtes liées existantes sont complétées sans perdre leurs tags manuels.
+
 ## Banque des quêtes
 
 Sur le Home, **Must du jour** réunit les quêtes Must prévues pour la date affichée, qu'elles aient ou non un ancien placement horaire. Les quêtes restantes apparaissent avant celles déjà traitées. Le bouton **Banque** liste les Must actifs qui ne sont pas prévus pour cette date, avec la raison : mauvais jour de semaine, mauvais type de journée ou quête mensuelle pas encore due. L'horaire « Journée type » à droite montre les blocs et le temps libre en lecture seule.
+
+Chaque carte Must affiche sa **durée prévue** près de la description, par exemple `30 min` ou `1 h 30`. Sans description, la durée reste visible sous le titre. Elle utilise le réglage existant de la quête et reste affichée après validation.
 
 La banque est séparée des archives : une quête « pas ce jour » reste active et peut revenir automatiquement à sa prochaine date prévue. Une quête archivée, elle, a été retirée explicitement du quotidien.
 

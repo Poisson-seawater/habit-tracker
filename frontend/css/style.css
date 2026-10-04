@@ -1214,6 +1214,59 @@ body {
   accent-color: var(--accent-purple);
 }
 
+.quest-tag-locked {
+  cursor: default;
+}
+
+.form-group[hidden] {
+  display: none;
+}
+
+.quest-tag-lock-note {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  margin-left: auto;
+}
+
+.rules-panel {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.rules-hint,
+.rules-status,
+.rules-actions {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+#rules-text {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.5rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border-glass);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+#rules-text[aria-invalid="true"] {
+  border-color: var(--accent-red);
+}
+
+.rules-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
 .quest-tag-badges {
   display: flex;
   flex-wrap: wrap;
@@ -2830,6 +2883,20 @@ body {
   color: var(--text-primary);
 }
 
+.recap-quest-details {
+  flex: 1;
+  min-width: 0;
+  margin-right: 0.5rem;
+}
+
+.recap-quest-details .recap-item-text {
+  max-width: 100%;
+}
+
+.recap-quest-details .quest-tag-badges {
+  margin-top: 0.3rem;
+}
+
 .recap-item.completed .recap-item-text {
   text-decoration: line-through;
   color: var(--text-muted);
@@ -3985,6 +4052,26 @@ body {
   display: -webkit-box;
   -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
+}
+
+.quest-description-row {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+}
+
+.quest-description-row .agenda-quest-description {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.agenda-quest-main .quest-planned-duration {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  margin-top: 0.15rem;
 }
 
 .agenda-quest-main span,

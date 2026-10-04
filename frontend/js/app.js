@@ -2,6 +2,95 @@ document.addEventListener("DOMContentLoaded", () => {
   // Config
   const API_BASE = "/api/v1";
 
+  const rulesText = document.getElementById("rules-text");
+  const rulesStatus = document.getElementById("rules-status");
+  const rulesSaveBtn = document.getElementById("rules-save-btn");
+  let rulesLoaded = false;
+  let rulesDirty = false;
+  let rulesSaving = false;
+  let rulesSession = 0;
+  let rulesRequest = 0;
+  let rulesSavedText = "";
+
+  function updateRulesControls() {
+    const length = Array.from(rulesText.value).length;
+    document.getElementById("rules-count").textContent = `${length}/500`;
+    rulesText.setAttribute("aria-invalid", String(length > 500));
+    rulesSaveBtn.disabled = !rulesLoaded || rulesSaving || length > 500;
+    if (length > 500) rulesStatus.textContent = "La note est limitée à 500 caractères.";
+  }
+
+  function resetRules() {
+    rulesSession += 1;
+    rulesRequest += 1;
+    rulesLoaded = false;
+    rulesDirty = false;
+    rulesSaving = false;
+    rulesSavedText = "";
+    rulesText.value = "";
+    rulesText.disabled = true;
+    rulesStatus.textContent = "";
+    updateRulesControls();
+  }
+
+  async function loadRules() {
+    if (rulesDirty || rulesSaving) return;
+    const session = rulesSession;
+    const request = ++rulesRequest;
+    rulesStatus.textContent = "Chargement…";
+    try {
+      const response = await fetch(`${API_BASE}/profile/rules`);
+      if (!response.ok) throw new Error("Impossible de charger Rules. Rouvre cet onglet pour réessayer.");
+      const data = await response.json();
+      if (session !== rulesSession || request !== rulesRequest || rulesDirty) return;
+      rulesSavedText = data.text;
+      rulesText.value = data.text;
+      rulesText.disabled = false;
+      rulesLoaded = true;
+      rulesStatus.textContent = "";
+      updateRulesControls();
+    } catch (error) {
+      if (session === rulesSession && request === rulesRequest) rulesStatus.textContent = error.message;
+    }
+  }
+
+  rulesText.addEventListener("input", () => {
+    rulesDirty = rulesText.value !== rulesSavedText;
+    rulesStatus.textContent = "";
+    updateRulesControls();
+  });
+
+  document.getElementById("rules-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (rulesSaveBtn.disabled) return;
+    const session = rulesSession;
+    const text = rulesText.value;
+    rulesRequest += 1;
+    rulesSaving = true;
+    rulesStatus.textContent = "Enregistrement…";
+    updateRulesControls();
+    try {
+      const response = await fetch(`${API_BASE}/profile/rules`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      if (!response.ok) throw new Error("Enregistrement impossible. Ta saisie est conservée ; réessaie.");
+      const data = await response.json();
+      if (session !== rulesSession) return;
+      rulesSavedText = data.text;
+      rulesDirty = rulesText.value !== rulesSavedText;
+      rulesStatus.textContent = rulesDirty ? "Note enregistrée. Ta nouvelle saisie reste à enregistrer." : "Note enregistrée.";
+    } catch (error) {
+      if (session === rulesSession) rulesStatus.textContent = error.message;
+    } finally {
+      if (session === rulesSession) {
+        rulesSaving = false;
+        updateRulesControls();
+      }
+    }
+  });
+
   function getPaleColor(hex) {
     if (!hex) return "rgba(255, 255, 255, 0.15)";
     if (hex.startsWith("#")) {
@@ -84,6 +173,8 @@ document.addEventListener("DOMContentLoaded", () => {
         loadActivePerspective();
       } else if (targetTab === "jar-tab") {
         loadJarWeek();
+      } else if (targetTab === "rules-tab") {
+        loadRules();
       }
     });
   });
@@ -109,6 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let allHabitsCache = [];
   let questTagCatalog = null;
   const questTagEditorReady = { new: false, edit: false };
+  const questTagEditorLocks = { new: [], edit: [] };
   let questPanelMode = "agenda";
   let showTodayBounties = true;
   const toastNotification = document.getElementById("toast-notification");
@@ -1717,6 +1809,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const softskills = await softskillsResponse.json();
     questTagCatalog = {
       goals: goals || [],
+      skills: softskills.skills || [],
       branches: Object.entries(softskills.branches || {}).map(([key, value]) => ({
         key,
         ...(value || {})
@@ -1740,16 +1833,25 @@ document.addEventListener("DOMContentLoaded", () => {
       checkbox.dataset.label = option.label;
       if (option.color) checkbox.dataset.color = option.color;
       checkbox.checked = selected.has(String(option.value));
-      checkbox.addEventListener("change", () => updateQuestTagPreview(prefix));
+      checkbox.dataset.manualChecked = String(checkbox.checked && !questTagEditorLocks[prefix].some(tag => tag.kind === kind && String(tag.ref) === checkbox.value));
+      checkbox.addEventListener("change", () => {
+        checkbox.dataset.manualChecked = String(checkbox.checked);
+        updateQuestTagPreview(prefix);
+      });
       const text = document.createElement("span");
       text.textContent = option.label;
-      label.append(checkbox, text);
+      const lockNote = document.createElement("small");
+      lockNote.className = "quest-tag-lock-note";
+      lockNote.textContent = "Imposé par le lien";
+      lockNote.hidden = true;
+      label.append(checkbox, text, lockNote);
       container.appendChild(label);
     });
   }
 
   async function renderQuestTagEditor(prefix, tags = [], force = false) {
     questTagEditorReady[prefix] = false;
+    questTagEditorLocks[prefix] = tags.filter(tag => tag.locked);
     const summary = document.getElementById(`${prefix}-quest-tags-summary`);
     if (summary?.parentElement) summary.parentElement.open = false;
     try {
@@ -1772,6 +1874,13 @@ document.addEventListener("DOMContentLoaded", () => {
         prefix
       );
       renderQuestTagOptions(
+        `${prefix}-quest-tag-skills`,
+        "softskill",
+        catalog.skills.map(skill => ({ value: skill.id, label: skill.name })),
+        tags.filter(tag => tag.kind === "softskill").map(tag => tag.ref),
+        prefix
+      );
+      renderQuestTagOptions(
         `${prefix}-quest-tag-branches`,
         "softskill_branch",
         catalog.branches.map(branch => ({
@@ -1783,24 +1892,30 @@ document.addEventListener("DOMContentLoaded", () => {
         prefix
       );
       questTagEditorReady[prefix] = true;
-      updateQuestTagPreview(prefix);
+      updateQuestLinkedFields(prefix);
     } catch (error) {
       console.error(error);
-      ["tag-goals", "tag-branches"].forEach(suffix => {
+      ["tag-goals", "tag-branches", "tag-skills"].forEach(suffix => {
         const container = document.getElementById(`${prefix}-quest-${suffix}`);
         if (container) container.innerHTML = `<span class="form-helper-text">Chargement impossible.</span>`;
       });
+      const preview = document.getElementById(`${prefix}-quest-tags-preview`);
+      if (preview) {
+        preview.replaceChildren();
+        appendQuestTagBadges(preview, tags);
+      }
     }
   }
 
   function selectedQuestTags(prefix) {
     return Array.from(document.querySelectorAll(
-      `#${prefix}-quest-tag-goals input:checked, #${prefix}-quest-tag-branches input:checked`
+      `#${prefix}-quest-tag-goals input:checked, #${prefix}-quest-tag-branches input:checked, #${prefix}-quest-tag-skills input:checked`
     )).map(input => ({
       kind: input.dataset.kind,
       ref: input.value,
       label: input.dataset.label || input.value,
-      color: input.dataset.color || null
+      color: input.dataset.color || null,
+      locked: input.disabled
     }));
   }
 
@@ -1818,6 +1933,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const badge = document.createElement("span");
       badge.className = "quest-tag-badge";
       badge.textContent = `# ${tag.label || tag.ref}`;
+      if (tag.locked) badge.title = "Imposé par le lien";
       if (tag.color) badge.style.borderColor = tag.color;
       container.appendChild(badge);
     });
@@ -1845,6 +1961,27 @@ document.addEventListener("DOMContentLoaded", () => {
       empty.textContent = "Aucun tag";
       preview.appendChild(empty);
     }
+  }
+
+  function updateQuestLinkedFields(prefix) {
+    const role = document.getElementById(`${prefix}-quest-focus-role`)?.value || "must";
+    const target = document.getElementById(`${prefix}-quest-focus-target`)?.value;
+    const dayGroup = document.getElementById(`${prefix}-quest-day-types`)?.closest(".form-group");
+    if (dayGroup) dayGroup.hidden = role !== "must";
+    const required = [...questTagEditorLocks[prefix]];
+    if (role !== "must" && target && target !== "__create__") {
+      required.push({ kind: role === "goal" ? "goal" : "softskill", ref: target });
+    }
+    ["goals", "branches", "skills"].forEach(group => {
+      document.querySelectorAll(`#${prefix}-quest-tag-${group} input`).forEach(input => {
+        const locked = required.some(tag => tag.kind === input.dataset.kind && String(tag.ref) === input.value);
+        input.disabled = locked;
+        input.checked = locked || input.dataset.manualChecked === "true";
+        input.closest("label").classList.toggle("quest-tag-locked", locked);
+        input.closest("label").querySelector(".quest-tag-lock-note").hidden = !locked;
+      });
+    });
+    if (questTagEditorReady[prefix]) updateQuestTagPreview(prefix);
   }
 
   function normalizedQuestArchiveKey(name) {
@@ -2741,13 +2878,24 @@ document.addEventListener("DOMContentLoaded", () => {
       main.appendChild(source);
     }
     const descriptionText = (item.description || "").trim();
+    const descriptionRow = document.createElement("div");
+    descriptionRow.className = "quest-description-row";
     if (descriptionText) {
       const description = document.createElement("p");
       description.className = "agenda-quest-description";
       description.textContent = descriptionText;
       description.title = descriptionText;
-      main.appendChild(description);
+      descriptionRow.appendChild(description);
     }
+    const duration = document.createElement("span");
+    duration.className = "quest-planned-duration";
+    const minutes = Number(item.agenda_duration_minutes);
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    duration.textContent = hours ? `${hours} h${remainder ? ` ${remainder}` : ""}` : `${minutes} min`;
+    duration.title = "Durée prévue";
+    descriptionRow.appendChild(duration);
+    main.appendChild(descriptionRow);
     appendQuestTagBadges(main, item.tags);
 
     const meta = document.createElement("div");
@@ -5636,7 +5784,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const agenda_duration_minutes = parseInt(document.getElementById("edit-quest-duration").value, 10) || 60;
     const effort_duration = agenda_duration_minutes / 60;
     const agenda_placeable = activeEditQuest?.agenda_placeable !== false;
-    const day_types = selectedDayTypes(editDayTypesGroup);
+    const day_types = document.getElementById("edit-quest-focus-role").value === "must"
+      ? selectedDayTypes(editDayTypesGroup)
+      : ["rest", "regular", "hustle"];
     if (day_types.length === 0) {
       showToast("Choisissez au moins un type de journée.", true);
       return;
@@ -5679,7 +5829,7 @@ document.addEventListener("DOMContentLoaded", () => {
       effort_duration,
       agenda_duration_minutes,
       agenda_placeable,
-      tags: collectQuestTags("edit"),
+      tags: collectQuestTags("edit") ?? undefined,
       ...focus,
     };
     try {
@@ -5792,8 +5942,10 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         refreshAll();
       }
+      if (document.getElementById("rules-tab").classList.contains("active")) loadRules();
       return;
     }
+    resetRules();
     renderAuthScreen(status);
   }
 
@@ -6121,6 +6273,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!wrap || !select) return;
     wrap.hidden = role === "must";
     select.replaceChildren();
+    updateQuestLinkedFields(prefix);
     if (role === "must") return;
     const response = await fetch(`${API_BASE}/${role === "goal" ? "goals" : "softskills"}`);
     if (!response.ok) throw new Error("Impossible de charger les liens de focus.");
@@ -6137,6 +6290,7 @@ document.addEventListener("DOMContentLoaded", () => {
     createOption.textContent = role === "goal" ? "+ Créer un objectif" : "+ Créer une compétence";
     select.appendChild(createOption);
     if (selectedId != null) select.value = String(selectedId);
+    updateQuestLinkedFields(prefix);
   }
 
   async function selectedQuestFocus(prefix) {
@@ -6181,6 +6335,9 @@ document.addEventListener("DOMContentLoaded", () => {
     newFocusRole?.addEventListener("change", () => {
       updateQuestChecklistAvailability("new");
       populateFocusTargets("new");
+    });
+    ["new", "edit"].forEach(prefix => {
+      document.getElementById(`${prefix}-quest-focus-target`)?.addEventListener("change", () => updateQuestLinkedFields(prefix));
     });
 
     setupQuestProgressEditor("new");
@@ -6250,7 +6407,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const agenda_duration_minutes = parseInt(document.getElementById("new-quest-duration").value, 10) || 60;
         const effort_duration = agenda_duration_minutes / 60;
         const agenda_placeable = true;
-        const day_types = selectedDayTypes(newDayTypesGroup);
+        const day_types = newFocusRole.value === "must"
+          ? selectedDayTypes(newDayTypesGroup)
+          : ["rest", "regular", "hustle"];
         let focus;
         try { focus = await selectedQuestFocus("new"); }
         catch (error) { showToast(error.message, true); return; }
@@ -8262,7 +8421,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const actions = document.createElement("span");
     actions.className = "recap-item-actions";
     actions.append(settings, action);
-    li.append(name, actions);
+    const details = document.createElement("div");
+    details.className = "recap-quest-details";
+    details.appendChild(name);
+    if (habit) appendQuestTagBadges(details, habit.tags);
+    li.append(details, actions);
     list.appendChild(li);
   }
 
@@ -8409,6 +8572,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const switchProfileBtn = document.getElementById("switch-profile-btn");
   if (switchProfileBtn) {
     switchProfileBtn.addEventListener("click", async () => {
+      resetRules();
       await fetch(`${API_BASE}/auth/logout`, { method: "POST" });
       if (refreshIntervalId) {
         clearInterval(refreshIntervalId);

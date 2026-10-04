@@ -12,4 +12,6 @@ Un objectif créé par une to-do ne peut pas être retiré du Top 3, même par l
 
 Une quête Objectif ou Compétence garde son propre streak et ses récompenses de jalon. Elle ne compte pas dans le Perfect Day. Une seule quête active peut être liée à un objectif ou à une compétence. Les tags restent de simples repères d'organisation.
 
+Le tag de l'objectif ou de la compétence précise est ajouté automatiquement et imposé par le lien. Les autres tags restent libres. Ces quêtes sont disponibles sur Repos, Régulière et Hustle sans réglage « Types de journée » ; leur fréquence et leur épingle gardent leur rôle habituel.
+
 Le Recap n'affiche plus de sous-étapes à valider. Elles restent dans le graphe des objectifs.

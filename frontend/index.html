@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=21">
+  <link rel="stylesheet" href="css/style.css?v=22">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -798,6 +798,7 @@
         <button class="nav-tab" data-tab="perspectives-tab">▦ Perspectives</button>
         <button class="nav-tab" data-tab="softskills-tab">🌳 Softskills</button>
         <button class="nav-tab" data-tab="notodo-tab">🚫 NO To-Do</button>
+        <button class="nav-tab" data-tab="rules-tab">📝 Rules</button>
         <button class="nav-tab" data-tab="settings-tab">⚙️ Paramètres</button>
         <a href="/docs/index.html" class="nav-tab" target="_blank" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">📖 Docs</a>
       </div>
@@ -1032,6 +1033,7 @@
                   <div class="quest-tags-menu">
                     <section><h4>Objectifs 🏆</h4><div id="new-quest-tag-goals" class="quest-tag-options"></div></section>
                     <section><h4>Branches softskills 🧬</h4><div id="new-quest-tag-branches" class="quest-tag-options"></div></section>
+                    <section><h4>Compétences 🌳</h4><div id="new-quest-tag-skills" class="quest-tag-options"></div></section>
                   </div>
                 </details>
                 <div id="new-quest-tags-preview" class="quest-tags-preview" aria-live="polite"></div>
@@ -1539,6 +1541,22 @@
     <!-- ============================================== -->
     <!-- SCREEN 3: SETTINGS TAB                         -->
     <!-- ============================================== -->
+    <section id="rules-tab" class="tab-content" aria-labelledby="rules-title">
+      <div class="glass-card rules-panel">
+        <h2 id="rules-title" class="section-header">📝 Rules</h2>
+        <p class="rules-hint">Tes repères, communs à toutes tes journées.</p>
+        <form id="rules-form">
+          <label for="rules-text">Ta note</label>
+          <textarea id="rules-text" rows="10" aria-describedby="rules-count rules-status" disabled></textarea>
+          <div class="rules-actions">
+            <span id="rules-count" aria-live="polite">0/500</span>
+            <button id="rules-save-btn" type="submit" class="quest-action-btn" disabled>Enregistrer</button>
+          </div>
+          <p id="rules-status" class="rules-status" role="status"></p>
+        </form>
+      </div>
+    </section>
+
     <div id="settings-tab" class="tab-content">
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
         <a
@@ -2139,6 +2157,7 @@
         <div class="quest-tags-menu">
           <section><h4>Objectifs 🏆</h4><div id="edit-quest-tag-goals" class="quest-tag-options"></div></section>
           <section><h4>Branches softskills 🧬</h4><div id="edit-quest-tag-branches" class="quest-tag-options"></div></section>
+          <section><h4>Compétences 🌳</h4><div id="edit-quest-tag-skills" class="quest-tag-options"></div></section>
         </div>
       </details>
       <div id="edit-quest-tags-preview" class="quest-tags-preview" aria-live="polite"></div>
@@ -2368,6 +2387,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.26"></script>
+  <script src="js/app.js?v=1.0.27"></script>
 </body>
 </html>

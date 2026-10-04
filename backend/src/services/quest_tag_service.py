@@ -6,13 +6,15 @@ XP, streaks, or daily checklist progress.
 
 from typing import Any, Iterable
 
+from sqlalchemy import or_
+from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
 from src.database.models import Goal, Habit, QuestTag
 from src.services import softskill_service
 
 
-TAG_KINDS = {"goal", "softskill_branch"}
+TAG_KINDS = {"goal", "softskill_branch", "softskill"}
 
 
 class QuestTagError(ValueError):
@@ -81,6 +83,16 @@ def normalize_tags(db: Session, user_id: int, payload: Any) -> list[tuple[str, s
                 f"Unknown softskill branches: {', '.join(missing_branches)}."
             )
 
+    skill_refs = {ref for kind, ref in normalized if kind == "softskill"}
+    if skill_refs:
+        skills = {
+            skill["id"]
+            for skill in softskill_service.load_tree_config().get("skills", [])
+        }
+        missing_skills = sorted(skill_refs - skills)
+        if missing_skills:
+            raise QuestTagError(f"Unknown softskills: {', '.join(missing_skills)}.")
+
     return _dedupe(normalized)
 
 
@@ -93,12 +105,88 @@ def ensure_relationship_root(db: Session, habit: Habit) -> int:
     return int(habit.relationship_root_id)
 
 
-def replace_tags(db: Session, user_id: int, habit: Habit, payload: Any) -> list:
-    normalized = normalize_tags(db, user_id, payload)
+def required_tags_for_roots(
+    db: Session, user_id: int, root_ids: set[int]
+) -> dict[int, set[tuple[str, str]]]:
+    """Derive locks from valid focus links across the entire version group."""
+    required = {root_id: set() for root_id in root_ids}
+    if not root_ids:
+        return required
+    links = (
+        db.query(Habit)
+        .filter(
+            Habit.user_id == user_id,
+            Habit.focus_role.in_(("goal", "skill")),
+            or_(Habit.relationship_root_id.in_(root_ids), Habit.id.in_(root_ids)),
+        )
+        .all()
+    )
+    goals = _goal_map(db, user_id, {h.focus_goal_id for h in links if h.focus_goal_id})
+    skills = (
+        {s["id"] for s in softskill_service.load_tree_config().get("skills", [])}
+        if any(h.focus_role == "skill" for h in links)
+        else set()
+    )
+    for habit in links:
+        root_id = int(habit.relationship_root_id or habit.id)
+        if root_id not in required:
+            continue
+        if habit.focus_role == "goal" and habit.focus_goal_id in goals:
+            required[root_id].add(("goal", str(habit.focus_goal_id)))
+        elif habit.focus_role == "skill" and habit.focus_softskill_id in skills:
+            required[root_id].add(("softskill", habit.focus_softskill_id))
+    return required
+
+
+def ensure_required_tags(db: Session, user_id: int, habit: Habit) -> None:
     root_id = ensure_relationship_root(db, habit)
+    db.flush()
+    _insert_required_tags(db, required_tags_for_roots(db, user_id, {root_id}))
+
+
+def _insert_required_tags(db: Session, required: dict) -> None:
+    for root_id, tags in required.items():
+        for kind, ref in sorted(tags):
+            db.execute(
+                insert(QuestTag)
+                .values(relationship_root_id=root_id, kind=kind, ref=ref)
+                .on_conflict_do_nothing(
+                    index_elements=["relationship_root_id", "kind", "ref"]
+                )
+            )
+
+
+def normalize_linked_quests(db: Session, user_id: int) -> None:
+    """Repair legacy focus quests without replacing their manual tags or logs."""
+    habits = (
+        db.query(Habit)
+        .filter(Habit.user_id == user_id, Habit.focus_role.in_(("goal", "skill")))
+        .all()
+    )
+    root_ids = set()
+    for habit in habits:
+        root_ids.add(ensure_relationship_root(db, habit))
+        if habit.day_types != ["rest", "regular", "hustle"]:
+            habit.day_types = ["rest", "regular", "hustle"]
+    db.flush()
+    _insert_required_tags(db, required_tags_for_roots(db, user_id, root_ids))
+
+
+def clear_tags(db: Session, root_id: int) -> None:
+    """Lifecycle cleanup for a deleted quest; intentionally bypass focus locks."""
     db.query(QuestTag).filter_by(relationship_root_id=root_id).delete(
         synchronize_session=False
     )
+
+
+def replace_tags(db: Session, user_id: int, habit: Habit, payload: Any) -> list:
+    normalized = normalize_tags(db, user_id, payload)
+    root_id = ensure_relationship_root(db, habit)
+    db.flush()
+    normalized = _dedupe(
+        normalized + sorted(required_tags_for_roots(db, user_id, {root_id})[root_id])
+    )
+    clear_tags(db, root_id)
     for kind, ref in normalized:
         db.add(QuestTag(relationship_root_id=root_id, kind=kind, ref=ref))
     return normalized
@@ -116,6 +204,7 @@ def tags_for_habits(
         habit.id: int(habit.relationship_root_id or habit.id) for habit in habits
     }
     root_ids = set(roots_by_habit_id.values())
+    required = required_tags_for_roots(db, user_id, root_ids)
     rows = (
         db.query(QuestTag)
         .filter(QuestTag.relationship_root_id.in_(root_ids))
@@ -128,6 +217,14 @@ def tags_for_habits(
     goals = _goal_map(db, user_id, goal_ids)
     needs_branches = any(row.kind == "softskill_branch" for row in rows)
     branches = _softskill_branches() if needs_branches else {}
+    skills = (
+        {
+            skill["id"]: skill
+            for skill in softskill_service.load_tree_config().get("skills", [])
+        }
+        if any(row.kind == "softskill" for row in rows)
+        else {}
+    )
     tags_by_root: dict[int, list[dict]] = {root_id: [] for root_id in root_ids}
 
     for row in rows:
@@ -140,6 +237,12 @@ def tags_for_habits(
             }
             if not goal:
                 item["missing"] = True
+        elif row.kind == "softskill":
+            skill = skills.get(row.ref)
+            # Removed skills must not leave an orphan badge on a historical quest.
+            if not skill:
+                continue
+            item = {"kind": row.kind, "ref": row.ref, "label": skill["name"]}
         else:
             branch = branches.get(row.ref)
             item = {
@@ -151,6 +254,7 @@ def tags_for_habits(
                 item["color"] = branch["color"]
             if not branch:
                 item["missing"] = True
+        item["locked"] = (row.kind, row.ref) in required[row.relationship_root_id]
         tags_by_root[row.relationship_root_id].append(item)
 
     return {
@@ -163,6 +267,12 @@ def remove_goal_tags(db: Session, goal_id: int) -> None:
     db.query(QuestTag).filter_by(kind="goal", ref=str(goal_id)).delete(
         synchronize_session=False
     )
+
+
+def remove_skill_tags(db: Session, skill_ids: Iterable[str]) -> None:
+    db.query(QuestTag).filter(
+        QuestTag.kind == "softskill", QuestTag.ref.in_(list(skill_ids))
+    ).delete(synchronize_session=False)
 
 
 def rename_branch_tags(db: Session, old_key: str, new_key: str) -> None:

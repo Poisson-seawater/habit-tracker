@@ -200,6 +200,14 @@ sans effet sur le score. Le Recap épingle directement trois objectifs et trois
 compétences, chacun avec au plus une quête liée. Une prime peut créer un
 objectif lié et demeure sa seule validation finale.
 
+Les quêtes liées reçoivent automatiquement le tag imposé de leur objectif ou de
+leur compétence précise, partagé entre versions. Elles restent disponibles sur
+les trois types de journée ; le réglage de restriction demeure réservé aux Must.
+Les cartes Must affichent leur durée prévue près de la description.
+
+Le menu **Rules** ouvre une note de 500 caractères maximum, enregistrée par compte
+sur le serveur et commune à toutes les journées. Voir le [guide Rules](docs/wiki/pages/rules.md).
+
 À étudier ensuite : faire adopter aux To-dos le même catalogue de tags que les
 quêtes (objectif + branche de compétence), pour qu'une vue comme Eisenhower ou
 le bocal puisse regrouper les actions par intention. Une sous-étape est un

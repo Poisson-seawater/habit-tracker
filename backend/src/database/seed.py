@@ -646,7 +646,7 @@ def init_db():
 
     # Existing pins predate automatic Recap quests. Repair them once at startup;
     # the same idempotent check runs whenever pins change.
-    from src.services import focus_service
+    from src.services import focus_service, quest_tag_service
 
     db = SessionLocal()
     try:
@@ -654,6 +654,7 @@ def init_db():
             focus_service.normalize_generated_goal_quest_names(db, user)
             focus_service.ensure_pinned_quests(db, user)
             focus_service.remove_focus_checklists(db, user)
+            quest_tag_service.normalize_linked_quests(db, user.id)
         db.commit()
     except Exception:
         db.rollback()
@@ -1698,6 +1699,19 @@ def _run_migrations():
             )
             db.commit()
             inspector = inspect(engine)
+
+        # v38: One optional global Rules note per user.
+        if "users" in inspect(engine).get_table_names():
+            user_columns = {c["name"] for c in inspect(engine).get_columns("users")}
+            if "rules_text" not in user_columns:
+                print("Running migration v38: adding users.rules_text...")
+                db.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN rules_text TEXT NOT NULL DEFAULT ''"
+                    )
+                )
+                db.commit()
+                print("Migration v38 (Rules note) applied successfully.")
 
         # v19: Destructively remove the legacy RPG stat/tag columns.
         v19_dropped = False
