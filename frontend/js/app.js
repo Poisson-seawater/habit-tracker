@@ -5,12 +5,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const rulesText = document.getElementById("rules-text");
   const rulesStatus = document.getElementById("rules-status");
   const rulesSaveBtn = document.getElementById("rules-save-btn");
+  const dashboardRules = document.getElementById("dashboard-rules");
   let rulesLoaded = false;
   let rulesDirty = false;
   let rulesSaving = false;
   let rulesSession = 0;
   let rulesRequest = 0;
   let rulesSavedText = "";
+
+  function renderDashboardRules() {
+    dashboardRules.textContent = rulesSavedText;
+    dashboardRules.hidden = !rulesSavedText.trim();
+  }
 
   function updateRulesControls() {
     const length = Array.from(rulesText.value).length;
@@ -30,6 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
     rulesText.value = "";
     rulesText.disabled = true;
     rulesStatus.textContent = "";
+    renderDashboardRules();
     updateRulesControls();
   }
 
@@ -44,6 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await response.json();
       if (session !== rulesSession || request !== rulesRequest || rulesDirty) return;
       rulesSavedText = data.text;
+      renderDashboardRules();
       rulesText.value = data.text;
       rulesText.disabled = false;
       rulesLoaded = true;
@@ -79,6 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await response.json();
       if (session !== rulesSession) return;
       rulesSavedText = data.text;
+      renderDashboardRules();
       rulesDirty = rulesText.value !== rulesSavedText;
       rulesStatus.textContent = rulesDirty ? "Note enregistrée. Ta nouvelle saisie reste à enregistrer." : "Note enregistrée.";
     } catch (error) {
@@ -158,7 +167,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Context-aware refreshes
-      if (targetTab === "goals-tab") {
+      if (targetTab === "dashboard-tab") {
+        loadRules();
+      } else if (targetTab === "goals-tab") {
         fetchGoals();
       } else if (targetTab === "settings-tab") {
         loadSettingsThresholds();
@@ -5942,7 +5953,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         refreshAll();
       }
-      if (document.getElementById("rules-tab").classList.contains("active")) loadRules();
+      loadRules();
       return;
     }
     resetRules();

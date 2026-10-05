@@ -3,6 +3,12 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-04 — fix(front): afficher Rules au-dessus du Tableau des Primes
+
+- La note Rules enregistrée apparaît en texte simple sur le dashboard, juste au-dessus du panneau des Primes. Les retours à la ligne sont conservés, les longues lignes se replient sur mobile et une note vide masque cet affichage. L'onglet Rules conserve l'édition et la sauvegarde explicite.
+- Chargement à la connexion et au retour sur le dashboard, mise à jour après sauvegarde réussie et effacement à la déconnexion. Un brouillon ou une sauvegarde refusée ne remplace pas le texte enregistré. README, guide Rules et cahier des charges mis à jour ; versions des assets incrémentées.
+- Validation locale : syntaxe JavaScript et `git diff --check` valides. Chrome headless avec API locale et base temporaire vérifie la position au-dessus des Primes, le texte littéral, les retours à la ligne, la sauvegarde/recharge, le brouillon, une sauvegarde refusée, le texte vide, 500 caractères sur mobile et l'isolation entre comptes, sans erreur JavaScript. Aucun changement backend.
+
 ## 2026-10-04 — feat(quests): imposer les tags liés et ajouter Rules
 
 - Sections 1, 2, 3 et 5 du cahier des charges livrées. Les quêtes Objectif/Compétence reçoivent le tag imposé de leur source, avec un nouveau type `softskill` pour la compétence précise et un indicateur `locked` dans les réponses. Le serveur protège ce tag lors des éditions, partage les tags entre versions et complète les anciennes quêtes sans perdre leurs tags manuels. Les noms suivent les sources ; supprimer une compétence ou sa branche nettoie aussi ses tags.

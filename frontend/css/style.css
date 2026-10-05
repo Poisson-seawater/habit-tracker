@@ -1228,6 +1228,15 @@ body {
   margin-left: auto;
 }
 
+.dashboard-rules {
+  margin: 0;
+  padding: 0 0.25rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .rules-panel {
   max-width: 720px;
   margin: 0 auto;

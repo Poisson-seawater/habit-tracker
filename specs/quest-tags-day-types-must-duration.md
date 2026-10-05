@@ -58,6 +58,7 @@ Réduire les réglages inutiles des quêtes Objectif/Compétence, rendre visible
 
 - Pouvoir écrire **une seule note globale** intitulée « Rules », limitée à **500 caractères**.
 - Cette note est indépendante du type de journée et de la date : le même texte s'applique à tous les aperçus et à toutes les dates. Une entrée **« Rules » distincte dans le menu principal** ouvre l'écran où elle est visible et modifiable ; elle ne se trouve pas dans la carte « Journée type ».
+- Le texte enregistré s'affiche aussi sur le dashboard, juste au-dessus du panneau **⚔️ Tableau des Primes (Aujourd'hui)**. Les retours à la ligne sont conservés et une note vide masque cet affichage.
 
 ## État du cadrage
 

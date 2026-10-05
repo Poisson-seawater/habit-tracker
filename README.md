@@ -206,7 +206,8 @@ les trois types de journée ; le réglage de restriction demeure réservé aux M
 Les cartes Must affichent leur durée prévue près de la description.
 
 Le menu **Rules** ouvre une note de 500 caractères maximum, enregistrée par compte
-sur le serveur et commune à toutes les journées. Voir le [guide Rules](docs/wiki/pages/rules.md).
+sur le serveur et commune à toutes les journées. Son texte s'affiche sur le dashboard,
+juste au-dessus du Tableau des Primes. Voir le [guide Rules](docs/wiki/pages/rules.md).
 
 À étudier ensuite : faire adopter aux To-dos le même catalogue de tags que les
 quêtes (objectif + branche de compétence), pour qu'une vue comme Eisenhower ou
