@@ -2597,19 +2597,7 @@ document.addEventListener("DOMContentLoaded", () => {
         total: ceilings.total !== undefined ? ceilings.total : 10.0
       };
 
-      const plannedHabits = habits.filter(habit => isHabitDueOnDate(habit, dateFromInput(getAgendaDate())));
-
-      const pinnedSubIds = profile.pinned_substeps || [];
-      const plannedSubsteps = [];
-      pinnedSubIds.forEach(subId => {
-        for (const g of goals) {
-          const s = g.substeps.find(sub => sub.id === subId);
-          if (s) {
-            plannedSubsteps.push(s);
-            break;
-          }
-        }
-      });
+      const plannedHabits = habits.filter(habit => habit.focus_enabled !== false && isHabitDueOnDate(habit, dateFromInput(getAgendaDate())));
 
       const effortSums = {
         musculaire: 0.0,
@@ -2622,12 +2610,6 @@ document.addEventListener("DOMContentLoaded", () => {
       plannedHabits.forEach(h => {
         if (h.effort_type && effortSums[h.effort_type] !== undefined) {
           effortSums[h.effort_type] += (h.effort_duration !== undefined ? h.effort_duration : 1.0);
-        }
-      });
-
-      plannedSubsteps.forEach(s => {
-        if (s.effort_type && effortSums[s.effort_type] !== undefined) {
-          effortSums[s.effort_type] += (s.effort_duration !== undefined ? s.effort_duration : 1.0);
         }
       });
 
@@ -8232,10 +8214,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // Populate checklist checkboxes in the pin drawer
   async function populatePinDrawerOptions() {
     const goalsListContainer = document.getElementById("recap-pin-goals-list");
+    const substepsListContainer = document.getElementById("recap-pin-substeps-list");
     const skillsListContainer = document.getElementById("recap-pin-skills-list");
-    if (!goalsListContainer || !skillsListContainer) return;
+    const saveButton = document.getElementById("save-recap-pins-btn");
+    if (!goalsListContainer || !substepsListContainer || !skillsListContainer) return;
+    saveButton.disabled = true;
 
     goalsListContainer.innerHTML = `<p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Chargement des objectifs...</p>`;
+    substepsListContainer.textContent = "Chargement des sous-étapes...";
     skillsListContainer.innerHTML = `<p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Chargement des compétences...</p>`;
 
     try {
@@ -8243,6 +8229,50 @@ document.addEventListener("DOMContentLoaded", () => {
       const goalsResp = await fetch(`${API_BASE}/goals`);
       if (!goalsResp.ok) throw new Error("Failed to load goals");
       const goals = await goalsResp.json();
+
+      const selectedSubsteps = new Set(pinnedSubsteps);
+      const renderSubstepChoices = () => {
+        const selectedGoals = Array.from(document.querySelectorAll('input[name="pin-goal-checkbox"]:checked')).map(input => Number(input.value));
+        const choices = collectRecapSubsteps(goals, selectedGoals).filter(item => !item.substep.completed);
+        const allowed = new Set(choices.map(item => item.substep.id));
+        for (const id of selectedSubsteps) {
+          if (!allowed.has(id)) selectedSubsteps.delete(id);
+        }
+        substepsListContainer.replaceChildren();
+        const updateCount = () => {
+          document.getElementById("recap-pin-substeps-count").textContent = `${selectedSubsteps.size}/3`;
+        };
+        choices.forEach(({ substep, parents }) => {
+          const label = document.createElement("label");
+          label.className = "recap-checkbox-container";
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.name = "pin-substep-checkbox";
+          input.value = substep.id;
+          input.checked = selectedSubsteps.has(substep.id);
+          input.addEventListener("change", () => {
+            if (input.checked) selectedSubsteps.add(substep.id);
+            else selectedSubsteps.delete(substep.id);
+            updateCount();
+          });
+          const details = document.createElement("span");
+          const title = document.createElement("span");
+          title.textContent = substep.title;
+          const context = document.createElement("small");
+          context.className = "recap-substep-parent";
+          context.textContent = parents.map(goal => goal.title).join(" · ");
+          details.append(title, context);
+          label.append(input, details);
+          substepsListContainer.appendChild(label);
+        });
+        if (!choices.length) {
+          substepsListContainer.textContent = selectedGoals.length
+            ? "Aucune sous-étape en cours pour ces objectifs. Ajoutez-en dans Objectifs & Graphes."
+            : "Choisissez d'abord vos objectifs prioritaires.";
+        }
+        setupCheckboxLimit("pin-substep-checkbox");
+        updateCount();
+      };
 
       goalsListContainer.replaceChildren();
       goals.filter(goal => !goal.completed).forEach(goal => {
@@ -8262,8 +8292,10 @@ document.addEventListener("DOMContentLoaded", () => {
         title.textContent = goal.source_todo_id && input.checked ? `🔒 ${goal.title}` : goal.title;
         label.append(input, title);
         goalsListContainer.appendChild(label);
+        input.addEventListener("change", renderSubstepChoices);
       });
       if (!goalsListContainer.children.length) goalsListContainer.textContent = "Aucun objectif actif.";
+      renderSubstepChoices();
 
       // 2. Fetch Softskills
       const skillsResp = await fetch(`${API_BASE}/softskills`);
@@ -8293,9 +8325,11 @@ document.addEventListener("DOMContentLoaded", () => {
       // Add selection limits (max 3)
       setupCheckboxLimit("pin-goal-checkbox");
       setupCheckboxLimit("pin-skill-checkbox");
+      saveButton.disabled = false;
 
     } catch (err) {
       goalsListContainer.innerHTML = `<p style="font-size: 0.8rem; color: var(--accent-red); margin: 0;">Erreur de chargement.</p>`;
+      substepsListContainer.textContent = "Impossible de charger la sélection.";
       skillsListContainer.innerHTML = `<p style="font-size: 0.8rem; color: var(--accent-red); margin: 0;">Erreur de chargement.</p>`;
     }
   }
@@ -8326,7 +8360,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // Save pinned items to database
   async function savePinnedItems() {
     const checkedGoals = Array.from(document.querySelectorAll('input[name="pin-goal-checkbox"]:checked')).map(cb => parseInt(cb.value));
+    const checkedSubsteps = Array.from(document.querySelectorAll('input[name="pin-substep-checkbox"]:checked')).map(cb => Number(cb.value));
     const checkedSkills = Array.from(document.querySelectorAll('input[name="pin-skill-checkbox"]:checked')).map(cb => cb.value);
+    const saveButton = document.getElementById("save-recap-pins-btn");
+    saveButton.disabled = true;
 
     try {
       const resp = await fetch(`${API_BASE}/profile/pins`, {
@@ -8334,19 +8371,27 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pinned_goals: checkedGoals,
-          pinned_substeps: [],
+          pinned_substeps: checkedSubsteps,
           pinned_softskills: checkedSkills
         })
       });
 
-      if (!resp.ok) throw new Error("Erreur de sauvegarde de l'API");
+      if (!resp.ok) {
+        const error = await resp.json();
+        throw new Error(error.detail || "Erreur de sauvegarde de l'API");
+      }
       pinnedGoals = checkedGoals;
+      pinnedSubsteps = checkedSubsteps;
+      pinnedSoftskills = checkedSkills;
       showToast("Épingles 3-3-3 sauvegardées ! 📌");
       closeRecapPinDrawer();
       fetchProfile(); // Reload dashboard profile and recap panel
       updateDailyBudgetGauge();
+      fetchGoals();
     } catch (err) {
       showToast(err.message, true);
+    } finally {
+      saveButton.disabled = false;
     }
   }
 
@@ -8389,6 +8434,57 @@ document.addEventListener("DOMContentLoaded", () => {
       const remaining = 3 - pinnedGoals.length;
       container.innerHTML = `<span style="font-size: 0.72rem; color: var(--text-muted); font-style: italic;">Sélectionnez encore ${remaining} objectif${remaining > 1 ? 's' : ''}</span>`;
     }
+  }
+
+  // A shared substep is one quest, regardless of its number of parent goals.
+  function collectRecapSubsteps(goals, goalIds = pinnedGoals) {
+    const items = new Map();
+    goalIds.forEach(goalId => {
+      const goal = goals.find(item => item.id === goalId && !item.completed);
+      if (!goal) return;
+      (goal.substeps || []).forEach(substep => {
+        if (!items.has(substep.id)) items.set(substep.id, { substep, parents: [] });
+        items.get(substep.id).parents.push(goal);
+      });
+    });
+    return [...items.values()];
+  }
+
+  function renderSubstepRecapRow(list, { substep, parents }) {
+    const li = document.createElement("li");
+    li.className = "recap-item";
+    li.dataset.substepId = substep.id;
+    const openGraph = async () => {
+      activeGoalId = parents[0].id;
+      document.querySelector('.nav-tab[data-tab="goals-tab"]').click();
+      await fetchGoals();
+      const node = document.querySelector(`.tree-node[data-substep-id="${substep.id}"]`);
+      if (node) {
+        node.tabIndex = -1;
+        node.focus({ preventScroll: true });
+        node.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+      }
+    };
+    const name = document.createElement("button");
+    name.type = "button";
+    name.className = "recap-item-text";
+    name.textContent = substep.title;
+    name.title = "Ouvrir cette sous-étape dans Objectifs & Graphes";
+    name.addEventListener("click", openGraph);
+    const context = document.createElement("small");
+    context.className = "recap-substep-parent";
+    context.textContent = parents.map(goal => goal.title).join(" · ");
+    const details = document.createElement("div");
+    details.className = "recap-quest-details";
+    details.append(name, context);
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "recap-claim-btn";
+    action.textContent = "Voir le graphe";
+    action.title = "Validez la sous-étape dans Objectifs & Graphes pour terminer cette quête";
+    action.addEventListener("click", openGraph);
+    li.append(details, action);
+    list.appendChild(li);
   }
 
   // Render the recap panel content
@@ -8458,13 +8554,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const goals = await goalsResp.json();
       goalsList.innerHTML = "";
 
-      const habitsResponse = await fetch(`${API_BASE}/habits`);
-      const habits = await habitsResponse.json();
-      pinnedGoals.slice(0, 3).forEach(goalId => {
-        const goal = goals.find(item => item.id === goalId && !item.completed);
-        if (goal) renderFocusRecapRow(goalsList, goal.title, habits.find(habit => habit.focus_role === "goal" && habit.focus_goal_id === goalId && habit.is_active), "goal", goalId);
-      });
-      if (!goalsList.children.length) goalsList.innerHTML = `<li class="recap-list-placeholder">Aucun objectif épinglé.</li>`;
+      collectRecapSubsteps(goals)
+        .filter(item => pinnedSubsteps.includes(item.substep.id) && !item.substep.completed)
+        .slice(0, 3)
+        .forEach(item => renderSubstepRecapRow(goalsList, item));
+      if (!goalsList.children.length) goalsList.innerHTML = `<li class="recap-list-placeholder">Aucune quête sélectionnée. Choisissez jusqu'à 3 sous-étapes avec le crayon.</li>`;
     } catch (err) {
       goalsList.innerHTML = `<li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--accent-red);">Erreur objectifs.</li>`;
     }

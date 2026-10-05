@@ -1,4 +1,4 @@
-"""Daily quest roles and links to the Recap's objectives and skills."""
+"""Recap substep selection and daily skill quests; legacy goal quest history."""
 
 import datetime
 
@@ -125,10 +125,9 @@ def enabled_for_pins(db: Session, user: User, role: str, goal_id, skill_id) -> b
     if role == "must":
         return True
     if role == "goal":
-        goal = db.query(Goal).filter_by(id=goal_id, user_id=user.id).first()
-        return bool(
-            goal and not goal.completed and goal_id in (user.pinned_goals or [])
-        )
+        # Objective quests used to track daily practice. Selected substeps now
+        # have one completion state, owned by the goals graph.
+        return False
     progress = (
         db.query(UserSoftskillProgress)
         .filter_by(user_id=user.id, softskill_id=skill_id)
@@ -140,7 +139,32 @@ def enabled_for_pins(db: Session, user: User, role: str, goal_id, skill_id) -> b
     )
 
 
+def eligible_substep_ids(db: Session, user: User, goal_ids: list[int]) -> set[int]:
+    return {
+        sid
+        for (sid,) in db.query(SubStep.id)
+        .join(GoalSubStepLink, GoalSubStepLink.substep_id == SubStep.id)
+        .join(Goal, Goal.id == GoalSubStepLink.goal_id)
+        .filter(
+            SubStep.user_id == user.id,
+            SubStep.completed == False,
+            Goal.user_id == user.id,
+            Goal.completed == False,
+            Goal.id.in_(goal_ids),
+        )
+        .all()
+    }
+
+
+def normalize_substep_pins(db: Session, user: User) -> None:
+    allowed = eligible_substep_ids(db, user, user.pinned_goals or [])
+    user.pinned_substeps = [
+        sid for sid in dict.fromkeys(user.pinned_substeps or []) if sid in allowed
+    ][:3]
+
+
 def sync_pin_states(db: Session, user: User) -> None:
+    normalize_substep_pins(db, user)
     ensure_pinned_quests(db, user)
     habits = db.query(Habit).filter_by(user_id=user.id, is_active=True).all()
     for habit in habits:
@@ -233,28 +257,7 @@ def create_skill_quest(db: Session, user_id: int, skill: dict) -> Habit:
 
 
 def ensure_pinned_quests(db: Session, user: User) -> None:
-    """Give every active Recap goal and skill one scheduled quest."""
-    goal_ids = set(user.pinned_goals or [])
-    if goal_ids:
-        goals = (
-            db.query(Goal)
-            .filter(
-                Goal.user_id == user.id, Goal.id.in_(goal_ids), Goal.completed == False
-            )
-            .all()
-        )
-        existing_goals = {
-            goal_id
-            for (goal_id,) in db.query(Habit.focus_goal_id)
-            .filter_by(
-                user_id=user.id, focus_role="goal", is_active=True, archived_at=None
-            )
-            .all()
-        }
-        for goal in goals:
-            if goal.id not in existing_goals:
-                create_goal_quest(db, user.id, goal)
-
+    """Give each pinned skill a daily quest; substeps use their graph state."""
     skill_ids = set(user.pinned_softskills or [])
     if skill_ids:
         skills = {
@@ -360,7 +363,6 @@ def create_linked_goal(
     )
     db.add(goal)
     db.flush()
-    create_goal_quest(db, user.id, goal)
     user.pinned_goals = pins + [goal.id]
     sync_pin_states(db, user)
     return goal
@@ -375,6 +377,7 @@ def stop_goal_quests(db: Session, user: User, goal: Goal) -> None:
             habit.deactivated_at = datetime.datetime.now()
             set_state(habit, enabled=False)
     user.pinned_goals = [gid for gid in (user.pinned_goals or []) if gid != goal.id]
+    normalize_substep_pins(db, user)
 
 
 def remove_linked_goal(db: Session, user: User, todo: Todo) -> None:
@@ -384,13 +387,7 @@ def remove_linked_goal(db: Session, user: User, todo: Todo) -> None:
     if not goal:
         return
     user.pinned_goals = [gid for gid in (user.pinned_goals or []) if gid != goal.id]
-    user.pinned_substeps = [
-        sid
-        for sid in (user.pinned_substeps or [])
-        if not db.query(GoalSubStepLink.id)
-        .filter_by(goal_id=goal.id, substep_id=sid)
-        .first()
-    ]
+    normalize_substep_pins(db, user)
     quests = db.query(Habit).filter_by(user_id=user.id, focus_goal_id=goal.id).all()
     quest_ids = {quest.id for quest in quests}
     for quest in quests:

@@ -2892,6 +2892,28 @@ body {
   color: var(--text-primary);
 }
 
+.recap-substep-parent {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.recap-selection-help {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.recap-substep-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 280px;
+  overflow-y: auto;
+  font-size: 0.8rem;
+}
+
 .recap-quest-details {
   flex: 1;
   min-width: 0;

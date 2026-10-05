@@ -164,7 +164,7 @@ def test_pin_goals_limit_and_substep_validation(client):
 
     # 5. Try to pin substep 2 in pins PUT, it should be filtered out because goal_ids[1] is not pinned
     payload = {
-        "pinned_goals": [goal_ids[0], goal_ids[2]],
+        "pinned_goals": [goal_ids[2]],
         "pinned_substeps": [substep2_id],
     }
     response = client.put(

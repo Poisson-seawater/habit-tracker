@@ -191,17 +191,19 @@ uniquement quand cette prime est validée :
 | Quête | action récurrente, planifiable et validable au quotidien | tendon, natation, vélo, marche/course adaptée |
 | To-do / prime | action ponctuelle avec date ou échéance | prendre le rendez-vous physio, acheter une bande élastique |
 
-Une quête reste l'unité d'exécution récurrente. Elle a maintenant un rôle
-explicite : **Must** (socle du Perfect Day), **Objectif** (travail du moment)
-ou **Compétence** (pratique dédiée). Les deux derniers rôles ont leurs propres
-validations et streaks, sans peser sur le Perfect Day. Une quête peut être liée
-à un objectif ou à une compétence ; les tags demeurent des repères de contexte
-sans effet sur le score. Le Recap épingle directement trois objectifs et trois
-compétences, chacun avec au plus une quête liée. Une prime peut créer un
-objectif lié et demeure sa seule validation finale.
+Les quêtes récurrentes ont le rôle **Must** (socle du Perfect Day) ou
+**Compétence** (pratique dédiée avec son propre streak). Pour les objectifs,
+le Recap sélectionne jusqu'à **trois sous-étapes au total**, réparties librement
+entre les trois objectifs prioritaires : trois dans un objectif, deux et une,
+ou une par objectif. Chaque sous-étape sélectionnée devient une quête du Recap,
+validée uniquement dans **Objectifs & Graphes**, avec sa récompense d'Or habituelle.
+La terminer libère sa place sans créer de validation quotidienne ni de streak.
+Les anciennes quêtes quotidiennes d'objectifs sont mises en pause en conservant
+leur historique. Une prime peut créer un objectif lié et demeure sa seule
+validation finale. Les tags restent des repères de contexte sans effet sur le score.
 
-Les quêtes liées reçoivent automatiquement le tag imposé de leur objectif ou de
-leur compétence précise, partagé entre versions. Elles restent disponibles sur
+Les quêtes de compétences et les anciennes quêtes d'objectifs conservent leur
+tag imposé, partagé entre versions. Les compétences restent disponibles sur
 les trois types de journée ; le réglage de restriction demeure réservé aux Must.
 Les cartes Must affichent leur durée prévue près de la description.
 

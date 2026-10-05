@@ -173,7 +173,7 @@ def test_quest_bank_lists_non_visible_quests_separately_from_archives(client):
     assert archived[0]["bank_reasons"][0]["code"] == "archived"
 
 
-def test_focus_pins_create_only_linked_goal_or_skill_quests(client):
+def test_substep_pins_do_not_duplicate_graph_quests_as_daily_habits(client):
     db = TestingSessionLocal()
     try:
         goal = Goal(id=10, user_id=1, title="Business", description="Build business")
@@ -220,10 +220,9 @@ def test_focus_pins_create_only_linked_goal_or_skill_quests(client):
     new_quests = [
         habit for habit in after if habit["id"] not in {item["id"] for item in before}
     ]
-    assert len(new_quests) == 1
-    assert new_quests[0]["focus_role"] == "goal"
-    assert new_quests[0]["focus_goal_id"] == 10
-    assert new_quests[0]["focus_due_today"] is True
+    assert new_quests == []
+    profile = client.get("/api/v1/profile", headers={"X-User-ID": "1"}).json()
+    assert profile["pinned_substeps"] == [100]
 
 
 def test_placement_update_rejects_overlap_and_delete_unplaces(client):

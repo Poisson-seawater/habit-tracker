@@ -1872,12 +1872,27 @@ def update_profile_pins(
         raise HTTPException(status_code=404, detail="User not found")
 
     if payload.pinned_goals is not None:
-        if len(payload.pinned_goals) > 3:
+        goal_pins = list(dict.fromkeys(payload.pinned_goals))
+        if len(goal_pins) > 3:
             raise HTTPException(
                 status_code=400,
                 detail="Vous pouvez sélectionner au maximum 3 objectifs prioritaires (Top 3).",
             )
-        removed_goal_ids = set(user.pinned_goals or []) - set(payload.pinned_goals)
+        owned_goal_ids = {
+            gid
+            for (gid,) in db.query(Goal.id)
+            .filter(
+                Goal.user_id == user_id,
+                Goal.id.in_(goal_pins),
+                Goal.completed == False,
+            )
+            .all()
+        }
+        if set(goal_pins) != owned_goal_ids:
+            raise HTTPException(
+                status_code=400, detail="Objectif introuvable ou terminé."
+            )
+        removed_goal_ids = set(user.pinned_goals or []) - set(goal_pins)
         if (
             removed_goal_ids
             and db.query(Goal.id)
@@ -1892,42 +1907,19 @@ def update_profile_pins(
                 status_code=409,
                 detail="Un objectif lié à une to-do ne peut pas être retiré du Top 3.",
             )
-        user.pinned_goals = payload.pinned_goals
+        user.pinned_goals = goal_pins
 
-        # If pinned_goals is modified but pinned_substeps is not explicitly provided,
-        # we still want to filter the existing pinned_substeps to ensure they belong to the new pinned_goals.
-        if payload.pinned_substeps is None:
-            allowed_substep_ids = set()
-            if user.pinned_goals:
-                links = (
-                    db.query(GoalSubStepLink)
-                    .filter(GoalSubStepLink.goal_id.in_(user.pinned_goals))
-                    .all()
-                )
-                for link in links:
-                    allowed_substep_ids.add(link.substep_id)
-            user.pinned_substeps = [
-                sid
-                for sid in (user.pinned_substeps or [])
-                if sid in allowed_substep_ids
-            ]
-
-    # Keep only pinned_substeps that are linked to the pinned_goals
     if payload.pinned_substeps is not None:
-        allowed_substep_ids = set()
-        current_pinned_goals = user.pinned_goals or []
-        if current_pinned_goals:
-            links = (
-                db.query(GoalSubStepLink)
-                .filter(GoalSubStepLink.goal_id.in_(current_pinned_goals))
-                .all()
-            )
-            for link in links:
-                allowed_substep_ids.add(link.substep_id)
-
-        user.pinned_substeps = [
-            sid for sid in payload.pinned_substeps if sid in allowed_substep_ids
+        allowed = focus_service.eligible_substep_ids(db, user, user.pinned_goals or [])
+        substep_pins = [
+            sid for sid in dict.fromkeys(payload.pinned_substeps) if sid in allowed
         ]
+        if len(substep_pins) > 3:
+            raise HTTPException(
+                status_code=400,
+                detail="Vous pouvez sélectionner au maximum 3 quêtes de sous-étapes au total.",
+            )
+        user.pinned_substeps = substep_pins
 
     if payload.pinned_softskills is not None:
         user.pinned_softskills = payload.pinned_softskills
@@ -2461,6 +2453,8 @@ def unlink_substep_from_goal(
         )
 
     db.delete(link)
+    db.flush()
+    focus_service.normalize_substep_pins(db, db.query(User).filter_by(id=user_id).one())
     db.commit()
     return {"status": "success"}
 
@@ -2612,6 +2606,10 @@ def delete_substep(
     if not substep:
         raise HTTPException(status_code=404, detail="Substep not found")
 
+    user = db.query(User).filter_by(id=user_id).first()
+    user.pinned_substeps = [
+        sid for sid in (user.pinned_substeps or []) if sid != substep_id
+    ]
     db.delete(substep)
     db.commit()
     return {"status": "success", "message": "Substep deleted successfully"}
@@ -2651,6 +2649,13 @@ def complete_substep(
     # Award customizable gold reward
     user = db.query(User).filter_by(id=user_id).first()
     user.gold += substep.gold_reward
+
+    # The graph owns quest completion. Finishing a selected substep frees one
+    # Recap slot without adding a second daily validation or reward.
+    user.pinned_substeps = [
+        sid for sid in (user.pinned_substeps or []) if sid != substep_id
+    ]
+    db.flush()
 
     # Auto check Goals completeness
     completed_goals = []

@@ -1,6 +1,6 @@
 # Habitudes (Quêtes)
 
-Une quête est une action répétée selon un planning. Son rôle peut être **Must** pour le socle du [Perfect Day](#/perfect-day), **Objectif** pour une priorité du moment, ou **Compétence** pour une pratique dédiée. Épingler un objectif ou une compétence crée automatiquement sa quête liée ; son rôle et son lien restent ensuite fixes. Ces quêtes gardent leurs validations et streaks propres, sans entrer dans le score Perfect Day.
+Les quêtes récurrentes sont des **Must**, socle du [Perfect Day](#/perfect-day), ou des **Compétences** avec une pratique et un streak propres. Épingler une compétence crée sa quête quotidienne liée. Pour les objectifs, le [Recap](#/recap-3-3-3) affiche jusqu'à trois sous-étapes choisies librement parmi le Top 3 : ces quêtes se terminent uniquement dans Objectifs & Graphes, avec leur Or habituel, sans validation quotidienne ni streak. Les anciennes quêtes quotidiennes de rôle Objectif restent en pause avec leur historique conservé.
 
 ## Deux types
 
@@ -32,7 +32,7 @@ Chaque panneau appartient à la personne qui l'a ouvert : un autre membre du gro
 
 Une habitude n'est due que certains jours (tous les jours, ou par ex. lundi + mercredi). Elle peut aussi être associée à un ou plusieurs types de journée : `rest`, `regular` et `hustle`. Les trois sont sélectionnés par défaut, y compris pour les anciennes habitudes.
 
-Le réglage **Types de journée** est réservé aux Must. Les quêtes Objectif et Compétence sont disponibles dans les trois types de journée, y compris les anciennes quêtes restreintes. Leur fréquence et leur épingle Recap continuent de déterminer quand elles sont dues.
+Le réglage **Types de journée** est réservé aux Must. Les quêtes Compétence sont disponibles dans les trois types de journée, y compris les anciennes quêtes restreintes. Leur fréquence et leur épingle Recap déterminent quand elles sont dues. Les sous-étapes choisies restent visibles jusqu'à leur validation dans le graphe ou leur retrait de la sélection.
 
 Le jour venu, le panneau « Must du jour » et le Perfect Day ne retiennent que les quêtes Must compatibles avec le planning et le type de journée actif. Une quête `hustle` n'apparaît donc pas dans la liste d'un jour `rest` et ne bloque pas son Perfect Day.
 
@@ -46,7 +46,7 @@ Le petit menu **Choisir les tags** du formulaire permet de les sélectionner. Su
 
 Les tags sont communs à toutes les étapes V1/V2 d'une même quête : changer d'étape ne les retire pas. Ils n'ajoutent ni validation, ni XP, ni score, ni streak; seule la validation normale de la quête produit ses effets habituels.
 
-Une quête Objectif reçoit automatiquement le tag de son objectif ; une quête Compétence reçoit celui de la compétence précise, pas seulement de sa branche. Ce tag reste coché et porte la mention **Imposé par le lien** dans le formulaire. Les autres tags restent modifiables. Les noms des badges suivent les renommages des sources. Les quêtes liées existantes sont complétées sans perdre leurs tags manuels.
+Une ancienne quête quotidienne d'Objectif conserve le tag de son objectif ; une quête Compétence reçoit celui de la compétence précise, pas seulement de sa branche. Ce tag reste coché et porte la mention **Imposé par le lien** dans le formulaire. Les autres tags restent modifiables. Les noms des badges suivent les renommages des sources. Les quêtes liées existantes sont complétées sans perdre leurs tags manuels.
 
 ## Banque des quêtes
 
@@ -68,7 +68,7 @@ La liste Archives affiche la date d'archive, la fréquence, la source et les gro
 
 Le bouton **Désarchiver** remet la quête parmi les quêtes actives. Si elle est éligible à la date affichée, elle revient dans « Quêtes du jour ». Ses anciens créneaux ne sont pas restaurés.
 
-Le Recap 3-3-3 peut afficher une quête explicitement liée à un objectif ou à une compétence. Une compétence épinglée sans quête propose d'en créer une. Les anciennes quêtes auto-générées par les tags restent des archives historiques distinctes.
+Le Recap 3-3-3 affiche les sous-étapes sélectionnées et les quêtes de compétences épinglées. Les anciennes quêtes auto-générées par les tags restent des archives historiques distinctes.
 
 ## Déclarer une habitude ratée
 
@@ -84,7 +84,7 @@ Une correction d'hier recalcule la journée concernée, notamment son Perfect Da
 
 ## Exécution séparée des objectifs
 
-Les habitudes et les [objectifs](#/objectifs) gardent des validations **séparées** : faire une quête ne valide pas tout seul un objectif ou une sous-étape. Les tags donnent du contexte au planning sans créer un second état d'accomplissement.
+Les habitudes récurrentes et les [objectifs](#/objectifs) gardent des validations **séparées** : valider un Must ou une pratique de compétence ne termine aucune sous-étape. Une quête de sous-étape du Recap, elle, est la sous-étape elle-même : seule sa validation dans le graphe la termine. Les tags donnent du contexte sans créer un second état d'accomplissement.
 
 ## Paliers d'ancrage (30J / 90J)
 

@@ -16,9 +16,11 @@ Valider manuellement une sous-étape résolue te donne de l'**Or (Gold)**, perso
 
 ## Épinglage dans le Recap 3-3-3
 
-Tu peux épingler jusqu'à 3 objectifs en cours dans le panneau [Recap 3-3-3](#/recap-3-3-3). Leurs sous-étapes restent dans le graphe ; le Recap affiche directement l'objectif et sa quête de pratique, si elle existe. Le bouton « + » ouvre le réglage ou la création de cette quête ; « Valider » enregistre sa pratique aujourd'hui.
+Tu peux épingler jusqu'à **3 objectifs prioritaires**, puis choisir avec le crayon du [Recap 3-3-3](#/recap-3-3-3) jusqu'à **3 sous-étapes au total**. Répartis-les librement : trois dans le même objectif, deux et une, ou une par objectif. Une sous-étape partagée compte une seule fois.
 
-Épingler ou désépingler une sous-étape ne crée, n'archive et ne duplique aucune quête. Les épingles servent uniquement à choisir ce qui apparaît dans le Recap.
+Ces sous-étapes sont les quêtes affichées dans le Recap, avec leur objectif parent en petit. **Voir le graphe** ouvre la sous-étape ; sa validation se fait uniquement dans **Objectifs & Graphes**. La terminer rapporte son Or habituel, met à jour tous ses objectifs et libère sa place dans le Recap. Retirer une épingle ne termine pas la sous-étape. Les étapes terminées ne sont plus proposées.
+
+Choisir un objectif seul ne crée aucune quête quotidienne. Les anciennes quêtes quotidiennes d'objectifs sont mises en pause, avec leur historique conservé.
 
 Pour donner du sens au planning, une [quête](#/habitudes) existante peut recevoir le tag d'un ou plusieurs objectifs. Le tag reste informatif : accomplir la quête ne valide ni l'objectif ni ses sous-étapes et n'ajoute aucune récompense.
 

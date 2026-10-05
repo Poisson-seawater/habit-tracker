@@ -644,15 +644,15 @@ def init_db():
         print("Empty database detected — seeding default data...")
         seed_db()
 
-    # Existing pins predate automatic Recap quests. Repair them once at startup;
-    # the same idempotent check runs whenever pins change.
+    # Repair skill quests and pause legacy daily objective quests. Substep
+    # quests reuse the graph's completion state and need no duplicate habit.
     from src.services import focus_service, quest_tag_service
 
     db = SessionLocal()
     try:
         for user in db.query(User).all():
             focus_service.normalize_generated_goal_quest_names(db, user)
-            focus_service.ensure_pinned_quests(db, user)
+            focus_service.sync_pin_states(db, user)
             focus_service.remove_focus_checklists(db, user)
             quest_tag_service.normalize_linked_quests(db, user.id)
         db.commit()

@@ -4,7 +4,7 @@
 
 ## Contexte vérifié
 
-- Une quête peut avoir le rôle `must`, `goal` (Objectif) ou `skill` (Compétence). Épingler un objectif ou une compétence crée déjà sa quête liée dans le Recap 3-3-3.
+- Les quêtes récurrentes ont le rôle `must` ou `skill` ; le rôle `goal` reste compatible pour l'historique, en pause. Épingler une compétence crée sa quête quotidienne. Le Recap des objectifs utilise trois sous-étapes sélectionnées parmi le Top 3, validées uniquement dans le graphe (ADR 003). Les règles de tags Objectif ci-dessous concernent les anciennes quêtes quotidiennes.
 - Les tags existants pointent vers un **objectif** ou une **branche de compétences**. Ils sont actuellement choisis dans un menu du formulaire. Un tag n'est pas un lien de validation : il ne donne ni XP, ni score, ni accomplissement de l'objectif ou de la compétence.
 - Le formulaire de quête expose actuellement « Types de journée » pour tous les rôles. Les quêtes liées créées automatiquement sont initialisées pour Repos, Régulière et Hustle.
 - Une carte « Must du jour » affiche la description lorsqu'elle existe. La durée prévue est déjà enregistrée sur la quête, mais n'est pas affichée à côté de cette description.
@@ -89,7 +89,7 @@ Les sections livrées couvrent les critères 1 à 7, 12 et 13. Les tags accepten
 
 ## Critères d'acceptation
 
-1. Une quête créée par l'épinglage d'un objectif affiche automatiquement le tag de cet objectif.
+1. Une ancienne quête quotidienne d'objectif conserve le tag imposé de son objectif ; l'épinglage d'un objectif ne crée plus de quête quotidienne (ADR 003).
 2. Une quête créée par l'épinglage d'une compétence affiche automatiquement le tag de cette compétence précise, pas seulement celui de sa branche.
 3. Le tag imposé par le lien ne peut pas être décoché ; les autres tags restent modifiables.
 4. Une quête liée existante reçoit son tag manquant sans perdre ses autres tags.

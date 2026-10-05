@@ -11,6 +11,7 @@ from src.database.models import (
     Goal,
     GoalSubStepLink,
     Habit,
+    HabitLog,
     HabitDailyProgress,
     SubStep,
     Todo,
@@ -44,7 +45,7 @@ def focus_client():
         engine.dispose()
 
 
-def test_goal_quest_stays_out_of_perfect_day_and_must_agenda(focus_client):
+def test_pinned_goal_does_not_create_a_daily_quest(focus_client):
     client, factory = focus_client
     headers = {"X-User-ID": "1"}
     goal = client.post(
@@ -53,18 +54,9 @@ def test_goal_quest_stays_out_of_perfect_day_and_must_agenda(focus_client):
     client.put(
         "/api/v1/profile/pins", json={"pinned_goals": [goal["id"]]}, headers=headers
     )
-    quest = next(
-        habit
-        for habit in client.get("/api/v1/habits", headers=headers).json()
-        if habit["focus_goal_id"] == goal["id"]
-    )
-    habit_id = quest["id"]
-    assert quest["name"] == "Contrat"
-    assert quest["focus_due_today"] is True
+    assert client.get("/api/v1/habits", headers=headers).json() == []
     agenda = client.get("/api/v1/agenda", headers=headers).json()
-    assert habit_id not in {
-        item["habit_id"] for item in agenda["placed_quests"] + agenda["unplaced_quests"]
-    }
+    assert agenda["placed_quests"] + agenda["unplaced_quests"] == []
     with factory() as db:
         score = (
             db.query(DailyScore)
@@ -72,14 +64,148 @@ def test_goal_quest_stays_out_of_perfect_day_and_must_agenda(focus_client):
             .first()
         )
         assert score.status == "NoMust"
-    logged = client.post(
-        "/api/v1/logs", json={"habit_id": habit_id, "log_type": "done"}, headers=headers
+
+
+def seed_substep_choices(factory):
+    with factory() as db:
+        db.add_all([Goal(id=10 + i, user_id=1, title=f"Goal {i}") for i in range(3)])
+        for i, goal_id in enumerate([10, 10, 10, 11, 12]):
+            db.add(SubStep(id=100 + i, user_id=1, title=f"Step {i}", gold_reward=10))
+            db.flush()
+            db.add(GoalSubStepLink(goal_id=goal_id, substep_id=100 + i))
+        db.commit()
+
+
+@pytest.mark.parametrize("steps", [[100, 101, 102], [100, 101, 103], [100, 103, 104]])
+def test_three_substep_quests_can_be_distributed_freely(focus_client, steps):
+    client, factory = focus_client
+    seed_substep_choices(factory)
+    headers = {"X-User-ID": "1"}
+    response = client.put(
+        "/api/v1/profile/pins",
+        json={"pinned_goals": [10, 11, 12], "pinned_substeps": steps},
+        headers=headers,
     )
-    assert logged.status_code == 200
-    assert logged.json()["daily_score_status"] == "NoMust"
+    assert response.status_code == 200, response.text
+    profile = client.get("/api/v1/profile", headers=headers).json()
+    assert profile["pinned_substeps"] == steps
+    assert (profile["xp"], profile["gold"]) == (0, 0)
+    assert client.get("/api/v1/habits", headers=headers).json() == []
+    with factory() as db:
+        assert db.query(HabitLog).count() == 0
+
+
+def test_four_substeps_are_rejected_atomically_and_duplicates_count_once(focus_client):
+    client, factory = focus_client
+    seed_substep_choices(factory)
+    headers = {"X-User-ID": "1"}
     assert (
-        client.post(f"/api/v1/habits/{habit_id}/fail", headers=headers).status_code
-        == 409
+        client.put(
+            "/api/v1/profile/pins",
+            json={"pinned_goals": [10, 11], "pinned_substeps": [100, 100, 101, 103]},
+            headers=headers,
+        ).status_code
+        == 200
+    )
+    rejected = client.put(
+        "/api/v1/profile/pins",
+        json={"pinned_goals": [10, 11, 12], "pinned_substeps": [100, 101, 102, 103]},
+        headers=headers,
+    )
+    assert rejected.status_code == 400
+    profile = client.get("/api/v1/profile", headers=headers).json()
+    assert profile["pinned_substeps"] == [100, 101, 103]
+    assert profile["pinned_goals"] == [10, 11]
+
+
+def test_graph_completion_frees_quest_slot_and_rewards_only_once(focus_client):
+    client, factory = focus_client
+    seed_substep_choices(factory)
+    headers = {"X-User-ID": "1"}
+    client.put(
+        "/api/v1/profile/pins",
+        json={"pinned_goals": [10, 11, 12], "pinned_substeps": [100, 101, 103]},
+        headers=headers,
+    )
+    completed = client.post("/api/v1/substeps/100/complete", headers=headers)
+    assert completed.status_code == 200
+    assert completed.json()["gold_awarded"] == 10
+    profile = client.get("/api/v1/profile", headers=headers).json()
+    assert profile["pinned_substeps"] == [101, 103]
+    assert (profile["xp"], profile["gold"]) == (0, 10)
+    assert (
+        client.post("/api/v1/substeps/100/complete", headers=headers).json()["status"]
+        == "already_completed"
+    )
+    assert (
+        client.put(
+            "/api/v1/profile/pins",
+            json={"pinned_substeps": [100, 101, 103, 104]},
+            headers=headers,
+        ).status_code
+        == 200
+    )
+    profile = client.get("/api/v1/profile", headers=headers).json()
+    assert profile["pinned_substeps"] == [101, 103, 104]
+    with factory() as db:
+        assert db.get(SubStep, 100).completed is True
+        assert db.query(HabitLog).count() == 0
+        assert db.get(User, 1).gold == 10
+
+
+def test_shared_substep_survives_parent_unpin_and_goal_completion(focus_client):
+    client, factory = focus_client
+    seed_substep_choices(factory)
+    with factory() as db:
+        db.add(GoalSubStepLink(goal_id=11, substep_id=100))
+        db.commit()
+    headers = {"X-User-ID": "1"}
+    client.put(
+        "/api/v1/profile/pins",
+        json={"pinned_goals": [10, 11], "pinned_substeps": [100, 101]},
+        headers=headers,
+    )
+    client.put("/api/v1/profile/pins", json={"pinned_goals": [11]}, headers=headers)
+    assert client.get("/api/v1/profile", headers=headers).json()["pinned_substeps"] == [
+        100
+    ]
+    client.delete("/api/v1/substeps/103", headers=headers)
+    assert (
+        client.post("/api/v1/substeps/100/complete", headers=headers).status_code == 200
+    )
+    profile = client.get("/api/v1/profile", headers=headers).json()
+    assert profile["pinned_substeps"] == []
+    assert profile["pinned_goals"] == []
+
+
+def test_quest_selection_filters_foreign_completed_and_unlinked_substeps(focus_client):
+    client, factory = focus_client
+    seed_substep_choices(factory)
+    with factory() as db:
+        db.add(User(id=2, username="other"))
+        db.add(Goal(id=20, user_id=2, title="Private"))
+        db.add(SubStep(id=200, user_id=2, title="Private step"))
+        db.get(SubStep, 102).completed = True
+        db.flush()
+        db.add(GoalSubStepLink(goal_id=20, substep_id=200))
+        db.commit()
+    headers = {"X-User-ID": "1"}
+    rejected = client.put(
+        "/api/v1/profile/pins", json={"pinned_goals": [20]}, headers=headers
+    )
+    assert rejected.status_code == 400
+    selected = client.put(
+        "/api/v1/profile/pins",
+        json={"pinned_goals": [10], "pinned_substeps": [100, 102, 103, 200, 999]},
+        headers=headers,
+    )
+    assert selected.status_code == 200
+    assert client.get("/api/v1/profile", headers=headers).json()["pinned_substeps"] == [
+        100
+    ]
+    assert client.delete("/api/v1/substeps/100", headers=headers).status_code == 200
+    assert (
+        client.get("/api/v1/profile", headers=headers).json()["pinned_substeps"] == []
     )
 
 
@@ -134,9 +260,7 @@ def test_todo_controls_linked_goal_lifecycle(focus_client):
     )
     with factory() as db:
         assert db.query(Goal).filter_by(id=goal["id"]).one().completed is True
-        assert (
-            db.query(Habit).filter_by(focus_goal_id=goal["id"]).one().is_active is False
-        )
+        assert db.query(Habit).filter_by(focus_goal_id=goal["id"]).first() is None
         todo = db.query(Todo).filter_by(id=todo_id).one()
         todo.completed_at = datetime.datetime.now() - datetime.timedelta(days=1)
         xp_after_completion = db.get(User, 1).xp
@@ -160,7 +284,9 @@ def test_deleting_todo_removes_its_goal_and_quest(focus_client):
     todo_id = created.json()["todo"]["id"]
     with factory() as db:
         goal_id = db.query(Goal).filter_by(source_todo_id=todo_id).one().id
-        habit_id = db.query(Habit).filter_by(focus_goal_id=goal_id).one().id
+        # Older todo-linked objectives may still own a historical daily quest.
+        habit = focus_service.create_goal_quest(db, 1, db.get(Goal, goal_id))
+        habit_id = habit.id
         other = Goal(user_id=1, title="Autre objectif")
         exclusive = SubStep(
             user_id=1, title="Exclusive", gold_reward=0, execution_order=1
@@ -192,22 +318,22 @@ def test_deleting_todo_removes_its_goal_and_quest(focus_client):
         assert db.query(SubStep).filter_by(id=shared_id).first() is not None
 
 
-def test_unpin_pauses_goal_quest_and_repin_resumes_it(focus_client):
-    client, _ = focus_client
+def test_legacy_daily_goal_quest_stays_paused_after_repin(focus_client):
+    client, factory = focus_client
     headers = {"X-User-ID": "1"}
     goal_id = client.post(
         "/api/v1/goals", json={"title": "Danse"}, headers=headers
     ).json()["goal"]["id"]
+    with factory() as db:
+        quest = focus_service.create_goal_quest(db, 1, db.get(Goal, goal_id))
+        habit_id = quest.id
+        db.add(HabitLog(user_id=1, habit_id=habit_id, log_type="done"))
+        db.commit()
     assert (
         client.put(
             "/api/v1/profile/pins", json={"pinned_goals": [goal_id]}, headers=headers
         ).status_code
         == 200
-    )
-    habit_id = next(
-        habit["id"]
-        for habit in client.get("/api/v1/habits", headers=headers).json()
-        if habit["focus_goal_id"] == goal_id
     )
     assert (
         client.put(
@@ -215,6 +341,9 @@ def test_unpin_pauses_goal_quest_and_repin_resumes_it(focus_client):
         ).status_code
         == 200
     )
+    with factory() as db:
+        assert db.query(HabitLog).filter_by(habit_id=habit_id).count() == 1
+        assert db.get(Habit, habit_id).is_active is True
     assert (
         client.post(
             "/api/v1/logs",
@@ -235,7 +364,7 @@ def test_unpin_pauses_goal_quest_and_repin_resumes_it(focus_client):
             json={"habit_id": habit_id, "log_type": "done"},
             headers=headers,
         ).status_code
-        == 200
+        == 409
     )
 
 
@@ -357,11 +486,14 @@ def test_only_old_automatic_goal_names_are_normalized(focus_client):
 
 
 def test_linked_quest_rejects_checklist_role_change_archive_and_delete(focus_client):
-    client, _ = focus_client
+    client, factory = focus_client
     headers = {"X-User-ID": "1"}
     goal_id = client.post(
         "/api/v1/goals", json={"title": "Apprendre"}, headers=headers
     ).json()["goal"]["id"]
+    with factory() as db:
+        focus_service.create_goal_quest(db, 1, db.get(Goal, goal_id))
+        db.commit()
     client.put(
         "/api/v1/profile/pins", json={"pinned_goals": [goal_id]}, headers=headers
     )
@@ -470,6 +602,9 @@ def test_existing_linked_checklist_becomes_simple_without_losing_logs(focus_clie
     goal_id = client.post(
         "/api/v1/goals", json={"title": "Automatisation"}, headers=headers
     ).json()["goal"]["id"]
+    with factory() as db:
+        focus_service.create_goal_quest(db, 1, db.get(Goal, goal_id))
+        db.commit()
     client.put(
         "/api/v1/profile/pins", json={"pinned_goals": [goal_id]}, headers=headers
     )
@@ -512,4 +647,4 @@ def test_existing_linked_checklist_becomes_simple_without_losing_logs(focus_clie
     logged = client.post(
         "/api/v1/logs", json={"habit_id": quest_id, "log_type": "done"}, headers=headers
     )
-    assert logged.status_code == 200
+    assert logged.status_code == 409

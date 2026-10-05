@@ -11,7 +11,7 @@ from src.database import seed
 from src.database.models import Goal, Habit, HabitLog, QuestTag, User
 from src.database.session import Base, get_db
 from src.main import app
-from src.services import quest_tag_service, softskill_service
+from src.services import focus_service, quest_tag_service, softskill_service
 from src.services.agenda_service import is_habit_eligible_on_date
 
 HEADERS = {"X-User-ID": "1"}
@@ -65,11 +65,15 @@ def find_quest(client, habit_id):
 
 
 @pytest.mark.parametrize("role", ["goal", "skill"])
-def test_pin_creates_locked_source_tag_without_changing_rpg(linked_client, role):
+def test_skill_pin_and_legacy_goal_keep_locked_tags_without_changing_rpg(
+    linked_client, role
+):
     client, factory, _ = linked_client
     with factory() as db:
         if role == "goal":
             db.add(Goal(id=10, user_id=1, title="Voyager"))
+            db.flush()
+            focus_service.create_goal_quest(db, 1, db.get(Goal, 10))
             db.commit()
     pin = (
         {"pinned_goals": [10]} if role == "goal" else {"pinned_softskills": ["ukulele"]}

@@ -3,6 +3,15 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-04 — feat(recap): choisir trois quêtes de sous-étapes parmi le Top 3
+
+- Le Top 3 conserve trois objectifs prioritaires ; le crayon du Recap permet de sélectionner jusqu'à trois sous-étapes au total, réparties librement (3–0–0, 2–1–0 ou 1–1–1). Les sous-étapes partagées sont dédupliquées, les étapes terminées exclues et la limite est appliquée côté serveur. Le Recap affiche le titre de la sous-étape et ses objectifs parents, avec un accès au bon nœud du graphe.
+- La quête est la sous-étape elle-même : validation uniquement dans Objectifs & Graphes, Or habituel attribué une seule fois, place libérée à la complétion. Aucun log quotidien, streak ou récompense supplémentaire. Retirer un objectif, supprimer ou délier une sous-étape nettoie la sélection ; une étape partagée reste sélectionnée tant qu'un parent est prioritaire.
+- L'épinglage d'un objectif et la création d'un objectif depuis une prime ne génèrent plus de quête quotidienne. Les anciennes quêtes de rôle `goal` sont mises en pause au démarrage et à la sauvegarde des épingles, avec leur historique conservé. Les compétences gardent leurs quêtes quotidiennes ; les primes gardent leur cycle de vie. Réutilisation de `pinned_substeps`, sans changement de schéma ni de payload existant.
+- ADR 003, README, guide agent, wiki et état des specs synchronisés ; assets frontend versionnés. Aucun changement de commande Telegram.
+- Validation : **260 tests backend hors Telegram réussis**, Black sur les fichiers Python touchés, syntaxe JavaScript et diff valides. Chrome headless avec API locale et base temporaire vérifie les trois répartitions, la limite, une étape partagée unique, sauvegarde/rechargement, navigation sans validation, complétion dans le graphe, place libérée, compétence quotidienne, brouillon annulé, sauvegarde refusée, échec du chargement et rendu mobile, sans erreur JavaScript.
+- Instance **Compose locale uniquement** : snapshot SQLite, service `api` seul reconstruit et recréé ; `/health` 200, démarrage sain et ancien rôle `goal` en pause confirmés. Intégrité SQLite OK ; empreintes des logs, progrès quotidiens, scores, streaks, objectifs, sous-étapes, primes, règles No-Todo, templates, placements, bocal et tags identiques avant/après, ainsi que XP/Or/niveau et épingles des objectifs/compétences. Aucun déploiement Pi/prod.
+
 ## 2026-10-04 — fix(front): retirer les badges de tags du Recap Objectifs et Compétences
 
 - Les lignes Objectifs et Compétences du Recap affichent désormais le nom et les boutons de la quête sans badges de tags. La règle CSS devenue inutile est retirée ; le guide Recap et les versions des assets frontend sont mis à jour.

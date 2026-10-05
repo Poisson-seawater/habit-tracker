@@ -135,6 +135,15 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
   versions V1/V2 d'une quête. Ils servent uniquement à l'organisation : ne jamais les brancher sur XP, score, streak,
   complétion, validation ou checklist. Les anciennes quêtes générées sont des archives
   historiques; les désarchiver peut encore les détacher de leur ancienne source.
+- **Quêtes de sous-étapes du Recap** : conserver jusqu'à trois objectifs prioritaires
+  et trois sous-étapes au total, réparties librement entre eux. Réutiliser
+  `users.pinned_substeps` et la complétion du graphe ; ne pas créer de copie dans
+  `habits` ni de validation quotidienne. Terminer une sous-étape dans Objectifs &
+  Graphes donne son Or habituel et libère sa place. Une sous-étape partagée compte
+  une fois et reste sélectionnée tant qu'un objectif parent est prioritaire.
+  L'épinglage et les primes ne créent plus de quêtes quotidiennes d'objectifs ; les
+  anciennes quêtes de rôle `goal` restent en pause avec leur historique conservé.
+  Les compétences gardent leurs quêtes quotidiennes. Voir ADR 003.
 - **log.md — code uniquement** : réserver ce journal aux changements du code du projet
   (implémentations, corrections, migrations, tests et documentation directement liée au
   code). Ne jamais y consigner les opérations sur les données distantes, le coaching, les
