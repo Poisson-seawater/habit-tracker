@@ -10,6 +10,8 @@ Le Recap garde trois types d'actions visibles sans remplir artificiellement le P
 
 Le crayon ouvre les objectifs prioritaires, puis les sous-étapes non terminées de ces objectifs. Coche jusqu'à trois sous-étapes, avec le compteur `0/3` à `3/3`, puis sauvegarde. Les choix restent enregistrés après rechargement. Épingler un objectif seul ne crée aucune quête.
 
+Chaque quête d'objectif a le même bouton « + » que les compétences, à côté de la validation. Il ouvre directement la fiche de sa sous-étape pour consulter ou modifier ses détails, sans quitter le Recap ni terminer la quête. Fermer la fiche sans enregistrer laisse la sous-étape inchangée.
+
 **Valider la quête** termine directement la sous-étape correspondante dans le graphe et libère sa place dans le Recap. La validation donne son Or habituel une seule fois. Tu peux aussi valider la sous-étape dans **Objectifs & Graphes** : les deux boutons utilisent le même état de complétion. Le titre de la quête ouvre le graphe sans valider. Aucun log d'habitude ni streak ne sont ajoutés.
 
 Retirer une sous-étape de la sélection ne la termine pas. Retirer un objectif enlève ses sous-étapes du Recap, sauf celles encore liées à un autre objectif prioritaire. Les sous-étapes terminées ou supprimées sortent de la sélection.

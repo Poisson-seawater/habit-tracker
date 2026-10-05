@@ -3,6 +3,12 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-04 — fix(front): ajouter le bouton + aux quêtes d'objectifs du Recap
+
+- Chaque quête de sous-étape affiche le même bouton **+** que les compétences, à côté de **Valider la quête**. Il ouvre la fiche existante de la sous-étape directement depuis le dashboard. La fiche est montée hors de l'onglet Objectifs pour rester visible ; le parent transmis par le Recap fournit le bon contexte, y compris pour une étape partagée.
+- Le titre conserve la navigation vers le graphe. Wiki Recap et version JavaScript actualisés. Aucun changement backend, DB ou Telegram.
+- Validation locale : syntaxe JavaScript et diff valides. Chrome headless avec réponses API simulées confirme les styles identiques, les détails et parents, l'absence de validation à l'ouverture, l'annulation du brouillon, la sauvegarde adressée à la bonne sous-étape et au bon parent, l'actualisation du Recap, le rechargement, le clavier, le rendu mobile et l'édition depuis le graphe, sans erreur JavaScript. `localhost:5000` sert l'asset `1.0.32` ; `/health` répond 200.
+
 ## 2026-10-04 — fix(recap): valider directement les quêtes de sous-étapes
 
 - Le bouton du Recap affiche **Valider la quête** et termine directement la sous-étape correspondante via la même API que le graphe. Le titre conserve la navigation vers le nœud. Le graphe et le Recap partagent maintenant le même helper de validation : état en cours, protection contre le double clic, message d'erreur permettant de réessayer et traitement d'une étape déjà terminée.

@@ -4182,6 +4182,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const overlay = document.getElementById("drawer-overlay");
     if (!drawer || !overlay) return;
 
+    // The editor can also open from the Recap while the goals tab is hidden.
+    document.body.append(overlay, drawer);
+
     const drawerTitle = document.getElementById("drawer-title");
     const goalSubmitBtn = document.getElementById("goal-submit-btn");
     const editIdInput = document.getElementById("edit-goal-id-input");
@@ -4218,7 +4221,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Find active goal title from sidebar
         const activeGoalEl = document.querySelector(".goal-selector-item.active .goal-selector-title span");
-        const activeGoalTitle = activeGoalEl ? activeGoalEl.textContent.trim().replace(/🎉/g, "").trim() : "Objectif actuel";
+        const activeGoalTitle = goalData?.title || (activeGoalEl ? activeGoalEl.textContent.trim().replace(/🎉/g, "").trim() : "Objectif actuel");
 
         // Active goal badge
         const activeBadge = document.createElement("span");
@@ -8494,13 +8497,26 @@ document.addEventListener("DOMContentLoaded", () => {
     const details = document.createElement("div");
     details.className = "recap-quest-details";
     details.append(name, context);
+    const settings = document.createElement("button");
+    settings.type = "button";
+    settings.className = "recap-quest-settings-btn";
+    settings.textContent = "+";
+    settings.title = `Régler la quête : ${substep.title}`;
+    settings.setAttribute("aria-label", settings.title);
+    settings.addEventListener("click", () => {
+      activeGoalId = parents[0].id;
+      openDrawer("edit-substep", parents[0], substep, parents[0].substeps);
+    });
     const action = document.createElement("button");
     action.type = "button";
     action.className = "recap-claim-btn";
     action.textContent = "Valider la quête";
     action.title = `Terminer la sous-étape : ${substep.title}`;
     action.addEventListener("click", () => validateSubstepQuest(substep.id, action));
-    li.append(details, action);
+    const actions = document.createElement("span");
+    actions.className = "recap-item-actions";
+    actions.append(settings, action);
+    li.append(details, actions);
     list.appendChild(li);
   }
 
