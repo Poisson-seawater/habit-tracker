@@ -2902,10 +2902,6 @@ body {
   max-width: 100%;
 }
 
-.recap-quest-details .quest-tag-badges {
-  margin-top: 0.3rem;
-}
-
 .recap-item.completed .recap-item-text {
   text-decoration: line-through;
   color: var(--text-muted);

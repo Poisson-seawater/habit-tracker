@@ -8435,7 +8435,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const details = document.createElement("div");
     details.className = "recap-quest-details";
     details.appendChild(name);
-    if (habit) appendQuestTagBadges(details, habit.tags);
     li.append(details, actions);
     list.appendChild(li);
   }

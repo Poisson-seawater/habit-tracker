@@ -3,6 +3,11 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-04 — fix(front): retirer les badges de tags du Recap Objectifs et Compétences
+
+- Les lignes Objectifs et Compétences du Recap affichent désormais le nom et les boutons de la quête sans badges de tags. La règle CSS devenue inutile est retirée ; le guide Recap et les versions des assets frontend sont mis à jour.
+- Validation locale : syntaxe JavaScript et `git diff --check` valides. Chrome headless charge le frontend local avec des réponses API simulées contenant des tags : absence des badges dans les deux blocs sur ordinateur, mobile et après rechargement, ouverture du réglage des deux quêtes, boutons Valider actifs et tags toujours présents dans les formulaires, sans erreur JavaScript. Aucun changement backend.
+
 ## 2026-10-04 — fix(front): afficher Rules au-dessus du Tableau des Primes
 
 - La note Rules enregistrée apparaît en texte simple sur le dashboard, juste au-dessus du panneau des Primes. Les retours à la ligne sont conservés, les longues lignes se replient sur mobile et une note vide masque cet affichage. L'onglet Rules conserve l'édition et la sauvegarde explicite.

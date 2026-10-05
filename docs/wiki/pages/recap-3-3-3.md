@@ -14,4 +14,6 @@ Une quête Objectif ou Compétence garde son propre streak et ses récompenses d
 
 Le tag de l'objectif ou de la compétence précise est ajouté automatiquement et imposé par le lien. Les autres tags restent libres. Ces quêtes sont disponibles sur Repos, Régulière et Hustle sans réglage « Types de journée » ; leur fréquence et leur épingle gardent leur rôle habituel.
 
+Les blocs Objectifs et Compétences du Recap affichent le nom et les boutons de la quête sans badges de tags. Les tags restent visibles dans l'agenda et dans le formulaire de la quête.
+
 Le Recap n'affiche plus de sous-étapes à valider. Elles restent dans le graphe des objectifs.
