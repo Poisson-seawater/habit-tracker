@@ -1162,7 +1162,7 @@
         <div style="display: flex; align-items: center; gap: 0.8rem; flex: 1; min-width: 300px;">
           <span style="font-size: 1.5rem; color: var(--accent-yellow);">⚠️</span>
           <div style="font-size: 0.78rem; line-height: 1.4; color: var(--text-secondary);">
-            <strong style="color: var(--accent-yellow);">Règles de Focus 3-3-3</strong> : Vous pouvez avoir jusqu'à <strong>20 objectifs</strong> actifs au total. Choisissez jusqu'à <strong>3 objectifs prioritaires (Top 3)</strong> avec l'étoile (<span style="color: var(--accent-yellow);">★</span>) ou le crayon du Recap, puis <strong>3 sous-étapes au total</strong>, réparties librement entre ces objectifs. Le Recap affiche ces sous-étapes comme quêtes ; validez-les ici dans le graphe pour les terminer et libérer leur place.
+            <strong style="color: var(--accent-yellow);">Règles de Focus 3-3-3</strong> : Vous pouvez avoir jusqu'à <strong>20 objectifs</strong> actifs au total. Choisissez jusqu'à <strong>3 objectifs prioritaires (Top 3)</strong> avec l'étoile (<span style="color: var(--accent-yellow);">★</span>) ou le crayon du Recap, puis <strong>3 sous-étapes au total</strong>, réparties librement entre ces objectifs. Validez une quête directement dans le Recap ou sa sous-étape ici dans le graphe : les deux terminent la même étape et libèrent sa place.
           </div>
         </div>
         <div id="top3-lock-btn-container" style="display: flex; align-items: center; justify-content: flex-end; min-width: 180px;">
@@ -2358,7 +2358,7 @@
 
       <div id="recap-pin-substeps-group">
         <h4 style="margin-top: 0; margin-bottom: 0.8rem; color: var(--accent-cyan); font-size: 1rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.3rem;">⚔️ Quêtes de sous-étapes (<span id="recap-pin-substeps-count">0/3</span>)</h4>
-        <p class="recap-selection-help">Choisissez jusqu'à 3 sous-étapes au total parmi vos objectifs prioritaires. Vous pouvez toutes les choisir dans le même objectif. Validez-les dans Objectifs & Graphes.</p>
+        <p class="recap-selection-help">Choisissez jusqu'à 3 sous-étapes au total parmi vos objectifs prioritaires. Vous pouvez toutes les choisir dans le même objectif. Valider une quête termine sa sous-étape dans le graphe.</p>
         <div id="recap-pin-substeps-list" class="recap-substep-options"></div>
       </div>
 
@@ -2373,7 +2373,7 @@
 
       <!-- Footnote reminder -->
       <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.4; padding: 0.5rem; background: rgba(255,255,255,0.01); border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
-        💡 <em>Retirer une sous-étape de la sélection ne la termine pas. La terminer dans le graphe libère sa place. Les compétences gardent leur validation quotidienne.</em>
+        💡 <em>Retirer une sous-étape de la sélection ne la termine pas. Valider sa quête ou sa sous-étape dans le graphe libère sa place. Les compétences gardent leur validation quotidienne.</em>
       </div>
 
       <div style="display: flex; gap: 0.8rem; margin-top: 1rem;">
@@ -2395,6 +2395,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.30"></script>
+  <script src="js/app.js?v=1.0.31"></script>
 </body>
 </html>

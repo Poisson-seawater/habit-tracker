@@ -31,7 +31,7 @@ Current source of truth for implemented behavior is the code plus `README.md`,
 | `004-habit-streak-calendar/` | `implemented-stale` | Streak/calendar behavior is implemented and tested, but the spec has no `tasks.md`. |
 | `005-reward-shop/` | `implemented-stale` | Reward shop exists in backend, frontend, tests, and bot/docs, but `tasks.md` remains unchecked. |
 | `006-allostasis-rewards/` | `done` | Allostasis daily/weekly rewards implemented; tasks checked. |
-| `007-recap-3-3-3/` | `implemented-stale` | Recap livré. Depuis le 2026-10-04, jusqu'à trois sous-étapes réparties librement entre le Top 3, validées uniquement dans le graphe ; les compétences gardent leurs quêtes quotidiennes. Voir ADR 003 et le wiki, pas l'ancienne checklist. |
+| `007-recap-3-3-3/` | `implemented-stale` | Recap livré. Depuis le 2026-10-04, jusqu'à trois sous-étapes réparties librement entre le Top 3, validées dans le Recap ou le graphe avec le même état de complétion ; les compétences gardent leurs quêtes quotidiennes. Voir ADR 003 et le wiki, pas l'ancienne checklist. |
 | `008-goal-dependency-display/` | `draft` | Incomplete Spec Kit lifecycle: spec/checklist only, no plan/tasks. Validate against current goal-link UI before implementing anything. |
 | `009-perfect-day-agenda/` | `superseded` | Older agenda prototype and 4-template/stat-threshold assumptions. Superseded by specs 010/011 and the current agenda implementation. |
 | `010-perfect-day-redesign/` | `done` | Current effort-budget model: `rest`, `regular`, `hustle`, effort ceilings, rest target, agenda JSON. |
@@ -90,4 +90,4 @@ Current source of truth for implemented behavior is the code plus `README.md`,
   displays possible windows and chosen periods, and My Life in Weeks honors
   chosen periods before placing the remaining substeps automatically.
 
-- Le Recap utilise désormais `pinned_substeps` pour trois quêtes de sous-étapes au total, réparties librement entre les trois objectifs prioritaires. La validation et l'Or viennent uniquement du graphe ; la complétion libère une place. Épingler un objectif ou créer un objectif depuis une prime ne génère plus de quête quotidienne. Les anciennes quêtes de rôle `goal` sont mises en pause au démarrage, avec leur historique conservé. Pas de migration de schéma ; voir `docs/adr/003-recap-substep-quests.md`.
+- Le Recap utilise désormais `pinned_substeps` pour trois quêtes de sous-étapes au total, réparties librement entre les trois objectifs prioritaires. Le bouton Valider la quête du Recap et la validation du graphe terminent la même sous-étape et attribuent son Or habituel une fois ; la complétion libère une place. Épingler un objectif ou créer un objectif depuis une prime ne génère plus de quête quotidienne. Les anciennes quêtes de rôle `goal` sont mises en pause au démarrage, avec leur historique conservé. Pas de migration de schéma ; voir `docs/adr/003-recap-substep-quests.md`.

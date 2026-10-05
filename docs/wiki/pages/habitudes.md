@@ -1,6 +1,6 @@
 # Habitudes (Quêtes)
 
-Les quêtes récurrentes sont des **Must**, socle du [Perfect Day](#/perfect-day), ou des **Compétences** avec une pratique et un streak propres. Épingler une compétence crée sa quête quotidienne liée. Pour les objectifs, le [Recap](#/recap-3-3-3) affiche jusqu'à trois sous-étapes choisies librement parmi le Top 3 : ces quêtes se terminent uniquement dans Objectifs & Graphes, avec leur Or habituel, sans validation quotidienne ni streak. Les anciennes quêtes quotidiennes de rôle Objectif restent en pause avec leur historique conservé.
+Les quêtes récurrentes sont des **Must**, socle du [Perfect Day](#/perfect-day), ou des **Compétences** avec une pratique et un streak propres. Épingler une compétence crée sa quête quotidienne liée. Pour les objectifs, le [Recap](#/recap-3-3-3) affiche jusqu'à trois sous-étapes choisies librement parmi le Top 3 : ces quêtes se terminent avec **Valider la quête** dans le Recap ou dans Objectifs & Graphes, avec leur Or habituel, sans validation quotidienne ni streak. Les anciennes quêtes quotidiennes de rôle Objectif restent en pause avec leur historique conservé.
 
 ## Deux types
 
@@ -32,7 +32,7 @@ Chaque panneau appartient à la personne qui l'a ouvert : un autre membre du gro
 
 Une habitude n'est due que certains jours (tous les jours, ou par ex. lundi + mercredi). Elle peut aussi être associée à un ou plusieurs types de journée : `rest`, `regular` et `hustle`. Les trois sont sélectionnés par défaut, y compris pour les anciennes habitudes.
 
-Le réglage **Types de journée** est réservé aux Must. Les quêtes Compétence sont disponibles dans les trois types de journée, y compris les anciennes quêtes restreintes. Leur fréquence et leur épingle Recap déterminent quand elles sont dues. Les sous-étapes choisies restent visibles jusqu'à leur validation dans le graphe ou leur retrait de la sélection.
+Le réglage **Types de journée** est réservé aux Must. Les quêtes Compétence sont disponibles dans les trois types de journée, y compris les anciennes quêtes restreintes. Leur fréquence et leur épingle Recap déterminent quand elles sont dues. Les sous-étapes choisies restent visibles jusqu'à leur validation dans le Recap ou le graphe, ou leur retrait de la sélection.
 
 Le jour venu, le panneau « Must du jour » et le Perfect Day ne retiennent que les quêtes Must compatibles avec le planning et le type de journée actif. Une quête `hustle` n'apparaît donc pas dans la liste d'un jour `rest` et ne bloque pas son Perfect Day.
 
@@ -84,7 +84,7 @@ Une correction d'hier recalcule la journée concernée, notamment son Perfect Da
 
 ## Exécution séparée des objectifs
 
-Les habitudes récurrentes et les [objectifs](#/objectifs) gardent des validations **séparées** : valider un Must ou une pratique de compétence ne termine aucune sous-étape. Une quête de sous-étape du Recap, elle, est la sous-étape elle-même : seule sa validation dans le graphe la termine. Les tags donnent du contexte sans créer un second état d'accomplissement.
+Les habitudes récurrentes et les [objectifs](#/objectifs) gardent des validations **séparées** : valider un Must ou une pratique de compétence ne termine aucune sous-étape. Une quête de sous-étape du Recap, elle, est la sous-étape elle-même : la valider dans le Recap ou dans le graphe termine la même étape. Les tags donnent du contexte sans créer un second état d'accomplissement.
 
 ## Paliers d'ancrage (30J / 90J)
 

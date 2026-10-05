@@ -3917,6 +3917,42 @@ document.addEventListener("DOMContentLoaded", () => {
   // SCREEN 2: GOALS & SUBSTEPS DAG GRAPH           //
   // ==============================================
   let activeGoalId = null;
+  const substepValidationsInFlight = new Set();
+
+  async function validateSubstepQuest(substepId, button) {
+    const id = Number(substepId);
+    if (substepValidationsInFlight.has(id)) return;
+    substepValidationsInFlight.add(id);
+    const previousLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = "Validation…";
+    button.setAttribute("aria-busy", "true");
+    try {
+      const response = await fetch(`${API_BASE}/substeps/${id}/complete`, { method: "POST" });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Validation bloquée");
+      }
+      const data = await response.json();
+      if (data.status === "already_completed") {
+        showToast("Quête déjà terminée.");
+      } else {
+        showToast(`Quête terminée : +${data.gold_awarded} Or ! 💰`);
+        if (data.completed_goals?.length > 0) {
+          showToast(`OBJECTIF ACCOMPLI : ${data.completed_goals.join(", ")} ! 🏆`);
+        }
+      }
+      refreshAll();
+      await fetchGoals();
+    } catch (error) {
+      showToast(error.message || "Erreur de validation", true);
+    } finally {
+      substepValidationsInFlight.delete(id);
+      button.disabled = false;
+      button.textContent = previousLabel;
+      button.removeAttribute("aria-busy");
+    }
+  }
 
   window.selectGoalById = function(id) {
     activeGoalId = id;
@@ -4643,26 +4679,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Bind Complete button handlers inside the tree
     viewer.querySelectorAll(".action-complete-substep").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const subId = btn.getAttribute("data-id");
-        try {
-          const resp = await fetch(`${API_BASE}/substeps/${subId}/complete`, { method: "POST" });
-          if (!resp.ok) {
-            const err = await resp.json();
-            throw new Error(err.detail || "Validation bloquée");
-          }
-          const data = await resp.json();
-          showToast(`Félicitations ! Étape complétée : +${data.gold_awarded} Gold reçus ! 💰`);
-          if (data.completed_goals.length > 0) {
-            showToast(`OBJECTIF ACCOMPLI ! Arbre entièrement validé : ${data.completed_goals.join(", ")} ! 🏆`);
-          }
-          refreshAll();
-          fetchGoals();
-        } catch (e) {
-          console.error(e);
-          showToast(e.message || "Erreur de validation", true);
-        }
-      });
+      btn.addEventListener("click", () => validateSubstepQuest(btn.dataset.id, btn));
     });
   }
 
@@ -8480,9 +8497,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const action = document.createElement("button");
     action.type = "button";
     action.className = "recap-claim-btn";
-    action.textContent = "Voir le graphe";
-    action.title = "Validez la sous-étape dans Objectifs & Graphes pour terminer cette quête";
-    action.addEventListener("click", openGraph);
+    action.textContent = "Valider la quête";
+    action.title = `Terminer la sous-étape : ${substep.title}`;
+    action.addEventListener("click", () => validateSubstepQuest(substep.id, action));
     li.append(details, action);
     list.appendChild(li);
   }

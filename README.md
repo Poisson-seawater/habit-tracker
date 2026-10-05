@@ -196,7 +196,7 @@ Les quêtes récurrentes ont le rôle **Must** (socle du Perfect Day) ou
 le Recap sélectionne jusqu'à **trois sous-étapes au total**, réparties librement
 entre les trois objectifs prioritaires : trois dans un objectif, deux et une,
 ou une par objectif. Chaque sous-étape sélectionnée devient une quête du Recap,
-validée uniquement dans **Objectifs & Graphes**, avec sa récompense d'Or habituelle.
+validée directement dans le **Recap** ou dans **Objectifs & Graphes**, avec sa récompense d'Or habituelle.
 La terminer libère sa place sans créer de validation quotidienne ni de streak.
 Les anciennes quêtes quotidiennes d'objectifs sont mises en pause en conservant
 leur historique. Une prime peut créer un objectif lié et demeure sa seule

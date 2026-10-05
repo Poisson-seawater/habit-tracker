@@ -18,7 +18,7 @@ Valider manuellement une sous-étape résolue te donne de l'**Or (Gold)**, perso
 
 Tu peux épingler jusqu'à **3 objectifs prioritaires**, puis choisir avec le crayon du [Recap 3-3-3](#/recap-3-3-3) jusqu'à **3 sous-étapes au total**. Répartis-les librement : trois dans le même objectif, deux et une, ou une par objectif. Une sous-étape partagée compte une seule fois.
 
-Ces sous-étapes sont les quêtes affichées dans le Recap, avec leur objectif parent en petit. **Voir le graphe** ouvre la sous-étape ; sa validation se fait uniquement dans **Objectifs & Graphes**. La terminer rapporte son Or habituel, met à jour tous ses objectifs et libère sa place dans le Recap. Retirer une épingle ne termine pas la sous-étape. Les étapes terminées ne sont plus proposées.
+Ces sous-étapes sont les quêtes affichées dans le Recap, avec leur objectif parent en petit. **Valider la quête** termine directement la sous-étape dans le graphe. Tu peux aussi la valider dans **Objectifs & Graphes** ; les deux boutons partagent le même état de complétion. Cliquer le titre de la quête ouvre le graphe sans valider. La terminer rapporte son Or habituel, met à jour tous ses objectifs et libère sa place dans le Recap. Retirer une épingle ne termine pas la sous-étape. Les étapes terminées ne sont plus proposées.
 
 Choisir un objectif seul ne crée aucune quête quotidienne. Les anciennes quêtes quotidiennes d'objectifs sont mises en pause, avec leur historique conservé.
 

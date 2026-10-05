@@ -3,6 +3,12 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-04 — fix(recap): valider directement les quêtes de sous-étapes
+
+- Le bouton du Recap affiche **Valider la quête** et termine directement la sous-étape correspondante via la même API que le graphe. Le titre conserve la navigation vers le nœud. Le graphe et le Recap partagent maintenant le même helper de validation : état en cours, protection contre le double clic, message d'erreur permettant de réessayer et traitement d'une étape déjà terminée.
+- La validation conserve l'Or habituel, la mise à jour des objectifs et la libération de la place dans le Recap. Documentation et consignes corrigées pour refléter les deux points d'entrée ; asset JavaScript versionné. Aucun changement backend, DB ou Telegram.
+- Validation locale : syntaxe JavaScript et `git diff --check` valides. Chrome headless avec API locale et base temporaire confirme validation directe depuis le Recap, état terminé dans le graphe, Or attribué une fois, double clic bloqué, refus réessayable, validation depuis le graphe, sélection/rechargement, compétences et affichage mobile, sans erreur JavaScript. `localhost:5000` sert le nouvel asset et `/health` répond 200.
+
 ## 2026-10-04 — feat(recap): choisir trois quêtes de sous-étapes parmi le Top 3
 
 - Le Top 3 conserve trois objectifs prioritaires ; le crayon du Recap permet de sélectionner jusqu'à trois sous-étapes au total, réparties librement (3–0–0, 2–1–0 ou 1–1–1). Les sous-étapes partagées sont dédupliquées, les étapes terminées exclues et la limite est appliquée côté serveur. Le Recap affiche le titre de la sous-étape et ses objectifs parents, avec un accès au bon nœud du graphe.

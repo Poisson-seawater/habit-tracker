@@ -9,10 +9,12 @@ trois sous-étapes non terminées, réparties librement entre ces objectifs. Une
 sous-étape partagée compte une seule fois.
 
 Une quête de sous-étape est la sous-étape sélectionnée elle-même, sans copie dans
-`habits`. Sa seule validation est `POST /substeps/{id}/complete`, depuis Objectifs
-& Graphes. Cette action conserve la récompense d'Or existante et libère sa place
-dans `users.pinned_substeps`. Aucun log quotidien, streak ou bonus supplémentaire
-n'est créé. Le Recap ouvre le graphe sans valider.
+`habits`. Sa seule validation est `POST /substeps/{id}/complete`, depuis le bouton
+**Valider la quête** du Recap ou depuis Objectifs & Graphes. Cette action conserve
+la récompense d'Or existante et libère sa place dans `users.pinned_substeps`.
+Aucun log quotidien, streak ou bonus supplémentaire
+n'est créé. Le titre de la quête ouvre le graphe sans valider ; le bouton termine
+la sous-étape et la quête simultanément.
 
 Les colonnes et payloads existants `pinned_goals` / `pinned_substeps` suffisent ;
 aucun changement de schéma. Le serveur applique la limite globale et filtre les

@@ -139,8 +139,9 @@ ops/db/                # admin DB côté hôte (snapshots, restore)
   et trois sous-étapes au total, réparties librement entre eux. Réutiliser
   `users.pinned_substeps` et la complétion du graphe ; ne pas créer de copie dans
   `habits` ni de validation quotidienne. Terminer une sous-étape dans Objectifs &
-  Graphes donne son Or habituel et libère sa place. Une sous-étape partagée compte
-  une fois et reste sélectionnée tant qu'un objectif parent est prioritaire.
+  Graphes, ou valider sa quête dans le Recap, donne son Or habituel et libère sa
+  place. Une sous-étape partagée compte une fois et reste sélectionnée tant qu'un
+  objectif parent est prioritaire.
   L'épinglage et les primes ne créent plus de quêtes quotidiennes d'objectifs ; les
   anciennes quêtes de rôle `goal` restent en pause avec leur historique conservé.
   Les compétences gardent leurs quêtes quotidiennes. Voir ADR 003.

@@ -4,7 +4,7 @@
 
 ## Contexte vérifié
 
-- Les quêtes récurrentes ont le rôle `must` ou `skill` ; le rôle `goal` reste compatible pour l'historique, en pause. Épingler une compétence crée sa quête quotidienne. Le Recap des objectifs utilise trois sous-étapes sélectionnées parmi le Top 3, validées uniquement dans le graphe (ADR 003). Les règles de tags Objectif ci-dessous concernent les anciennes quêtes quotidiennes.
+- Les quêtes récurrentes ont le rôle `must` ou `skill` ; le rôle `goal` reste compatible pour l'historique, en pause. Épingler une compétence crée sa quête quotidienne. Le Recap des objectifs utilise trois sous-étapes sélectionnées parmi le Top 3, validées directement dans le Recap ou dans le graphe avec le même état de complétion (ADR 003). Les règles de tags Objectif ci-dessous concernent les anciennes quêtes quotidiennes.
 - Les tags existants pointent vers un **objectif** ou une **branche de compétences**. Ils sont actuellement choisis dans un menu du formulaire. Un tag n'est pas un lien de validation : il ne donne ni XP, ni score, ni accomplissement de l'objectif ou de la compétence.
 - Le formulaire de quête expose actuellement « Types de journée » pour tous les rôles. Les quêtes liées créées automatiquement sont initialisées pour Repos, Régulière et Hustle.
 - Une carte « Must du jour » affiche la description lorsqu'elle existe. La durée prévue est déjà enregistrée sur la quête, mais n'est pas affichée à côté de cette description.
