@@ -3,6 +3,28 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-10 — docs(review): consigner la copie de démonstration nettoyée
+
+- Copie de partage développée dans `../habit-tracker-review`, branche `review` :
+  dashboard local et données fictives idempotentes, avec premier mot de passe
+  choisi par le testeur et code de bootstrap aléatoire non versionné.
+- Retrait dans cette copie des intégrations Google, du stockage/protection des
+  tokens, du bot, des notifications sortantes, de la télécommande, des anciens
+  déploiements, des archives et des références personnelles. Documentation locale,
+  configuration d'exemple et index des commandes réécrits pour la démo.
+- Historique de la copie remplacé par un commit initial nettoyé. Audit d'un nouveau
+  clone : 74 fichiers, aucune correspondance avec les sept valeurs sensibles
+  contrôlées, aucun secret détecté par Gitleaks.
+- Validations de livraison déjà réalisées dans la copie : 228 tests backend,
+  parcours Chrome sur ordinateur/mobile sans requête externe ni erreur, syntaxe
+  frontend et intégrité SQLite/clés étrangères. Aucun test fonctionnel relancé pour
+  cette mise à jour documentaire.
+- Le code et la configuration de l'instance réelle conservent leur implémentation
+  Google historique en XOR/Base64 ; un chiffrement fiable et une nouvelle clé
+  privée sont requis avant une future reconnexion. Cette correction reste à faire.
+- Détail du code de démonstration dans `../habit-tracker-review/log.md` ; suivi
+  opérationnel privé dans `.git/info/review-sharing-status.md`, hors versionnement.
+
 ## 2026-10-04 — fix(front): ajouter le bouton + aux quêtes d'objectifs du Recap
 
 - Chaque quête de sous-étape affiche le même bouton **+** que les compétences, à côté de **Valider la quête**. Il ouvre la fiche existante de la sous-étape directement depuis le dashboard. La fiche est montée hors de l'onglet Objectifs pour rester visible ; le parent transmis par le Recap fournit le bon contexte, y compris pour une étape partagée.
