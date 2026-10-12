@@ -3473,6 +3473,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // BOUNTIES (TODOS / PRIMES)                     //
   // ==============================================
   let activeEditBounty = null;
+  const bountyClaimsInFlight = new Set();
 
   async function fetchBounties() {
     try {
@@ -3571,7 +3572,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!b.is_completed) {
           const btn = item.querySelector(".substep-btn-check");
-          btn.addEventListener("click", () => claimBounty(b.id));
+          btn.addEventListener("click", () => claimBounty(b.id, btn));
         }
 
         container.appendChild(item);
@@ -3713,11 +3714,22 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 
-  async function claimBounty(id) {
+  async function claimBounty(id, button) {
+    if (bountyClaimsInFlight.has(id)) return;
+    bountyClaimsInFlight.add(id);
+    const previousLabel = button?.textContent;
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Validation…";
+      button.setAttribute("aria-busy", "true");
+    }
+    let completed = false;
     try {
       const response = await fetch(`${API_BASE}/todos/${id}/complete`, { method: "POST" });
       if (!response.ok) throw new Error("Erreur claim bounty");
       const data = await response.json();
+      completed = true;
+      if (button) button.textContent = "✓ Réclamée";
 
       showToast(`Prime réclamée avec succès ! +${data.xp_rewarded} XP ! 🎉`);
       if (data.levels_gained > 0) {
@@ -3727,6 +3739,15 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error(error);
       showToast("Erreur lors de la réclamation", true);
+    } finally {
+      bountyClaimsInFlight.delete(id);
+      if (button) {
+        button.removeAttribute("aria-busy");
+        if (!completed) {
+          button.disabled = false;
+          button.textContent = previousLabel;
+        }
+      }
     }
   }
 
@@ -3780,7 +3801,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       showToast("Prime mise à jour.");
       closeEditBountyModal();
-      fetchBounties();
+      refreshAll();
     } catch (error) {
       console.error(error);
       showToast(error.message || "Erreur lors de la modification de la prime", true);
@@ -8520,6 +8541,45 @@ document.addEventListener("DOMContentLoaded", () => {
     list.appendChild(li);
   }
 
+  function renderTodoRecapRow(list, goal, todo) {
+    const li = document.createElement("li");
+    li.className = "recap-item";
+    li.dataset.todoId = todo.id;
+    const name = document.createElement("button");
+    name.type = "button";
+    name.className = "recap-item-text";
+    name.textContent = todo.title;
+    name.title = "Ouvrir cet objectif dans Objectifs & Graphes";
+    name.addEventListener("click", () => {
+      activeGoalId = goal.id;
+      document.querySelector('.nav-tab[data-tab="goals-tab"]').click();
+    });
+    const context = document.createElement("small");
+    context.className = "recap-substep-parent";
+    context.textContent = `To-do liée · +${todo.xp_reward} XP`;
+    const details = document.createElement("div");
+    details.className = "recap-quest-details";
+    details.append(name, context);
+    const settings = document.createElement("button");
+    settings.type = "button";
+    settings.className = "recap-quest-settings-btn";
+    settings.textContent = "+";
+    settings.title = `Modifier la to-do : ${todo.title}`;
+    settings.setAttribute("aria-label", settings.title);
+    settings.addEventListener("click", () => openEditBountyModal(todo));
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "recap-claim-btn";
+    action.textContent = "Valider la to-do";
+    action.title = "Terminer la to-do et son objectif lié";
+    action.addEventListener("click", () => claimBounty(todo.id, action));
+    const actions = document.createElement("span");
+    actions.className = "recap-item-actions";
+    actions.append(settings, action);
+    li.append(details, actions);
+    list.appendChild(li);
+  }
+
   // Render the recap panel content
   function renderFocusRecapRow(list, title, habit, role, targetId) {
     const li = document.createElement("li");
@@ -8584,13 +8644,27 @@ document.addEventListener("DOMContentLoaded", () => {
     // 1. Render Goals
     try {
       const goalsResp = await fetch(`${API_BASE}/goals`);
+      if (!goalsResp.ok) throw new Error("Erreur de chargement des objectifs");
       const goals = await goalsResp.json();
+      const todoGoals = goals.filter(goal => (
+        goal.source_todo_id && !goal.completed && pinnedGoals.includes(goal.id)
+      ));
+      let todos = [];
+      if (todoGoals.length) {
+        const todosResp = await fetch(`${API_BASE}/todos`);
+        if (!todosResp.ok) throw new Error("Erreur de chargement des to-dos liées");
+        todos = await todosResp.json();
+      }
       goalsList.innerHTML = "";
 
       collectRecapSubsteps(goals)
         .filter(item => pinnedSubsteps.includes(item.substep.id) && !item.substep.completed)
         .slice(0, 3)
         .forEach(item => renderSubstepRecapRow(goalsList, item));
+      todoGoals.forEach(goal => {
+        const todo = todos.find(item => item.id === goal.source_todo_id && !item.is_completed);
+        if (todo) renderTodoRecapRow(goalsList, goal, todo);
+      });
       if (!goalsList.children.length) goalsList.innerHTML = `<li class="recap-list-placeholder">Aucune quête sélectionnée. Choisissez jusqu'à 3 sous-étapes avec le crayon.</li>`;
     } catch (err) {
       goalsList.innerHTML = `<li class="recap-list-placeholder" style="font-size: 0.8rem; color: var(--accent-red);">Erreur objectifs.</li>`;

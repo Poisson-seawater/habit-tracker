@@ -3,6 +3,12 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-12 — fix(front): afficher les to-dos liées dans le Recap Objectifs
+
+- Une to-do créée ou fixée comme objectif était bien présente dans le Top 3 et le graphe, mais absente du Recap depuis le passage aux quêtes de sous-étapes. Les to-dos liées aux objectifs prioritaires s'affichent maintenant automatiquement, même sans sous-étape et même avec une date future, en plus des trois sous-étapes sélectionnées.
+- Le titre ouvre l'objectif dans le graphe, « + » ouvre la fiche de la prime et « Valider la to-do » réutilise la validation du Tableau des Primes. Un double clic est bloqué pendant la requête ; un refus permet de réessayer. Modifier une prime actualise aussi son titre dans le Recap. Aucun changement backend, de schéma DB, de contrat API ou Telegram.
+- Wiki Recap et Primes synchronisé ; asset JavaScript passé à `1.0.33`. Validation : 17 tests backend ciblés réussis, syntaxe JavaScript et diff valides. Chrome headless avec API locale et base temporaire (statut de connexion simulé uniquement) vérifie création et liaison d'une prime existante, rechargement, trois sous-étapes conservées, navigation sans validation, édition/annulation, refus réessayable, double clic, XP attribués une fois, libération du Top 3, validation depuis les deux points d'entrée, suppression, compte distinct et rendu mobile à 375 px, sans erreur JavaScript. `localhost:5000` sert le nouvel asset et `/health` répond 200.
+
 ## 2026-10-10 — docs(review): consigner la copie de démonstration nettoyée
 
 - Copie de partage développée dans `../habit-tracker-review`, branche `review` :

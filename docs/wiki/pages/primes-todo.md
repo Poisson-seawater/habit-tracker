@@ -2,9 +2,9 @@
 
 Une prime, c'est une tâche pour aujourd'hui seulement. Quand tu la coches, elle te rapporte de l'XP direct.
 
-Depuis le dashboard, « Créer un objectif lié » ajoute cette prime aux objectifs du moment et crée une quête quotidienne « Travailler sur : … ». Si le Top 3 est plein, choisis l'objectif à remplacer. Le titre et les dates de l'objectif suivent ceux de la prime. Tu peux renommer la quête de pratique sans modifier la prime.
+Depuis le dashboard, « Créer un objectif lié » ajoute cette prime aux objectifs du moment et l'affiche automatiquement dans le bloc Objectifs du [Recap](#/recap-3-3-3), sans créer de quête quotidienne ni prendre une place de sous-étape. Si le Top 3 est plein, choisis l'objectif à remplacer. Le titre et les dates de l'objectif suivent ceux de la prime. Le bouton « + » du Recap ouvre la fiche de la prime.
 
-La prime reste la seule validation finale : la cocher termine l'objectif et retire sa quête du Recap. Supprimer la prime supprime aussi son objectif et sa quête liés. Une prime terminée reste enregistrée jusqu'au nettoyage du lendemain, qui supprime également l'objectif lié ; les XP déjà gagnés restent acquis.
+La prime reste la seule validation finale : **Réclamer** au Tableau des Primes ou **Valider la to-do** dans le Recap termine la même prime et son objectif, donne les XP habituels une seule fois et libère la place du Top 3. Supprimer la prime supprime aussi son objectif et ses anciennes quêtes liées éventuelles. Une prime terminée reste enregistrée jusqu'au nettoyage du lendemain, qui supprime également l'objectif lié ; les XP déjà gagnés restent acquis.
 
 ## Différence avec les habitudes
 

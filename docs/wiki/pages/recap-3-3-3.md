@@ -16,6 +16,8 @@ Chaque quête d'objectif a le même bouton « + » que les compétences, à côt
 
 Retirer une sous-étape de la sélection ne la termine pas. Retirer un objectif enlève ses sous-étapes du Recap, sauf celles encore liées à un autre objectif prioritaire. Les sous-étapes terminées ou supprimées sortent de la sélection.
 
+Une **to-do liée à un objectif prioritaire apparaît automatiquement dans le bloc Objectifs**, même sans sous-étape et même si elle est planifiée pour plus tard. Elle ne prend aucune des trois places de sous-étapes. Le titre ouvre son objectif dans le graphe, « + » ouvre la fiche de la prime et **Valider la to-do** utilise la même validation que **Réclamer** dans le Tableau des Primes : XP habituels une seule fois, objectif terminé et place du Top 3 libérée. Son titre et ses dates restent gérés depuis la prime ; la renommer actualise aussi le Recap.
+
 Les anciennes quêtes quotidiennes d'objectifs restent en pause avec leur historique conservé. Un objectif créé par une to-do garde son cycle de vie : sa place dans le Top 3 est libérée quand la to-do est terminée ou supprimée ; il ne crée plus de quête quotidienne.
 
 ## Compétences
