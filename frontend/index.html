@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=25">
+  <link rel="stylesheet" href="css/style.css?v=26">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -1380,50 +1380,37 @@
           <div>
             <p class="life-weeks-eyebrow">Les gros cailloux d'abord</p>
             <h2 id="jar-title">Jar of Life</h2>
-            <p>Choisis les blocs que tu peux piloter. Protège ce qui compte, et garde de la marge.</p>
-          </div>
-          <div class="jar-week-controls">
-            <button type="button" id="jar-prev">← Semaine précédente</button>
-            <strong id="jar-week-label"></strong>
-            <button type="button" id="jar-today">Cette semaine</button>
-            <button type="button" id="jar-next">Semaine suivante →</button>
+            <p>Un template pour prendre du recul sur ce qui compte et la place que tu lui laisses.</p>
           </div>
         </div>
-        <p id="jar-status" role="status" aria-live="polite"></p>
-        <div id="jar-summary" class="jar-summary" aria-live="polite"></div>
-        <div class="jar-layout">
-          <div>
-            <h3>Ta semaine</h3>
-            <p class="jar-hint">Un bloc = un focus dominant, pas une durée exacte. Coche un bloc disponible, puis choisis ce qui y aura sa place.</p>
-            <div id="jar-grid" class="jar-grid"></div>
-            <button type="button" id="jar-save" class="quest-action-btn">Enregistrer la semaine</button>
-          </div>
-          <aside class="jar-sidebar">
-            <section>
-              <h3>Ce qui entre dans le bocal</h3>
-              <form id="jar-add-form" class="jar-add-form">
-                <label for="jar-item-title">Nouvelle intention
-                  <input id="jar-item-title" type="text" maxlength="120" placeholder="Ex. Voir un ami" required>
-                </label>
-                <label for="jar-item-category">Taille
-                  <select id="jar-item-category">
-                    <option value="rock">Gros caillou</option>
-                    <option value="pebble">Galet</option>
-                    <option value="sand">Sable</option>
-                  </select>
-                </label>
-                <button type="submit">Ajouter</button>
-              </form>
-              <p class="jar-hint">Jusqu'à trois gros cailloux. Ils peuvent occuper plusieurs blocs.</p>
-              <div id="jar-items" class="jar-items"></div>
-            </section>
-            <section>
-              <h3>Actions déjà prévues</h3>
-              <p class="jar-hint">Quêtes de la semaine et To-dos avec un jour de travail. Ajouter une action ici ne change ni sa date ni sa validation.</p>
-              <div id="jar-candidates" class="jar-candidates"></div>
-            </section>
-          </aside>
+        <h3 class="jar-template-title">Ce qui entre dans le bocal</h3>
+        <div class="jar-template">
+          <section class="jar-layer jar-layer-rock">
+            <h4>Gros cailloux</h4>
+            <p>Ce qui compte profondément et donne une direction à ta vie.</p>
+            <p class="jar-examples">Santé, relations, projets qui te tiennent à cœur.</p>
+            <p class="jar-question">Qu'est-ce que tu veux garder au centre ?</p>
+          </section>
+          <section class="jar-layer">
+            <h4>Galets</h4>
+            <p>Les obligations et les routines qui soutiennent ton quotidien.</p>
+            <p class="jar-examples">Travail, entretien de la maison, organisation.</p>
+            <p class="jar-question">Qu'est-ce qui a besoin d'une place autour ?</p>
+          </section>
+          <section class="jar-layer">
+            <h4>Sable</h4>
+            <p>Les petites tâches et sollicitations qui remplissent facilement l'espace.</p>
+            <p class="jar-examples">Messages, petites demandes, détails à régler.</p>
+            <p class="jar-question">Qu'est-ce qui prend trop de place ?</p>
+          </section>
+          <section class="jar-layer jar-layer-margin">
+            <h4>Marge</h4>
+            <p>L'espace que tu laisses pour respirer et accueillir ce qui arrive.</p>
+            <p class="jar-examples">Repos, spontanéité, imprévus.</p>
+            <p class="jar-question">Où peux-tu laisser de l'espace libre ?</p>
+          </section>
         </div>
+        <p class="jar-principle">Les gros cailloux d'abord, les galets autour, le sable dans les interstices. Garde de la marge.</p>
       </div>
     </section>
 
@@ -2395,6 +2382,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.33"></script>
+  <script src="js/app.js?v=1.0.34"></script>
 </body>
 </html>

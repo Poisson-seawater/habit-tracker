@@ -3,6 +3,12 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-12 — fix(front): ramener Jar of Life à une vision d'ensemble
+
+- Retrait complet du planning « Ta semaine » : navigation datée, grille matin/après-midi/soir, compteurs, enregistrement et import de quêtes/To-dos. L'onglet Bocal devient un template général avec quatre repères : gros cailloux, galets, sable et marge, accompagnés d'exemples et de questions de recul.
+- Suppression du JavaScript et des styles du planning hebdomadaire. Les anciennes routes et données restent conservées pour compatibilité ; le Bocal ne les appelle plus. README, wiki et état des specs synchronisés ; assets CSS/JavaScript passés à `26` / `1.0.34`.
+- Validation : syntaxe JavaScript et diff valides, Chrome headless sur API locale avec base temporaire (statut de connexion simulé uniquement). Les quatre repères restent visibles à 1280 et 375 px, sans débordement, planning ou formulaire ; navigation et rechargement sans requête Jar, mutation ou erreur JavaScript. L'instance `localhost:5000` sert les nouveaux assets et répond à `/health`.
+
 ## 2026-10-12 — fix(front): afficher les to-dos liées dans le Recap Objectifs
 
 - Une to-do créée ou fixée comme objectif était bien présente dans le Top 3 et le graphe, mais absente du Recap depuis le passage aux quêtes de sous-étapes. Les to-dos liées aux objectifs prioritaires s'affichent maintenant automatiquement, même sans sous-étape et même avec une date future, en plus des trois sous-étapes sélectionnées.

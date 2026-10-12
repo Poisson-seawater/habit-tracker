@@ -62,9 +62,6 @@ dimanche; la quatrième retire le Hustle Day. Le bouton **Feel off today** trans
 exceptionnellement aujourd'hui en Rest Day et permet ensuite de revenir au planning.
 
 ## NEXT ACTIONS
-- **Tester le Jar of Life sur une vraie semaine.** Choisir jusqu'à trois gros
-  cailloux, leur réserver des blocs disponibles, puis observer si cette vue aide
-  à reporter ou réduire le sable. Garder les blocs libres comme marge réelle.
 - Pour objectifs "Social" j'ai plusieurs reflexe a prendre - comme routine avant de sortir de la maison. Des objectifs: parler a plusieurs inconnues. Et des options: bibliotheques, bars, meet up etc ... . Trouver un systeme pour les ranger visuellement dans le tableau de bord
 - Rédiger une description claire de l'application, centrée sur le parcours utilisateur, l'expérience vécue et les grandes intentions de design (sans code ni détails techniques). Décrire notamment l'utilisateur et son besoin, le parcours quotidien de la planification à la validation, les moments clés du dashboard et du bot, ainsi que les principes UX recherchés : clarté, motivation, responsabilité et absence de surcharge.
 
@@ -273,32 +270,26 @@ Google des primes datées continue séparément.
 
 ### Done — The Jar of Life, les gros cailloux d'abord
 
-Une vue hebdomadaire d'allocation de l'attention, inspirée de
+Un template de vision d'ensemble, inspiré de
 [The Jar of Life: First Things First](https://balancedaction.me/2012/10/17/the-jar-of-life-first-things-first/).
-L'onglet **Bocal** rend visible ce qui entre dans la capacité volontairement
-disponible de la semaine. Celle-ci se lit en blocs **matin / après-midi / soir**,
-du lundi au dimanche. L'utilisateur coche lui-même les blocs qu'il peut piloter :
+L'onglet **Bocal** aide à prendre du recul sur ce qui compte et la place que tu
+lui laisses dans ta vie, avec quatre repères :
 
-- les **gros cailloux** : jusqu'à 3 priorités choisies (santé, relation,
-  projet décisif) et leurs créneaux protégés ;
+- les **gros cailloux** : ce qui donne une direction (santé, relations,
+  projets qui te tiennent à cœur) ;
 - les **galets** : obligations et routines importantes ;
 - le **sable** : petites tâches, administration et demandes opportunistes ;
-- l'espace restant : repos, social, imprévu et marge — pas une ressource à
-  remplir à 100 %.
+- la **marge** : repos, spontanéité et imprévus.
 
-La vue propose les quêtes prévues et les To-dos avec un jour de travail, puis
-laisse l'utilisateur classer explicitement ses priorités. Une intention libre
-est aussi possible. Chaque bloc a un focus dominant et peut rester vide. Le
-plan est enregistré par utilisateur et par semaine, sans modifier les actions
-sources, le Home, Google Calendar ou le score. La vue ne déduit pas
-l'importance depuis les XP, les tags ou le nombre de validations. Son test de
-réussite reste concret : les gros cailloux ont une place avant que le sable ne
-prenne toute la semaine. Voir [le guide du Bocal](docs/wiki/pages/jar-of-life.md).
+Le principe : les gros cailloux d'abord, les galets autour, le sable dans les
+interstices, en gardant de la marge. Le template ne contient ni planning
+hebdomadaire, ni import d'actions datées, ni objectifs chiffrés ou suivi de
+complétion. Voir [le guide du Bocal](docs/wiki/pages/jar-of-life.md).
 
 Le compteur auxiliaire déjà disponible sur une quête reste l'outil pour les
 répétitions (« 25/100 appels », « 7/10 expositions »). Il ne faut pas le
-confondre avec le Jar of Life, qui est une visualisation de priorités et de
-capacité, pas un bocal de reps.
+confondre avec le Jar of Life, qui donne une perspective générale sur les
+priorités.
 
 ### Next — préparer des actions mieux reliées
 

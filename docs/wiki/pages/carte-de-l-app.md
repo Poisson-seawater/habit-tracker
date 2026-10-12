@@ -15,7 +15,7 @@ Tout ce que l'app sait faire, sur une seule page. Chaque fonction vient avec un 
 
 | Fonction | Ce qu'elle doit faire | Pour vérifier | Détail |
 |---|---|---|---|
-| Jar of Life | Réserver des blocs disponibles à trois priorités maximum, avec galets, sable et marge | Coche un bloc, ajoute un gros caillou, place-le, enregistre puis recharge : le bloc reste réservé | [Jar of Life](#/jar-of-life) |
+| Jar of Life | Donner une vision d'ensemble avec gros cailloux, galets, sable et marge | Ouvre Bocal : les quatre repères sont visibles, sans planning ni suivi à remplir | [Jar of Life](#/jar-of-life) |
 
 ## 🏆 Objectifs & Graphes
 
