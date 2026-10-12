@@ -3,6 +3,18 @@
 Le Bocal est un **template de vision d'ensemble** : il aide à prendre du recul
 sur ce qui compte et sur la place que tu lui laisses dans ta vie.
 
+## Remplir ton bocal
+
+1. Ouvre **🫙 Bocal** : tes choix enregistrés sont chargés.
+2. Écris ton élément et choisis sa place : **gros caillou**, **galet** ou **sable**.
+3. Clique **Ajouter**. Tu choisis librement ce que tu mets dans le bocal.
+4. Modifie un nom directement dans sa carte, change sa catégorie ou retire-le avec **×**.
+5. Clique **Enregistrer mon bocal** pour retrouver tes choix sur tes autres appareils.
+
+Le bocal est permanent et lié à ton compte. Il ne se vide pas quand la semaine
+change. À la première ouverture, il reprend les éléments de ton dernier bocal
+hebdomadaire enregistré, s'il y en avait un.
+
 ## Lire le template
 
 Ouvre **🫙 Bocal** pour retrouver quatre repères :
@@ -22,6 +34,6 @@ La marge fait partie du bocal.
 ## Une vue de recul
 
 Le template reste général : aucun planning hebdomadaire, créneau à remplir,
-objectif chiffré ou suivi de complétion. Il ne propose pas d'importer des quêtes
-ou des To-dos et ne demande rien à enregistrer. Les actions précises et leur
-suivi se trouvent dans les onglets Quêtes, Objectifs et Primes.
+objectif chiffré ou suivi de complétion. Tu y enregistres tes propres éléments,
+sans import d'actions datées. Les actions précises et leur suivi se trouvent
+dans les onglets Quêtes, Objectifs et Primes.

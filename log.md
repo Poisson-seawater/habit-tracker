@@ -3,6 +3,13 @@
 > Journal réservé aux changements de code, anti-chronologique. Ne pas y consigner les opérations distantes, le coaching ou les données personnelles.
 > Format : date, résumé `type(scope): description`, ce qui a changé, docs touchés.
 
+## 2026-10-12 — fix(jar): rétablir les choix dans un bocal personnel permanent
+
+- Le template de vision d'ensemble redevient modifiable : ajouter ses propres éléments, renommer, classer en gros caillou/galet/sable, retirer et enregistrer. La navigation hebdomadaire, les créneaux, compteurs et validations restent retirés.
+- Ajout compatible de `GET`/`PUT /api/v1/jar-of-life/template` avec sauvegarde par compte. Une clé réservée dans la table v36 existante stocke le bocal permanent, sans changement de schéma ; les derniers choix hebdomadaires sont repris à la première ouverture et l'historique reste intact. Un bocal vidé ne récupère pas à nouveau les anciens choix.
+- Les changements non enregistrés restent présents lors d'un changement d'onglet ou d'un échec de sauvegarde. Le changement de profil efface le brouillon et invalide les réponses en cours pour séparer les comptes. README, wiki et état des specs synchronisés ; assets CSS/JavaScript `27` / `1.0.35`.
+- Validation : 49 tests ciblés Jar/auth/télécommande réussis, syntaxe JavaScript et diff valides. Chrome headless sur API locale et base temporaire (statut de connexion simulé) vérifie reprise de l'historique, ajout avec caractères HTML littéraux, renommage, reclassement, retrait, sauvegarde/rechargement, brouillon entre onglets, refus réessayable, séparation après changement de profil et rendu à 1280/375 px sans débordement. Aucune erreur JavaScript lors du parcours de changement de compte. API Docker locale reconstruite et recréée seule ; démarrage sans erreur, données existantes préservées, `/health` 200, nouvelle route présente dans OpenAPI et accès anonyme refusé en 401.
+
 ## 2026-10-12 — fix(front): ramener Jar of Life à une vision d'ensemble
 
 - Retrait complet du planning « Ta semaine » : navigation datée, grille matin/après-midi/soir, compteurs, enregistrement et import de quêtes/To-dos. L'onglet Bocal devient un template général avec quatre repères : gros cailloux, galets, sable et marge, accompagnés d'exemples et de questions de recul.

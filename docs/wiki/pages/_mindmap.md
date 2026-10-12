@@ -31,7 +31,7 @@ markmap:
 ### [Ma vie en semaines](index.html#/vie-en-semaines)
 - grille de perspective, sans score ni date prédite
 ### [Jar of Life](index.html#/jar-of-life)
-- template de vision d'ensemble : gros cailloux, galets, sable et marge
+- bocal personnel et permanent : choisir ses gros cailloux, galets et sable, garder de la marge
 ### [Softskills](index.html#/softskills)
 - arbre de compétences + test de succès
 ### [Recap 3-3-3](index.html#/recap-3-3-3)

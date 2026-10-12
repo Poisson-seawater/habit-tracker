@@ -9,6 +9,7 @@ from src.database.models import Habit, JarWeek, Todo, User
 from src.database.session import Base, get_db
 from src.main import app
 from src.database import seed
+from src.services import jar_service
 
 
 WEEK = "2026-09-28"
@@ -199,3 +200,70 @@ def test_v36_creates_missing_table_idempotently(tmp_path, monkeypatch):
         column["name"] for column in inspect(engine).get_columns("jar_weeks")
     }
     engine.dispose()
+
+
+def test_template_is_permanent_per_user_and_preserves_weekly_history(jar_db):
+    client, session_factory = jar_db
+    endpoint = "/api/v1/jar-of-life/template"
+    assert client.get(endpoint, headers=HEADERS_1).json()["items"] == []
+    with session_factory() as db:
+        db.add(
+            JarWeek(
+                user_id=1,
+                week_start=datetime.date(2026, 9, 28),
+                items=[{"id": "health", "title": "Santé", "category": "rock"}],
+                available_blocks=["0-morning"],
+                placements={"0-morning": "health"},
+            )
+        )
+        db.commit()
+    assert (
+        client.get(endpoint, headers=HEADERS_1).json()["items"][0]["title"] == "Santé"
+    )
+    items = [
+        {"id": str(index), "title": f"Choix {index}", "category": "rock"}
+        for index in range(4)
+    ]
+    saved = client.put(endpoint, json={"items": items}, headers=HEADERS_1)
+    assert saved.status_code == 200, saved.text
+    assert set(saved.json()) == {"items", "updated_at"}
+    assert len(saved.json()["items"]) == 4
+    assert client.get(endpoint, headers=HEADERS_2).json()["items"] == []
+    assert client.get(endpoint, headers=HEADERS_1).json() == saved.json()
+    assert (
+        client.put(endpoint, json={"items": []}, headers=HEADERS_1).status_code == 200
+    )
+    assert client.get(endpoint, headers=HEADERS_1).json()["items"] == []
+    with session_factory() as db:
+        history = (
+            db.query(JarWeek).filter_by(week_start=datetime.date(2026, 9, 28)).one()
+        )
+        assert history.items[0]["title"] == "Santé"
+        assert history.placements == {"0-morning": "health"}
+        assert (
+            db.query(JarWeek).filter_by(week_start=jar_service.TEMPLATE_KEY).count()
+            == 1
+        )
+        assert (
+            db.query(Todo).filter_by(user_id=1, title="Rendez-vous").one().is_completed
+            is False
+        )
+
+
+def test_template_rejects_duplicates_and_foreign_sources(jar_db):
+    client, session_factory = jar_db
+    endpoint = "/api/v1/jar-of-life/template"
+    item = {"id": "one", "title": "Choix", "category": "sand"}
+    assert (
+        client.put(
+            endpoint, json={"items": [item, item]}, headers=HEADERS_1
+        ).status_code
+        == 422
+    )
+    with session_factory() as db:
+        foreign_id = db.query(Habit.id).filter_by(user_id=2).scalar()
+    foreign = {**item, "source_type": "habit", "source_id": foreign_id}
+    assert (
+        client.put(endpoint, json={"items": [foreign]}, headers=HEADERS_1).status_code
+        == 400
+    )

@@ -1,4 +1,4 @@
-"""Weekly attention plans. A reservation never changes its source action."""
+"""Personal perspective templates and legacy weekly attention plans."""
 
 import datetime
 
@@ -11,6 +11,51 @@ from src.services import agenda_service
 
 BLOCK_PARTS = ("morning", "afternoon", "evening")
 BLOCK_KEYS = frozenset(f"{day}-{part}" for day in range(7) for part in BLOCK_PARTS)
+# Reserve one Monday key for the permanent template, preserving weekly history
+# and the existing schema. This date is never part of the template API or UI.
+TEMPLATE_KEY = datetime.date(1970, 1, 5)
+
+
+def template_row(db: Session, user_id: int) -> JarWeek | None:
+    return db.query(JarWeek).filter_by(user_id=user_id, week_start=TEMPLATE_KEY).first()
+
+
+def template_payload(row: JarWeek | None) -> dict:
+    return {
+        "items": (row.items or []) if row else [],
+        "updated_at": row.updated_at.isoformat() if row and row.updated_at else None,
+    }
+
+
+def get_template(db: Session, user_id: int) -> dict:
+    row = template_row(db, user_id)
+    if row is None:
+        # Recover the user's last choices until a permanent template is saved.
+        row = (
+            db.query(JarWeek)
+            .filter(JarWeek.user_id == user_id, JarWeek.week_start != TEMPLATE_KEY)
+            .order_by(JarWeek.updated_at.desc(), JarWeek.week_start.desc())
+            .first()
+        )
+    return template_payload(row)
+
+
+def save_template(db: Session, user_id: int, items: list[dict]) -> dict:
+    if db.query(User.id).filter_by(id=user_id).first() is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    row = template_row(db, user_id)
+    old_items = get_template(db, user_id)["items"] if row is None else row.items
+    validate_sources(db, user_id, items, old_items)
+    if row is None:
+        row = JarWeek(user_id=user_id, week_start=TEMPLATE_KEY)
+        db.add(row)
+    row.items = items
+    row.available_blocks = []
+    row.placements = {}
+    row.updated_at = datetime.datetime.now()
+    db.commit()
+    db.refresh(row)
+    return template_payload(row)
 
 
 def require_monday(week_start: datetime.date) -> None:

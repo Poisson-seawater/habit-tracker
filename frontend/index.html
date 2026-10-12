@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=26">
+  <link rel="stylesheet" href="css/style.css?v=27">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -1380,28 +1380,45 @@
           <div>
             <p class="life-weeks-eyebrow">Les gros cailloux d'abord</p>
             <h2 id="jar-title">Jar of Life</h2>
-            <p>Un template pour prendre du recul sur ce qui compte et la place que tu lui laisses.</p>
+            <p>Choisis ce que tu mets dans ton bocal pour garder une vision d'ensemble de ce qui compte.</p>
           </div>
         </div>
         <h3 class="jar-template-title">Ce qui entre dans le bocal</h3>
+        <form id="jar-add-form" class="jar-add-form">
+          <label for="jar-item-title">Ton élément
+            <input id="jar-item-title" type="text" maxlength="120" placeholder="Ex. Ma santé, mes amitiés, mon projet" required disabled>
+          </label>
+          <label for="jar-item-category">Sa place
+            <select id="jar-item-category" disabled>
+              <option value="rock">Gros caillou</option>
+              <option value="pebble">Galet</option>
+              <option value="sand">Sable</option>
+            </select>
+          </label>
+          <button type="submit" disabled>Ajouter</button>
+        </form>
+        <p id="jar-status" role="status" aria-live="polite">Ouvre le bocal pour retrouver tes choix.</p>
         <div class="jar-template">
           <section class="jar-layer jar-layer-rock">
             <h4>Gros cailloux</h4>
             <p>Ce qui compte profondément et donne une direction à ta vie.</p>
             <p class="jar-examples">Santé, relations, projets qui te tiennent à cœur.</p>
             <p class="jar-question">Qu'est-ce que tu veux garder au centre ?</p>
+            <div class="jar-items" data-jar-category="rock"></div>
           </section>
           <section class="jar-layer">
             <h4>Galets</h4>
             <p>Les obligations et les routines qui soutiennent ton quotidien.</p>
             <p class="jar-examples">Travail, entretien de la maison, organisation.</p>
             <p class="jar-question">Qu'est-ce qui a besoin d'une place autour ?</p>
+            <div class="jar-items" data-jar-category="pebble"></div>
           </section>
           <section class="jar-layer">
             <h4>Sable</h4>
             <p>Les petites tâches et sollicitations qui remplissent facilement l'espace.</p>
             <p class="jar-examples">Messages, petites demandes, détails à régler.</p>
             <p class="jar-question">Qu'est-ce qui prend trop de place ?</p>
+            <div class="jar-items" data-jar-category="sand"></div>
           </section>
           <section class="jar-layer jar-layer-margin">
             <h4>Marge</h4>
@@ -1410,6 +1427,7 @@
             <p class="jar-question">Où peux-tu laisser de l'espace libre ?</p>
           </section>
         </div>
+        <button type="button" id="jar-save" class="quest-action-btn" disabled>Enregistrer mon bocal</button>
         <p class="jar-principle">Les gros cailloux d'abord, les galets autour, le sable dans les interstices. Garde de la marge.</p>
       </div>
     </section>
@@ -2382,6 +2400,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=1.0.34"></script>
+  <script src="js/app.js?v=1.0.35"></script>
 </body>
 </html>

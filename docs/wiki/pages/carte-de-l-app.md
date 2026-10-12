@@ -15,7 +15,7 @@ Tout ce que l'app sait faire, sur une seule page. Chaque fonction vient avec un 
 
 | Fonction | Ce qu'elle doit faire | Pour vérifier | Détail |
 |---|---|---|---|
-| Jar of Life | Donner une vision d'ensemble avec gros cailloux, galets, sable et marge | Ouvre Bocal : les quatre repères sont visibles, sans planning ni suivi à remplir | [Jar of Life](#/jar-of-life) |
+| Jar of Life | Choisir, modifier et classer ses éléments dans un bocal permanent, avec gros cailloux, galets, sable et marge | Ajoute un élément, change sa catégorie, enregistre puis recharge : ton choix reste visible, sans planning hebdomadaire | [Jar of Life](#/jar-of-life) |
 
 ## 🏆 Objectifs & Graphes
 

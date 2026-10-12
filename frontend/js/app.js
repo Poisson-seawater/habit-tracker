@@ -182,6 +182,8 @@ document.addEventListener("DOMContentLoaded", () => {
         fetchRewards();
       } else if (targetTab === "perspectives-tab") {
         loadActivePerspective();
+      } else if (targetTab === "jar-tab") {
+        loadJarTemplate();
       } else if (targetTab === "rules-tab") {
         loadRules();
       }
@@ -267,6 +269,164 @@ document.addEventListener("DOMContentLoaded", () => {
     const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
     return local.toISOString().slice(0, 10);
   }
+
+  // The personal Jar is a permanent template, independent of dated actions.
+  const jarForm = document.getElementById("jar-add-form");
+  const jarSave = document.getElementById("jar-save");
+  const jarStatus = document.getElementById("jar-status");
+  const jarTemplate = document.querySelector(".jar-template");
+  const JAR_CATEGORIES = { rock: "Gros caillou", pebble: "Galet", sand: "Sable" };
+  let jarItems = [];
+  let jarLoaded = false;
+  let jarDirty = false;
+  let jarSaving = false;
+  let jarRequest = 0;
+
+  function setJarStatus(message, error = false) {
+    jarStatus.textContent = message;
+    jarStatus.classList.toggle("jar-error", error);
+  }
+
+  function updateJarControls() {
+    const disabled = !jarLoaded || jarSaving;
+    jarForm.querySelectorAll("input, select, button").forEach(input => {
+      input.disabled = disabled;
+    });
+    jarTemplate.querySelectorAll("input, select, button").forEach(input => {
+      input.disabled = disabled;
+    });
+    jarSave.disabled = disabled || !jarDirty;
+  }
+
+  function renderJarItems() {
+    jarTemplate.querySelectorAll("[data-jar-category]").forEach(container => {
+      const items = jarItems.filter(item => item.category === container.dataset.jarCategory);
+      container.innerHTML = items.map(item => `<div class="jar-item" data-id="${escapeHtml(item.id)}">
+        <input type="text" class="jar-item-title" value="${escapeHtml(item.title)}" maxlength="120" aria-label="Nom de ${escapeHtml(item.title)}">
+        <select class="jar-item-category" aria-label="Place de ${escapeHtml(item.title)}">
+          ${Object.entries(JAR_CATEGORIES).map(([category, label]) => `<option value="${category}" ${category === item.category ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+        <button type="button" class="jar-item-delete" aria-label="Retirer ${escapeHtml(item.title)}">×</button>
+      </div>`).join("") || `<p class="jar-empty">Ajoute ce que tu veux mettre ici.</p>`;
+    });
+    updateJarControls();
+  }
+
+  function resetJarTemplate() {
+    jarRequest += 1;
+    jarItems = [];
+    jarLoaded = false;
+    jarDirty = false;
+    jarSaving = false;
+    jarForm.reset();
+    renderJarItems();
+    setJarStatus("Ouvre le bocal pour retrouver tes choix.");
+  }
+
+  function markJarDirty(render = true) {
+    jarDirty = true;
+    setJarStatus("Modifications à enregistrer.");
+    if (render) renderJarItems();
+    else updateJarControls();
+  }
+
+  async function loadJarTemplate() {
+    if (jarDirty || jarSaving) return;
+    const request = ++jarRequest;
+    jarLoaded = false;
+    updateJarControls();
+    setJarStatus("Chargement de ton bocal…");
+    try {
+      const response = await fetch(`${API_BASE}/jar-of-life/template`);
+      if (!response.ok) throw new Error("Impossible de charger ton bocal. Rouvre cet onglet pour réessayer.");
+      const data = await response.json();
+      if (request !== jarRequest) return;
+      jarItems = data.items;
+      jarLoaded = true;
+      renderJarItems();
+      setJarStatus("Ajoute, modifie ou classe tes éléments, puis enregistre ton bocal.");
+    } catch (error) {
+      if (request === jarRequest) setJarStatus(error.message, true);
+    }
+  }
+
+  jarForm.addEventListener("submit", event => {
+    event.preventDefault();
+    if (!jarLoaded || jarSaving) return;
+    const titleInput = document.getElementById("jar-item-title");
+    const title = titleInput.value.trim();
+    if (!title) return;
+    const id = window.crypto?.randomUUID ? window.crypto.randomUUID() : `jar-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    jarItems.push({ id, title, category: document.getElementById("jar-item-category").value });
+    titleInput.value = "";
+    markJarDirty();
+    titleInput.focus();
+  });
+
+  jarTemplate.addEventListener("input", event => {
+    if (!jarLoaded || jarSaving || !event.target.classList.contains("jar-item-title")) return;
+    const item = jarItems.find(entry => entry.id === event.target.closest(".jar-item")?.dataset.id);
+    const title = event.target.value.trim();
+    if (!item || !title) return;
+    item.title = title;
+    markJarDirty(false);
+  });
+
+  jarTemplate.addEventListener("change", event => {
+    if (!jarLoaded || jarSaving) return;
+    const item = jarItems.find(entry => entry.id === event.target.closest(".jar-item")?.dataset.id);
+    if (!item) return;
+    if (event.target.classList.contains("jar-item-title")) {
+      const title = event.target.value.trim();
+      event.target.value = title || item.title;
+      if (!title) {
+        setJarStatus("Donne un nom à ton élément.", true);
+        return;
+      }
+      if (title === item.title) return;
+      item.title = title;
+      markJarDirty(false);
+    } else if (event.target.classList.contains("jar-item-category")) {
+      item.category = event.target.value;
+      markJarDirty();
+    }
+  });
+
+  jarTemplate.addEventListener("click", event => {
+    const button = event.target.closest(".jar-item-delete");
+    if (!button || !jarLoaded || jarSaving) return;
+    const id = button.closest(".jar-item").dataset.id;
+    jarItems = jarItems.filter(item => item.id !== id);
+    markJarDirty();
+  });
+
+  jarSave.addEventListener("click", async () => {
+    if (!jarLoaded || !jarDirty || jarSaving) return;
+    const request = ++jarRequest;
+    jarSaving = true;
+    updateJarControls();
+    setJarStatus("Enregistrement…");
+    try {
+      const response = await fetch(`${API_BASE}/jar-of-life/template`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: jarItems })
+      });
+      if (!response.ok) throw new Error("Impossible d'enregistrer. Tes modifications sont conservées, réessaie.");
+      const data = await response.json();
+      if (request !== jarRequest) return;
+      jarItems = data.items;
+      jarDirty = false;
+      setJarStatus("Ton bocal est enregistré.");
+    } catch (error) {
+      if (request === jarRequest) setJarStatus(error.message, true);
+    } finally {
+      if (request === jarRequest) {
+        jarSaving = false;
+        renderJarItems();
+      }
+    }
+  });
 
   // Perspective views share goal data; only explicit Gantt choices write to the API.
   const lifeWeeksForm = document.getElementById("life-weeks-form");
@@ -5705,8 +5865,10 @@ document.addEventListener("DOMContentLoaded", () => {
         refreshAll();
       }
       loadRules();
+      if (document.getElementById("jar-tab").classList.contains("active")) loadJarTemplate();
       return;
     }
+    resetJarTemplate();
     resetRules();
     renderAuthScreen(status);
   }
@@ -8511,6 +8673,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const switchProfileBtn = document.getElementById("switch-profile-btn");
   if (switchProfileBtn) {
     switchProfileBtn.addEventListener("click", async () => {
+      resetJarTemplate();
       resetRules();
       await fetch(`${API_BASE}/auth/logout`, { method: "POST" });
       if (refreshIntervalId) {

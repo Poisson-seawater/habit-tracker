@@ -284,7 +284,10 @@ lui laisses dans ta vie, avec quatre repères :
 Le principe : les gros cailloux d'abord, les galets autour, le sable dans les
 interstices, en gardant de la marge. Le template ne contient ni planning
 hebdomadaire, ni import d'actions datées, ni objectifs chiffrés ou suivi de
-complétion. Voir [le guide du Bocal](docs/wiki/pages/jar-of-life.md).
+complétion. Tu choisis librement tes éléments, peux les renommer, les reclasser
+ou les retirer, puis enregistrer ton bocal sur ton compte. Les choix restent
+d'une semaine à l'autre et se retrouvent sur tes autres appareils.
+Voir [le guide du Bocal](docs/wiki/pages/jar-of-life.md).
 
 Le compteur auxiliaire déjà disponible sur une quête reste l'outil pour les
 répétitions (« 25/100 appels », « 7/10 expositions »). Il ne faut pas le

@@ -531,6 +531,14 @@ body {
 .jar-heading h2 { margin: 0.2rem 0; font-family: var(--font-display); font-size: 2rem; }
 .jar-heading p:not(.life-weeks-eyebrow) { color: var(--text-secondary); font-size: 0.9rem; }
 .jar-template-title { margin: 0 0 0.8rem; font-family: var(--font-display); }
+.jar-add-form { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; gap: 0.7rem; }
+.jar-add-form label { display: grid; gap: 0.3rem; color: var(--text-secondary); font-size: 0.85rem; }
+.jar-card input, .jar-card select { min-width: 0; width: 100%; padding: 0.55rem; border: 1px solid var(--border-glass-hover); border-radius: 7px; background: var(--bg-secondary); color: var(--text-primary); }
+.jar-card button:not(.quest-action-btn) { padding: 0.55rem 0.75rem; border: 1px solid var(--border-glass-hover); border-radius: 7px; background: rgba(255,255,255,0.05); color: var(--text-primary); cursor: pointer; }
+.jar-card button:disabled, .jar-card input:disabled, .jar-card select:disabled { opacity: 0.5; cursor: default; }
+.jar-card input:focus-visible, .jar-card select:focus-visible, .jar-card button:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 2px; }
+#jar-status { margin: 0.7rem 0 1rem; color: var(--text-secondary); font-size: 0.85rem; }
+#jar-status.jar-error { color: var(--accent-red); }
 .jar-template { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .jar-layer { min-width: 0; padding: 1.2rem; border: 1px solid var(--border-glass); border-radius: 12px; background: rgba(255,255,255,0.025); }
 .jar-layer h4 { margin: 0 0 0.6rem; font-family: var(--font-display); font-size: 1.1rem; }
@@ -540,8 +548,19 @@ body {
 .jar-layer-rock { border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.04); }
 .jar-layer-rock h4 { color: var(--accent-gold); }
 .jar-layer-margin { border-style: dashed; }
+.jar-items { display: grid; gap: 0.5rem; margin-top: 1rem; }
+.jar-item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 0.4rem; }
+.jar-item input, .jar-item select { font-size: 0.82rem; }
+.jar-layer .jar-empty { color: var(--text-muted); font-size: 0.8rem; }
+#jar-save { width: 100%; margin-top: 1rem; }
 .jar-principle { margin: 1.2rem 0 0; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; }
-@media (max-width: 620px) { .jar-template { grid-template-columns: 1fr; } }
+@media (max-width: 620px) {
+  .jar-template { grid-template-columns: 1fr; }
+  .jar-add-form { grid-template-columns: minmax(0, 1fr) auto; }
+  .jar-add-form label:first-child { grid-column: 1 / -1; }
+  .jar-item { grid-template-columns: minmax(0, 1fr) auto; }
+  .jar-item-title { grid-column: 1 / -1; }
+}
 
 /* Section Headers */
 .section-header {

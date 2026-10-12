@@ -336,6 +336,17 @@ class JarItem(BaseModel):
         return self
 
 
+class JarTemplateUpdate(BaseModel):
+    items: List[JarItem] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def unique_items(self):
+        item_ids = [item.id for item in self.items]
+        if len(set(item_ids)) != len(item_ids):
+            raise ValueError("items contains duplicate IDs")
+        return self
+
+
 class JarWeekUpdate(BaseModel):
     available_blocks: List[str] = Field(default_factory=list, max_length=21)
     items: List[JarItem] = Field(default_factory=list, max_length=100)
@@ -2924,7 +2935,29 @@ def save_template(
     return {"status": "success", "template_name": payload.template_name}
 
 
-# --- Jar of Life: weekly attention blocks ---
+# --- Jar of Life: permanent perspective template ---
+
+
+@router.get("/jar-of-life/template")
+def get_jar_template(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    return jar_service.get_template(db, user_id)
+
+
+@router.put("/jar-of-life/template")
+def put_jar_template(
+    payload: JarTemplateUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    return jar_service.save_template(
+        db, user_id, [item.model_dump() for item in payload.items]
+    )
+
+
+# Legacy weekly routes remain available for existing clients and history.
 
 
 @router.get("/jar-of-life/{week_start}")
