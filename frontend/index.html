@@ -4,8 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Habit-tracker</title>
+  <script>
+    (function () {
+      const theme = localStorage.getItem("habit-tracker-theme") || "dark";
+      document.documentElement.dataset.theme = theme === "light" ? "light" : "dark";
+    })();
+  </script>
   <meta name="description" content="Dashboard premium RPG V2 pour Gabriel - Suivi d'habitudes, objectifs en graphe et Perfect Day.">
-  <link rel="stylesheet" href="css/style.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=8">
   <link rel="stylesheet" href="css/local-override.css">
   <style>
     /* Premium V2 Nav and Custom UI Elements */
@@ -1456,6 +1462,17 @@
         >Download plugin for LLM access</a>
         <button id="switch-profile-btn" class="nav-tab" style="border-color: var(--accent-red); color: var(--accent-red);">🔌 Changer de profil</button>
       </div>
+
+      <section id="theme-settings" class="glass-card" style="padding: 1.5rem; margin-bottom: 1.5rem;">
+        <h2 class="section-header">🎨 <span>Apparence</span></h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: -1rem;">
+          Ce choix reste enregistré dans ce navigateur.
+        </p>
+        <div class="theme-options" role="radiogroup" aria-label="Thème de l'application">
+          <label><input type="radio" name="theme" value="dark"> Sombre</label>
+          <label><input type="radio" name="theme" value="light"> Clair</label>
+        </div>
+      </section>
 
       <section class="glass-card auth-settings-card" id="auth-settings-section" style="padding: 1.8rem; margin-bottom: 1.5rem;">
         <h2 class="section-header">🔐 <span>Sécurité & Appareils</span></h2>

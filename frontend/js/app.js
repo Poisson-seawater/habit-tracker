@@ -2,6 +2,21 @@ document.addEventListener("DOMContentLoaded", () => {
   // Config
   const API_BASE = "/api/v1";
 
+  const themeSettings = document.getElementById("theme-settings");
+
+  if (themeSettings) {
+    const themeStorageKey = "habit-tracker-theme";
+    const currentTheme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+    themeSettings.querySelector(`input[value="${currentTheme}"]`).checked = true;
+
+    themeSettings.addEventListener("change", (event) => {
+      if (event.target.name !== "theme") return;
+      const theme = event.target.value === "light" ? "light" : "dark";
+      document.documentElement.dataset.theme = theme;
+      localStorage.setItem(themeStorageKey, theme);
+    });
+  }
+
   function getPaleColor(hex) {
     if (!hex) return "rgba(255, 255, 255, 0.15)";
     if (hex.startsWith("#")) {

@@ -27,6 +27,48 @@
   --font-body: 'Inter', sans-serif;
 }
 
+:root[data-theme="light"] {
+  --bg-primary: hsl(220, 30%, 97%);
+  --bg-secondary: hsl(0, 0%, 100%);
+  --bg-glass: rgba(255, 255, 255, 0.78);
+  --border-glass: rgba(15, 23, 42, 0.12);
+  --border-glass-hover: rgba(15, 23, 42, 0.22);
+  --text-primary: hsl(222, 47%, 12%);
+  --text-secondary: hsl(215, 20%, 35%);
+  --text-muted: hsl(215, 15%, 48%);
+}
+
+:root[data-theme="light"] body {
+  background-image:
+    radial-gradient(at 10% 20%, hsla(263, 70%, 65%, 0.16) 0px, transparent 50%),
+    radial-gradient(at 90% 80%, hsla(190, 70%, 60%, 0.16) 0px, transparent 50%);
+}
+
+:root[data-theme="light"] .glass-card {
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+}
+
+:root[data-theme="light"] .glass-card:hover {
+  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.16);
+}
+
+.theme-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.theme-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--border-glass-hover);
+  border-radius: 8px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
